@@ -585,7 +585,7 @@
     .roleSettingCount { min-width:30px; text-align:right; color:#cceafa; font-weight:850; }
     @media (max-width:700px) { #lobby .card { left:8px; right:8px; top:82px; bottom:142px; width:auto; max-height:none; padding:12px; } #lobbySettingsPanel { padding:8px; } #lobbySettingsPanel label { grid-template-columns:minmax(105px,1fr) minmax(75px,1fr) auto; gap:5px; font-size:11px; } #lobbySettingsPanel input[type="range"] { min-width:70px; } #lobbySettingsPanel .roleSettingRow { grid-template-columns:minmax(0,1fr) auto minmax(85px,.8fr) 30px; gap:5px; } #lobbyNameForm{max-width:68%;gap:4px;padding:4px} #lobbyNameForm input{width:90px;min-width:65px;padding:6px} #lobbyNameForm button{padding:6px 7px;font-size:11px} }
     #meetingCountdown { width:100%; font-size:20px; font-weight:900; background:#18263a; color:#ffe477; }
-    .voteToken { display:inline-block;width:18px;height:23px;border-radius:45% 45% 25% 25%;background:#8995a7;border:2px solid #d5dfec;margin:2px;animation:voteStamp .28s both; }
+    .voteToken { display:inline-block;width:18px;height:23px;border-radius:45% 45% 25% 25%;background:#8995a7;border:2px solid #d5dfec;margin:2px;animation:voteStamp .4s both; }
     @keyframes voteStamp { from{opacity:0;transform:scale(2.4) rotate(-35deg)} to{opacity:1;transform:none} }
     .ejectedCrew { position:absolute;left:40%;top:40%;width:72px;height:98px;border-radius:45% 45% 25% 25%;background:var(--suit,#67cde2);border:5px solid #152331;animation:driftAway 3s linear both; }
     .ejectedCrew::after { content:"";position:absolute;top:18px;left:20px;width:48px;height:26px;border:4px solid #294256;border-radius:50%;background:#aeeaf0; }
@@ -607,7 +607,7 @@
     #voteResult { z-index: 35; background:#050b16ee; }
     #voteResult .card { width:min(760px,92vw); text-align:center; }
     #voteResultList { display:grid; gap:8px; margin:16px 0; }
-    .voteResultRow { display:flex; justify-content:space-between; padding:10px 16px; background:#17263a; border-radius:8px; animation:voteIn .35s both; }
+    .voteResultRow { display:flex; justify-content:space-between; padding:10px 16px; background:#17263a; border-radius:8px; animation:voteIn .48s both; }
     .voteResultRow strong { color:#ffe477; }
     #voteResultSummary { margin:8px auto 14px; max-width:680px; color:#9fe7eb; font-size:14px; font-weight:800; letter-spacing:.08em; }
     .voteResultRow>span:last-child { display:flex; align-items:center; gap:8px; }
@@ -1594,7 +1594,7 @@
 #roleSettingsList .roleSettingRow input[type=number]{width:100%;min-width:40px;min-height:40px;padding:3px;text-align:center;font-size:16px;font-weight:900}
 #roleSettingsList .roleCountStep{width:42px;min-width:40px;min-height:44px;padding:2px;font-size:22px;font-weight:900;touch-action:manipulation}
 #roleSettingsList .roleSettingCount{color:#b7d2e3;text-align:center}
-#ejectResult{position:fixed!important;left:50%!important;top:55%!important;bottom:auto!important;transform:translate(-50%,-50%)!important;z-index:1900!important;width:min(90vw,900px)!important;max-height:35dvh!important;overflow:auto!important;padding:12px 18px!important;border-radius:18px!important;background:#07101deF!important;color:#fff!important;font-size:clamp(18px,3vw,30px)!important;line-height:1.4!important;text-align:center!important;white-space:pre-line!important}
+#ejectResult{position:relative!important;inset:auto!important;transform:none!important;z-index:auto!important;width:auto!important;max-height:none!important;overflow:visible!important;margin:12px auto 0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#fff!important;font-size:clamp(18px,3vw,30px)!important;line-height:1.4!important;text-align:center!important;white-space:pre-line!important}
 #matchRecap .matchRecapChatLine{font-size:13px;overflow-wrap:anywhere}
 #endRecapBtn.hidden{display:none!important}
 @media(max-width:740px){#roleSettingsList{grid-template-columns:1fr!important}#roleSettingsList .roleFactionColumn{max-height:none}#roleSettingsList .roleSettingRow{grid-template-columns:minmax(0,1fr) 42px minmax(50px,64px) 42px!important}}
@@ -1675,6 +1675,23 @@
 @media(min-width:821px){#roundRoles.autoLaunchRoles[data-source="game"]>.card{width:calc(100vw - 205px)!important;margin-left:12px!important}#gameCountdown.withAutoLaunchRoles{width:168px!important;right:14px!important}}
 @media(max-width:520px) and (orientation:portrait){#roundRoles.autoLaunchRoles[data-source="game"]>.card{width:calc(100vw - 116px)!important;margin-left:3px!important;padding:4px!important}#gameCountdown.withAutoLaunchRoles{width:102px!important;right:5px!important;min-height:88px!important;padding:7px!important}#roundRoles.autoLaunchRoles[data-source="game"] #roundRoleList{gap:2px!important}.roleChoiceButton .roleChoiceSummary{display:none!important}}
 </style>
+  <style id="oct7-meeting-controls-fix">
+    /* Keep the meeting roster readable when attendance is low and on narrow screens. */
+    #meeting #votePlayers{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+    #meeting #votePlayers .voteCard{min-height:104px!important;padding:10px!important;grid-template-columns:42px minmax(0,1fr)!important;gap:6px 10px!important}
+    #meeting #votePlayers .voteAvatar{width:34px!important;height:34px!important;flex-basis:34px!important}
+    #meeting .voteInlineConfirm button{min-height:50px!important;max-height:58px!important;font-size:clamp(25px,3vw,31px)!important}
+    /* These controls float above the meeting surface and retain their own hit targets. */
+    #roundRoles[data-source="game"]{z-index:260!important;pointer-events:none!important}
+    #roundRoles[data-source="game"]>.card{position:relative;z-index:1;pointer-events:auto!important}
+    .unifiedSettingsTrigger{z-index:270!important;pointer-events:auto!important}
+    #inputSettingsDialog{z-index:1305!important;pointer-events:auto!important}
+    @media(max-width:700px){
+      #meeting #votePlayers{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+      #meeting #votePlayers .voteCard{min-height:96px!important;padding:7px!important;grid-template-columns:32px minmax(0,1fr)!important;gap:4px 7px!important}
+      #meeting #votePlayers .voteAvatar{width:28px!important;height:28px!important;flex-basis:28px!important}
+    }
+  </style>
 </head>
 <body>
   <div id="viewport"></div>
@@ -3223,12 +3240,12 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
         const row=document.createElement("div");row.className="roleSettingRow";row.dataset.roleCategory=roleCategory(option);row.dataset.roleId=option.id;
         const name=document.createElement("span");name.className="roleSettingName";name.textContent=ROLE_LABELS[option.id][0];
         const enabled=document.createElement("input");enabled.type="checkbox";enabled.checked=false;enabled.dataset.roleEnabled=option.id;enabled.setAttribute("aria-label",`${name.textContent}を有効にする`);
-        const count=document.createElement("input");count.type="number";count.min="0";count.max="3";count.step="1";count.value="0";count.dataset.roleCount=option.id;count.setAttribute("aria-label",`${name.textContent}の人数`);
+        const count=document.createElement("input");count.type="number";count.min="0";count.max="10";count.step="1";count.value="0";count.dataset.roleCount=option.id;count.setAttribute("aria-label",`${name.textContent}の人数`);
         const down=document.createElement("button");down.type="button";down.className="roleCountStep";down.textContent="−";down.setAttribute("aria-label",`${name.textContent}を1人減らす`);
         const up=document.createElement("button");up.type="button";up.className="roleCountStep";up.textContent="＋";up.setAttribute("aria-label",`${name.textContent}を1人増やす`);
         const countLabel=document.createElement("output");countLabel.className="roleSettingCount";countLabel.textContent=option.id==="lovers"?"0組":"0人";
-        const sync=()=>{const value=clamp(Math.trunc(Number(count.value)||0),0,3);count.value=String(value);enabled.checked=value>0;countLabel.textContent=option.id==="lovers"?`${value}組`:`${value}人`;queueLobbySettingsSave();};
-        count.addEventListener("input",sync);down.addEventListener("click",()=>{count.value=String(Math.max(0,Number(count.value)-1));sync();});up.addEventListener("click",()=>{count.value=String(Math.min(3,Number(count.value)+1));sync();});
+        const sync=()=>{const value=clamp(Math.trunc(Number(count.value)||0),0,10);count.value=String(value);enabled.checked=value>0;countLabel.textContent=option.id==="lovers"?`${value}組`:`${value}人`;queueLobbySettingsSave();};
+        count.addEventListener("input",sync);down.addEventListener("click",()=>{count.value=String(Math.max(0,Number(count.value)-1));sync();});up.addEventListener("click",()=>{count.value=String(Math.min(10,Number(count.value)+1));sync();});
         enabled.addEventListener("change",()=>{if(!enabled.checked)count.value="0";else if(Number(count.value)===0)count.value="1";sync();});
         row.append(name,enabled,down,count,up,countLabel);columns[row.dataset.roleCategory].append(row);
       }
@@ -3239,7 +3256,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       return Object.fromEntries(ROLE_OPTIONS.map(option => {
         const enabled = $(`roleSettingsList`).querySelector(`[data-role-enabled="${option.id}"]`).checked;
         const count = Number($(`roleSettingsList`).querySelector(`[data-role-count="${option.id}"]`).value);
-        return [option.id, enabled && count>0 ? clamp(Math.trunc(count), 1, 3) : 0];
+        return [option.id, enabled && count>0 ? clamp(Math.trunc(count), 1, 10) : 0];
       }));
     }
     function syncRoleDependentSettings(){
@@ -3296,7 +3313,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
     }
     function syncLobbyRoleInputs(settings=game.lobbySettings){
       if(!settings?.roles)return;
-      for(const role of ROLE_OPTIONS){const checked=Number(settings.roles[role.id])>0;const box=$("roleSettingsList").querySelector(`[data-role-enabled="${role.id}"]`),count=$("roleSettingsList").querySelector(`[data-role-count="${role.id}"]`),countLabel=count.parentElement.querySelector(".roleSettingCount");box.checked=checked;count.value=String(checked?clamp(Number(settings.roles[role.id]),1,3):0);count.disabled=false;countLabel.textContent=role.id==="lovers"?`${count.value}組`:`${count.value}人`;}
+      for(const role of ROLE_OPTIONS){const checked=Number(settings.roles[role.id])>0;const box=$("roleSettingsList").querySelector(`[data-role-enabled="${role.id}"]`),count=$("roleSettingsList").querySelector(`[data-role-count="${role.id}"]`),countLabel=count.parentElement.querySelector(".roleSettingCount");box.checked=checked;count.value=String(checked?clamp(Number(settings.roles[role.id]),1,10):0);count.disabled=false;countLabel.textContent=role.id==="lovers"?`${count.value}組`:`${count.value}人`;}
       if(settings.impostorCount)$("impostorCount").value=String(settings.impostorCount);
       syncRoleDependentSettings();
       updateRoleCategoryCounts();
@@ -4164,19 +4181,19 @@ function showRoleReveal(player) {
       },launchWait+1900);
     }
 
-function renderRoundRoleList(source=$("roundRoles").dataset.source||"game"){
+function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",settingsOverride=game.lobbySettings,gameOverride=game){
       const list=$("roundRoleList");list.classList.remove("hasRoleDetail");list.replaceChildren();
-      const lobby=source==="lobby",counts=new Map(),playersForRoles=game.players||{};
+      const lobby=source==="lobby",counts=new Map(),playersForRoles=gameOverride.players||{};
       const factionNames={crew:"市民陣営",impostor:"人狼陣営",neutral:"第三陣営"};
       const factionOf=id=>{const side=ROLE_OPTIONS.find(role=>role.id===id)?.side;return id==="impostor"||["madmate","blackCat"].includes(id)||side==="impostor"?"impostor":id==="jackal"||side==="neutral"?"neutral":"crew";};
       const factionCounts={crew:0,impostor:0,neutral:0},roleFactionCounts=new Map();
       const lotteryFactions={crew:false,impostor:false,neutral:false};
       if(lobby){
-        for(const role of ROLE_OPTIONS)counts.set(role.id,clamp(Number(game.lobbySettings?.roles?.[role.id])||0,0,10));
+        for(const role of ROLE_OPTIONS)counts.set(role.id,clamp(Number(settingsOverride?.roles?.[role.id])||0,0,10));
         const humans=Object.values(players||{}).filter(p=>p.online&&!p.bot).length;
         const bots=$("botMode")?.checked?clamp(Number($("botCount")?.value)||1,1,6):humans===1?2:0;
         const slots=humans+Math.min(bots,Math.max(0,20-humans));
-        const impostorSlots=clamp(Number(game.lobbySettings?.impostorCount||$("impostorCount")?.value)||1,1,3);
+        const impostorSlots=clamp(Number(settingsOverride?.impostorCount||$("impostorCount")?.value)||1,1,3);
         const selectedNeutral=ROLE_OPTIONS.filter(role=>role.side==="neutral"&&role.id!=="lovers").reduce((sum,role)=>sum+(counts.get(role.id)||0),0);
         const madmates=counts.get("madmate")||0,blackCats=counts.get("blackCat")||0;
         const impostorRequested=ROLE_OPTIONS.filter(role=>role.side==="impostor"&&role.id!=="madmate").reduce((sum,role)=>sum+(counts.get(role.id)||0),0);
@@ -4602,11 +4619,34 @@ $("profileSignOutBtn").onclick=async()=>{
 $("lobbyProfileSave").onclick=async()=>{try{await saveProfile($("lobbyProfileName").value,$("lobbyProfileColor").value,"lobbyConnectionStatus");}catch(error){toast(errorText(error));}};
 document.querySelectorAll("[data-camera-perspective]").forEach(button=>button.onclick=()=>applyCameraPerspective(button.dataset.cameraPerspective));
  applyCameraPerspective(cameraPerspective,false);
-const openLobbyRoleList=()=>{$("roundRoles").dataset.source="lobby";$("roundRoles").dataset.returnToLobby="true";lobbyPanelOpen=false;show("lobby",false);show("lobbyOpenBtn",false);renderRoundRoleList("lobby");show("roundRoles",true);};
+let roleListRefreshSerial=0;
+const openLobbyRoleList=()=>{$("roundRoles").dataset.source="lobby";$("roundRoles").dataset.returnToLobby="true";lobbyPanelOpen=false;show("lobby",false);show("lobbyOpenBtn",false);renderRoundRoleList("lobby");show("roundRoles",true);void refreshLobbyRoleList();};
+async function refreshLobbyRoleList(){
+  const serial=++roleListRefreshSerial,roomCode=code;
+  if(!roomCode||!connected)return;
+  try{
+    const snapshot=await get(ref(db,`rooms/${roomCode}/game/lobbySettings`));
+    if(serial!==roleListRefreshSerial||roomCode!==code||!snapshot.exists()||$("roundRoles").dataset.source!=="lobby"||$("roundRoles").classList.contains("hidden"))return;
+    const authoritative=snapshot.val();
+    if(!authoritative||typeof authoritative!=="object")return;
+    renderRoundRoleList("lobby",authoritative);
+  }catch(error){console.warn("役職一覧の最新設定を取得できませんでした",error);}
+}
+async function refreshGameRoleList(){
+  const serial=++roleListRefreshSerial,roomCode=code;
+  if(!roomCode||!connected)return;
+  try{
+    const snapshot=await get(ref(db,`rooms/${roomCode}/game`));
+    if(serial!==roleListRefreshSerial||roomCode!==code||!snapshot.exists()||$("roundRoles").dataset.source!=="game"||$("roundRoles").classList.contains("hidden"))return;
+    const authoritative=snapshot.val();
+    if(!authoritative||typeof authoritative!=="object"||authoritative.phase!==game.phase||Number(authoritative.round)!==Number(game.round))return;
+    renderRoundRoleList("game",authoritative.lobbySettings||game.lobbySettings,authoritative);
+  }catch(error){console.warn("役職一覧の最新情報を取得できませんでした",error);}
+}
 $("lobbyShowRoles").onclick=openLobbyRoleList;
 const openLeaveConfirm=()=>show("leaveConfirm",true);
 function enterWaitingLobbyForRunningMatch(){
-  if(!code||!connected||!isWaitingLobbyForRunningMatch()&&!["play","meeting"].includes(game.phase))return;
+  if(!code||!connected||!isWaitingLobbyForRunningMatch()&&!["play","meeting","ended"].includes(game.phase))return;
   const me=self();if(!me)return;
   if(!me.observer)window.SpaceSuspect.runtime.waitingLobbyRollback={roomCode:code,position:{...position},lobbyElevation,lobbyFacingYaw,lobbyWalking,
     player:{...(players[uid]||{})},roster:{...(roomRosterRaw[uid]||players[uid]||{})}};
@@ -4620,7 +4660,7 @@ function enterWaitingLobbyForRunningMatch(){
   position={...spawn};lobbyElevation=0;lobbyFacingYaw=0;lobbyWalking=false;
   players[uid]={...players[uid],...changes};roomRosterRaw[uid]={...roomRosterRaw[uid],...changes};lastSent={x:999,z:999,at:0};
   update(ref(db,"rooms/"+roomCode+"/players/"+uid),changes).catch(error=>toast("待機ロビーへ移動できませんでした："+errorText(error)));
-  if(!me.observer&&!sendCommand("waitLobby"))rollbackWaitingLobby("ホストへ切替要求を送れませんでした。試合画面に戻ります。");
+  if(game.phase!=="ended"&&!me.observer&&!sendCommand("waitLobby"))rollbackWaitingLobby("ホストへ切替要求を送れませんでした。試合画面に戻ります。");
   safeRenderUI();
 }
 function resumeMatchSpectating(){
@@ -4731,7 +4771,7 @@ const result = await runTransaction(
             hostId: uid,
             createdAt: serverTimestamp(),
             players: { [uid]: player },
-            game: { phase: "lobby", round: 0, lobbySettings:{viewMode:priorMatchSettings?.viewMode||"2d",mapMode:priorMatchSettings?.mapMode||"classic",waveMode:priorMatchSettings?.waveMode||"normal",voiceEnabled:priorMatchSettings?.voiceEnabled===true,bots:priorMatchSettings?.bots===true,botCount:clamp(Number(priorMatchSettings?.botCount)||1,1,6),roles:priorMatchSettings?.roles||Object.fromEntries(ROLE_OPTIONS.map(role=>[role.id,0])),...(priorMatchSettings?{matchSettings:priorMatchSettings}:{})} }
+            game: { phase: "lobby", round: 0, lobbySettings:{viewMode:priorMatchSettings?.viewMode||"2d",mapMode:priorMatchSettings?.mapMode||"classic",waveMode:priorMatchSettings?.waveMode||"normal",voiceEnabled:priorMatchSettings?.voiceEnabled===true,bots:priorMatchSettings?.bots===true,botCount:clamp(Number(priorMatchSettings?.botCount)||1,1,6),roles:normalizeSavedRoleCounts(priorMatchSettings?.roles),...(priorMatchSettings?{matchSettings:priorMatchSettings}:{})} }
           } : undefined,
           { applyLocally: false }
         );
@@ -6008,7 +6048,17 @@ function ensureLobbyPosition(roster=players,roomCode=code){
 }
 const LAST_MATCH_SETTINGS_KEY="space-suspect-last-finished-match-settings-v1";
 function readLastMatchSettings(){try{const value=JSON.parse(localStorage.getItem(LAST_MATCH_SETTINGS_KEY)||"null");return value&&typeof value==="object"?value:null;}catch{return null;}}
-function saveLastMatchSettings(settings){if(!settings||typeof settings!=="object")return;try{localStorage.setItem(LAST_MATCH_SETTINGS_KEY,JSON.stringify(settings));}catch{}}
+function normalizeSavedRoleCounts(roles){return Object.fromEntries(ROLE_OPTIONS.map(role=>[role.id,clamp(Math.trunc(Number(roles?.[role.id])||0),0,10)]));}
+function finishedMatchSettings(){
+  const active=game.settings||{},lobby=game.lobbySettings||{};
+  return {...(lobby.matchSettings||{}),...active,
+    roles:normalizeSavedRoleCounts(lobby.roles||active.roles),
+    viewMode:active.viewMode||lobby.viewMode||"2d",mapMode:active.mapMode||lobby.mapMode||"classic",
+    waveMode:active.waveMode||lobby.waveMode||"normal",
+    voiceEnabled:active.voiceEnabled??lobby.voiceEnabled??false,
+    bots:active.bots??lobby.bots??false,botCount:clamp(Number(active.botCount??lobby.botCount)||1,1,6)};
+}
+function saveLastMatchSettings(settings){if(!settings||typeof settings!=="object")return;try{localStorage.setItem(LAST_MATCH_SETTINGS_KEY,JSON.stringify({...settings,roles:normalizeSavedRoleCounts(settings.roles)}));}catch{}}
 let lobbyMatchSettingsStamp="";
 function applySavedMatchSettings(settings){
   if(!settings)return;
@@ -6041,7 +6091,9 @@ function isDefaultLobbyCostume(costume){
 }
 $("againBtn").onclick = async event => {
       event?.preventDefault();event?.stopPropagation();
-      if (!isHost() || hostBusy || game.phase!=="ended") return;
+      if(game.phase!=="ended")return;
+      if(!isHost()){enterWaitingLobbyForRunningMatch();return;}
+      if(hostBusy)return;
       hostBusy = true;
       try {
         const roomCode=code,reservedLobbySpawns=[],lobbySpawns={};
@@ -7326,7 +7378,7 @@ function useRoleAbility(){
     $("lobbyChatToggleBtn").onclick=()=>{lobbyChatOpen=true;markLobbyChatRead();show("lobbyChat",true);renderLobbyChat();requestAnimationFrame(()=>returnChatToLatest("lobby"));$("lobbyChatInput").focus();};
     $("lobbyChatClose").onclick=()=>{lobbyChatOpen=false;show("lobbyChat",false);};
     document.addEventListener("pointerdown",event=>{if(lobbyChatOpen&&!$("lobbyChat").contains(event.target)&&!$("lobbyChatToggleBtn").contains(event.target)){lobbyChatOpen=false;show("lobbyChat",false);}});
-    $("roundRoleBtn").onclick=()=>{$("roundRoles").dataset.source="game";$("roundRoles").dataset.returnToLobby="false";renderRoundRoleList("game");show("roundRoles",true);};
+    $("roundRoleBtn").onclick=()=>{$("roundRoles").dataset.source="game";$("roundRoles").dataset.returnToLobby="false";renderRoundRoleList("game");show("roundRoles",true);void refreshGameRoleList();};
     $("roundRolesClose").onclick=()=>{const roles=$("roundRoles"),back=roles.dataset.returnToLobby==="true";if(roles.classList.contains("autoLaunchRoles")){roles.dataset.autoDismissedKey=roles.dataset.autoLaunchKey||"";}clearTimeout(window.__launchRolesCloseTimer);window.__launchRolesCloseTimer=0;roles.classList.remove("autoLaunchRoles");$("gameCountdown").classList.remove("withAutoLaunchRoles");show("roundRoles",false);roles.dataset.source="";if(back){lobbyPanelOpen=true;show("lobby",true);show("lobbyOpenBtn",false);}};
     $("roundRoles").addEventListener("click",event=>{if(event.target===$("roundRoles"))$("roundRolesClose").click();});
     $("lobbyOpenBtn").onclick = () => { lobbyPanelOpen = true; renderLobbyColorPalette(); show("lobby", true); show("lobbyOpenBtn", false); };
@@ -7651,6 +7703,12 @@ function beginMeeting(g, reporter, reason) {
         g.bodies={};
       }
       runModRoleHooks("meeting",{g,reporter,reason,meeting:g.meeting,now:startedAt,players,botPositions,roomCode:code});
+      // The host is authoritative for cooldown resets; usage counters remain untouched.
+      for(const player of Object.values(g.players||{})){
+        for(const key of Object.keys(player))if(key.endsWith("ReadyAt")&&key!=="meetingReadyAt")player[key]=startedAt;
+        player.readyAt=startedAt;
+        player.sabotageAt=startedAt;
+      }
       g.notice = `${g.players[reporter].name}：${reason}`;
       return true;
     }
@@ -8164,7 +8222,7 @@ function maybeAddBotMeetingChat(g){
   if(now()<botMeetingChatPlan.readyAt)return false;
   const bot=g.players?.[botMeetingChatPlan.botId];
   if(!bot?.bot||!bot.alive||bot.disconnected){botMeetingChatSent.add(meetingId);return false;}
-  const lines=["いったん状況を整理しよう。","みんな、直前に見たことある？","まだ決め手がないね。","移動先を思い出してみよう。","急がず情報を集めたいな。","誰か気になる動きはあった？"];
+  const lines=["いったん状況を整理しよう。","みんな、直前に見たことある？","まだ決め手がないね。","移動先を思い出してみよう。","急がず情報を集めたいな。","誰か気になる動きはあった？","通った場所と時間を確認したいな。","今のところ確かな情報は少ないね。","最後に見かけた場所を教えて。","証言を聞いてから投票したいな。","誰かと一緒にいた人はいる？","さっきの停電中、どこにいた？"];
   (g.meeting.chat||=[]).push({id:token(),uid:botMeetingChatPlan.botId,name:bot.name||"テストBot",text:lines[randomInt(lines.length)],at:now(),alive:true});
   g.meeting.chat=g.meeting.chat.slice(-80);
   return true;
@@ -9106,7 +9164,7 @@ async function maybePostLobbyBotChat(){
   if(!botLobbyChatNextAt){botLobbyChatNextAt=now()+18000+randomInt(18000);return;}
   if(now()<botLobbyChatNextAt)return;
   botLobbyChatNextAt=now()+45000+randomInt(45000);
-  const botIndex=randomInt(count),lines=["みんな準備できてる？","ロビーがにぎやかだね。","次の試合が楽しみ！","マップを確認しておこう。","準備OKにしたよ。","どの役職になるかな？"];
+  const botIndex=randomInt(count),lines=["みんな準備できてる？","ロビーがにぎやかだね。","次の試合が楽しみ！","マップを確認しておこう。","準備OKにしたよ。","どの役職になるかな？","出発前に設定を見ておこう。","今日はどんな展開になるかな？","みんなの準備ができたら始めよう。","このマップの通路、覚えておこう。","役職の組み合わせが気になるね。","いい試合にしよう！"];
   const chatId=token();
   try{
     await set(ref(db,`rooms/${roomCode}/lobbyChat/${chatId}`),{
@@ -11041,14 +11099,14 @@ window.addEventListener("resize", resize);
           for(let n=0;n<Math.max(1,Number(ballot.weight)||1);n++){
             const icon=document.createElement("i");icon.className="voteToken";
             icon.style.background=new THREE.Color().setHSL(player?.hue||0,.72,.52).getStyle();
-            icon.style.animationDelay=(Math.min(index++,8)*.08)+"s";icon.title=(player?.name||"プレイヤー")+"の投票";
+            icon.style.animationDelay=(Math.min(index++,8)*.11)+"s";icon.title=(player?.name||"プレイヤー")+"の投票";
             icon.setAttribute("aria-label",icon.title);votes.append(icon);
           }
         }
       }else{
         for(const [target,count] of Object.entries(result.counts||{}))for(let n=0;n<count;n++){
           const votes=rows.get(target);if(!votes)continue;
-          const icon=document.createElement("i");icon.className="voteToken";icon.style.animationDelay=(Math.min(index++,8)*.08)+"s";icon.title="1票";votes.append(icon);
+          const icon=document.createElement("i");icon.className="voteToken";icon.style.animationDelay=(Math.min(index++,8)*.11)+"s";icon.title="1票";votes.append(icon);
         }
       }
       show("voteResult",true);
@@ -11066,7 +11124,7 @@ window.addEventListener("resize", resize);
         for(const [first,second,firstRect,secondRect] of swapCards){
           const movedFirst=first.getBoundingClientRect(),movedSecond=second.getBoundingClientRect();
           for(const [card,dx,dy] of [[first,firstRect.left-movedFirst.left,firstRect.top-movedFirst.top],[second,secondRect.left-movedSecond.left,secondRect.top-movedSecond.top]]){
-            if(dx||dy)card.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:"translate(0,0)"}],{duration:420,easing:"cubic-bezier(.2,.8,.25,1)"});
+            if(dx||dy)card.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:"translate(0,0)"}],{duration:500,easing:"cubic-bezier(.2,.8,.25,1)"});
           }
         }
       }
@@ -11495,18 +11553,14 @@ const roomCode = code;
       const waveCountdown=!!game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch";
       $("gameCountdown").classList.toggle("waveShieldCountdown",waveCountdown);
       show("gameCountdown", countdownLeft > 0);
-      const launchRoleKey=`${code}:${game.round}:${game.countdownEndsAt}`;
-      if(!waveCountdown&&phase==="play"&&game.countdownKind==="launch"&&Number(game.meetingCount||0)===0&&countdownLeft>0&&
-          $("roundRoles").dataset.autoDismissedKey!==launchRoleKey&&$("roundRoles").dataset.autoLaunchKey!==launchRoleKey){
-        clearTimeout(window.__launchRolesCloseTimer);
-        const roles=$("roundRoles");roles.dataset.autoLaunchKey=launchRoleKey;roles.dataset.source="game";roles.dataset.returnToLobby="false";
-        roles.classList.add("autoLaunchRoles");renderRoundRoleList("game");show("roundRoles",true);
-        window.__launchRolesCloseTimer=setTimeout(()=>{
-          if(roles.dataset.autoLaunchKey===launchRoleKey){roles.dataset.autoDismissedKey=launchRoleKey;roles.classList.remove("autoLaunchRoles");show("roundRoles",false);}
-        },Math.max(0,Number(game.countdownEndsAt)-now()));
-      }else if((phase!=="play"||game.countdownKind!=="launch"||countdownLeft<=0)&&$("roundRoles").classList.contains("autoLaunchRoles")){
+      const rolesDuringCountdown=$("roundRoles");
+      if(phase==="play"&&countdownLeft>0){
         clearTimeout(window.__launchRolesCloseTimer);window.__launchRolesCloseTimer=0;
-        $("roundRoles").classList.remove("autoLaunchRoles");show("roundRoles",false);
+        rolesDuringCountdown.classList.remove("autoLaunchRoles");
+        if(!rolesDuringCountdown.classList.contains("hidden")){show("roundRoles",false);rolesDuringCountdown.dataset.source="";}
+      }else if(rolesDuringCountdown.classList.contains("autoLaunchRoles")){
+        clearTimeout(window.__launchRolesCloseTimer);window.__launchRolesCloseTimer=0;
+        rolesDuringCountdown.classList.remove("autoLaunchRoles");show("roundRoles",false);
       }
       $("gameCountdown").classList.toggle("withAutoLaunchRoles",$("roundRoles").classList.contains("autoLaunchRoles"));
 
@@ -11644,14 +11698,15 @@ const roomCode = code;
       }
       show("meeting", phase === "meeting");
       show("ending", phase === "ended");
-      show("againBtn", phase === "ended" && isHost());
+      show("againBtn", phase === "ended");
+      if(phase==="ended")$("againBtn").textContent=isHost()?"全員をロビーに戻す":"ロビーに戻る";
       show("inviteOnlineFloating",phase==="lobby"&&!waitingLobbyForRunningMatch&&isHost());
       if (game.lastVoteResult) showVoteResult(game.lastVoteResult);
       document.body.dataset.phase=phase;
       document.body.dataset.waitingLobby=String(waitingLobbyForRunningMatch);
       show("hud",phase!=="lobby");
       show("controls", phase === "play" || phase === "lobby");
-      show("roundRoleBtn",phase==="play"||phase==="meeting");
+      show("roundRoleBtn",(phase==="play"&&countdownLeft<=0)||phase==="meeting");
       const bountyTarget=me?.subrole==="bountyHunter"?game.players?.[me.bountyTarget]:null;
       const bountyLocation=me?.bountyTarget?(players[me.bountyTarget]||bountyTarget):null;
       const bountyDx=bountyLocation?bountyLocation.x-position.x:0,bountyDz=bountyLocation?bountyLocation.z-position.z:0;
@@ -11760,7 +11815,7 @@ $("status").textContent = !connected
         $("status").style.color = "";
       }
 
-      if(phase==="ended"&&game.settings)saveLastMatchSettings(game.settings);
+      if(phase==="ended"&&game.settings)saveLastMatchSettings(finishedMatchSettings());
       if (phase === "lobby") {
         applySavedMatchSettings(game.lobbySettings?.matchSettings||readLastMatchSettings());
     $("gmSettings").classList.toggle("hidden", !isHost()||waitingLobbyForRunningMatch);
@@ -12202,11 +12257,12 @@ function frame(time) {
       setLobbyVisual(game.phase === "lobby"||isWaitingLobbyForRunningMatch());
       const moveAsLivingPlayer=game.phase==="play"&&me?.alive===true&&!me?.disconnected&&!me?.ventId&&
         now()>=(game.playStartsAt||game.countdownEndsAt||0);
-      const movingAllowed = !game.players?.[uid]?.penguinCapturedBy && !modalVisible() && !isWaitingLobbyForRunningMatch() && (moveAsLivingPlayer || game.phase === "lobby" || (game.phase==="play"&&myGhost)) &&
+      const waveLaunchCountdown=game.phase==="play"&&game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch"&&now()<(Number(game.countdownEndsAt)||0);
+      const movingAllowed = !game.players?.[uid]?.penguinCapturedBy && !modalVisible() && !isWaitingLobbyForRunningMatch() && (moveAsLivingPlayer || waveLaunchCountdown || game.phase === "lobby" || (game.phase==="play"&&myGhost)) &&
         $("setup").classList.contains("hidden") &&
-        (game.phase !== "play" || now() >= (game.countdownEndsAt || 0)) && me && !me.disconnected &&
+        (game.phase !== "play" || waveLaunchCountdown || now() >= (game.countdownEndsAt || 0)) && me && !me.disconnected &&
         !(game.phase==="lobby"&&(me.seated||me.sitting)) &&
-        !(game.phase==="play"&&((me.sageShieldUntil||0)>now()||(me.waveChargingUntil||0)>now())) &&
+        !(game.phase==="play"&&!waveLaunchCountdown&&((me.sageShieldUntil||0)>now()||(me.waveChargingUntil||0)>now())) &&
         performance.now() >= deathPauseUntil &&
         $("roleReveal").classList.contains("hidden");
       let dx = joystick.x;
@@ -12341,6 +12397,9 @@ if (walking && !(id===uid&&game.phase==="play"&&game.settings?.viewMode==="3d"))
         const sageShieldActive=id===uid&&(Number(state?.sageShieldUntil)||0)>now();
         if(sageShieldActive&&!avatar.userData.sageShield){const shield=new THREE.Mesh(new THREE.SphereGeometry(1,20,16),new THREE.MeshBasicMaterial({color:0x75dcff,transparent:true,opacity:.2,wireframe:true,depthWrite:false}));shield.position.y=1;shield.scale.set(.9,1.2,.9);avatar.add(shield);avatar.userData.sageShield=shield;}
         if(avatar.userData.sageShield){avatar.userData.sageShield.visible=sageShieldActive;avatar.userData.sageShield.rotation.y=time*.0012;}
+        const waveShieldActive=game.phase==="play"&&game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch"&&(Number(state?.waveShieldUntil)||0)>now();
+        if(waveShieldActive&&!avatar.userData.waveStartShield){const shield=new THREE.Mesh(new THREE.SphereGeometry(1,20,16),new THREE.MeshBasicMaterial({color:0x68e8ff,transparent:true,opacity:.23,wireframe:true,depthWrite:false}));shield.position.y=1;shield.scale.set(1.05,1.35,1.05);avatar.add(shield);avatar.userData.waveStartShield=shield;}
+        if(avatar.userData.waveStartShield){avatar.userData.waveStartShield.visible=waveShieldActive;avatar.userData.waveStartShield.rotation.y=-time*.0015;}
         const suitHue = camouflaged ? (Number.isFinite(Number(game.camouflage.hue))?Number(game.camouflage.hue):0.55) : disguiseActive
           ? state.disguise.hue : (Number.isFinite(p.hue) ? p.hue : 0.52);
         if(avatar.userData.suitHue!==suitHue){suit.color.setHSL(suitHue, .72, .48);avatar.userData.suitHue=suitHue;}
