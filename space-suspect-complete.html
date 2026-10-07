@@ -585,7 +585,7 @@
     .roleSettingCount { min-width:30px; text-align:right; color:#cceafa; font-weight:850; }
     @media (max-width:700px) { #lobby .card { left:8px; right:8px; top:82px; bottom:142px; width:auto; max-height:none; padding:12px; } #lobbySettingsPanel { padding:8px; } #lobbySettingsPanel label { grid-template-columns:minmax(105px,1fr) minmax(75px,1fr) auto; gap:5px; font-size:11px; } #lobbySettingsPanel input[type="range"] { min-width:70px; } #lobbySettingsPanel .roleSettingRow { grid-template-columns:minmax(0,1fr) auto minmax(85px,.8fr) 30px; gap:5px; } #lobbyNameForm{max-width:68%;gap:4px;padding:4px} #lobbyNameForm input{width:90px;min-width:65px;padding:6px} #lobbyNameForm button{padding:6px 7px;font-size:11px} }
     #meetingCountdown { width:100%; font-size:20px; font-weight:900; background:#18263a; color:#ffe477; }
-    .voteToken { display:inline-block;width:18px;height:23px;border-radius:45% 45% 25% 25%;background:#8995a7;border:2px solid #d5dfec;margin:2px;animation:voteStamp .4s both; }
+    .voteToken { display:inline-block;width:18px;height:23px;border-radius:45% 45% 25% 25%;background:#8995a7;border:2px solid #d5dfec;margin:2px;animation:voteStamp .48s both; }
     @keyframes voteStamp { from{opacity:0;transform:scale(2.4) rotate(-35deg)} to{opacity:1;transform:none} }
     .ejectedCrew { position:absolute;left:40%;top:40%;width:72px;height:98px;border-radius:45% 45% 25% 25%;background:var(--suit,#67cde2);border:5px solid #152331;animation:driftAway 3s linear both; }
     .ejectedCrew::after { content:"";position:absolute;top:18px;left:20px;width:48px;height:26px;border:4px solid #294256;border-radius:50%;background:#aeeaf0; }
@@ -607,7 +607,7 @@
     #voteResult { z-index: 35; background:#050b16ee; }
     #voteResult .card { width:min(760px,92vw); text-align:center; }
     #voteResultList { display:grid; gap:8px; margin:16px 0; }
-    .voteResultRow { display:flex; justify-content:space-between; padding:10px 16px; background:#17263a; border-radius:8px; animation:voteIn .48s both; }
+    .voteResultRow { display:flex; justify-content:space-between; padding:10px 16px; background:#17263a; border-radius:8px; animation:voteIn .58s both; }
     .voteResultRow strong { color:#ffe477; }
     #voteResultSummary { margin:8px auto 14px; max-width:680px; color:#9fe7eb; font-size:14px; font-weight:800; letter-spacing:.08em; }
     .voteResultRow>span:last-child { display:flex; align-items:center; gap:8px; }
@@ -3666,7 +3666,55 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     // The host's own roster entry can briefly lag behind .info/connected while
     // Firebase is reconnecting. For the local host, the live socket is the
     // authoritative signal; remote clients still use the synchronized roster.
-    const hostOnline = () => !!hostId && (isHost() ? connected : players[hostId]?.online === true);
+    // A cached offline roster row can lag briefly during Firebase reconnect.
+    // Re-read that one row; the host remains the sole command processor.
+    let hostPresenceRefreshAt=0,hostPresenceRefreshPromise=null,hostOfflineNoticeShown=false;
+    const deferredHostCommands=new Map();
+    function notifyHostOfflineOnce(){if(hostOfflineNoticeShown)return;hostOfflineNoticeShown=true;toast("ホストが接続していないため操作を処理できません。");}
+    function refreshCachedOfflineHost(){
+      if(!connected||!code||!hostId||hostId===uid||typeof db==="undefined"||hostPresenceRefreshPromise||now()-hostPresenceRefreshAt<4000)return;
+      const roomCode=code,playerId=hostId,roomSession=session;
+      hostPresenceRefreshAt=now();
+      const request=get(ref(db,`rooms/${roomCode}/players/${playerId}`));
+      const currentRequest=request.then(snapshot=>{
+        if(roomSession!==session||roomCode!==code||playerId!==hostId||!snapshot.exists())return false;
+        const fresh=snapshot.val();
+        if(!fresh||typeof fresh!=="object")return false;
+        roomRosterRaw[playerId]=fresh;
+        players={...players,[playerId]:fresh};
+        syncRoomSummary();
+        if(fresh.online===true){hostOfflineNoticeShown=false;queueMicrotask(flushCommandQueue);}
+        safeRenderUI();
+        return fresh.online===true;
+      }).catch(error=>{console.warn("ホストの接続状態を再確認できませんでした",error);return false;})
+        .finally(()=>{if(hostPresenceRefreshPromise===currentRequest)hostPresenceRefreshPromise=null;});
+      hostPresenceRefreshPromise=currentRequest;
+    }
+    const hostOnline = () => {
+      if(!hostId)return false;
+      if(isHost())return connected;
+      if(players[hostId]?.online===true)return true;
+      refreshCachedOfflineHost();
+      return false;
+    };
+    function deferCommandUntilHostCheck(command){
+      const id=command.id;
+      if(commandQueue.some(item=>item.id===id)||deferredHostCommands.has(id))return true;
+      const check=hostPresenceRefreshPromise;
+      if(!check)return false;
+      const pending={command,session,code,hostId,phase:game.phase,round:Number(game.round||0)};
+      deferredHostCommands.set(id,pending);
+      check.then(online=>{
+        if(deferredHostCommands.get(id)!==pending)return;
+        deferredHostCommands.delete(id);
+        if(pending.session!==session||pending.code!==code||pending.hostId!==hostId||pending.phase!==game.phase||pending.round!==Number(game.round||0))return;
+        if(!online||players[hostId]?.online!==true){notifyHostOfflineOnce();return;}
+        if(!connected){toast("Firebaseに接続していないため操作を送れません。");return;}
+        if(commandQueue.some(item=>item.id===id))return;
+        commandQueue.push(command);void flushCommandQueue();
+      });
+      return true;
+    }
     // WebRTC proximity voice uses a room-local signaling tree. Game position
     // synchronization remains on the existing ~100 ms roster updates.
     let voiceEnabledByRoom=false,voiceJoined=false,voiceMuted=true,voicePromptOpen=false,voiceStream=null,voiceContext=null,voiceSessionId="",voicePresenceUnsub=[],voiceDisplayUnsub=[],voiceDisplayRoom="",voicePeers=new Map(),voiceRemoteStates=new Map(),voicePositionOverride=null;
@@ -5372,6 +5420,7 @@ const applyRosterPlayer=(id,value,removed=false)=>{
   if(removed){delete roomRosterRaw[id];delete players[id];const avatar=avatars.get(id);if(avatar){disposeObject(avatar);avatars.delete(id);}}
   else if(value&&typeof value==="object"){
     roomRosterRaw[id]=value;
+    if(id===hostId&&value.online===true)hostOfflineNoticeShown=false;
     if(!hasDisplayableName(value.name)){
       if(id!==uid){delete roomRosterRaw[id];const avatar=avatars.get(id);if(avatar){disposeObject(avatar);avatars.delete(id);}}
       else if(!invalidOwnNameNoticeShown){invalidOwnNameNoticeShown=true;toast("自分の名前が正しく読み込めません。ページを再読み込みしてください。","name-error");}
@@ -5599,7 +5648,7 @@ if (game.round !== lastRound) {
 unsubscribers.push(
         onValue(ref(db, `${base}/hostId`), snapshot => {
           if(currentSession!==session)return;
-          hostId=snapshot.val()||"";hostMissingAt=0;watchMeetingBallots(currentSession);
+          hostId=snapshot.val()||"";hostMissingAt=0;hostPresenceRefreshAt=0;hostPresenceRefreshPromise=null;hostOfflineNoticeShown=false;deferredHostCommands.clear();watchMeetingBallots(currentSession);
           syncRoomSummary();
           queueMicrotask(flushCommandQueue);
         }),
@@ -6177,10 +6226,13 @@ async function flushCommandQueue(){
 
 function sendCommand(type,extra={},commandIdOverride=""){
   if(!code||!connected){toast("Firebaseに接続していないため操作を送れません。");return false;}
-  if(!hostOnline()){toast("ホストが接続していないため操作を処理できません。");return false;}
-  commandQueue.push({id:commandIdOverride||token(),type,extra:{...extra,x:Number(position.x),z:Number(position.z)},round:Number(game.round||0),phase:game.phase,at:now(),retries:0});
-  void flushCommandQueue();
-  return true;
+  const command={id:commandIdOverride||token(),type,extra:{...extra,x:Number(position.x),z:Number(position.z)},round:Number(game.round||0),phase:game.phase,at:now(),retries:0};
+  if(!hostOnline()){
+    if(deferCommandUntilHostCheck(command))return true;
+    notifyHostOfflineOnce();return false;
+  }
+  if(commandQueue.some(item=>item.id===command.id))return true;
+  commandQueue.push(command);void flushCommandQueue();return true;
 }
 
     async function sendVote(target) {
@@ -11099,14 +11151,14 @@ window.addEventListener("resize", resize);
           for(let n=0;n<Math.max(1,Number(ballot.weight)||1);n++){
             const icon=document.createElement("i");icon.className="voteToken";
             icon.style.background=new THREE.Color().setHSL(player?.hue||0,.72,.52).getStyle();
-            icon.style.animationDelay=(Math.min(index++,8)*.11)+"s";icon.title=(player?.name||"プレイヤー")+"の投票";
+            icon.style.animationDelay=(Math.min(index++,8)*.12)+"s";icon.title=(player?.name||"プレイヤー")+"の投票";
             icon.setAttribute("aria-label",icon.title);votes.append(icon);
           }
         }
       }else{
         for(const [target,count] of Object.entries(result.counts||{}))for(let n=0;n<count;n++){
           const votes=rows.get(target);if(!votes)continue;
-          const icon=document.createElement("i");icon.className="voteToken";icon.style.animationDelay=(Math.min(index++,8)*.11)+"s";icon.title="1票";votes.append(icon);
+          const icon=document.createElement("i");icon.className="voteToken";icon.style.animationDelay=(Math.min(index++,8)*.12)+"s";icon.title="1票";votes.append(icon);
         }
       }
       show("voteResult",true);
