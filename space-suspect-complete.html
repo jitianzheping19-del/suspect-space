@@ -630,6 +630,7 @@
     #gameCountdown[data-kind="meeting-return"]::before { content:"会議終了"; color:#ffe7c4; font-size:clamp(12px,2vw,20px); font-weight:900; letter-spacing:.35em; }
     #gameCountdown[data-kind="meeting-return"] #launchLineup{display:none!important}
     #gameCountdown.waveShieldCountdown{background:transparent!important;gap:0!important}
+    #gameCountdown.waveBattleRoyaleCountdown{backdrop-filter:none!important}
     #gameCountdown.waveShieldCountdown::before{content:none!important}
     #gameCountdown.waveShieldCountdown #launchLineup{display:none!important}
     #gameCountdown.waveShieldCountdown #gameCountdownNumber{color:#fff!important;font-size:clamp(48px,10vw,64px)!important;text-shadow:none!important;animation:none!important}
@@ -3319,12 +3320,19 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       updateRoleCategoryCounts();
     }
     function queueLobbySettingsSave(){
+      if(applyingSavedMatchSettings)return;
       syncRoleDependentSettings();
       updateRoleCategoryCounts();
       renderLobbyRolePreview({roles:selectedRoleCounts(),viewMode:$("roomViewMode").value,mapMode:$("roomMapMode").value,impostorCount:Number($("impostorCount").value),bots:$("botMode").checked===true,botCount:Number($("botCount").value)||1});
       if(!isHost()||!code||game.phase!=="lobby")return;
-      clearTimeout(lobbySettingsWriteTimer);lobbySettingsWriteTimer=setTimeout(()=>update(ref(db,`rooms/${code}/game/lobbySettings`),{roles:selectedRoleCounts(),viewMode:$("roomViewMode").value,mapMode:$("roomMapMode").value,ejectionRevealMode:$("ejectionRevealMode").value||"role",impostorCount:Number($("impostorCount").value),voiceEnabled:$("voiceRoomEnabled").checked===true,bots:$("botMode").checked===true,botCount:clamp(Number($("botCount").value)||1,1,6),waveMode:$("waveMode").value||"normal"}).catch(error=>toast(errorText(error))),180);
+      const settings=snapshotMatchSettingsFromInputs();
+      saveLastMatchSettings(settings);
+      clearTimeout(lobbySettingsWriteTimer);
+      const roomCode=code;
+      lobbySettingsWriteTimer=setTimeout(()=>update(ref(db,`rooms/${roomCode}/game/lobbySettings`),lobbySettingsPayload(settings)).catch(error=>toast(errorText(error))),180);
     }
+    $("gmSettings").addEventListener("input",queueLobbySettingsSave);
+    $("gmSettings").addEventListener("change",queueLobbySettingsSave);
     $("roleSettingsList").addEventListener("input",queueLobbySettingsSave);
     $("ejectionRevealMode")?.addEventListener("change",()=>{$("confirmEjects").checked=$("ejectionRevealMode").value==="role";queueLobbySettingsSave();});
     document.querySelectorAll("[data-settings-jump]").forEach(button=>button.addEventListener("click",()=>{const target=button.dataset.settingsJump==="basic"?$("gmSettings"):button.dataset.settingsJump==="roles"?$("roleSettingsList"):document.querySelector("#gmSettings [data-role-setting]");target?.scrollIntoView({behavior:"smooth",block:"start"});}));
@@ -4805,6 +4813,8 @@ async function createRoom() {
       await loadAccountCostume();
       const priorMatchSettings=readLastMatchSettings();
       if(priorMatchSettings)applySavedMatchSettings(priorMatchSettings);
+      const roomMatchSettings=snapshotMatchSettingsFromInputs(priorMatchSettings||{});
+      saveLastMatchSettings(roomMatchSettings);
       const alphabet = "0123456789";
 
 for (let attempt = 0; attempt < 5; attempt++) {
@@ -4819,7 +4829,7 @@ const result = await runTransaction(
             hostId: uid,
             createdAt: serverTimestamp(),
             players: { [uid]: player },
-            game: { phase: "lobby", round: 0, lobbySettings:{viewMode:priorMatchSettings?.viewMode||"2d",mapMode:priorMatchSettings?.mapMode||"classic",waveMode:priorMatchSettings?.waveMode||"normal",voiceEnabled:priorMatchSettings?.voiceEnabled===true,bots:priorMatchSettings?.bots===true,botCount:clamp(Number(priorMatchSettings?.botCount)||1,1,6),roles:normalizeSavedRoleCounts(priorMatchSettings?.roles),...(priorMatchSettings?{matchSettings:priorMatchSettings}:{})} }
+            game: { phase: "lobby", round: 0, lobbySettings:lobbySettingsPayload(roomMatchSettings) }
           } : undefined,
           { applyLocally: false }
         );
@@ -5960,6 +5970,11 @@ hostBusy = true;
 
         missingSince.clear();
 
+        clearTimeout(lobbySettingsWriteTimer);
+        const matchSettingsSnapshot=snapshotMatchSettingsFromInputs({waveMode:waveModeSelected,roles:roleCounts,impostorCount,bots:$("botMode").checked===true,botCount:clamp(Number($("botCount").value)||1,1,6)});
+        saveLastMatchSettings(matchSettingsSnapshot);
+        await update(ref(db,`rooms/${code}/game/lobbySettings`),lobbySettingsPayload(matchSettingsSnapshot));
+        game.lobbySettings={...(game.lobbySettings||{}),...lobbySettingsPayload(matchSettingsSnapshot)};
         await set(ref(db, `rooms/${code}/game`), {
           phase: "play",
           round: nextRound,
@@ -6098,41 +6113,73 @@ function ensureLobbyPosition(roster=players,roomCode=code){
 const LAST_MATCH_SETTINGS_KEY="space-suspect-last-finished-match-settings-v1";
 function readLastMatchSettings(){try{const value=JSON.parse(localStorage.getItem(LAST_MATCH_SETTINGS_KEY)||"null");return value&&typeof value==="object"?value:null;}catch{return null;}}
 function normalizeSavedRoleCounts(roles){return Object.fromEntries(ROLE_OPTIONS.map(role=>[role.id,clamp(Math.trunc(Number(roles?.[role.id])||0),0,10)]));}
+function mergeMatchSettings(...sources){
+  const result={};
+  for(const source of sources){if(!source||typeof source!=="object")continue;for(const [key,value] of Object.entries(source)){if(value===undefined||value===null)continue;if(key==="roles"&&value&&typeof value==="object")result.roles={...(result.roles||{}),...value};else result[key]=value;}}
+  return result;
+}
+function snapshotMatchSettingsFromInputs(...sources){
+  const values={};
+  document.querySelectorAll("#gmSettings input[id],#gmSettings select[id]").forEach(control=>{
+    if(control.type==="radio"){if(control.checked)values[control.name||control.id]=control.value;return;}
+    if(control.type==="checkbox"){values[control.id]=control.checked;return;}
+    if((control.type==="number"||control.type==="range")&&control.value!==""){const number=Number(control.value);if(Number.isFinite(number))values[control.id]=number;return;}
+    if(control.value!=="")values[control.id]=control.value;
+  });
+  values.viewMode=$("roomViewMode")?.value||undefined;
+  values.mapMode=$("roomMapMode")?.value||undefined;
+  values.voiceEnabled=$("voiceRoomEnabled")?.checked===true;
+  values.bots=$("botMode")?.checked===true;
+  values.botCount=clamp(Number($("botCount")?.value)||1,1,6);
+  values.roles=selectedRoleCounts();
+  if($("impostorCount"))values.impostorCount=Number($("impostorCount").value)||1;
+  if($("ejectionRevealMode"))values.ejectionRevealMode=$("ejectionRevealMode").value||"role";
+  if($("bountyArrowEnabled"))values.bountyArrow=$("bountyArrowEnabled").checked;
+  if($("fox"))values.foxTasks=$("fox").checked;
+  return mergeMatchSettings(readLastMatchSettings(),...sources,values);
+}
+function lobbySettingsPayload(settings){
+  const value=settings||{};
+  return {roles:normalizeSavedRoleCounts(value.roles),viewMode:value.viewMode||"2d",mapMode:value.mapMode||"classic",waveMode:value.waveMode||"normal",ejectionRevealMode:["role","faction","none"].includes(value.ejectionRevealMode)?value.ejectionRevealMode:(value.confirmEjects===false?"none":"role"),impostorCount:clamp(Math.trunc(Number(value.impostorCount)||1),1,10),voiceEnabled:value.voiceEnabled===true,bots:value.bots===true,botCount:clamp(Number(value.botCount)||1,1,6),matchSettings:value};
+}
+function lobbySettingsSnapshot(lobby){
+  if(!lobby||typeof lobby!=="object")return {};
+  return mergeMatchSettings({viewMode:lobby.viewMode,mapMode:lobby.mapMode,waveMode:lobby.waveMode,roles:lobby.roles,impostorCount:lobby.impostorCount,ejectionRevealMode:lobby.ejectionRevealMode,voiceEnabled:lobby.voiceEnabled,bots:lobby.bots,botCount:lobby.botCount},lobby.matchSettings);
+}
 function finishedMatchSettings(){
   const active=game.settings||{},lobby=game.lobbySettings||{};
-  return {...(lobby.matchSettings||{}),...active,
-    roles:normalizeSavedRoleCounts(lobby.roles||active.roles),
-    viewMode:active.viewMode||lobby.viewMode||"2d",mapMode:active.mapMode||lobby.mapMode||"classic",
-    waveMode:active.waveMode||lobby.waveMode||"normal",
-    voiceEnabled:active.voiceEnabled??lobby.voiceEnabled??false,
-    bots:active.bots??lobby.bots??false,botCount:clamp(Number(active.botCount??lobby.botCount)||1,1,6)};
+  return mergeMatchSettings(readLastMatchSettings(),lobbySettingsSnapshot(lobby),active,{roles:normalizeSavedRoleCounts(active.roles||lobby.roles||readLastMatchSettings()?.roles),viewMode:active.viewMode||lobby.viewMode||"2d",mapMode:active.mapMode||lobby.mapMode||"classic",waveMode:active.waveMode||lobby.waveMode||"normal",voiceEnabled:active.voiceEnabled??lobby.voiceEnabled??false,bots:active.bots??lobby.bots??false,botCount:clamp(Number(active.botCount??lobby.botCount)||1,1,6)});
 }
-function saveLastMatchSettings(settings){if(!settings||typeof settings!=="object")return;try{localStorage.setItem(LAST_MATCH_SETTINGS_KEY,JSON.stringify({...settings,roles:normalizeSavedRoleCounts(settings.roles)}));}catch{}}
-let lobbyMatchSettingsStamp="";
+function saveLastMatchSettings(settings){if(!settings||typeof settings!=="object")return;try{const merged=mergeMatchSettings(readLastMatchSettings(),settings);if(merged.roles)merged.roles=normalizeSavedRoleCounts(merged.roles);localStorage.setItem(LAST_MATCH_SETTINGS_KEY,JSON.stringify(merged));}catch{}}
+let lobbyMatchSettingsStamp="",applyingSavedMatchSettings=false,lastSharedSettingsSaveStamp="",lobbySettingsRepairStamp="";
 function applySavedMatchSettings(settings){
   if(!settings)return;
   const stamp=JSON.stringify(settings);if(stamp===lobbyMatchSettingsStamp)return;lobbyMatchSettingsStamp=stamp;
+  applyingSavedMatchSettings=true;
+  try{
+  const aliases={viewMode:"roomViewMode",mapMode:"roomMapMode",voiceEnabled:"voiceRoomEnabled",bots:"botMode",bountyArrow:"bountyArrowEnabled",foxTasks:"fox"};
   for(const [id,value] of Object.entries(settings)){
-    const control=$(id);if(!control||id==="roles"||value===undefined||value===null||typeof value==="object")continue;
+    const control=$(aliases[id]||id);if(!control||id==="roles"||value===undefined||value===null||typeof value==="object")continue;
     if(control.type==="checkbox")control.checked=value===true;
     else control.value=String(value);
   }
   const fields={meetingSeconds:settings.meetingSeconds,taskCount:settings.taskCount,killCooldownSeconds:settings.killCooldownSeconds,sabotageCooldownSeconds:settings.sabotageCooldownSeconds,cleanerCooldownSeconds:settings.cleanerCooldownSeconds,viperSeconds:settings.viperSeconds,miniGrowSeconds:settings.miniGrowSeconds,guesserShots:settings.guesserShots,guesserTotalShots:settings.guesserTotalShots,guesserStarExcludedMeetings:settings.guesserStarExcludedMeetings,scalesSeconds:settings.scalesSeconds,scalesUses:settings.scalesUses,meetingSheriffMaxKills:settings.meetingSheriffMaxKills,meetingSheriffPerMeeting:settings.meetingSheriffPerMeeting,speedBoostSeconds:settings.speedBoostSeconds,speedBoostCooldownSeconds:settings.speedBoostCooldownSeconds,speedBoostMultiplier:settings.speedBoostMultiplier,blackCatRecognizeTasks:settings.blackCatRecognizeTasks,doubleMainCooldown:settings.doubleMainCooldown,doubleSecondCooldown:settings.doubleSecondCooldown,doubleSecondMaxUses:settings.doubleSecondMaxUses,bountyChangeSeconds:settings.bountyChangeSeconds,morphDurationSeconds:settings.morphDurationSeconds,biteDelaySeconds:settings.biteDelaySeconds,hawkVisionSeconds:settings.hawkVisionSeconds,hawkCooldownSeconds:settings.hawkCooldownSeconds,waveCannonChargeSeconds:settings.waveCannonChargeSeconds,waveCannonCooldownSeconds:settings.waveCannonCooldownSeconds,penguinDragSeconds:settings.penguinDragSeconds,penguinCooldownSeconds:settings.penguinCooldownSeconds,samuraiRange:settings.samuraiRange,samuraiCooldownSeconds:settings.samuraiCooldownSeconds,samuraiCanVent:settings.samuraiCanVent,samuraiCanSabotage:settings.samuraiCanSabotage,serialKillerKillCooldownSeconds:settings.serialKillerKillCooldownSeconds,suicideBomberRadius:settings.suicideBomberRadius,suicideBomberCooldownSeconds:settings.suicideBomberCooldownSeconds,sluggerChargeSeconds:settings.sluggerChargeSeconds,sluggerCooldownSeconds:settings.sluggerCooldownSeconds,sluggerMaxHits:settings.sluggerMaxHits,rocketInitialCaptureCooldownSeconds:settings.rocketInitialCaptureCooldownSeconds,rocketAdditionalCaptureCooldownSeconds:settings.rocketAdditionalCaptureCooldownSeconds,necromancerCooldownSeconds:settings.necromancerCooldownSeconds,necromancerMaxRevenants:settings.necromancerMaxRevenants,necromancerRequiredTasks:settings.necromancerRequiredTasks,necromancerCurseSeconds:settings.necromancerCurseSeconds,necromancerCurseVisionMultiplier:settings.necromancerCurseVisionMultiplier,stuntmanUses:settings.stuntmanUses,serialKillerSuicideSeconds:settings.serialKillerSuicideSeconds,teleporterCooldownSeconds:settings.teleporterCooldownSeconds,teleporterDelaySeconds:settings.teleporterDelaySeconds,swapperUses:settings.swapperUses,sageShieldSeconds:settings.sageShieldSeconds,sageCooldownSeconds:settings.sageCooldownSeconds,arsonistDouseCooldownSeconds:settings.arsonistDouseCooldownSeconds,vultureBodiesToWin:settings.vultureBodiesToWin};
   for(const [id,value] of Object.entries(fields))if(Number.isFinite(Number(value))&&$(id))$(id).value=String(value);
-  if($("botMode"))$("botMode").checked=!!settings.bots;
+  if($("botMode")&&settings.bots!==undefined)$("botMode").checked=settings.bots===true;
   if($("botCount")&&Number.isFinite(Number(settings.botCount)))$("botCount").value=String(clamp(Number(settings.botCount),1,6));
   if($("botMode"))syncBotSettingsUI();
-  if($("anonymousVotes"))$("anonymousVotes").checked=!!settings.anonymousVotes;
-  if($("confirmEjects"))$("confirmEjects").checked=settings.ejectionRevealMode?settings.ejectionRevealMode==="role":settings.confirmEjects!==false;
-  if($("ejectionRevealMode"))$("ejectionRevealMode").value=["role","faction","none"].includes(settings.ejectionRevealMode)?settings.ejectionRevealMode:(settings.confirmEjects===false?"none":"role");
-  if($("bountyArrowEnabled"))$("bountyArrowEnabled").checked=settings.bountyArrow!==false;
+  if($("anonymousVotes")&&settings.anonymousVotes!==undefined)$("anonymousVotes").checked=settings.anonymousVotes===true;
+  if($("confirmEjects")&&(settings.ejectionRevealMode!==undefined||settings.confirmEjects!==undefined))$("confirmEjects").checked=settings.ejectionRevealMode?settings.ejectionRevealMode==="role":settings.confirmEjects!==false;
+  if($("ejectionRevealMode")&&(settings.ejectionRevealMode!==undefined||settings.confirmEjects!==undefined))$("ejectionRevealMode").value=["role","faction","none"].includes(settings.ejectionRevealMode)?settings.ejectionRevealMode:(settings.confirmEjects===false?"none":"role");
+  if($("bountyArrowEnabled")&&settings.bountyArrow!==undefined)$("bountyArrowEnabled").checked=settings.bountyArrow===true;
   for(const id of ["suicideBomberCrewOnly","samuraiCanVent","samuraiCanSabotage","penguinKillOnMeeting","penguinCanKillNormally","sluggerMultiHitEnabled","sluggerAllowKillDuringCharge","rocketLaunchAfterMeeting","necromancerCurseBlocksReport","serialKillerResetOnMeeting","serialKillerCanVent","serialKillerCanSabotage"])if($(id)&&settings[id]!==undefined)$(id).checked=!!settings[id];
-  if($("godNeedsTasks"))$("godNeedsTasks").checked=settings.godNeedsTasks!==false;
-  if($("fox"))$("fox").checked=!!settings.foxTasks;
+  if($("godNeedsTasks")&&settings.godNeedsTasks!==undefined)$("godNeedsTasks").checked=settings.godNeedsTasks===true;
+  if($("fox")&&settings.foxTasks!==undefined)$("fox").checked=settings.foxTasks===true;
   for(const id of ["guesserNoFirstMeeting","guesserRequireDead","guesserCannotShootStar","starFlashEnabled","starFlashStopOnDeath","blackCatExcludeImpostors","blackCatImpostorVision","blackCatRecognizeImpostors","blackCatCanVent","doubleSecondLimitEnabled","doubleKillerCanVent","doubleKillerCanSabotage"])if($(id)&&settings[id]!==undefined)$(id).checked=!!settings[id];
   if($("meetingSheriffMisfire")&&settings.meetingSheriffMisfire)$("meetingSheriffMisfire").value=settings.meetingSheriffMisfire;
   for(const id of ["meetingSeconds","taskCount","killCooldownSeconds","sabotageCooldownSeconds","cleanerCooldownSeconds","viperSeconds","miniGrowSeconds","guesserShots","guesserTotalShots","guesserStarExcludedMeetings","scalesSeconds","scalesUses","meetingSheriffMaxKills","meetingSheriffPerMeeting","speedBoostSeconds","speedBoostCooldownSeconds","speedBoostMultiplier","blackCatRecognizeTasks","doubleMainCooldown","doubleSecondCooldown","doubleSecondMaxUses","bountyChangeSeconds","morphDurationSeconds","biteDelaySeconds","hawkVisionSeconds","hawkCooldownSeconds","waveCannonChargeSeconds","waveCannonCooldownSeconds","penguinDragSeconds","penguinCooldownSeconds","samuraiRange","samuraiCooldownSeconds","serialKillerKillCooldownSeconds","suicideBomberRadius","suicideBomberCooldownSeconds","sluggerChargeSeconds","sluggerCooldownSeconds","sluggerMaxHits","rocketInitialCaptureCooldownSeconds","rocketAdditionalCaptureCooldownSeconds","necromancerCooldownSeconds","necromancerMaxRevenants","necromancerRequiredTasks","necromancerCurseSeconds","necromancerCurseVisionMultiplier","stuntmanUses","serialKillerSuicideSeconds","teleporterCooldownSeconds","teleporterDelaySeconds","swapperUses","sageShieldSeconds","sageCooldownSeconds","arsonistDouseCooldownSeconds","vultureBodiesToWin"])$(id)?.dispatchEvent(new Event("input"));
   if(settings.roles)syncLobbyRoleInputs({roles:settings.roles,impostorCount:settings.impostorCount});
+  }finally{applyingSavedMatchSettings=false;}
 }
 function isDefaultLobbyCostume(costume){
   if(!costume||costume==="standard")return true;
@@ -7750,7 +7797,7 @@ function beginMeeting(g, reporter, reason) {
       if(reason==="遺体を発見"){
         const loc=g.players[reporter].bot?g.players[reporter]:players[reporter];
         const found=Object.entries(g.bodies||{}).filter(([,b])=>loc&&distance(loc,b)<3.2&&!wallBetween(loc,b)).sort((a,b)=>distance(loc,a[1])-distance(loc,b[1]))[0];
-        if(found){g.meeting.bodyId=found[0];g.meeting.body={name:found[1].name||"クルー",hue:found[1].hue};}
+        if(found){g.meeting.bodyId=found[0];g.meeting.body={name:found[1].name||"クルー",hue:found[1].hue};g.meeting.bodyWitnesses=Array.isArray(found[1].witnesses)?found[1].witnesses.map(w=>({id:String(w?.id||""),sawKiller:!!w?.sawKiller,suspectIds:Array.isArray(w?.suspectIds)?w.suspectIds.map(String):[],nearbyIds:Array.isArray(w?.nearbyIds)?w.nearbyIds.map(String):[]})):[];}
         // A report clears every corpse after preserving the reported body's meeting details.
         g.bodies={};
       }
@@ -7886,7 +7933,9 @@ function finishMeeting(g, ballots) {
       g.meetingReadyAt = now() + 15000;
 
 for (const p of Object.values(g.players)) {
-        if (p.role === "impostor") p.readyAt = now() + killCooldownFor(p);
+        if(p.role==="impostor"||ssxIsJackalFaction(p))p.readyAt=now()+killCooldownFor(p,g.settings);
+        if(p.subrole==="teleportJackal"){p.teleportReadyAt=now()+30000;p.abilityReadyAt=p.teleportReadyAt;}
+        if(ssxIsWaveJackal(p)){const cooldown=clamp(Number(g.settings?.waveCannonCooldownSeconds)||45,10,120)*1000;p.waveCannonReadyAt=now()+Math.max(cooldown,killCooldownFor(p,g.settings));p.abilityReadyAt=p.waveCannonReadyAt;}
       }
     }
 
@@ -8088,10 +8137,26 @@ function recordDeath(g,victimId,killerId,location,options={}){
   if(victim.subrole==="mini"&&victim.role==="crew"&&Number(victim.miniAge)<18&&killer?.role==="impostor")return false;
   const deathCause=options.cause||(killerId===victimId?"suicide":killer?.subrole==="viper"?"viper":"killed");
   const modDeathDecision=runModRoleHooks("beforeDeath",{g,victimId,killerId,victim,killer,location,options,cause:deathCause,now:now()});if(modDeathDecision?.blocked)return false;
+  const deathLoc={x:Number(location?.x),z:Number(location?.z)},hasDeathLoc=Number.isFinite(deathLoc.x)&&Number.isFinite(deathLoc.z);
+  const killerLoc=killer?.bot?killer:(players[killerId]?.online===true?players[killerId]:null);
+  const bodyWitnesses=[];
+  if(hasDeathLoc)for(const [witnessId,witness] of Object.entries(g.players||{})){
+    if(!witness.bot||witnessId===victimId||witnessId===killerId||!witness.alive||witness.observer||witness.disconnected||witness.ventId)continue;
+    const witnessLoc=witness;
+    if(!Number.isFinite(Number(witnessLoc.x))||!Number.isFinite(Number(witnessLoc.z))||distance(witnessLoc,deathLoc)>6.5||wallBetween(witnessLoc,deathLoc))continue;
+    const nearbyIds=[];
+    for(const [seenId,seen] of Object.entries(g.players||{})){
+      if(seenId===witnessId||seenId===victimId||!seen.alive||seen.observer||seen.disconnected||seen.ventId)continue;
+      const seenLoc=seen.bot?seen:players[seenId];
+      if(seenLoc&&(seen.bot||seenLoc.online===true)&&Number.isFinite(Number(seenLoc.x))&&Number.isFinite(Number(seenLoc.z))&&distance(witnessLoc,seenLoc)<=7.5&&!wallBetween(witnessLoc,seenLoc))nearbyIds.push(seenId);
+    }
+    const sawKiller=deathCause==="killed"&&!!killerLoc&&Number.isFinite(Number(killerLoc.x))&&Number.isFinite(Number(killerLoc.z))&&distance(witnessLoc,killerLoc)<=6.5&&!wallBetween(witnessLoc,killerLoc);
+    bodyWitnesses.push({id:witnessId,sawKiller,nearbyIds,suspectIds:sawKiller?[killerId]:nearbyIds,at:now()});
+  }
   victim.alive=false;victim.deathCause=deathCause;victim.killedBy=deathCause==="sheriffMisfire"?"シェリフの誤射（自爆）":killer?.name||"不明";victim.killedByName=killer?.name||"不明";victim.killedByRole=killer?roleNameFor(killer):"";victim.killedById=killerId||"";victim.deathAt=now();
   if(victim.subrole==="star")victim.starDeathMeetingCount=Number(g.meetingCount||0)+(g.phase==="meeting"?0:1);
   delete victim.vampireDeathAt;delete victim.vampireBiteBy;
-  (g.bodies||={})[victimId]={name:victim.name,hue:victim.hue,x:location.x,z:location.z,killerId:killerId||"",
+  (g.bodies||={})[victimId]={name:victim.name,hue:victim.hue,x:location.x,z:location.z,killerId:killerId||"",witnesses:bodyWitnesses,
     dissolveAt:killer?.subrole==="viper"?now()+clamp(Number(g.settings?.viperSeconds)||15,5,60)*1000:0};
   markSoul(g,victimId,location);
   if(options.vampireBite){
@@ -8202,10 +8267,15 @@ function runBots(g) {
         beginMeeting(g,id,"遺体を発見");brain.reportAt=stamp+15000;return {dirty:true,moved};
       }
     }
+    let usedJackalAbility=false;
+    if(bot.alive&&bot.role==="jackal"&&bot.subrole==="teleportJackal"&&!bot.teleportPending&&(Number(bot.teleportReadyAt||0)<=stamp)){
+      const anchors=Object.entries(g.players||{}).filter(([targetId,target])=>targetId!==id&&target.alive&&!target.observer&&!target.disconnected&&!target.ventId&&(target.bot||players[targetId]?.online===true)&&(target.bot||players[targetId])&&Number.isFinite(Number((target.bot?target:players[targetId]).x))&&Number.isFinite(Number((target.bot?target:players[targetId]).z)));
+      if(anchors.length>1){const anchor=anchors[randomInt(anchors.length)];bot.teleportReadyAt=stamp+30000;bot.abilityReadyAt=bot.teleportReadyAt;bot.teleportPending={id:token(),target:anchor[0],dueAt:stamp+10000};bot.abilityEvent=bot.teleportPending.id;usedJackalAbility=true;dirty=true;}
+    }
     let task=(bot.assignedTasks||[]).map(id=>TASKS.find(t=>t.id===id)).filter(t=>t&&!bot.tasks?.[t.id])
       .sort((a,b)=>distance(bot,a)-distance(bot,b))[0];
     let target=task||TASKS[(id.charCodeAt(id.length-1)+Math.floor(stamp/18000))%TASKS.length];
-    if((bot.role==="impostor"||bot.role==="jackal")&&bot.alive){
+    if((bot.role==="impostor"||bot.role==="jackal")&&bot.alive&&!usedJackalAbility){
       const victims=Object.entries(g.players).filter(([other,p])=>other!==id&&p.role!==(bot.role)&&p.alive&&!p.observer&&!p.disconnected&&!p.ventId&&(bot.role==="jackal"||p.role==="crew"))
             .map(([other,p])=>({id:other,p,loc:p.bot?p:players[other]})).filter(t=>t.loc)
             .sort((a,b)=>distance(bot,a.loc)-distance(bot,b.loc));
@@ -8262,20 +8332,61 @@ function runBots(g) {
   return {dirty,moved};
 }
 
+function chooseBotMeetingVote(g,voterId,choices){
+  const eligible=[...new Set((choices||[]).filter(id=>g.players?.[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected))];
+  if(!eligible.length)return "skip";
+  const nameRows=eligible.map(id=>({id,name:String(g.players[id].name||"").trim()})).filter(row=>row.name);
+  const duplicateNames=new Set(nameRows.filter(row=>nameRows.filter(other=>other.name.toLocaleLowerCase()===row.name.toLocaleLowerCase()).length>1).map(row=>row.name.toLocaleLowerCase()));
+  const remainingRows=nameRows.filter(row=>!duplicateNames.has(row.name.toLocaleLowerCase())).sort((a,b)=>b.name.length-a.name.length);
+  const mentions=new Map(eligible.map(id=>[id,0]));
+  for(const message of g.meeting?.chat||[]){
+    if(message?.system||message?.channel==="ghost"||message?.alive===false)continue;
+    let remaining=String(message?.text||"").toLocaleLowerCase();
+    for(const row of remainingRows){
+      const name=row.name.toLocaleLowerCase();let at=remaining.indexOf(name);
+      while(at>=0){mentions.set(row.id,(mentions.get(row.id)||0)+1);remaining=remaining.slice(0,at)+" ".repeat(name.length)+remaining.slice(at+name.length);at=remaining.indexOf(name,at+name.length);}
+    }
+  }
+  const rows=eligible.map(id=>({id,weight:1+(mentions.get(id)||0)*3}));
+  const hasMention=[...mentions.values()].some(count=>count>0);
+  const skipWeight=Math.max(1,Math.round(eligible.length*(hasMention ? .25 : .5385)));
+  const total=rows.reduce((sum,row)=>sum+row.weight,skipWeight);
+  let pick=Math.random()*total;
+  for(const row of rows){pick-=row.weight;if(pick<0)return row.id;}
+  return "skip";
+}
 function maybeAddBotMeetingChat(g){
   const meetingId=g.meeting?.id;
   if(g.phase!=="meeting"||!meetingId||botMeetingChatSent.has(meetingId))return false;
   const bots=Object.entries(g.players||{}).filter(([,player])=>player?.bot&&!player.observer&&player.alive&&!player.disconnected);
   if(!bots.length)return false;
   if(botMeetingChatPlan?.meetingId!==meetingId){
-    const [botId,bot]=bots[randomInt(bots.length)];
-    botMeetingChatPlan={meetingId,botId,readyAt:Number(g.meeting.startedAt||now())+5000+randomInt(9000)};
+    const witnessIds=[...new Set((g.meeting.bodyWitnesses||[]).map(w=>String(w?.id||"")).filter(id=>g.players?.[id]?.bot&&g.players[id].alive&&!g.players[id].observer&&!g.players[id].disconnected))];
+    const [botId]=bots[randomInt(bots.length)];
+    botMeetingChatPlan={meetingId,botId,witnessIds,witnessIndex:0,readyAt:Number(g.meeting.startedAt||now())+3500+randomInt(3000)};
   }
-  if(now()<botMeetingChatPlan.readyAt)return false;
-  const bot=g.players?.[botMeetingChatPlan.botId];
-  if(!bot?.bot||!bot.alive||bot.disconnected){botMeetingChatSent.add(meetingId);return false;}
-  const lines=["いったん状況を整理しよう。","みんな、直前に見たことある？","まだ決め手がないね。","移動先を思い出してみよう。","急がず情報を集めたいな。","誰か気になる動きはあった？","通った場所と時間を確認したいな。","今のところ確かな情報は少ないね。","最後に見かけた場所を教えて。","証言を聞いてから投票したいな。","誰かと一緒にいた人はいる？","さっきの停電中、どこにいた？"];
-  (g.meeting.chat||=[]).push({id:token(),uid:botMeetingChatPlan.botId,name:bot.name||"テストBot",text:lines[randomInt(lines.length)],at:now(),alive:true});
+  const plan=botMeetingChatPlan;
+  if(now()<plan.readyAt)return false;
+  while(plan.witnessIndex<(plan.witnessIds||[]).length){
+    const id=plan.witnessIds[plan.witnessIndex],witness=g.players?.[id];
+    if(witness?.bot&&witness.alive&&!witness.observer&&!witness.disconnected)break;
+    plan.witnessIndex++;
+  }
+  if(plan.witnessIndex>=(plan.witnessIds||[]).length){
+    if((plan.witnessIds||[]).length){botMeetingChatSent.add(meetingId);botMeetingChatPlan=null;return false;}
+    const bot=g.players?.[plan.botId];
+    if(!bot?.bot||!bot.alive||bot.disconnected){botMeetingChatSent.add(meetingId);botMeetingChatPlan=null;return false;}
+    const lines=["いったん状況を整理しよう。","みんな、直前に見たことある？","まだ決め手がないね。","移動先を思い出してみよう。","急がず情報を集めたいな。","誰か気になる動きはあった？","通った場所と時間を確認したいな。","今のところ確かな情報は少ないね。","最後に見かけた場所を教えて。","証言を聞いてから投票したいな。","誰かと一緒にいた人はいる？","さっきの停電中、どこにいた？"];
+    (g.meeting.chat||=[]).push({id:token(),uid:plan.botId,name:bot.name||"テストBot",text:lines[randomInt(lines.length)],at:now(),alive:true});
+    g.meeting.chat=g.meeting.chat.slice(-80);
+    return true;
+  }
+  const witnessId=plan.witnessIds[plan.witnessIndex],bot=g.players[witnessId];
+  const witness=(g.meeting.bodyWitnesses||[]).find(row=>String(row?.id||"")===witnessId);
+  const ids=(witness?.suspectIds?.length?witness.suspectIds:witness?.nearbyIds||[]).filter(id=>id!==witnessId&&g.players?.[id]?.name);
+  const suspectId=ids[0],suspectName=suspectId?String(g.players[suspectId].name||"プレイヤー"):"";
+  const text=suspectName?(witness?.sawKiller?`殺害時、${suspectName}が現場の近くにいたよ。`:`死亡時、${suspectName}が現場の近くにいたよ。`):"遺体の近くにいたけど、ほかの人の姿は見えなかった。";
+  (g.meeting.chat||=[]).push({id:token(),uid:witnessId,name:bot.name||"テストBot",text,at:now(),alive:true});
   g.meeting.chat=g.meeting.chat.slice(-80);
   return true;
 }
@@ -8456,6 +8567,32 @@ if (!players[id]?.online) {
             g.phase="play";
             if(!checkWin(g)){
               g.playStartsAt=now()+3000;g.countdownEndsAt=g.playStartsAt;g.countdownKind="meeting-return";
+              const actionStart=g.playStartsAt,shortActionLock=actionStart+3000;
+              const settingCooldown=(key,fallback,min=5,max=180)=>clamp(Number(g.settings?.[key])||fallback,min,max)*1000;
+              for(const player of Object.values(g.players||{})){
+                player.meetingActionReadyAt=Math.max(Number(player.meetingActionReadyAt)||0,shortActionLock);
+                if(player.role==="impostor"||player.role==="jackal"||player.subrole==="sheriff"){
+                  const normalKill=killCooldownFor({...player,bountyCooldownMs:0},g.settings);
+                  player.readyAt=Math.max(Number(player.readyAt)||0,actionStart+normalKill);
+                }
+                if(player.subrole==="doubleKiller")player.secondaryReadyAt=Math.max(Number(player.secondaryReadyAt)||0,actionStart+settingCooldown("doubleSecondCooldown",45,5,120));
+                const lethalCooldownByRole={
+                  penguin:settingCooldown("penguinCooldownSeconds",30,5,120),samurai:settingCooldown("samuraiCooldownSeconds",40,5,180),
+                  suicideBomber:settingCooldown("suicideBomberCooldownSeconds",35,5,180),slugger:settingCooldown("sluggerCooldownSeconds",45,5,180),
+                  rocket:settingCooldown(Number(player.rocketCapturesUsed)>0?"rocketAdditionalCaptureCooldownSeconds":"rocketInitialCaptureCooldownSeconds",Number(player.rocketCapturesUsed)>0?8:25,1,120),
+                  necromancer:settingCooldown("necromancerCooldownSeconds",30,5,180),waveCannon:settingCooldown("waveCannonCooldownSeconds",45,10,120),
+                  waveCannonJackal:settingCooldown("waveCannonCooldownSeconds",45,10,120),jackalWaveCannon:settingCooldown("waveCannonCooldownSeconds",45,10,120),
+                  arsonist:settingCooldown("arsonistDouseCooldownSeconds",5,3,30)
+                };
+                const lethalCooldown=lethalCooldownByRole[player.subrole];
+                if(lethalCooldown){
+                  const readyAt=actionStart+lethalCooldown;
+                  player.abilityReadyAt=Math.max(Number(player.abilityReadyAt)||0,readyAt);
+                  const roleReadyField={rocket:"rocketReadyAt",necromancer:"necromancerReadyAt",waveCannon:"waveCannonReadyAt",waveCannonJackal:"waveCannonReadyAt",jackalWaveCannon:"waveCannonReadyAt"}[player.subrole];
+                  if(roleReadyField)player[roleReadyField]=Math.max(Number(player[roleReadyField])||0,Number(player.abilityReadyAt)||0,readyAt);
+                  if(player.subrole==="slugger"&&g.settings?.sluggerSyncCooldown!==false)player.readyAt=Math.max(Number(player.readyAt)||0,readyAt);
+                }
+              }
               for(const [index,player] of Object.values(g.players).entries()){
                 const spawn=SPAWN_POINTS[index%SPAWN_POINTS.length];
                 player.x=spawn.x;player.z=spawn.z;player.ventRevision=(player.ventRevision||0)+1;
@@ -8585,6 +8722,12 @@ commandWork.push({actor,id:commandToken,path:cmd._path});
           }
           if(p.observer){
             setCommandResult(g,actor,cmd,false,"観戦者は試合に干渉できません。");
+            dirty=true;continue;
+          }
+          if(["ability","kill","bite"].includes(cmd.type)&&(
+            g.phase!=="play"||now()<Math.max(Number(g.playStartsAt)||0,Number(g.countdownEndsAt)||0,Number(p.meetingActionReadyAt)||0)
+          )){
+            setCommandResult(g,actor,cmd,false,"会議後の準備時間中です。再開後にもう一度操作してください。");
             dirty=true;continue;
           }
           // MOD_ROLE_ABILITY_DISPATCH
@@ -9049,8 +9192,7 @@ if (checkWin(g)) {
             const choices = (g.meeting.scalesVote?.targets?.length?scaleCandidates:Object.keys(g.players)).filter(id =>
               g.players[id].alive && !g.players[id].observer && !g.players[id].disconnected
             );
-            const target=choices.length && (g.meeting.scalesVote?.targets?.length||Math.random() > .35)
-              ? choices[randomInt(choices.length)] : "skip";
+            const target=chooseBotMeetingVote(g,botId,choices);
             const ballot={id:token(),round:g.round,meeting:meetingId,target,at:now()};
             await set(ref(db,`ballots/${roomCode}/${g.round}/${meetingId}/${botId}`),ballot);
             ballots[botId]=ballot;privateBallots[botId]=ballot;
@@ -9151,7 +9293,7 @@ if(Object.keys(movedBots).length&&currentSession===session&&isHost()){
           }
           if(committed.committed){
             hostTransactionRetryCount=0;
-            if(meetingChatProduced){botMeetingChatSent.add(meetingChatProduced);if(botMeetingChatPlan?.meetingId===meetingChatProduced)botMeetingChatPlan=null;while(botMeetingChatSent.size>32)botMeetingChatSent.delete(botMeetingChatSent.values().next().value);}
+            if(meetingChatProduced){const plan=botMeetingChatPlan;if(plan?.meetingId===meetingChatProduced&&(plan.witnessIds||[]).length){plan.witnessIndex++;if(plan.witnessIndex<(plan.witnessIds||[]).length)plan.readyAt=now()+850+randomInt(900);else{botMeetingChatSent.add(meetingChatProduced);botMeetingChatPlan=null;}}else{botMeetingChatSent.add(meetingChatProduced);if(plan?.meetingId===meetingChatProduced)botMeetingChatPlan=null;}while(botMeetingChatSent.size>32)botMeetingChatSent.delete(botMeetingChatSent.values().next().value);}
             for(const work of commandWork)hostCommandRetryCounts.delete(`${work.actor}:${work.id}`);
             const commandResultWrites=[];
             for(const work of commandWork){
@@ -11604,6 +11746,7 @@ const roomCode = code;
       $("gameCountdown").dataset.kind=game.countdownKind||"launch";
       const waveCountdown=!!game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch";
       $("gameCountdown").classList.toggle("waveShieldCountdown",waveCountdown);
+      $("gameCountdown").classList.toggle("waveBattleRoyaleCountdown",game.settings?.waveMode==="battleRoyale"&&game.countdownKind==="launch");
       show("gameCountdown", countdownLeft > 0);
       const rolesDuringCountdown=$("roundRoles");
       if(phase==="play"&&countdownLeft>0){
@@ -11869,7 +12012,18 @@ $("status").textContent = !connected
 
       if(phase==="ended"&&game.settings)saveLastMatchSettings(finishedMatchSettings());
       if (phase === "lobby") {
-        applySavedMatchSettings(game.lobbySettings?.matchSettings||readLastMatchSettings());
+        const sharedSettings=lobbySettingsSnapshot(game.lobbySettings||{});
+        const resolvedSettings=isHost()?mergeMatchSettings(readLastMatchSettings(),sharedSettings):sharedSettings;
+        applySavedMatchSettings(resolvedSettings);
+        const sharedStamp=code+":"+JSON.stringify(sharedSettings);
+        if(!isHost()&&Object.keys(game.lobbySettings?.matchSettings||{}).length>0&&sharedStamp!==lastSharedSettingsSaveStamp){lastSharedSettingsSaveStamp=sharedStamp;saveLastMatchSettings(sharedSettings);}
+        if(isHost()){
+          const serverMatch=game.lobbySettings?.matchSettings||{};
+          const requiredIds=[...document.querySelectorAll("#gmSettings input[id],#gmSettings select[id]")].filter(control=>control.type!=="radio").map(control=>control.id);
+          const incomplete=!game.lobbySettings||!game.lobbySettings.matchSettings||requiredIds.some(id=>serverMatch[id]===undefined)||!serverMatch.roles||ROLE_OPTIONS.some(role=>serverMatch.roles[role.id]===undefined);
+          const repairStamp=code+":"+JSON.stringify(game.lobbySettings||{});
+          if(incomplete&&repairStamp!==lobbySettingsRepairStamp){lobbySettingsRepairStamp=repairStamp;queueLobbySettingsSave();}
+        }
     $("gmSettings").classList.toggle("hidden", !isHost()||waitingLobbyForRunningMatch);
     $("lobby").classList.toggle("is-host",isHost());
         renderLobbyRolePreview(game.lobbySettings);
@@ -12135,20 +12289,21 @@ if (phase === "ended") {
       if(effectLeft>0){$("abilityDurationName").textContent=effectName;$("abilityDurationSeconds").textContent=`残り ${Math.ceil(effectLeft/1000)} 秒`;$("abilityDurationFill").style.width=(clamp(effectLeft/effectTotal,0,1)*100)+"%";$("abilityDurationFill").style.background=me.role==="impostor"?"#ff647c":"#71e4d0";}
       const specialReadyAt=me?.subrole==="rocket"?me.rocketReadyAt:me?.subrole==="necromancer"?me.necromancerReadyAt:me?.subrole==="waveCannonJackal"||me?.subrole==="jackalWaveCannon"?me.waveCannonReadyAt:me?.abilityReadyAt;
       const remaining=Math.max(0,Math.ceil(((( ["teleportJackal","teleporter"].includes(me?.subrole)?me.teleportReadyAt:["shapeshifter","morphing"].includes(me?.subrole)?me.shapeshiftReadyAt:specialReadyAt)||0)-now())/1000));
+      const actionLockRemaining=Math.max(0,Math.ceil(((Number(me?.meetingActionReadyAt)||0)-now())/1000));
       const look=roleLook(me);$("abilityBtn").style.setProperty("--role-color",look.color);
       const abilityCooldownSeconds=me?.subrole==="teleporter"?clamp(Number(game.settings?.teleporterCooldownSeconds)||45,10,120):me?.subrole==="cleaner"?clamp(Number(game.settings?.cleanerCooldownSeconds)||20,5,60):30;
-      $("abilityBtn").style.setProperty("--cooldown",clamp(remaining/abilityCooldownSeconds,0,1)*360+"deg");
+      $("abilityBtn").style.setProperty("--cooldown",clamp(Math.max(remaining,actionLockRemaining)/abilityCooldownSeconds,0,1)*360+"deg");
       const abilityCaption=me?.subrole==="penguin"&&me?.penguinTargetId?"確定キル":me?.subrole==="engineer"
         ? (game.sabotage?.endsAt>now()&&!me.remoteRepairUsed?"遠隔修理":me.remoteRepairUsed?"修理済み / ベント":"ベント")
         : me?.subrole==="medic"&&me.medicShieldUsed
         ? "使用済み"
         : look.action;
       const teleportPending=["teleportJackal","teleporter"].includes(me?.subrole)&&!!me.teleportPending,teleportDelayLeft=teleportPending?Math.max(0,Math.ceil((Number(me.teleportPending.dueAt)-now())/1000)):0;
-      $("abilityIcon").textContent=look.icon;$("abilityCaption").textContent=me?.subrole==="penguin"&&me?.penguinTargetId?"確定キル":teleportPending?`あと${teleportDelayLeft}秒`:remaining?remaining+"s":abilityCaption;
+      $("abilityIcon").textContent=look.icon;$("abilityCaption").textContent=me?.subrole==="penguin"&&me?.penguinTargetId?"確定キル":teleportPending?`あと${teleportDelayLeft}秒`:Math.max(remaining,actionLockRemaining)?Math.max(remaining,actionLockRemaining)+"s":abilityCaption;
       $("abilityBtn").title=["teleportJackal","teleporter"].includes(me?.subrole)?"テレポート可能な生存者を発動待機後に対象地点へ集合させます。会議開始または死亡で中止されます。":"";
       const revenantNeedsTasks=me?.subrole==="revenant"&&me.alive===false&&!me.revenantCurseReady;
       const abilityReady=ready||(phase==="play"&&me?.subrole==="revenant"&&me.alive===false&&!me.disconnected&&!me.observer);
-      $("abilityBtn").disabled=!abilityReady||me?.disconnected||me?.observer||(remaining>0&&!(me?.subrole==="penguin"&&me?.penguinTargetId))||teleportPending||revenantNeedsTasks||(me?.subrole==="medic"&&!!me.medicShieldUsed);
+      $("abilityBtn").disabled=!abilityReady||me?.disconnected||me?.observer||(Math.max(remaining,actionLockRemaining)>0&&!(me?.subrole==="penguin"&&me?.penguinTargetId))||teleportPending||revenantNeedsTasks||(me?.subrole==="medic"&&!!me.medicShieldUsed);
       ssxControlUpdate(phase,me,ready);
       if($("abilityTargetSelect").dataset.mode==="vitals"&&!$("abilityTargetSelect").classList.contains("hidden")){
         const list=$("abilityTargetList"),seconds=Math.max(0,Math.ceil(((me?.vitalsUntil||0)-now())/1000));
