@@ -3121,7 +3121,7 @@ window.buildAstraMap = buildAstraMap;
 import { initializeApp } from
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, updateProfile, signOut,
+import { getAuth, setPersistence, indexedDBLocalPersistence, browserLocalPersistence, signInAnonymously, updateProfile, signOut,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, linkWithCredential, EmailAuthProvider } from
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -6033,7 +6033,7 @@ function drawColorPreview() {
     $("colorInput").addEventListener("input", drawColorPreview);
     drawColorPreview();
 
-let stableNameAccount=false, firebaseConnectGeneration=0;
+    let stableNameAccount=false, firebaseConnectGeneration=0, firebaseAuthPersistenceReady=null;
 async function connectFirebase(accountNameOverride="") {
       const connectGeneration=++firebaseConnectGeneration;
       const requestedName=accountNameOverride||readStored("space-suspect-account-name")||readStored("space-suspect-name")||"";
@@ -6048,6 +6048,16 @@ async function connectFirebase(accountNameOverride="") {
 if (!app) {
           app = initializeApp(config);
           auth = getAuth(app);
+          // Keep Firebase's refreshable auth session across idle periods and
+          // browser restarts. IndexedDB is more reliable for installed iOS web
+          // apps; use localStorage where IndexedDB persistence is unavailable.
+          firebaseAuthPersistenceReady=(async()=>{
+            try{await setPersistence(auth,indexedDBLocalPersistence);}
+            catch(indexedDbError){
+              console.warn("IndexedDBのログイン保存を使えないため、ブラウザー保存に切り替えます",indexedDbError);
+              await setPersistence(auth,browserLocalPersistence);
+            }
+          })();
           db = getDatabase(app);
 
 onValue(ref(db, ".info/serverTimeOffset"), snapshot => {
@@ -6067,8 +6077,8 @@ onValue(ref(db, ".info/serverTimeOffset"), snapshot => {
           });
         }
 
-await auth.authStateReady();
-        await setPersistence(auth,browserLocalPersistence);
+await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resolve()));
+        await auth.authStateReady();
         const typedPassword=$("loginPasswordInput")?.value||"";
         const typedName=$("loginNameInput")?.value.trim().slice(0,16)||"";
         let result;
