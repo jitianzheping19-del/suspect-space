@@ -13731,6 +13731,40 @@ function startVoteEjection3D(players,resultId){
   function watch(){if(!active)return;if(!(game.phase==="results"||game.phase==="ended")||game.lastVoteResult?.id!==resultId||host.closest("#voteResult")?.classList.contains("hidden")||now()>=resultUntil){dispose();return;}watchRaf=requestAnimationFrame(watch);}
   voteEjection3D={dispose};window.addEventListener("message",onMessage);watchRaf=requestAnimationFrame(watch);disposeTimer=setTimeout(dispose,playMs+120);
 }
+    function animateVoteBallots(events,resultId,resultSession){
+      document.querySelectorAll(".motionVoteFlyer").forEach(node=>node.remove());
+      const overlay=$("voteResult"),reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(!overlay||!events?.length)return;
+      const sourceElement=$("voteScaleResult");
+      events.forEach((item,eventIndex)=>setTimeout(()=>{
+        if(session!==resultSession||String(game.lastVoteResult?.id)!==String(resultId)||overlay.classList.contains("hidden")||!item.votes.isConnected)return;
+        const target=item.votes.querySelector(".voteResultCount");if(!target)return;
+        const sourceRect=sourceElement&&getComputedStyle(sourceElement).display!=="none"?sourceElement.getBoundingClientRect():overlay.getBoundingClientRect();
+        const targetRect=target.getBoundingClientRect(),startX=sourceRect.left+sourceRect.width/2,startY=sourceRect.top+sourceRect.height*.48;
+        const dx=targetRect.left+targetRect.width/2-startX,dy=targetRect.top+targetRect.height/2-startY;
+        const flyer=document.createElement("i");flyer.className="motionVoteFlyer";flyer.setAttribute("aria-hidden","true");flyer.style.setProperty("--vote-ball-color",item.color);flyer.style.left=`${startX}px`;flyer.style.top=`${startY}px`;document.body.append(flyer);
+        let settled=false;
+        const settle=()=>{
+          if(settled)return;settled=true;flyer.remove();
+          if(session!==resultSession||String(game.lastVoteResult?.id)!==String(resultId)||!item.votes.isConnected)return;
+          item.votes.append(item.icon);
+          const next=(Number(target.dataset.shown)||0)+1;target.dataset.shown=String(next);target.textContent=String(next);
+          target.classList.remove("motionCountArrive");void target.offsetWidth;target.classList.add("motionCountArrive");
+        };
+        const hopY=dy-Math.min(54,Math.abs(dx)*.1+22);
+        if(reduced){settle();return;}
+        try{
+          const animation=flyer.animate([
+            {transform:"translate(-50%,-50%) scale(.3) rotate(-120deg)",opacity:0,filter:"brightness(1.5)"},
+            {transform:`translate(${dx*.62}px,${hopY*.62}px) scale(1.18) rotate(18deg)`,opacity:1,offset:.68,filter:"brightness(1.35)"},
+            {transform:`translate(${dx}px,${dy}px) scale(.44) rotate(0deg)`,opacity:0,filter:"brightness(1)"}
+          ],{duration:620,easing:"cubic-bezier(.16,1,.3,1)",fill:"forwards"});
+          animation.onfinish=settle;
+        }catch{setTimeout(settle,620)}
+        setTimeout(settle,760);
+      },reduced?eventIndex*32:eventIndex*350));
+    }
+
     function showVoteResult(result) {
       if(!result||result.id===lastVoteResultId||!(game.phase==="results"||game.phase==="ended"))return;
       resultScalesVisual?.dispose?.();resultScalesVisual=null;
@@ -13744,39 +13778,45 @@ function startVoteEjection3D(players,resultId){
       clearTimeout(effectTimers.get("voteResult"));effectTimers.delete("voteResult");
       list.replaceChildren();$("ejectResult").textContent="";
       let index=0;
-      $("voteResultSummary").textContent=result.anonymousVotes
-        ? "匿名投票：投票者は表示されません"
-        : "投票結果：票を順番に表示します";
+      const voteTops=Object.entries(result.counts||{}).map(([target,count])=>[target,Number(count)||0]).filter(([,count])=>count>0);
+      const leadingVotes=Math.max(0,...voteTops.map(([,count])=>count)),leaders=voteTops.filter(([,count])=>count===leadingVotes);
+      const hasEjection=Array.isArray(result.ejecteds)?result.ejecteds.length>0:!!result.ejected;
+      const inferredOutcome=result.outcome||(!leadingVotes?"no-votes":leaders.length>1?"tie":leaders[0]?.[0]==="skip"?"skip":hasEjection?"ejected":"tie");
+      const outcomeLabel=inferredOutcome==="tie"?"同数のため追放なし":inferredOutcome==="skip"?"スキップ最多":inferredOutcome==="no-votes"?"無投票":hasEjection?"追放者を発表します":"投票結果を表示します";
+      $("voteResultSummary").textContent=result.anonymousVotes?`匿名投票 · ${outcomeLabel}`:outcomeLabel;
       const rows=new Map();
       const rankedTargets=[...(result.eligible||Object.keys(result.counts||{}).filter(id=>id!=="skip")),"skip"]
         .map(target=>[target,Number(result.counts?.[target])||0]);
       for(const [target,count] of rankedTargets){
-        const row=document.createElement("div");row.className="voteResultRow";row.style.order=String(rows.size);
+        const row=document.createElement("div");row.className="voteResultRow";row.style.order=String(rows.size);row.style.setProperty("--motion-order",String(rows.size));
         const name=document.createElement("span"),votes=document.createElement("span"),countLabel=document.createElement("strong");
         name.textContent=target==="skip"?"スキップ":game.players?.[target]?.name||"退出したプレイヤー";
-        countLabel.className="voteResultCount";countLabel.textContent=String(count);
+        countLabel.className="voteResultCount";countLabel.dataset.total=String(count);countLabel.dataset.shown="0";countLabel.textContent="0";
         votes.append(countLabel);
         row.append(name,votes);list.append(row);rows.set(target,votes);
       }
       list.style.gridTemplateRows=`repeat(${Math.min(3,Math.max(1,rankedTargets.length))},minmax(64px,auto))`;
-      const revealed=Object.entries(result.votes||{}).sort((a,b)=>(a[1]?.at||0)-(b[1]?.at||0));
+      const ballotEvents=[];
+      const queueBallot=(target,player,weight=1)=>{
+        const votes=rows.get(target);if(!votes)return;
+        const hueColor=result.anonymousVotes?"#070b12":player?new THREE.Color().setHSL(Number.isFinite(Number(player.hue))?Number(player.hue):0,.72,.52).getStyle():"#8b9bab";
+        for(let n=0;n<Math.max(1,Number(weight)||1);n++){
+          const icon=document.createElement("i");icon.className="voteToken";icon.style.setProperty("--tokc",hueColor);icon.style.backgroundColor=hueColor;
+          icon.title=result.anonymousVotes?"匿名投票":`${player?.name||"プレイヤー"}の投票`;icon.setAttribute("aria-label",icon.title);
+          ballotEvents.push({votes,icon,color:hueColor});
+        }
+      };
+      const revealed=Object.entries(result.votes||{}).sort((a,b)=>(Number(a[1]?.at)||0)-(Number(b[1]?.at)||0));
       if(revealed.length){
-        for(const [voter,ballot] of revealed){
-          const votes=rows.get(ballot.target);if(!votes)continue;
-          const player=game.players?.[voter];
-          for(let n=0;n<Math.max(1,Number(ballot.weight)||1);n++){
-            const icon=document.createElement("i");icon.className="voteToken";
-            icon.style.background=new THREE.Color().setHSL(player?.hue||0,.72,.52).getStyle();icon.style.setProperty("--tokc",new THREE.Color().setHSL(player?.hue||0,.72,.52).getStyle());
-            icon.style.animationDelay=(Math.min(index++,8)*.12)+"s";icon.title=(player?.name||"プレイヤー")+"の投票";
-            icon.setAttribute("aria-label",icon.title);votes.append(icon);
-          }
+        for(const [voter,rawBallot] of revealed){
+          const ballot=typeof rawBallot==="string"?{target:rawBallot}:rawBallot||{};
+          if(!ballot.target||ballot.noVote)continue;
+          queueBallot(ballot.target,game.players?.[voter],ballot.weight);
         }
       }else{
-        for(const [target,count] of Object.entries(result.counts||{}))for(let n=0;n<count;n++){
-          const votes=rows.get(target);if(!votes)continue;
-          const icon=document.createElement("i");icon.className="voteToken";icon.style.animationDelay=(Math.min(index++,8)*.12)+"s";icon.title="1票";votes.append(icon);
-        }
+        for(const [target,count] of Object.entries(result.counts||{}))for(let n=0;n<Math.max(0,Number(count)||0);n++)queueBallot(target,null,1);
       }
+      index=ballotEvents.length;
       show("voteResult",true);
       resultScalesVisual=mountResultScales(result);
       const swapCards=[];
@@ -13797,12 +13837,13 @@ function startVoteEjection3D(players,resultId){
           }
         }
       }
+      animateVoteBallots(ballotEvents,result.id,session);
       if(!Object.keys(result.counts||{}).length)$("voteResultSummary").textContent+=" · 投票なし";
       const resultId=result.id,currentSession=session;
       const announcedEjectedIds=[...new Set((Array.isArray(result.ejecteds)?result.ejecteds:result.ejected?[result.ejected]:[]).filter(id=>game.players?.[id]))];
       const availableResultsMs=Math.max(0,(Number(game.resultsEndsAt)||0)-now());
-      const revealedBallCount=Object.keys(result.votes||{}).length?Object.entries(result.votes||{}).reduce((sum,[,ballot])=>{const target=typeof ballot==="string"?ballot:ballot?.target;if(!target||target==="skip"||ballot?.noVote)return sum;return sum+Math.max(1,Number(ballot?.weight)||1);},0):Object.entries(result.counts||{}).reduce((sum,[target,count])=>sum+(target==="skip"?0:Math.max(0,Number(count)||0)),0);
-      const voteRevealMs=revealedBallCount?(revealedBallCount*300+2600):1500;
+      const revealedBallCount=ballotEvents.length;
+      const voteRevealMs=revealedBallCount?((revealedBallCount-1)*350+620):1500;
       const ejectDelay=Math.max(voteRevealMs,Math.min(Math.max(900,index*350+700),Math.max(900,availableResultsMs-3200)));
       ejectVisualUntil=announcedEjectedIds.length?now()+ejectDelay+3100:0;
       if(game.phase==="ended"&&ejectVisualUntil>now())show("ending",false);
@@ -17374,7 +17415,7 @@ function onMeeting(){
   const vr=shown($("voteResult"));
   if(vr&&!voteResWas){
     SFX.stamp();const txt=($("voteResultSummary")?.textContent||"");
-    const tie=/同数|同票|引き分け/.test(txt),skip=/スキップ|追放なし|誰も/.test(txt);
+    const tie=/同数|同票|引き分け|無投票/.test(txt),skip=/スキップ|追放なし|誰も|無投票/.test(txt);
     if(tie||skip){flash("#8899aa",.35,.6);SFX.bad()}else{flash("#ffffff",.5,.5);shake()}
     const[x,y]=center($("voteResultList")||$("voteResult"));burst(x,y,tie||skip?12:30,tie||skip?["#8899aa","#ccd6e0"]:["#ff5a68","#ffd23d","#fff"],{spread:8,size:6,life:1});
   }
@@ -17395,7 +17436,7 @@ function onTask(){
   if(host&&!taskWas){SFX.clank()}
   const bar=$("taskProgress");const pct=bar?parseFloat(bar.style.width||"0"):0;
   if(host&&pct>taskPct+.5&&pct<100){SFX.tick()}
-  if(host&&pct>=99.5&&taskPct<99.5){SFX.good();const[x,y]=center(host.querySelector(".card")||host);burst(x,y,36,["#5dffa0","#ffd23d","#fff"],{spread:8,size:7,life:1.1,shape:"star"})}
+   if(host&&pct>=99.5&&taskPct<99.5){SFX.good();const card=host.querySelector(".card");card?.classList.remove("motionTaskComplete");void card?.offsetWidth;card?.classList.add("motionTaskComplete");setTimeout(()=>card?.classList.remove("motionTaskComplete"),900);const[x,y]=center(card||host);burst(x,y,36,["#5dffa0","#ffd23d","#fff"],{spread:8,size:7,life:1.1,shape:"star"})}
   taskPct=host?pct:0;
   if(host){const st=($("taskGameStatus")?.textContent||"")+($("reactorStatus")?.textContent||"");
     if(st!==lastStatus){lastStatus=st;if(/失敗|ミス|違い|間違|やり直/.test(st)){const c=host.querySelector(".card");c?.classList.remove("ssx-fail");void c?.offsetWidth;c?.classList.add("ssx-fail");flash("#ff3355",.3,.35);SFX.bad()}}}
@@ -17578,6 +17619,37 @@ setInterval(check,500);
 #meeting .voteStamp{display:none!important}
 #meeting .voteCard.voted .voteName::before{content:"✓";display:inline-grid;place-items:center;width:1.15em;height:1.15em;margin:0 .32em .1em 0;border-radius:50%;background:#123b34;border:1px solid #70ffc2;color:#70ffc2;font-size:.9em;font-weight:1000;vertical-align:middle;text-shadow:0 0 8px #53ffba88}
 #meeting #meetingTitle{font-size:clamp(16px,2vw,22px)!important;font-weight:1000!important;color:#fff!important;text-shadow:0 2px 8px #000,0 0 14px #ff4a5f99!important}
+</style>
+<style id="ssx-motion-reference-polish">
+/* Motion recipes adapted from https://motion-reference.takayustudio.jp/
+   Reference families used: snap-in, soft-rise, impact-squash, arc-travel,
+   list-cascade, heavy-stop, highlight-sweep and focus-halo. */
+:root{--ss-motion-enter:cubic-bezier(.16,1,.3,1);--ss-motion-settle:cubic-bezier(.2,.82,.22,1);--ss-motion-overshoot:cubic-bezier(.18,1.24,.32,1)}
+#meetingIntro:not(.hidden):not([data-kind="scales"]) .effectCard{transform-origin:50% 45%;animation:ssMotionMeetingImpact .82s var(--ss-motion-overshoot) both}
+#meetingIntro[data-kind="scales"] .effectCard{transform-origin:50% 48%;animation:ssMotionScaleReveal .72s var(--ss-motion-enter) both}
+@keyframes ssMotionMeetingImpact{0%{opacity:0;transform:translateY(-28px) scale(.84) rotate(-1.5deg);filter:blur(9px)}52%{opacity:1;transform:translateY(5px) scale(1.045) rotate(.35deg);filter:blur(0)}74%{transform:translateY(-2px) scale(.988)}100%{opacity:1;transform:none;filter:none}}
+@keyframes ssMotionScaleReveal{0%{opacity:0;transform:translateY(18px) scale(.92);filter:blur(5px)}65%{opacity:1;transform:translateY(-3px) scale(1.025);filter:none}100%{opacity:1;transform:none}}
+#voteResultList>.voteResultRow{animation:ssMotionRowCascade .66s var(--ss-motion-enter) both;animation-delay:calc(var(--motion-order,0)*75ms)}
+@keyframes ssMotionRowCascade{0%{opacity:0;transform:translateY(16px) scale(.965);filter:blur(3px)}72%{opacity:1;transform:translateY(-2px) scale(1.008);filter:none}100%{opacity:1;transform:none}}
+.voteToken{position:relative;flex:0 0 22px;width:22px;height:22px;margin:2px 3px;border:2px solid #e7f3ff;border-radius:50%;background-color:var(--tokc,#8798aa);background-image:radial-gradient(circle at 31% 25%,#fff 0 8%,#ffffff88 10% 19%,transparent 22%),radial-gradient(circle at 72% 78%,#0007,transparent 58%);box-shadow:0 3px 8px #0008,inset 0 -2px 3px #0004;vertical-align:middle;animation:ssMotionVoteLand .64s var(--ss-motion-overshoot) both}
+@keyframes ssMotionVoteLand{0%{opacity:0;transform:translateY(-22px) scale(.28) rotate(-120deg)}62%{opacity:1;transform:translateY(2px) scale(1.18) rotate(16deg)}82%{transform:translateY(-1px) scale(.94) rotate(-4deg)}100%{opacity:1;transform:none}}
+.motionVoteFlyer{position:fixed;z-index:10020;display:block;width:30px;height:30px;margin:-15px 0 0 -15px;pointer-events:none;border:2px solid #f2fbff;border-radius:50%;background:radial-gradient(circle at 31% 24%,#fff 0 9%,#ffffff99 12% 22%,transparent 25%),radial-gradient(circle at 68% 76%,#0008,transparent 58%),var(--vote-ball-color,#8193a4);box-shadow:0 0 0 5px color-mix(in srgb,var(--vote-ball-color,#8193a4) 28%,transparent),0 8px 22px #000b,inset 0 -3px 4px #0005;will-change:transform,opacity,filter}
+.voteResultCount.motionCountArrive{display:inline-block;transform-origin:50% 55%;animation:ssMotionCountArrive .48s var(--ss-motion-overshoot) both}
+@keyframes ssMotionCountArrive{0%{transform:scale(.72);filter:brightness(1)}48%{transform:scale(1.5);filter:brightness(1.9);text-shadow:0 0 18px #fff,0 0 28px #ffd23d}100%{transform:scale(1);filter:brightness(1);text-shadow:0 0 8px #ffd23d88}}
+#ejectResult:not(:empty){animation:ssMotionEjectText .72s var(--ss-motion-enter) both}
+@keyframes ssMotionEjectText{0%{opacity:0;transform:translateY(12px) scale(.94);filter:blur(4px)}70%{opacity:1;transform:translateY(-2px) scale(1.015);filter:none}100%{opacity:1;transform:none}}
+#taskGame:not(.hidden) .card,#reactorTask:not(.hidden) .card{animation:ssMotionTaskOpen .54s var(--ss-motion-enter) both}
+@keyframes ssMotionTaskOpen{0%{opacity:0;transform:translateY(14px) scale(.975);filter:blur(3px)}100%{opacity:1;transform:none;filter:none}}
+.card.motionTaskComplete{animation:ssMotionTaskComplete .78s var(--ss-motion-overshoot) both!important}
+@keyframes ssMotionTaskComplete{0%{transform:scale(1);filter:brightness(1)}35%{transform:scale(1.035);filter:brightness(1.28) saturate(1.2);box-shadow:0 0 32px #5dffa077}68%{transform:scale(.992);filter:brightness(1.08)}100%{transform:none;filter:none}}
+#ventTravel:not(.hidden){animation:ssMotionVentAppear .58s var(--ss-motion-enter) both}
+@keyframes ssMotionVentAppear{0%{opacity:0;transform:translateY(12px) scale(.9);filter:blur(8px)}68%{opacity:1;transform:translateY(-2px) scale(1.018);filter:blur(0)}100%{opacity:1;transform:none}}
+#costumeStudio:not(.hidden) #costumeStudioPreview{animation:ssMotionCostumeScan .7s var(--ss-motion-enter) both}
+@keyframes ssMotionCostumeScan{0%{opacity:0;transform:scale(.965);filter:brightness(1.5) saturate(.65)}62%{opacity:1;transform:scale(1.008);filter:brightness(1.08)}100%{opacity:1;transform:none;filter:none}}
+@media(prefers-reduced-motion:reduce){
+  #meetingIntro:not(.hidden) .effectCard,#voteResultList>.voteResultRow,.voteToken,.voteResultCount.motionCountArrive,#ejectResult:not(:empty),#taskGame:not(.hidden) .card,#reactorTask:not(.hidden) .card,.card.motionTaskComplete,#ventTravel:not(.hidden),#costumeStudio:not(.hidden) #costumeStudioPreview{animation:none!important;filter:none!important;transform:none!important}
+  .motionVoteFlyer{display:none!important}
+}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
