@@ -6713,17 +6713,16 @@ function roomHumanIsOnline(player,cutoff){
   const seen=Number(player.lastSeenAt??player.updatedAt);
   return !Number.isFinite(seen)||seen>=cutoff;
 }
-function roomNeedsCleanup(room,stamp=now()){
+function roomNeedsCleanup(room,stamp=now(),summary=null){
   if(!room)return true;
   const cutoff=stamp-ROOM_PRESENCE_GRACE_MS;
   const roster=room.players||{};
-  const phase=room.game?.phase||room.phase||"lobby";
-  if(["play","meeting","results"].includes(phase))return false;
+  const summaryConfirmsEmpty=Number(summary?.onlineCount)===0&&Number(summary?.updatedAt||0)<cutoff;
   if(Object.keys(room.activeConnections||{}).length)return false;
   const humanPlayers=Object.values(roster).filter(player=>player&&player.bot!==true);
-  if(humanPlayers.some(player=>roomHumanIsOnline(player,cutoff)||Number(player.updatedAt)>=cutoff))return false;
+  if(!summaryConfirmsEmpty&&humanPlayers.some(player=>roomHumanIsOnline(player,cutoff)||Number(player.updatedAt)>=cutoff))return false;
   const host=roster[room.hostId];
-  if(host?.disconnectMode==="left"&&humanPlayers.some(player=>player!==host&&Number(player.updatedAt)>=cutoff))return false;
+  if(!summaryConfirmsEmpty&&host?.disconnectMode==="left"&&humanPlayers.some(player=>player!==host&&Number(player.updatedAt)>=cutoff))return false;
   return Number(room.createdAt)<cutoff;
 }
 async function cleanupInactiveRoomSummaries(summaries){
@@ -6742,9 +6741,9 @@ async function cleanupInactiveRoomSummaries(summaries){
           await remove(ref(db,"roomSummaries/"+roomCode));removedRooms.push(roomCode);continue;
         }
         const observedRoom=roomSnapshot.val(),createdAt=Number(observedRoom.createdAt);
-        if(!Number.isFinite(createdAt)||!roomNeedsCleanup(observedRoom))continue;
+        if(!Number.isFinite(createdAt)||!roomNeedsCleanup(observedRoom,now(),summary))continue;
         const deleted=await runTransaction(ref(db,"rooms/"+roomCode),current=>{
-          if(!current||Number(current.createdAt)!==createdAt||!roomNeedsCleanup(current))return;
+          if(!current||Number(current.createdAt)!==createdAt||!roomNeedsCleanup(current,now(),summary))return;
           return null;
         },{applyLocally:false});
         if(!deleted.committed)continue;
@@ -6782,7 +6781,6 @@ function startRoomCleanupLoop(){
       await cleanupInactiveRoomSummaries(snapshot.val()||{});
     }catch(error){console.warn("オフライン部屋の自動削除確認に失敗しました",error);}
   };
-  void sweepOfflineRooms();
   roomCleanupTimer=setInterval(async()=>{
     await sweepOfflineRooms();
   },60000);
