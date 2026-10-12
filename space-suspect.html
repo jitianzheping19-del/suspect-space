@@ -6486,7 +6486,13 @@ const player = applyAccountCostume(room.players?.[uid] || makePlayer(),room.play
 async function joinAvailableRoom() {
       if (!connected) throw new Error("Firebaseとの接続を待ってください");
       await loadAccountCostume();
-      const snapshot = await get(query(ref(db,"roomSummaries"),orderByChild("updatedAt"),limitToLast(100)));
+      let snapshot;
+      try{snapshot=await get(query(ref(db,"roomSummaries"),orderByChild("updatedAt"),limitToLast(100)));}
+      catch(error){
+        if(!isMissingRoomSummaryIndex(error))throw error;
+        console.warn("roomSummaries のFirebase indexが未反映のため、参加先をローカルで選びます",error);
+        snapshot=await get(ref(db,"roomSummaries"));
+      }
       const candidates = [];
       for (const [roomCode, summary] of Object.entries(snapshot.val() || {})) {
         const online = Number(summary.onlineCount)||0;
@@ -6760,7 +6766,17 @@ function startRoomCleanupLoop(){
     try{
       const constraints=[orderByChild("updatedAt"),limitToFirst(100)];
       if(roomCleanupCursor)constraints.push(startAfter(roomCleanupCursor.at,roomCleanupCursor.id));
-      const snapshot=await get(query(ref(db,"roomSummaries"),...constraints));
+      let snapshot;
+      try{snapshot=await get(query(ref(db,"roomSummaries"),...constraints));}
+      catch(error){
+        if(!isMissingRoomSummaryIndex(error))throw error;
+        const all=Object.entries((await get(ref(db,"roomSummaries"))).val()||{}).sort((a,b)=>(Number(a[1]?.updatedAt)||0)-(Number(b[1]?.updatedAt)||0)||String(a[0]).localeCompare(String(b[0])));
+        const afterCursor=roomCleanupCursor?all.filter(([id,summary])=>{const at=Number(summary?.updatedAt)||0,cursorAt=Number(roomCleanupCursor.at)||0;return at>cursorAt||(at===cursorAt&&String(id)>String(roomCleanupCursor.id));}):all;
+        const batch=afterCursor.slice(0,100),entries=batch.map(([id,summary])=>({id,at:summary?.updatedAt??null}));
+        roomCleanupCursor=entries.length===100?entries[entries.length-1]:null;
+        await cleanupInactiveRoomSummaries(Object.fromEntries(batch));
+        return;
+      }
       const entries=[];snapshot.forEach(child=>entries.push({id:child.key,at:child.val()?.updatedAt??null}));
       roomCleanupCursor=entries.length===100?entries[entries.length-1]:null;
       await cleanupInactiveRoomSummaries(snapshot.val()||{});
@@ -6799,6 +6815,9 @@ $("roomInviteHide").onclick=()=>hideRoomInvite();
 let inviteSwipeStartY=null;
 $("roomInviteBanner").addEventListener("pointerdown",event=>{inviteSwipeStartY=event.clientY;});
 $("roomInviteBanner").addEventListener("pointerup",event=>{if(inviteSwipeStartY!==null&&inviteSwipeStartY-event.clientY>45)hideRoomInvite();inviteSwipeStartY=null;});
+function isMissingRoomSummaryIndex(error){
+  return /index not defined|unspecified index|\.indexOn/i.test(String(error?.message||error||""));
+}
 async function loadRoomList(){
   const list=$("roomBrowserList"),empty=$("roomBrowserEmpty");
   if(!list||setupMode!=="online")return;
@@ -6813,8 +6832,22 @@ async function loadRoomList(){
       profileCache=lemonProfile;profileCacheUid=uid;profileCacheAt=now();
     }
     if(isLemonAdmin)startRoomCleanupLoop();
-    const [snapshot,staleOfflineSummaries,staleOnlineSummaries]=await Promise.all([get(query(ref(db,"roomSummaries"),orderByChild("updatedAt"),limitToLast(50))),get(query(ref(db,"roomSummaries"),orderByChild("hostOnline"),equalTo(false),limitToLast(20))),get(query(ref(db,"roomSummaries"),orderByChild("hostOnline"),equalTo(true),limitToLast(20)))]),rooms=[];
-    const latestSummaries=snapshot.val()||{},summaryRows={...latestSummaries,...(staleOfflineSummaries.val()||{}),...(staleOnlineSummaries.val()||{})};
+    let latestSummaries,summaryRows;
+    try{
+      const [snapshot,staleOfflineSummaries,staleOnlineSummaries]=await Promise.all([get(query(ref(db,"roomSummaries"),orderByChild("updatedAt"),limitToLast(50))),get(query(ref(db,"roomSummaries"),orderByChild("hostOnline"),equalTo(false),limitToLast(20))),get(query(ref(db,"roomSummaries"),orderByChild("hostOnline"),equalTo(true),limitToLast(20)))]);
+      latestSummaries=snapshot.val()||{};
+      summaryRows={...latestSummaries,...(staleOfflineSummaries.val()||{}),...(staleOnlineSummaries.val()||{})};
+    }catch(error){
+      if(!isMissingRoomSummaryIndex(error))throw error;
+      console.warn("roomSummaries のFirebase indexが未反映のため、部屋一覧をローカルで並べ替えます",error);
+      const allSummaries=Object.entries((await get(ref(db,"roomSummaries"))).val()||{});
+      const byUpdatedAt=(a,b)=>(Number(a[1]?.updatedAt)||0)-(Number(b[1]?.updatedAt)||0);
+      latestSummaries=Object.fromEntries([...allSummaries].sort(byUpdatedAt).slice(-50));
+      const offlineRows=allSummaries.filter(([,summary])=>summary?.hostOnline===false).sort(byUpdatedAt).slice(-20);
+      const onlineRows=allSummaries.filter(([,summary])=>summary?.hostOnline===true).sort(byUpdatedAt).slice(-20);
+      summaryRows={...latestSummaries,...Object.fromEntries(offlineRows),...Object.fromEntries(onlineRows)};
+    }
+    const rooms=[];
     const oldSupplements=Object.entries(summaryRows).filter(([roomCode])=>!Object.prototype.hasOwnProperty.call(latestSummaries,roomCode)).slice(-20);
     const recentSuspects=Object.entries(latestSummaries).filter(([,summary])=>summary?.hostOnline!==true||(Number(summary.onlineCount)||0)<=0||!["lobby","play","meeting","results","ended"].includes(summary.phase)).sort((a,b)=>(Number(b[1]?.updatedAt)||0)-(Number(a[1]?.updatedAt)||0)).slice(0,20);
     const supplements=[...oldSupplements,...recentSuspects.filter(([roomCode])=>!oldSupplements.some(row=>row[0]===roomCode))];
