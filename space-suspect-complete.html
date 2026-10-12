@@ -1573,7 +1573,6 @@
   #nameGate{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:center;width:min(430px,100%);margin:18px auto 0;padding:0;border:0;background:transparent}
   #nameGate.hidden{display:none!important}
   #nameGate input{min-width:0;width:100%;min-height:52px;margin:0;padding:12px 15px;border:1px solid #628aa2;border-radius:12px;background:#0a1d2e;color:#f4fbff;font-size:17px}
-  #nameGate #loginBtn{display:none!important}
   #setup #titleMenu .titleAction small{display:none}
   #setup #setupMessage{display:none}
   #setup.nameGateActive .titleCosmos{display:none!important}
@@ -2381,7 +2380,7 @@ body[data-phase="meeting"] #roundRoleBtn{position:fixed!important;left:auto!impo
   <path d="M33 38c0-4 3-7 8-7 3 0 6 1 8 3l-3 4c-1-1-3-2-5-2-2 0-3 1-3 2 0 4 12 1 12 9 0 5-4 8-10 8-4 0-8-2-10-5l4-3c2 2 4 3 6 3 2 0 4-1 4-3 0-4-11-1-11-9Z" fill="#071522"/>
   <circle cx="69" cy="19" r="4" fill="#ffdc83" stroke="#071522" stroke-width="2"/>
 </svg><h1>SPACE<br><span>SUSPECT</span></h1></header>
-      <form id="nameGate" class="hidden" autocomplete="on"><label for="loginNameInput">名前を入力</label><input id="loginNameInput" maxlength="16" autocomplete="nickname" placeholder="例：そら" aria-describedby="loginNameHelp"><input id="loginPasswordInput" type="password" minlength="6" maxlength="64" autocomplete="current-password" placeholder="パスワード（6文字以上）" style="margin-top:6px"><small id="loginNameHelp">ゲーム内で表示する名前を入力してください。</small><button id="loginBtn" class="primary" type="submit">ログイン</button><small id="loginHint" style="display:block;opacity:.8">アカウントがない場合は、新しいパスワードを入力してください。</small><button id="createAccountBtn" type="button" class="hidden">新規作成</button><button id="loginBackBtn" type="button" class="hidden secondary" style="margin-top:6px">パスワードを入れ直す</button><small id="createWarn" class="hidden" style="color:#ffb3a8;display:block">パスワードは後から変更できません。</small></form>
+      <form id="nameGate" class="hidden" autocomplete="on"><label id="loginNameLabel" for="loginNameInput">名前を入力</label><input id="loginNameInput" maxlength="16" autocomplete="nickname" placeholder="例：そら" aria-describedby="loginNameHelp"><label id="loginPasswordLabel" for="loginPasswordInput">パスワード</label><input id="loginPasswordInput" type="password" minlength="6" maxlength="64" autocomplete="current-password" placeholder="パスワード（6文字以上）" style="margin-top:6px"><small id="loginNameHelp">ゲーム内で表示する名前を入力してください。</small><button id="loginBtn" class="primary" type="submit">ログイン</button><small id="loginHint" style="display:block;opacity:.8">初めて使う場合は「新規登録」からパスワードを決定してください。</small><button id="createAccountBtn" type="button" class="secondary">新規登録・パスワード設定</button><button id="loginBackBtn" type="button" class="hidden secondary" style="margin-top:6px">ログインへ戻る</button><small id="createWarn" class="hidden" style="color:#ffb3a8;display:block">パスワードは後から変更できません。</small></form>
       <button id="profileOpenBtn" class="hidden">⚙ 設定</button>
       <nav id="titleMenu" aria-label="メインメニュー">
         <button id="titleOnline" class="titleAction">部屋に参加 <small>部屋コード入力・参加可能な部屋から選択</small></button>
@@ -3359,20 +3358,21 @@ async function authenticatePassword(password,create,api){
     catch(error){if(error.code==="auth/email-already-in-use")throw new Error("このパスワードは既に使われています。");throw api.explain(error);}}
   try{return {...await api.signIn(email,password),isNewAccount:false,isNameAccount:true};}
   catch(error){
-    if(error.code==="auth/user-not-found"||error.code==="auth/invalid-credential"||error.code==="auth/wrong-password"){const e=new Error("アカウントがありません。新しいパスワードです。アカウント名を入力して登録してください。");e.newPassword=true;throw e;}
+    if(error.code==="auth/user-not-found"||error.code==="auth/invalid-credential"||error.code==="auth/wrong-password"){const e=new Error("このパスワードのアカウントはありません。新規登録で名前とパスワードを決定してください。");e.newPassword=true;throw e;}
     throw api.explain(error);}}
 function setLoginMode(create){loginCreateMode=!!create;
-  const name=$("loginNameInput"),label=document.querySelector('label[for="loginNameInput"]'),help=$("loginNameHelp"),warn=$("createWarn"),pw=$("loginPasswordInput"),hint=$("loginHint");
+  const name=$("loginNameInput"),label=$("loginNameLabel"),help=$("loginNameHelp"),warn=$("createWarn"),pw=$("loginPasswordInput"),pwLabel=$("loginPasswordLabel"),hint=$("loginHint");
   [name,label,help].forEach(el=>{if(el)el.classList.toggle("hidden",!create);});
-  if(pw)pw.classList.toggle("hidden",create);
+  if(pw){pw.classList.remove("hidden");pw.autocomplete=create?"new-password":"current-password";pw.placeholder=create?"新しいパスワード（6文字以上）":"パスワード（6文字以上）";}
+  if(pwLabel)pwLabel.textContent=create?"決定するパスワード":"パスワード";
   if(warn)warn.classList.toggle("hidden",!create);
   if(hint)hint.classList.toggle("hidden",create);
-  $("loginBtn").textContent=create?"登録":"ログイン";
-  $("createAccountBtn")?.classList.add("hidden");
+  $("loginBtn").textContent=create?"パスワードを決定して登録":"ログイン";
+  $("createAccountBtn")?.classList.toggle("hidden",create);
   $("loginBackBtn")?.classList.toggle("hidden",!create);
-  if(!create&&pw)pw.value=pw.value;
-  $("setupMessage").textContent=create?"アカウント名を入力して登録してください。パスワードは後から変更できません。":"パスワードを入力してログインしてください。";}
+  $("setupMessage").textContent=create?"表示名と6文字以上のパスワードを入力し、「パスワードを決定して登録」を押してください。":"パスワードを入力してログインしてください。";}
 setLoginMode(false);
+$("createAccountBtn")?.addEventListener("click",()=>{setLoginMode(true);$("loginNameInput")?.focus();});
 $("loginBackBtn")?.addEventListener("click",()=>{setLoginMode(false);$("loginPasswordInput")?.focus();});
 
 RULES.rules.nicknames={"$uid":{".read":"auth != null && auth.uid === $uid","$target":{".write":"auth != null && auth.uid === $uid",".validate":"newData.isString() && newData.val().length <= 12"}}};
@@ -6094,7 +6094,7 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         }
         if(connectGeneration!==firebaseConnectGeneration)return;
         stableNameAccount=result.isNameAccount===true;
-        saveStored("space-suspect-account-name",requestedName);
+        saveStored("space-suspect-account-name",loginCreateMode?typedName:requestedName);
 
         if(connectGeneration!==firebaseConnectGeneration)return;
         const accountUid=result.user.uid;uid=accountUid;
@@ -17117,6 +17117,7 @@ if (!byId("ssxExperienceStyles")) document.head.insertAdjacentHTML("beforeend", 
   #settingsPlayerMount .row{display:flex;gap:8px;flex-wrap:wrap}
   #settingsPlayerMount #profileMessage{min-height:1.4em;margin:0}
   #nameGate label{font-size:14px;font-weight:800;color:#e6f6ff}#nameGate small{color:#b9ccdd;font-size:12px;line-height:1.45}
+  #nameGate #loginBtn,#nameGate #createAccountBtn,#nameGate #loginBackBtn{width:100%;min-height:48px;margin-top:4px;font-weight:850}
   #roomBrowserEmpty{min-height:1.4em}
   @media(max-width:600px){#inputSettingsNav{margin-inline:-2px}#inputSettingsNav button{padding-inline:9px}}
 
