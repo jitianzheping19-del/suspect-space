@@ -1784,6 +1784,26 @@
 #voteResult.ejecting #eject3DStage{display:grid!important}#voteResult.ejecting #eject3DStage:empty{display:none!important}
 #eject3DStage .eject3DCell{position:relative;min-width:0;min-height:0;overflow:hidden}
 #eject3DStage iframe{display:block;width:100%;height:100%;border:0;background:#04060d}
+.tableExecutionScene{position:absolute;inset:0;z-index:3;overflow:hidden;pointer-events:none;background:radial-gradient(ellipse at 50% 52%,#16314c 0,#091727 52%,#020711 100%);animation:tableSceneFade .42s 1.22s ease-out forwards}
+.tableExecutionStars{position:absolute;inset:0;opacity:.45;background-image:radial-gradient(#d9f5ff 1px,transparent 1.6px),radial-gradient(#72b7e8 1px,transparent 1.8px);background-size:47px 41px,73px 67px;background-position:7px 4px,24px 19px}
+.tableExecutionTop{position:absolute;top:8%;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:3px;color:#b9eaff;text-shadow:0 2px 8px #000;font-size:clamp(10px,2vw,14px);letter-spacing:.18em;font-weight:900}
+.tableExecutionTop b{color:#fff;font-size:clamp(13px,2.6vw,19px);letter-spacing:.04em}
+.tableExecutionDisk{position:absolute;width:min(60%,320px);height:min(55%,155px);left:50%;top:56%;transform:translate(-50%,-50%) rotateX(58deg);border-radius:50%;background:linear-gradient(140deg,#4384a1,#173d5c 70%);border:7px solid #93d9ea;box-shadow:0 0 0 5px #345973,0 16px 30px #000c,inset 0 0 0 3px #d6ffff66,inset 0 -18px 20px #071827}
+.tableExecutionDisk i{position:absolute;inset:12%;border:2px solid #a9e9f777;border-radius:50%}.tableExecutionDisk i+i{inset:25%;border-color:#d8faff55}
+.tableExecutionVictim{position:absolute;left:50%;top:50%;width:44px;height:78px;transform:translate(-50%,-50%) rotate(86deg);border-radius:23px 23px 17px 17px;background:linear-gradient(115deg,#ffffff55,var(--suit) 30%,#102536);border:3px solid #081522;box-shadow:inset -8px -5px 0 #0004,0 5px 12px #0009;animation:tableVictimDrop .62s .06s cubic-bezier(.12,.75,.24,1) both}
+.tableExecutionVisor{position:absolute;left:8px;top:8px;width:28px;height:15px;border-radius:50%;background:linear-gradient(150deg,#ecffff,#7ddaf2 65%,#2b6f94);border:2px solid #152536;box-shadow:0 0 8px #91efff}
+.tableExecutionPack{position:absolute;right:-8px;top:26px;width:14px;height:27px;border-radius:6px;background:linear-gradient(90deg,#142638,#658ca0);border:2px solid #0c1c2a}
+.tableExecutionVictim span{position:absolute;left:17px;bottom:-11px;width:10px;height:18px;border-radius:5px;background:var(--suit);box-shadow:13px 0 0 var(--suit)}
+.tableExecutionBlade{position:absolute;left:50%;top:47%;width:5px;height:76px;border-radius:5px;background:linear-gradient(#fff,#a9f3ff 36%,#49d6ff 70%,transparent);box-shadow:0 0 12px #7feaff,0 0 26px #35c8ff;transform:translate(-50%,-50%) rotate(42deg);opacity:0;animation:tableBladeStrike .42s .69s ease-in both}
+.tableExecutionImpact{position:absolute;left:50%;top:53%;width:24px;height:24px;border:3px solid #e8fbff;border-radius:50%;transform:translate(-50%,-50%) scale(.2);opacity:0;box-shadow:0 0 22px #53d9ff;animation:tableImpact .5s .99s ease-out both}
+.tableExecutionSparks{position:absolute;left:50%;top:53%;width:0;height:0}.tableExecutionSparks i{position:absolute;width:5px;height:13px;border-radius:4px;background:#a9f7ff;box-shadow:0 0 8px #49cfff;opacity:0;animation:tableSpark .48s 1s ease-out both}
+.tableExecutionSparks i:nth-child(1){--sx:-45px;--sy:-23px}.tableExecutionSparks i:nth-child(2){--sx:37px;--sy:-28px}.tableExecutionSparks i:nth-child(3){--sx:-28px;--sy:34px}.tableExecutionSparks i:nth-child(4){--sx:46px;--sy:22px}.tableExecutionSparks i:nth-child(5){--sx:-12px;--sy:-46px}.tableExecutionSparks i:nth-child(6){--sx:18px;--sy:43px}.tableExecutionSparks i:nth-child(7){--sx:-53px;--sy:5px}.tableExecutionSparks i:nth-child(8){--sx:55px;--sy:-5px}
+@keyframes tableVictimDrop{0%{opacity:0;transform:translate(-50%,-145%) rotate(28deg) scale(.68)}65%{opacity:1;transform:translate(-50%,-40%) rotate(96deg) scale(1.08)}100%{opacity:1;transform:translate(-50%,-50%) rotate(86deg) scale(1)}}
+@keyframes tableBladeStrike{0%{opacity:0;transform:translate(-50%,-90%) rotate(42deg)}38%{opacity:1}100%{opacity:0;transform:translate(-50%,18%) rotate(42deg)}}
+@keyframes tableImpact{0%{opacity:.9;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(6)}}
+@keyframes tableSpark{0%{opacity:0;transform:translate(0,0) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translate(var(--sx),var(--sy)) rotate(95deg)}}
+@keyframes tableSceneFade{to{opacity:0;visibility:hidden}}
+@media(prefers-reduced-motion:reduce){.tableExecutionVictim{animation-duration:.2s}.tableExecutionBlade,.tableExecutionImpact,.tableExecutionSparks i{animation-duration:.2s}}
 @media(prefers-reduced-motion:reduce){#eject3DStage{height:210px!important}}
 </style><style id="mobileLandscapeUsabilityStyles">
 /* Mobile landscape controls and modal sizing (mobile-ui-finish-v1). */
@@ -2539,7 +2559,7 @@ body[data-phase="meeting"] #roundRoleBtn{position:fixed!important;left:auto!impo
           <strong>役職</strong>
           <div id="roleCategoryTabs" class="roleCategoryTabs" role="tablist" aria-label="役職の陣営">
             <button type="button" role="tab" aria-selected="true" data-role-tab="crew">市民 <span data-role-total="crew">追加0人</span></button>
-            <button type="button" role="tab" aria-selected="false" data-role-tab="impostor">人狼 <span data-role-total="impostor">追加0人</span></button>
+            <button type="button" role="tab" aria-selected="false" data-role-tab="impostor">人狼 <span data-role-total="impostor">合計1人</span></button>
             <button type="button" role="tab" aria-selected="false" data-role-tab="neutral">第3陣営 <span data-role-total="neutral">追加0人</span></button>
           </div>
           <p id="roleCapacityWarning" class="hidden" role="alert"></p>
@@ -4455,7 +4475,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
         addedRoleSlots[category]+=count*(role.id==="lovers"?2:1);
       }
       for(const category of Object.keys(addedRoleSlots)){
-        document.querySelectorAll(`[data-role-total="${category}"]`).forEach(target=>{target.textContent=`${addedRoleSlots[category]}人`;});
+        document.querySelectorAll(`[data-role-total="${category}"]`).forEach(target=>{target.textContent=category==="impostor"?`合計 ${impostorSlots}人`:`追加 ${addedRoleSlots[category]}人`;});
       }
       const impostorRoleSlots=ROLE_OPTIONS.filter(role=>role.side==="impostor"&&role.id!=="madmate").reduce((sum,role)=>sum+(counts[role.id]||0),0);
       const crewRoleSlots=ROLE_OPTIONS.filter(role=>(role.side==="crew"||role.side==="angel"||role.side==="both")&&!["madmate","blackCat"].includes(role.id)).reduce((sum,role)=>sum+(counts[role.id]||0),0);
@@ -4482,10 +4502,10 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       const headings={crew:"市民陣営",impostor:"人狼陣営",neutral:"第三陣営"};
       for(const [category,column] of Object.entries(columns)){column.className="roleFactionColumn";column.dataset.faction=category;const title=document.createElement("h3");title.textContent=headings[category];const total=document.createElement("span");total.className="roleFactionTotal";total.dataset.roleTotal=category;total.textContent="0人";title.append(total);column.append(title);list.append(column);}
       const baseRow=document.createElement("div");baseRow.className="roleSettingRow roleSettingBaseImpostor";baseRow.dataset.roleCategory="impostor";
-      const baseName=document.createElement("span");baseName.className="roleSettingName";baseName.textContent="インポスター（役なし）";
-      const baseDown=document.createElement("button");baseDown.type="button";baseDown.className="roleCountStep";baseDown.textContent="−";baseDown.setAttribute("aria-label","役なしインポスターを1人減らす");
-      const baseCount=document.createElement("input");baseCount.type="number";baseCount.min="1";baseCount.step="1";baseCount.value=String(Math.max(1,Number($("impostorCount")?.value)||1));baseCount.dataset.baseImpostorCount="true";baseCount.setAttribute("aria-label","役なしインポスターの人数");
-      const baseUp=document.createElement("button");baseUp.type="button";baseUp.className="roleCountStep";baseUp.textContent="＋";baseUp.setAttribute("aria-label","役なしインポスターを1人増やす");
+      const baseName=document.createElement("span");baseName.className="roleSettingName";baseName.textContent="インポスター合計（特殊役職を含む）";
+      const baseDown=document.createElement("button");baseDown.type="button";baseDown.className="roleCountStep";baseDown.textContent="−";baseDown.setAttribute("aria-label","人狼陣営の合計人数を1人減らす");
+      const baseCount=document.createElement("input");baseCount.type="number";baseCount.min="1";baseCount.step="1";baseCount.value=String(Math.max(1,Number($("impostorCount")?.value)||1));baseCount.dataset.baseImpostorCount="true";baseCount.setAttribute("aria-label","人狼陣営の合計人数");
+      const baseUp=document.createElement("button");baseUp.type="button";baseUp.className="roleCountStep";baseUp.textContent="＋";baseUp.setAttribute("aria-label","人狼陣営の合計人数を1人増やす");
       const baseOut=document.createElement("output");baseOut.className="roleSettingCount";baseOut.textContent=`${baseCount.value}人`;baseRow.append(baseName,baseDown,baseCount,baseUp,baseOut);columns.impostor.append(baseRow);
       const syncBase=()=>{const value=Math.max(1,Math.trunc(Number(baseCount.value)||1));baseCount.value=String(value);$("impostorCount").value=String(value);baseRow.dataset.count=String(value);baseOut.textContent=`${value}人`;updateRoleCategoryCounts();queueLobbySettingsSave();};
       baseCount.addEventListener("input",syncBase);baseCount.addEventListener("change",syncBase);
@@ -11601,7 +11621,7 @@ function ssxRocketLaunchNow(ctx,ownerId){
     const loc=ssxTargetLocation(id,target,players,botPositions);
     if(!target.alive||target.disconnected||!ssxConnected(target,loc)){delete target.rocketCapturedBy;delete target.rocketCapturedAt;delete target.rocketCaptureX;delete target.rocketCaptureZ;continue;}
     const location={x:Number(target.rocketCaptureX??loc?.x??target.x)||0,z:Number(target.rocketCaptureZ??loc?.z??target.z)||0};
-    if(recordDeath(g,id,ownerId,location,{moveKiller:false,cause:"rocket"}))targets.push(id);
+    if(recordDeath(g,id,ownerId,location,{moveKiller:false,cause:"rocket"})){targets.push(id);if(g.bodies)delete g.bodies[id];}
     delete target.rocketCapturedBy;delete target.rocketCapturedAt;delete target.rocketCaptureX;delete target.rocketCaptureZ;
   }
   delete owner.rocketLaunchPending;delete owner.rocketPendingAfterMeeting;delete owner.rocketLaunchLockUntil;
@@ -11650,8 +11670,9 @@ function ssxRoleAbility(ctx){
     if(["rocketLaunch","launchRocket","launch"].includes(ability)){
       if(!captives.length){ssxSpecialResult(ctx,false,"発射する対象を捕獲してください。");return true;}
       if(p.rocketLaunchPending){ssxSpecialResult(ctx,false,"ロケットはすでに発射準備中です。");return true;}
-      p.rocketLaunchPending=true;p.rocketLaunchStartedAt=now;p.rocketLaunchLockUntil=now+620;p.abilityEvent=token();
-      ssxEmit(g,"rocket-launch",actor,{x:Number(loc?.x)||0,z:Number(loc?.z)||0,targets:captives.map(([id])=>id),startedAt:now,fireAt:now+620,endsAt:now+1380,stage:"charging"});
+      p.rocketLaunchPending=true;p.rocketLaunchStartedAt=now;p.rocketLaunchLockUntil=now+900;p.abilityEvent=token();
+      const targetPositions=Object.fromEntries(captives.map(([id,q])=>[id,{x:Number(q.rocketCaptureX??q.x)||0,z:Number(q.rocketCaptureZ??q.z)||0}]));
+      ssxEmit(g,"rocket-launch",actor,{x:Number(loc?.x)||0,z:Number(loc?.z)||0,targets:captives.map(([id])=>id),targetPositions,startedAt:now,fireAt:now+900,endsAt:now+3100,stage:"charging"});
       ssxSpecialResult(ctx,true,"ロケットを発射します。");ssxSpecialDirty(ctx);return true;
     }
   }
@@ -11755,11 +11776,12 @@ function ssxSpecialTick(ctx){
     if(p.rocketPendingAfterMeeting&&g.phase==="play"){
       const captives=ssxRocketCaptives(g,id);
       if(!p.alive||p.disconnected||!captives.length){ssxRocketRelease(g,id);changed=true;continue;}
-      p.rocketPendingAfterMeeting=false;p.rocketLaunchPending=true;p.rocketLaunchStartedAt=now;p.rocketLaunchLockUntil=now+620;
-      ssxEmit(g,"rocket-launch",id,{x:Number(p.x)||0,z:Number(p.z)||0,targets:captives.map(([targetId])=>targetId),startedAt:now,fireAt:now+620,endsAt:now+1380,stage:"charging"});changed=true;
+      p.rocketPendingAfterMeeting=false;p.rocketLaunchPending=true;p.rocketLaunchStartedAt=now;p.rocketLaunchLockUntil=now+900;
+      const targetPositions=Object.fromEntries(captives.map(([targetId,q])=>[targetId,{x:Number(q.rocketCaptureX??q.x)||0,z:Number(q.rocketCaptureZ??q.z)||0}]));
+      ssxEmit(g,"rocket-launch",id,{x:Number(p.x)||0,z:Number(p.z)||0,targets:captives.map(([targetId])=>targetId),targetPositions,startedAt:now,fireAt:now+900,endsAt:now+3100,stage:"charging"});changed=true;
     }
     if(p.rocketLaunchPending&&(!p.alive||p.disconnected||g.phase!=="play")){ssxRocketRelease(g,id);changed=true;}
-    else if(p.rocketLaunchPending&&g.phase==="play"&&now>=Number(p.rocketLaunchStartedAt||0)+620){
+    else if(p.rocketLaunchPending&&g.phase==="play"&&now>=Number(p.rocketLaunchStartedAt||0)+900){
       ssxRocketLaunchNow({g,now,players,botPositions},id);changed=true;
     }
     if(ssxIsRocket(p)&&(!p.alive||p.disconnected||!ssxConnected(p,ssxTargetLocation(id,p,players,botPositions)))&&!p.rocketLaunchPending&&!p.rocketPendingAfterMeeting){if(ssxRocketCaptives(g,id).length){ssxRocketRelease(g,id);changed=true;}continue;}
@@ -11844,23 +11866,41 @@ function ssxCreateRocketCaptureEffect({THREE,scene,event,ownerId,stamp}){
   },particleBudget.release);
 }
 function ssxCreateRocketLaunchEffect({THREE,scene,event,ownerId,stamp}){
-  if(!ssxRocketEffectViewerAllowed(event,ownerId))return {update(){return false;},dispose(){}};
-  const particleBudget=ssxReserveFxParticles(30),actorId=event.by,reduced=reducedMotionQuery?.matches===true;
+  const targets=(Array.isArray(event.targets)?event.targets:[]).slice(0,20),reduced=reducedMotionQuery?.matches===true;
+  if(!targets.length)return {update(){return false;},dispose(){}};
+  const particleBudget=ssxReserveFxParticles(Math.min(120,Math.max(48,targets.length*10)));
   const group=new THREE.Group(),materials=[],geometries=[],M=(c,o)=>{const m=ssxFxMaterial(THREE,c,o);materials.push(m);return m;},G=g=>{geometries.push(g);return g;};
-  const flameM=[M(0xff542e,.85),M(0xff9c37,.72),M(0xffe1a0,.94)],smokeM=M(0xffa65a,.2),ringM=M(0xff7f44,.75);
-  const cones=[];for(let i=0;i<3;i++){const mesh=new THREE.Mesh(G(new THREE.ConeGeometry(.09+i*.055,.6+i*.27,9)),flameM[i]);mesh.rotation.z=Math.PI;mesh.position.y=.08-i*.08;group.add(mesh);cones.push(mesh);}
-  const ring=new THREE.Mesh(G(new THREE.TorusGeometry(.45,.034,8,38)),ringM);ring.rotation.x=Math.PI/2;group.add(ring);
-  const sparks=[];for(let i=0;i<particleBudget.count;i++){const mesh=new THREE.Mesh(G(new THREE.SphereGeometry(.018+(i%4)*.006,5,4)),M(i%3===0?0xffefaa:0xff6e40,.8));group.add(mesh);sparks.push(mesh);}
-  const started=Number(event.startedAt||event.at||stamp),fire=Number(event.fireAt||started+620),ends=Number(event.endsAt||fire+760);
+  const palette=[0xff4c68,0xffb640,0x72e7ff,0xf7faff,0x9a75ff],sparkMats=palette.map(color=>M(color,.98));
+  const ringGeo=G(new THREE.TorusGeometry(.54,.035,7,36)),rocketGeo=G(new THREE.ConeGeometry(.33,1,12)),sparkGeo=G(new THREE.SphereGeometry(.055,6,5));
+  const targetsFx=targets.map((id,index)=>{
+    const saved=event.targetPositions?.[id]||{},state=game.players?.[id]||{};
+    const origin={x:Number(saved.x??state.rocketCaptureX??state.x)||0,z:Number(saved.z??state.rocketCaptureZ??state.z)||0};
+    const ringMat=M(index%2?0xffaa45:0x6beaff,.82),trailMat=M(index%2?0xff792f:0x53d9ff,.72);
+    const ring=new THREE.Mesh(ringGeo,ringMat);ring.rotation.x=Math.PI/2;group.add(ring);
+    const inner=new THREE.Mesh(ringGeo,trailMat);inner.rotation.x=Math.PI/2;group.add(inner);
+    const trail=new THREE.Mesh(rocketGeo,trailMat);trail.position.set(origin.x,.5,origin.z);group.add(trail);
+    return {id,index,origin,ring,inner,trail,ringMat,trailMat};
+  });
+  const sparks=[];for(let i=0;i<particleBudget.count;i++){const spark=new THREE.Mesh(sparkGeo,sparkMats[i%palette.length]);spark.visible=false;group.add(spark);const targetIndex=i%targetsFx.length,seed=(i+1)*(targetIndex+3)*12.9898,angle=(seed%6283)/1000,y=.12+((seed*7)%760)/1000,flat=Math.sqrt(Math.max(.05,1-y*y));sparks.push({mesh:spark,targetIndex,dir:new THREE.Vector3(Math.cos(angle)*flat,y,Math.sin(angle)*flat)});}
+  const started=Number(event.startedAt||event.at||stamp),fire=Number(event.fireAt||started+900),flightMs=900,burstAt=fire+flightMs*.82,ends=Number(event.endsAt||burstAt+1250);
+  group.position.set(0,0,0);
   return ssxFxLifecycle(THREE,scene,event,group,materials,geometries,nowStamp=>{
     const t=nowStamp-started;if(t>=ends-started)return false;
-    const owner=game.players?.[actorId],pose=players?.[actorId]||owner;if(!owner||!pose)return false;
-    group.position.set(Number(pose.x)||Number(event.x)||0,.28,Number(pose.z)||Number(event.z)||0);
-    const charge=clamp(t/Math.max(1,fire-started),0,1),flight=clamp((t-(fire-started))/Math.max(1,ends-fire),0,1),launch=t>=fire;
-    group.rotation.y=Number(pose.yaw)||0;group.rotation.x=0;
-    group.scale.set(1+(reduced?0:charge*.18),1+(reduced?0:charge*.4),1+(reduced?0:charge*.18));ring.scale.setScalar(reduced?1:.7+charge*.8+flight*.65);ringM.opacity=(1-flight)*.7;
-    for(let i=0;i<3;i++){cones[i].scale.y=reduced?1:launch?1-flight*.85:.25+charge*1.1;flameM[i].opacity=launch?(1-flight)*.8:.32+charge*.58;}
-    for(let i=0;i<sparks.length;i++){const a=i*2.399963+started*.001,r=.32+(reduced?0:flight*(.35+(i%5)*.09)),rise=reduced?0:launch?flight*(.4+(i%7)*.18):.06*Math.sin(nowStamp*.008+i);sparks[i].position.set(Math.cos(a)*r,rise,Math.sin(a)*r);sparks[i].visible=launch&&!reduced;}
+    const charge=clamp(t/Math.max(1,fire-started),0,1),flight=clamp((nowStamp-fire)/flightMs,0,1),sinceBurst=nowStamp-burstAt,burst=sinceBurst>=0,burstProgress=clamp(sinceBurst/1050,0,1);
+    for(const fx of targetsFx){
+      const {origin,index,id}=fx,phase=(index%3)*.04;
+      fx.ring.position.set(origin.x,.08,origin.z);fx.inner.position.set(origin.x,.1,origin.z);
+      fx.ring.scale.setScalar(.55+charge*.7);fx.inner.scale.setScalar(.32+charge*.52);fx.ringMat.opacity=burst?Math.max(0,1-burstProgress)*.65:.42+.36*charge;
+      fx.trailMat.opacity=flight>0&&!burst?Math.max(0,1-flight)*.75:0;fx.trail.position.set(origin.x,Math.max(.25,flight*3.9+phase),origin.z);fx.trail.scale.set(1,Math.max(.01,flight*7),1);fx.trail.visible=flight>0&&!burst;
+      const avatar=avatars?.get?.(id);
+      if(avatar&&nowStamp<ends){avatar.visible=true;avatar.position.x=origin.x;avatar.position.z=origin.z;avatar.position.y=8.2*(reduced?flight:flight*flight*(3-2*flight));if(!reduced)avatar.rotation.z=Math.sin((nowStamp-fire)*.012+index)*.055*(1-flight);const disappear=clamp((nowStamp-burstAt)/460,0,.98),scale=.84*(1-disappear);avatar.scale.set(scale,scale,scale);}
+    }
+    for(const item of sparks){
+      const fx=targetsFx[item.targetIndex],spark=item.mesh;spark.visible=burst&&burstProgress<1&&sinceBurst>item.targetIndex*45;
+      if(!spark.visible)continue;
+      const age=clamp((sinceBurst-item.targetIndex*45)/930,0,1),radius=age*(2.5+(item.targetIndex%3)*.35),originY=8.1;
+      spark.position.set(fx.origin.x+item.dir.x*radius,originY+item.dir.y*radius-2.5*age*age,fx.origin.z+item.dir.z*radius);spark.scale.setScalar(.65+Math.sin(age*Math.PI)*.9);spark.material.opacity=Math.max(0,(1-age)*.98);
+    }
     return true;
   },particleBudget.release);
 }
@@ -13756,8 +13796,12 @@ function startVoteEjection3D(players,resultId){
   const entries=ejected.map((player,index)=>{
     const cell=document.createElement("div"),frame=document.createElement("iframe"),id=runId+":"+index;
     cell.className="eject3DCell";frame.title="追放演出："+String(player?.name||"プレイヤー");frame.setAttribute("allow","autoplay");
-    cell.append(frame);host.append(cell);
-    frame.addEventListener("load",()=>{if(!active)return;const remainingMs=Math.max(100,resultUntil-now()-80),timeScale=clamp(rawDuration/remainingMs,1,16);frame.contentWindow?.postMessage({type:"ss-vote-eject-start",id,name:String(player?.name||"プレイヤー"),hue:Number(player?.hue),role:revealMode==="none"?"crew":(player?.role==="impostor"?"impostor":"crew"),subrole:String(player?.subrole||""),visibility:revealMode,remaining:livingImpostors,volume,timeScale,durationMs:remainingMs},"*");},{once:true});
+    const tableScene=document.createElement("div");tableScene.className="tableExecutionScene";tableScene.setAttribute("aria-label",String(player?.name||"プレイヤー")+"が会議テーブルで処刑される演出");
+    tableScene.style.setProperty("--suit",`hsl(${Math.round(((Number(player?.hue)||.55)%1)*360)} 72% 52%)`);
+    tableScene.innerHTML='<div class="tableExecutionStars"></div><div class="tableExecutionTop"><span>投票執行</span><b></b></div><div class="tableExecutionDisk"><i></i><i></i></div><div class="tableExecutionVictim"><i class="tableExecutionPack"></i><i class="tableExecutionVisor"></i><span></span></div><div class="tableExecutionBlade"></div><div class="tableExecutionImpact"></div><div class="tableExecutionSparks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>';
+    tableScene.querySelector(".tableExecutionTop b").textContent=String(player?.name||"プレイヤー");
+    cell.append(frame,tableScene);host.append(cell);
+    frame.addEventListener("load",()=>{if(!active)return;setTimeout(()=>{if(!active)return;const remainingMs=Math.max(100,resultUntil-now()-80),timeScale=clamp(rawDuration/remainingMs,1,16);frame.contentWindow?.postMessage({type:"ss-vote-eject-start",id,name:String(player?.name||"プレイヤー"),hue:Number(player?.hue),role:revealMode==="none"?"crew":(player?.role==="impostor"?"impostor":"crew"),subrole:String(player?.subrole||""),visibility:revealMode,remaining:livingImpostors,volume,timeScale,durationMs:remainingMs},"*");},1050);},{once:true});
     frame.srcdoc=VOTE_EJECTION_SRCDOC;return {frame,id};
   });
   const completed=new Set();let active=true,watchRaf=0,disposeTimer=0;
@@ -15171,14 +15215,14 @@ function frame(time) {
         const loc={x:Number(killEvent.x)||0,z:Number(killEvent.z)||0};
         const ownVictim=killEvent.victim===uid;
         const canSeeImpact=ownVictim||viewerGhost||viewerObserver||((me?.alive===true)&&distance(position,loc)<=range&&!wallBetween(position,loc));
-        const roleRenderedElsewhere=["penguin","penguinFinish","samurai","samuraiSlash","suicideBomber","slugger","sluggerSwing"].includes(killEvent.cause);
+        const roleRenderedElsewhere=["penguin","penguinFinish","samurai","samuraiSlash","suicideBomber","slugger","sluggerSwing","rocket"].includes(killEvent.cause);
         if(age>=0&&age<1500&&canSeeImpact&&!roleRenderedElsewhere)createKillImpactVisual(killEvent);
       }
       updateKillImpactVisuals(now());
       updateCauseDeathVisuals(now());
       updateModRoleEffects(game,THREE,scene,uid,now());
       const localCarrier=me?.penguinCapturedBy||me?.rocketCapturedBy,carrierState=localCarrier?game.players?.[localCarrier]:null,carrierPose=localCarrier?(carrierState?.bot?carrierState:(players?.[localCarrier]||carrierState)):null;
-      if(localCarrier&&Number.isFinite(Number(carrierPose?.x))&&Number.isFinite(Number(carrierPose?.z))){position.x=Number(carrierPose.x);position.z=Number(carrierPose.z);lastSent={x:position.x,z:position.z,at:now(),yaw:Number(carrierPose.yaw)||0,walking:false};penguinLocalCarrier=localCarrier;}
+      if(localCarrier&&Number.isFinite(Number(carrierPose?.x))&&Number.isFinite(Number(carrierPose?.z))){const follow=1-Math.exp(-Math.min(.05,rdt)*15);position.x+=(Number(carrierPose.x)-position.x)*follow;position.z+=(Number(carrierPose.z)-position.z)*follow;lastSent={x:position.x,z:position.z,at:now(),yaw:Number(carrierPose.yaw)||0,walking:false};penguinLocalCarrier=localCarrier;}
       else if(penguinLocalCarrier){penguinLocalCarrier="";lastSent={x:999,z:999,at:0};}
       const souls=me?.subrole==="seer"?(game.souls||{}):{};
       for(const [soulId,mesh] of seerSoulMeshes){
@@ -15273,7 +15317,8 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         }
       }
 
-      const poseReceivedAt=performance.now(),poseWallNow=now();
+      const poseReceivedAt=performance.now(),poseWallNow=now(),rocketFlightEvents=new Map();
+      for(const event of game.modRoleEvents||[])if(event?.type==="rocket-launch"){const fireAt=Number(event.fireAt)||Number(event.startedAt)||Number(event.at)||0,endsAt=Number(event.endsAt)||fireAt+2200;if(poseWallNow<=endsAt)for(const targetId of event.targets||[])rocketFlightEvents.set(String(targetId),{event,fireAt,endsAt});}
       for (const [id, p] of Object.entries(players)) {
         if (!p || p.online !== true || !hasDisplayableName(p.name)) continue;
         let avatar = avatars.get(id);
@@ -15284,10 +15329,10 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
           avatars.set(id, avatar);
         }
 
-        const state = game.players?.[id];
+        const state = game.players?.[id],rocketFlight=rocketFlightEvents.get(id),rocketFlightActive=!!rocketFlight&&poseWallNow<=rocketFlight.endsAt;
         if(id!==uid)captureRemotePose(avatar,p,poseReceivedAt,poseWallNow);
         const inRound = game.phase !== "lobby";
-        let ghost = inRound && state && (!state.alive||state.observer) && (id!==uid || performance.now()>=deathPauseUntil);
+        let ghost = inRound && state && (!state.alive||state.observer) && (id!==uid || performance.now()>=deathPauseUntil) && !rocketFlightActive;
         const viewerGhost = game.players?.[uid]?.alive === false && !game.players?.[uid]?.observer;
         const viewerObserver = !!game.players?.[uid]?.observer;
         const viewerCanSeeRoles=viewerGhost||viewerObserver||me?.subrole==="god";
@@ -15299,7 +15344,7 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         const recentDeathAt=Number(game.deathRecords?.[id]?.at||state?.deathAt||0),deathAgeRender=now()-recentDeathAt;
         const matchingKillEvent=game.killEvent?.victim===id&&Math.abs(Number(game.killEvent.at)-recentDeathAt)<1200;
         const deathPosition=game.bodies?.[id]||(matchingKillEvent?game.killEvent:p);
-        const deathFall=matchingKillEvent&&state?.alive===false&&recentDeathAt>0&&deathAgeRender>=0&&deathAgeRender<3000&&
+        const deathFall=!rocketFlightActive&&matchingKillEvent&&state?.alive===false&&recentDeathAt>0&&deathAgeRender>=0&&deathAgeRender<3000&&
           (id===uid||viewerGhost||viewerObserver||viewerCanSeeRoles||(me?.alive===true&&distance(position,deathPosition)<=viewRange&&!wallBetween(position,deathPosition)));
         if(deathFall)ghost=false;
         if(deathFall){const killerState=game.players?.[state?.killedById]||null;playMapKillFxOnce(id,p.x,p.z,game.deathRecords?.[id]?.at||state?.deathAt||0,{role:killerState?.role||"",subrole:killerState?.subrole||""});}
@@ -15309,15 +15354,18 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
 avatar.visible = !!code && p.online &&
           (!inRound || !!state) && !state?.ventId &&
           !state?.disconnected &&
-          (!ghost || id === uid || viewerGhost || viewerObserver || me?.subrole==="necromancer") &&
-          (!inRound || ghost || visibleToPlayer || viewerObserver || deathFall) && !phantomHidden;
+          (!ghost || id === uid || viewerGhost || viewerObserver || me?.subrole==="necromancer" || rocketFlightActive) &&
+          (!inRound || ghost || visibleToPlayer || viewerObserver || deathFall || rocketFlightActive) && !phantomHidden;
 
 const remotePose=id===uid?null:sampleRemotePose(avatar,poseReceivedAt-REMOTE_POSE_DELAY_MS);
 let target = id === uid ? position : deathFall ? deathPosition : (remotePose||p);
-if(id!==uid&&(state?.penguinCapturedBy||state?.rocketCapturedBy)){const carrier=avatars.get(state.penguinCapturedBy||state.rocketCapturedBy);if(carrier?.visible)target={x:carrier.position.x,z:carrier.position.z};}
+const captiveBy=state?.rocketCapturedBy||state?.penguinCapturedBy;
+const carrier=captiveBy?avatars.get(captiveBy):null;
+const captiveFollow=id!==uid&&!!captiveBy&&!!carrier?.visible;
+if(captiveFollow)target={x:carrier.position.x,z:carrier.position.z};
         const oldX = avatar.position.x;
         const oldZ = avatar.position.z;
-const smooth = 1;
+const smooth = captiveFollow ? 1-Math.exp(-Math.min(.05,dt)*18) : 1;
 
 avatar.position.x += (target.x - oldX) * smooth;
         avatar.position.z += (target.z - oldZ) * smooth;
@@ -15325,7 +15373,7 @@ avatar.position.x += (target.x - oldX) * smooth;
 const vx = avatar.position.x - oldX;
         const vz = avatar.position.z - oldZ;
         const travel=Math.hypot(vx,vz),movingSample=travel>.00004&&travel<2;
-if(movingSample){avatar.userData.walkingUntil=time+190;avatar.userData.walkSpeed=clamp(travel/Math.max(dt,.001),.7,4.5);}
+if(movingSample){avatar.userData.walkingUntil=time+300;avatar.userData.walkSpeed=clamp(travel/Math.max(dt,.001),.7,4.5);}
 const walking=movingSample||time<(Number(avatar.userData.walkingUntil)||0)||remotePose?.walking===true;
 const gaitTravel=movingSample?travel:walking?Math.max(.0008,(Number(avatar.userData.walkSpeed)||.9)*Math.max(dt,.001)):0;
 
@@ -15390,7 +15438,7 @@ if (walking && !(id===uid&&game.phase==="play"&&game.settings?.viewMode==="3d"))
         if(!reducedMotionQuery.matches)halo.rotation.z += dt * 1.8;
 
         legs.forEach(leg=>{leg.visible=!ghost;});
-        updateWalkCycle(avatar,legs,avatar.userData.body,gaitTravel,dt,walking,!ghost&&!state?.ventId&&!(p.seated||p.sitting||state?.seated||state?.sitting)&&!reducedMotionQuery.matches);
+        updateWalkCycle(avatar,legs,avatar.userData.body,gaitTravel,dt,walking,!ghost&&!state?.ventId&&!(p.seated||p.sitting||state?.seated||state?.sitting));
         updateAvatarStanding(avatar,!!(p.seated||p.sitting||state?.seated||state?.sitting),dt);
         const jumpAt=Math.max(id===uid&&localJump?.room===code&&localJump.round===game.round?Number(localJump.at)||0:0,Number(p.jumpAt)||0,Number(p.jumpStartedAt)||0,Number(state?.jumpAt)||0);
         if(id===uid&&game.phase==="play"&&game.settings?.viewMode==="3d"&&cameraPerspective==="first")avatar.visible=false;
