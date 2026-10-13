@@ -2505,8 +2505,8 @@ body[data-phase="meeting"] #roundRoleBtn{position:fixed!important;left:auto!impo
   <circle cx="69" cy="19" r="4" fill="#ffdc83" stroke="#071522" stroke-width="2"/>
 </svg><h1>SPACE<br><span>SUSPECT</span></h1></header>
       <form id="nameGate" class="hidden" autocomplete="on">
-        <label id="loginNameLabel" for="loginNameInput">アカウント名</label>
-        <input id="loginNameInput" maxlength="16" autocomplete="username" placeholder="以前のプレイヤー名" aria-describedby="loginNameHelp">
+        <label id="loginNameLabel" class="hidden" for="loginNameInput">名前</label>
+        <input id="loginNameInput" class="hidden" maxlength="16" autocomplete="username" placeholder="プレイヤー名" aria-describedby="loginNameHelp">
         <label id="loginPinLabel" for="loginPinInput">4桁のPIN</label>
         <input id="loginPinInput" type="password" inputmode="none" pattern="[0-9]{4}" maxlength="4" autocomplete="off" readonly aria-label="4桁PIN" placeholder="● ● ● ●">
         <div id="pinPad" role="group" aria-label="数字テンキー">
@@ -2517,13 +2517,13 @@ body[data-phase="meeting"] #roundRoleBtn{position:fixed!important;left:auto!impo
         </div>
         <label id="legacyPasswordLabel" class="hidden" for="legacyPasswordInput">以前のパスワード</label>
         <input id="legacyPasswordInput" class="hidden" type="password" autocomplete="current-password" placeholder="以前のパスワード">
-        <small id="loginNameHelp">アカウント名と4桁PINでログインします。</small>
+        <small id="loginNameHelp">ログインは4桁PINだけでできます。</small>
         <button id="loginBtn" class="primary" type="submit">ログイン</button>
-        <small id="loginHint" style="display:block;opacity:.8">以前のアカウントは、名前と旧パスワードから引き継げます。</small>
+        <small id="loginHint" style="display:block;opacity:.8">初めて使う場合は「アカウントを作成」から名前とPINを登録してください。</small>
         <button id="createAccountBtn" type="button" class="secondary">新しいアカウントを作成</button>
         <button id="migrateAccountBtn" type="button" class="secondary">以前のアカウントを引き継ぐ</button>
         <button id="loginBackBtn" type="button" class="hidden secondary">ログインへ戻る</button>
-            <small id="createWarn" class="hidden">4桁PINは忘れないようにしてください。別端末でも同じアカウント名とPINでログインできます。</small>
+            <small id="createWarn" class="hidden">PINはアカウントを見分ける番号です。使用中のPINは登録できません。</small>
       </form>
       <button id="profileOpenBtn" class="hidden">⚙ 設定</button>
       <nav id="titleMenu" aria-label="メインメニュー">
@@ -3305,74 +3305,99 @@ $("logoutBtn")?.addEventListener("click",async()=>{
     location.reload();
   }catch(err){toast("ログアウトできませんでした: "+(err?.message||err));}
 });
-/* ---------- account login: name + 4-digit PIN, with verified legacy migration ---------- */
+/* ---------- account login: a unique 4-digit PIN, with verified legacy migration ---------- */
 let loginMode="login";
-function normalizedAccountName(name){return String(name||"").normalize("NFKC").trim().toLocaleLowerCase("und").slice(0,16);}
+function normalizedAccountName(name){return String(name||"").normalize("NFKC").trim().toLowerCase().slice(0,16);}
 async function sha256Hex(value){const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(value)));return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");}
-async function derivePinCredential(name,pin){
-  const account=normalizedAccountName(name),digits=String(pin||"");
-  if(!account)throw new Error("アカウント名を入力してください。");
+async function derivePinCredential(pin){
+  const digits=String(pin||"");
   if(!/^\d{4}$/.test(digits))throw new Error("テンキーで4桁の数字を入力してください。");
+  const identityHash=await sha256Hex("space-suspect-pin-only-account-v1:"+digits);
+  const secretHash=await sha256Hex("space-suspect-pin-only-secret-v1:"+digits);
+  return {email:"s"+identityHash.slice(0,62)+"@accounts.space-suspect.invalid",password:"SSPINv2_"+secretHash};
+}
+async function derivePreviousNamePinCredential(name,pin){
+  const account=normalizedAccountName(name),digits=String(pin||"");
+  if(!account||!/^\d{4}$/.test(digits))throw new Error("以前のアカウント名と4桁PINを確認してください。");
   const identityHash=await sha256Hex("space-suspect-pin-account-v1:"+account+":"+digits);
   const secretHash=await sha256Hex("space-suspect-pin-secret-v1:"+account+":"+digits);
-  return {email:`s${identityHash.slice(0,62)}@accounts.space-suspect.invalid`,password:`SSPINv1_${secretHash}`,accountName:String(name).normalize("NFKC").trim().slice(0,16)};
+  return {email:"s"+identityHash.slice(0,62)+"@accounts.space-suspect.invalid",password:"SSPINv1_"+secretHash};
 }
 async function derivePasswordCredential(password){
   const value=String(password||"");
   if(!value)throw new Error("以前のパスワードを入力してください。");
   const digest=await sha256Hex("space-suspect-password-account-v3:"+value);
-  return {email:`pw-${digest}@accounts.space-suspect.invalid`,password:value};
+  return {email:"pw-"+digest+"@accounts.space-suspect.invalid",password:value};
 }
-async function authenticatePin(name,pin,create,api){
-  const credential=await derivePinCredential(name,pin);
+async function upgradeAccountToPin(user,next,api){
+  const oldEmail=user.email||"";
+  try{
+    if(oldEmail&&oldEmail!==next.email)await api.updateEmail(user,next.email);
+    await api.updatePassword(user,next.password);
+  }catch(error){
+    if(oldEmail&&oldEmail!==next.email){try{await api.updateEmail(user,oldEmail);}catch(rollbackError){console.error("PIN移行の復旧に失敗しました",rollbackError);}}
+    if(error.code==="auth/email-already-in-use"){const conflict=new Error("このPINは使用中です。別の4桁PINを設定してください。");conflict.code="ss/pin-in-use";throw conflict;}
+    throw api.explain(error);
+  }
+}
+async function authenticatePin(pin,create,api,accountName="",legacyNameFallback=""){
+  const credential=await derivePinCredential(pin),displayName=String(accountName||"").normalize("NFKC").trim().slice(0,16);
   if(create){
-    try{return {...await api.create(credential.email,credential.password),isNewAccount:true,isNameAccount:true,accountName:credential.accountName};}
-    catch(error){if(error.code==="auth/email-already-in-use")throw new Error("この組み合わせでは作成できませんでした。ログインを試すか、別のPINを設定してください。");throw api.explain(error);}}
-  try{return {...await api.signIn(credential.email,credential.password),isNewAccount:false,isNameAccount:true,accountName:credential.accountName};}
-  catch(error){if(error.code==="auth/user-not-found"||error.code==="auth/invalid-credential"||error.code==="auth/wrong-password"){throw new Error("アカウント名または4桁PINが違います。以前のアカウントなら「以前のアカウントを引き継ぐ」を選んでください。");}throw api.explain(error);}
+    if(!displayName)throw new Error("アカウント作成時は名前を入力してください。");
+    try{return {...await api.create(credential.email,credential.password),isNewAccount:true,isNameAccount:true,accountName:displayName};}
+    catch(error){if(error.code==="auth/email-already-in-use")throw new Error("このPINは使用中です。別の4桁PINを設定してください。");throw api.explain(error);}}
+  try{return {...await api.signIn(credential.email,credential.password),isNewAccount:false,isNameAccount:true};}
+  catch(error){
+    if(["auth/user-not-found","auth/invalid-credential","auth/wrong-password"].includes(error.code)&&legacyNameFallback){
+      let previous=null;
+      try{const old=await derivePreviousNamePinCredential(legacyNameFallback,pin);previous=await api.signIn(old.email,old.password);}catch{}
+      if(previous){
+        await upgradeAccountToPin(previous.user,credential,api);
+        return {...previous,isNewAccount:false,isNameAccount:true,accountName:legacyNameFallback,migrated:true};
+      }
+    }
+    if(["auth/user-not-found","auth/invalid-credential","auth/wrong-password"].includes(error.code))throw new Error("4桁PINが違います。");
+    throw api.explain(error);
+  }
 }
 async function migrateLegacyAccount(name,oldPassword,newPin,api){
   const accountName=String(name||"").normalize("NFKC").trim().slice(0,16);
   if(!normalizedAccountName(accountName))throw new Error("以前のアカウント名を入力してください。");
-  if(!String(oldPassword||""))throw new Error("以前のパスワードを入力してください。");
-  const next=await derivePinCredential(accountName,newPin);
-  const legacy=await derivePasswordCredential(oldPassword);
+  if(!String(oldPassword||""))throw new Error("以前のパスワードまたは4桁PINを入力してください。");
+  const next=await derivePinCredential(newPin);
   let user;
-  try{user=(await api.signIn(legacy.email,legacy.password)).user;}
-  catch(legacyError){
-    // Recover a retry after email migration succeeded but Firebase rejected a password update.
-    try{user=(await api.signIn(next.email,legacy.password)).user;}
-    catch{if(["auth/user-not-found","auth/invalid-credential","auth/wrong-password"].includes(legacyError.code))throw new Error("以前の名前またはパスワードを確認してください。");throw api.explain(legacyError);}
+  try{
+    const legacy=await derivePasswordCredential(oldPassword);
+    user=(await api.signIn(legacy.email,legacy.password)).user;
+  }catch(legacyError){
+    if(/^\d{4}$/.test(String(oldPassword||""))){
+      try{const old=await derivePreviousNamePinCredential(accountName,oldPassword);user=(await api.signIn(old.email,old.password)).user;}
+      catch(previousError){if(previousError?.code==="ss/pin-in-use")throw previousError;}
+    }
+    if(!user){if(["auth/user-not-found","auth/invalid-credential","auth/wrong-password"].includes(legacyError.code))throw new Error("以前の名前とパスワードを確認してください。");throw api.explain(legacyError);}
   }
   const profile=await api.getProfile(user.uid);
   if(!profile?.name||normalizedAccountName(profile.name)!==normalizedAccountName(accountName)){
     try{await api.signOut();}catch{}
-    throw new Error("入力した名前が以前のアカウントと一致しません。プロフィールに登録されている名前を入力してください。");
+    throw new Error("入力した名前が以前のアカウントと一致しません。登録していた名前を入力してください。");
   }
-  const oldEmail=user.email||legacy.email;
-  try{
-    if(oldEmail!==next.email)await api.updateEmail(user,next.email);
-    await api.updatePassword(user,next.password);
-  }catch(error){
-    if(oldEmail!==next.email){try{await api.updateEmail(user,oldEmail);}catch(rollbackError){console.error("アカウント引き継ぎの復旧に失敗しました",rollbackError);}}
-    if(error.code==="auth/email-already-in-use")throw new Error("このアカウント名は既に使われています。別の端末でログイン済みのアカウントか確認してください。");
-    throw api.explain(error);
-  }
+  await upgradeAccountToPin(user,next,api);
   return {user,isNewAccount:false,isNameAccount:true,accountName,migrated:true};
 }
 function setLoginMode(mode){
   loginMode=mode===true?"create":mode===false?"login":mode;
   if(!["login","create","migrate"].includes(loginMode))loginMode="login";
-  const create=loginMode==="create",migrate=loginMode==="migrate",name=$("loginNameInput");
+  const create=loginMode==="create",migrate=loginMode==="migrate",showName=create||migrate,name=$("loginNameInput");
   const pin=$("loginPinInput"),pinLabel=$("loginPinLabel"),old=$("legacyPasswordInput"),oldLabel=$("legacyPasswordLabel");
   const help=$("loginNameHelp"),warn=$("createWarn"),hint=$("loginHint");
-  [name,$("loginNameLabel"),help].forEach(el=>el?.classList.remove("hidden"));
-  if(name){name.autocomplete="username";name.placeholder=migrate?"以前のプレイヤー名":"アカウント名";}
-  if($("loginNameLabel"))$("loginNameLabel").textContent=migrate?"以前のアカウント名":"アカウント名";
+  name?.classList.toggle("hidden",!showName);$("loginNameLabel")?.classList.toggle("hidden",!showName);
+  if(name){name.autocomplete="username";name.placeholder=migrate?"以前のプレイヤー名":"プレイヤー名";}
+  if($("loginNameLabel"))$("loginNameLabel").textContent=migrate?"以前のアカウント名":"名前";
   if(pin)pin.classList.remove("hidden");if(pinLabel)pinLabel.classList.remove("hidden");$("pinPad")?.classList.remove("hidden");
   if(old)old.classList.toggle("hidden",!migrate);if(oldLabel)oldLabel.classList.toggle("hidden",!migrate);
-  if(pinLabel)pinLabel.textContent=migrate?"新しく設定する4桁PIN":"4桁のPIN";
-  if(help)help.textContent=migrate?"旧パスワードと以前の名前を確認して、同じアカウントのまま移行します。":create?"新しいアカウント名と4桁PINを設定します。":"登録時のアカウント名と4桁PINでログインします。";
+  if(pinLabel)pinLabel.textContent=migrate?"新しく設定する4桁PIN":create?"4桁PINを決める":"4桁PIN";
+  if(help)help.textContent=migrate?"旧アカウントを本人確認して、新しいPINへ移行します。":create?"名前と、まだ使われていない4桁PINを登録します。":"ログインは4桁PINだけでできます。";
+  if(old)old.placeholder="以前のパスワードまたは4桁PIN";
   if(warn)warn.classList.toggle("hidden",!create);
   if(hint)hint.classList.toggle("hidden",create||migrate);
   $("loginBtn").textContent=create?"アカウントを作成":migrate?"確認して引き継ぐ":"ログイン";
@@ -3380,7 +3405,7 @@ function setLoginMode(mode){
   $("migrateAccountBtn")?.classList.toggle("hidden",loginMode!=="login");
   $("loginBackBtn")?.classList.toggle("hidden",loginMode==="login");
   if(pin)pin.value="";if(old)old.value="";
-  if($("setupMessage"))$("setupMessage").textContent=create?"アカウント名と4桁PINを決めてください。":migrate?"以前の名前と旧パスワードを確認してから、4桁PINを設定してください。":"アカウント名と4桁PINを入力してください。";
+  if($("setupMessage"))$("setupMessage").textContent=create?"名前と4桁PINを決めてください。":migrate?"旧アカウントの名前とパスワードを確認します。":"4桁PINを入力してください。";
 }
 function enterPinDigit(value){const pin=$("loginPinInput");if(!pin)return;let current=String(pin.value||"");if(value==="clear")current="";else if(value==="backspace")current=current.slice(0,-1);else if(/^\d$/.test(value)&&current.length<4)current+=value;pin.value=current;pin.dispatchEvent(new Event("input",{bubbles:true}));}
 document.querySelectorAll("#pinPad .pinKey").forEach(button=>button.addEventListener("click",()=>{
@@ -6033,7 +6058,7 @@ async function copyText(text) {
     $("colorInput").value=readStored("space-suspect-color")||"#42c8f5";
     show("nameGate",skipAutoLoginOnce);
     show("titleMenu",false);
-    $("setupMessage").textContent = skipAutoLoginOnce ? "アカウント名と4桁PINを入力してください。" : "ログイン状態を復元しています…";
+    $("setupMessage").textContent = skipAutoLoginOnce ? "4桁PINを入力してください。" : "ログイン状態を復元しています…";
     if(!skipAutoLoginOnce){setTimeout(()=>connectFirebase(""),0);}
 
 function drawColorPreview() {
@@ -6113,7 +6138,7 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         await auth.authStateReady();
         const typedPin=$("loginPinInput")?.value||"";
         const oldPassword=$("legacyPasswordInput")?.value||"";
-        const typedName=$("loginNameInput")?.value.trim().slice(0,16)||"";
+        const typedName=loginMode==="login"?"":($("loginNameInput")?.value.trim().slice(0,16)||"");
         const accountApi={
           signIn:(email,password)=>signInWithEmailAndPassword(auth,email,password),
           create:(email,password)=>createUserWithEmailAndPassword(auth,email,password),
@@ -6127,10 +6152,10 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         if(!typedPin&&!oldPassword&&auth.currentUser){
           result={user:auth.currentUser,isNameAccount:!auth.currentUser.isAnonymous,isNewAccount:false,accountName:requestedName};
         }else{
-          if(!typedName)throw new Error(loginMode==="migrate"?"以前のアカウント名を入力してください。":"アカウント名を入力してください。");
+          if(loginMode!=="login"&&!typedName)throw new Error(loginMode==="migrate"?"以前のアカウント名を入力してください。":"アカウント作成時は名前を入力してください。");
           result=loginMode==="migrate"
             ?await migrateLegacyAccount(typedName,oldPassword,typedPin,accountApi)
-            :await authenticatePin(typedName,typedPin,loginMode==="create",accountApi);
+            :await authenticatePin(typedPin,loginMode==="create",accountApi,typedName,requestedName);
         }
         if(connectGeneration!==firebaseConnectGeneration)return;
         stableNameAccount=result.isNameAccount===true;
@@ -6141,7 +6166,7 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         firebaseConnectionPending=false;firebaseWasConnected=firebaseWasConnected||connected;renderFirebaseConnection();
         if(result.isNewAccount){await set(ref(db,`profiles/${accountUid}`),{name:typedName,color:$("colorInput").value||"#42c8f5",costume:""});}
         else{try{const snap=await get(ref(db,`profiles/${accountUid}`));const p=snap.val()||{};const localName=readStored("space-suspect-name")||"";
-          if(p.name){saveStored("space-suspect-name",p.name);$("nameInput").value=p.name;}
+          if(p.name){saveStored("space-suspect-name",p.name);saveStored("space-suspect-account-name",p.name);$("nameInput").value=p.name;$("loginNameInput").value=p.name;}
           else if(localName){await update(ref(db,`profiles/${accountUid}`),{name:localName,updatedAt:serverTimestamp()});}
         }catch(profileError){console.warn("アカウントの名前を読み込めませんでした",profileError);}}
         await loadProfileFieldsFromFirebase();
@@ -6155,7 +6180,7 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         $("setup").dataset.auth="ready";
         show("nameGate",false);show("titleMenu",true);show("profileOpenBtn",true);
         $("loginPinInput").value="";$("legacyPasswordInput").value="";setLoginMode("login");
-        $("setupMessage").textContent = result.migrated?"以前のアカウントを引き継ぎました。プロフィールと衣装はそのまま使えます。":stableNameAccount?"アカウント名と4桁PINでログインしました。プロフィールはFirebaseに保存されています。":"匿名ログインです。この名前のデータはこの端末に保存され、別端末とは共有されません。";
+        $("setupMessage").textContent = result.migrated?"以前のアカウントを引き継ぎました。プロフィールと衣装はそのまま使えます。":stableNameAccount?"4桁PINでログインしました。プロフィールはFirebaseに保存されています。":"匿名ログインです。この名前のデータはこの端末に保存され、別端末とは共有されません。";
         setSetupMode("home");
         if(connected)await maybeAutoReconnect();
       } catch (error) {
@@ -6234,15 +6259,15 @@ $("rulesText").value=JSON.stringify(RULES.rules,null,2);
 $("copyRules").onclick=()=>copyText($("rulesText").value);
 $("loginBtn").onclick = () => {
   const typedName=$("loginNameInput").value.trim().slice(0,16),pin=$("loginPinInput")?.value||"",oldPassword=$("legacyPasswordInput")?.value||"";
-  if(!typedName){$("setupMessage").textContent=loginMode==="migrate"?"以前のアカウント名を入力してください。":"アカウント名を入力してください。";return;}
+  if(loginMode!=="login"&&!typedName){$("setupMessage").textContent=loginMode==="migrate"?"以前のアカウント名を入力してください。":"名前を入力してください。";return;}
   if(!/^\d{4}$/.test(pin)){$("setupMessage").textContent="テンキーで4桁の数字を入力してください。";$("loginPinInput")?.focus();return;}
-  if(loginMode==="migrate"&&!oldPassword){$("setupMessage").textContent="以前のパスワードを入力してください。";$("legacyPasswordInput")?.focus();return;}
+  if(loginMode==="migrate"&&!oldPassword){$("setupMessage").textContent="以前のパスワードまたは4桁PINを入力してください。";$("legacyPasswordInput")?.focus();return;}
   if(loginMode==="create"){
     const priorName=readStored("space-suspect-name")||"";
     if(priorName&&!getNamedProfile(priorName))saveNamedProfile(priorName,{color:readStored("space-suspect-color"),costume:readStored("space-suspect-costume")});
     saveStored("space-suspect-name",typedName);$("nameInput").value=typedName;applyNamedProfile(typedName);loadProfileFields();
   }
-  connectFirebase(typedName);
+  connectFirebase(loginMode==="login"?"":typedName);
 };
 
 function loadProfileFields(){
