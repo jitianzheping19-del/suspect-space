@@ -91,7 +91,10 @@
         "players": {
           "$uid": {
             ".write": "auth != null && ((auth.uid === $uid && ((data.exists() && (root.child('rooms').child($room).child('game').child('phase').val() === 'lobby' || (root.child('rooms').child($room).child('game').child('players').child($uid).exists()) || root.child('rooms').child($room).child('game').child('spectateRequests').child($uid).child('approved').val() === true)) || (!data.exists() && (root.child('rooms').child($room).child('game').child('phase').val() === 'lobby' || root.child('rooms').child($room).child('game').child('invites').child($uid).child('accepted').val() === true || root.child('rooms').child($room).child('game').child('spectateRequests').child($uid).child('approved').val() === true)))) || (auth.uid === root.child('rooms').child($room).child('hostId').val() && newData.val() === null && ((data.child('online').val() === false && data.child('updatedAt').val() < now - 60000) || (!data.child('online').exists() && !data.child('name').exists()))))",
-            ".validate": "newData.hasChildren(['name','hue','x','z','online','updatedAt']) && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('hue').isNumber() && newData.child('hue').val() >= 0 && newData.child('hue').val() <= 1 && newData.child('x').isNumber() && newData.child('x').val() >= -45 && newData.child('x').val() <= 45 && newData.child('z').isNumber() && newData.child('z').val() >= -30 && newData.child('z').val() <= 30 && newData.child('online').isBoolean() && newData.child('updatedAt').isNumber()"
+            ".validate": "newData.hasChildren(['name','hue','x','z','online','updatedAt']) && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('hue').isNumber() && newData.child('hue').val() >= 0 && newData.child('hue').val() <= 1 && newData.child('x').isNumber() && newData.child('x').val() >= -45 && newData.child('x').val() <= 45 && newData.child('z').isNumber() && newData.child('z').val() >= -30 && newData.child('z').val() <= 30 && newData.child('online').isBoolean() && newData.child('updatedAt').isNumber()",
+            "cameraViewingAt": {
+              ".validate": "newData.isNumber() && newData.val() >= now - 15000 && newData.val() <= now + 1500"
+            }
           }
         },
         "positions": {
