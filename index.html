@@ -21901,7 +21901,9 @@ body:has(#sabotageMap:not(.hidden)) #audioSettingsPanel{
 #mapPanelHeader #mapCloseBtn:focus-visible,#sabotageMapHeader #sabotageMapClose:focus-visible{outline:3px solid #9cf4ff!important;outline-offset:2px!important}
 
 /* Let the live scene remain visible behind the role list, and use the modal width. */
-#roundRoles{z-index:1420!important;display:grid!important;place-items:center!important;padding:10px!important;background:rgba(3,10,18,.32)!important;backdrop-filter:blur(1.5px)!important;-webkit-backdrop-filter:blur(1.5px)!important}
+#roundRoles{z-index:1420!important;place-items:center!important;padding:10px!important;background:rgba(3,10,18,.32)!important;backdrop-filter:blur(1.5px)!important;-webkit-backdrop-filter:blur(1.5px)!important}
+#roundRoles:not(.hidden){display:grid!important}
+#roundRoles.hidden,#roundRoles[data-source].hidden{display:none!important;visibility:hidden!important;pointer-events:none!important}
 #roundRoles.autoLaunchRoles{background:rgba(3,10,18,.32)!important}
 #roundRoles:not(.autoLaunchRoles)>.card{box-sizing:border-box!important;width:min(1220px,calc(100vw - 20px))!important;max-width:none!important;max-height:calc(100dvh - 20px)!important;margin:auto!important;overflow:auto!important}
 #roundRoles.autoLaunchRoles>.card{box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:none!important;max-height:91dvh!important;margin:auto!important;overflow:auto!important}
