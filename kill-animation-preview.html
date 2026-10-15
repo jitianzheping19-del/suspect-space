@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07111f">
-  <title>SPACE SUSPECT | キルからゴースト化まで</title>
+  <title>SPACE SUSPECT | 被害者側キル演出プレビュー</title>
   <style>
     :root{color-scheme:dark;--ink:#eaf7ff;--muted:#96afc3;--cyan:#79e7ed;--line:#75c5d944;--panel:#091726;--accent:#ff526a}
     *{box-sizing:border-box}
@@ -51,7 +51,7 @@
     input[type=range]{width:100%;accent-color:#82edea;cursor:pointer}
     .speed{min-width:78px;height:42px;padding:0 9px;border:1px solid #496274;border-radius:10px;background:#0d1c2b;color:#d6e9f0;font-weight:800}
     .foot{padding:0 18px 13px;color:#7892a4;font-size:10px;line-height:1.5;background:#091523}
-    .flash{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 52%,#fff9 0%,#ffcbd244 27%,transparent 63%);opacity:0;pointer-events:none;mix-blend-mode:screen}
+    .flash{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 52%,#fff9 0%,#ff385b66 25%,transparent 65%);opacity:0;pointer-events:none;mix-blend-mode:screen}
     .flash.hit{animation:hitflash .38s ease-out}
     @keyframes hitflash{0%{opacity:0}17%{opacity:.88}38%{opacity:.12}55%{opacity:.35}100%{opacity:0}}
     @media(max-width:680px){
@@ -68,7 +68,7 @@
 <body>
   <main class="app" aria-label="キルアニメーションの再生プレビュー">
     <header class="top">
-      <div class="brand"><span class="mark" aria-hidden="true">S</span><div><strong>SPACE SUSPECT</strong><small>DEATH SEQUENCE PREVIEW</small></div></div>
+      <div class="brand"><span class="mark" aria-hidden="true">S</span><div><strong>SPACE SUSPECT</strong><small>VICTIM-SIDE DEATH PREVIEW</small></div></div>
       <div class="live"><i aria-hidden="true"></i><span>試合中 · 被害者視点</span></div>
     </header>
     <section class="stage" aria-label="試合中の3Dシーン">
@@ -111,7 +111,11 @@
     const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
     renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.setSize(stage.clientWidth,stage.clientHeight,false);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
     const scene=new THREE.Scene();scene.background=new THREE.Color('#071322');scene.fog=new THREE.Fog('#071322',15,31);
-    const camera=new THREE.PerspectiveCamera(40,stage.clientWidth/stage.clientHeight,.1,80);camera.position.set(0,4.15,8.7);camera.lookAt(0,.9,0);
+    const overlayScene=new THREE.Scene();
+    const camera=new THREE.PerspectiveCamera(48,stage.clientWidth/stage.clientHeight,.1,80);camera.position.set(0,3.15,8.6);camera.lookAt(0,1.1,0);
+    const overlayCamera=new THREE.OrthographicCamera(-4*stage.clientWidth/stage.clientHeight,4*stage.clientWidth/stage.clientHeight,4,-4,.1,60);overlayCamera.position.set(0,0,20);overlayCamera.lookAt(0,0,0);
+    renderer.autoClear=false;
+    overlayScene.add(new THREE.HemisphereLight(0xe9faff,0x526271,2.4));const overlayKey=new THREE.DirectionalLight(0xffffff,3.4);overlayKey.position.set(-3,6,8);overlayScene.add(overlayKey);
     scene.add(new THREE.HemisphereLight(0xa8edff,0x172433,2.15));
     const key=new THREE.DirectionalLight(0xe4f7ff,3.1);key.position.set(-4,9,5);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-10;key.shadow.camera.right=10;key.shadow.camera.top=10;key.shadow.camera.bottom=-10;scene.add(key);
     const fill=new THREE.PointLight(0x33cfdd,14,17,2);fill.position.set(-2,3.4,-1.5);scene.add(fill);
@@ -152,18 +156,21 @@
       const legs=[];for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.24,4,10),suit);leg.position.set(side*.24,.25,0);leg.castShadow=true;root.add(leg);legs.push(leg)}
       const arms=[];for(const side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.36,1.08,.02);root.add(arm);const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.3,4,9),suit);sleeve.position.y=-.04;sleeve.rotation.z=side*.08;sleeve.castShadow=true;arm.add(sleeve);arms.push(arm)}
       const labelCanvas=document.createElement('canvas');labelCanvas.width=512;labelCanvas.height=128;const g=labelCanvas.getContext('2d');g.clearRect(0,0,512,128);g.font='800 54px system-ui, sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=9;g.strokeStyle='#06101b';g.strokeText(name,256,64);g.fillStyle='#f4fbff';g.fillText(name,256,64);const labelTex=new THREE.CanvasTexture(labelCanvas);labelTex.colorSpace=THREE.SRGBColorSpace;const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTex,transparent:true,depthTest:false}));tag.scale.set(2.25,.56,1);tag.position.y=2.05;root.add(tag);
-      const halo=new THREE.Mesh(new THREE.TorusGeometry(.48,.048,8,36),new THREE.MeshBasicMaterial({color:'#bba7ff',transparent:true,opacity:0,depthWrite:false}));halo.rotation.x=Math.PI/2;halo.position.y=2.25;root.add(halo);
+      const halo=new THREE.Mesh(new THREE.TorusGeometry(.48,.048,8,36),new THREE.MeshBasicMaterial({color:'#bba7ff',transparent:true,opacity:0,depthWrite:false}));halo.position.y=2.25;root.add(halo);
       const ghostGlow=new THREE.Mesh(new THREE.CapsuleGeometry(.48,.5,5,12),new THREE.MeshBasicMaterial({color:'#a894ff',transparent:true,opacity:0,side:THREE.BackSide,depthWrite:false,blending:THREE.AdditiveBlending}));ghostGlow.position.y=1;root.add(ghostGlow);
       const knife=new THREE.Group();const handle=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.35,8),mat('#273441',.35,.7));handle.rotation.x=Math.PI/2;knife.add(handle);const blade=new THREE.Mesh(new THREE.BoxGeometry(.09,.035,.52),new THREE.MeshStandardMaterial({color:'#e9f7ff',metalness:.86,roughness:.15,emissive:'#a4eaff',emissiveIntensity:.22}));blade.position.z=.38;knife.add(blade);knife.position.set(0,-.05,.18);knife.rotation.x=.18;knife.visible=false;arms[1].add(knife);
-      root.userData={body,visor:visorMesh,legs,arms,tag,halo,ghostGlow,knife,suit,materials:[suit,visor]};scene.add(root);return root;
+      root.userData={body,visor:visorMesh,legs,arms,tag,halo,ghostGlow,knife,suit,materials:[suit,visor]};overlayScene.add(root);return root;
     }
     const victim=makeCrew('#46c4e6','レモンかす'),killer=makeCrew('#ee5368','');
-    const killerTagCanvas=document.createElement('canvas');killerTagCanvas.width=512;killerTagCanvas.height=128;{const g=killerTagCanvas.getContext('2d');g.font='900 52px system-ui';g.textAlign='center';g.textBaseline='middle';g.lineWidth=9;g.strokeStyle='#06101b';g.strokeText('???',256,64);g.fillStyle='#ff8592';g.fillText('???',256,64);const tx=new THREE.CanvasTexture(killerTagCanvas);tx.colorSpace=THREE.SRGBColorSpace;killer.userData.tag.material.map?.dispose?.();killer.userData.tag.material.map=tx;killer.userData.tag.material.needsUpdate=true;}
-    const corpse=new THREE.Group();corpse.visible=false;scene.add(corpse);const deadBody=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.48,5,12),mat('#398ea5',.52,.04));deadBody.scale.set(1,.34,.85);deadBody.rotation.z=Math.PI/2;deadBody.position.y=.23;corpse.add(deadBody);const deadVisor=new THREE.Mesh(new THREE.SphereGeometry(.27,16,12),mat('#9de5f4',.24,.4));deadVisor.scale.set(1,.56,.3);deadVisor.position.set(.12,.34,.24);corpse.add(deadVisor);
-    const slashMat=new THREE.MeshBasicMaterial({color:'#ff405d',transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});const slashShape=new THREE.Shape();slashShape.moveTo(-3,.05);slashShape.quadraticCurveTo(-.25,.58,3,.72);slashShape.lineTo(2.6,.43);slashShape.quadraticCurveTo(0,.12,-3,-.22);slashShape.closePath();const slash=new THREE.Mesh(new THREE.ShapeGeometry(slashShape,24),slashMat);slash.position.set(0,1.3,1.8);slash.scale.set(.001,.001,1);scene.add(slash);
-    const hitRing=new THREE.Mesh(new THREE.TorusGeometry(.5,.035,8,48),new THREE.MeshBasicMaterial({color:'#ffd6de',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));hitRing.rotation.x=Math.PI/2;hitRing.position.y=.1;scene.add(hitRing);
-    const sparks=[];for(let i=0;i<30;i++){const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+(i%3)*.012,0),new THREE.MeshBasicMaterial({color:i%3===0?'#fff2de':i%3===1?'#ff4d68':'#ffb0bf',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));scene.add(mesh);sparks.push({mesh,angle:i*2.3999632297,speed:.8+(i%7)*.17,up:.35+(i%5)*.13});}
-    const shadow=new THREE.Mesh(new THREE.CircleGeometry(.75,36),new THREE.MeshBasicMaterial({color:'#02060a',transparent:true,opacity:.35,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.set(-.35,.025,.25);scene.add(shadow);
+    victim.userData.tag.visible=false;killer.userData.tag.visible=false;
+    const cutGroup=new THREE.Group();cutGroup.position.set(0,.15,0);cutGroup.scale.set(.001,1,1);overlayScene.add(cutGroup);
+    function slashBand(points,color,opacity){const shape=new THREE.Shape();shape.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)shape.lineTo(points[i][0],points[i][1]);shape.closePath();const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,side:THREE.DoubleSide}));mesh.userData.baseOpacity=opacity;cutGroup.add(mesh);return mesh;}
+    slashBand([[-10,1.25],[-8.3,.95],[-6.8,1.05],[-5.2,.58],[-4,.82],[-2.6,.35],[-1,.55],[.5,.03],[2,.3],[4,-.34],[5.7,-.08],[7.4,-.62],[9,-.34],[10,-.68],[10,-1.35],[8,-1.02],[6.3,-1.2],[4.5,-.68],[2.8,-1.07],[1,-.65],[-1,-.98],[-3,-.54],[-4.5,-.94],[-6,-.43],[-8,-.77],[-10,-.43]],'#ae102d',.95);
+    slashBand([[-10,.95],[-8.2,.74],[-6.8,.84],[-5.2,.43],[-4,.65],[-2.6,.22],[-1,.4],[.5,-.08],[2,.13],[4,-.43],[5.7,-.2],[7.4,-.66],[9,-.43],[10,-.7],[10,-1.13],[8,-.86],[6.3,-1.02],[4.5,-.57],[2.8,-.86],[1,-.49],[-1,-.79],[-3,-.42],[-4.5,-.75],[-6,-.33],[-8,-.6],[-10,-.3]],'#f32b49',.98);
+    slashBand([[-10,.5],[-8.1,.48],[-6.7,.55],[-5.1,.28],[-4,.45],[-2.5,.12],[-1,.25],[.5,-.1],[2,.05],[4,-.35],[5.8,-.18],[7.4,-.5],[9,-.35],[10,-.49],[10,-.75],[8,-.62],[6.3,-.75],[4.5,-.41],[2.8,-.63],[1,-.35],[-1,-.56],[-3,-.3],[-4.5,-.54],[-6,-.22],[-8,-.42],[-10,-.16]],'#fff0e6',.98);
+    const hitRing=new THREE.Mesh(new THREE.TorusGeometry(.5,.035,8,48),new THREE.MeshBasicMaterial({color:'#ffd6de',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));hitRing.position.y=-1.15;hitRing.position.z=.7;overlayScene.add(hitRing);
+    const sparks=[];for(let i=0;i<30;i++){const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+(i%3)*.012,0),new THREE.MeshBasicMaterial({color:i%3===0?'#fff2de':i%3===1?'#ff4d68':'#ffb0bf',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));overlayScene.add(mesh);sparks.push({mesh,angle:i*2.3999632297,speed:.8+(i%7)*.17,up:.35+(i%5)*.13});}
+    const shadow=new THREE.Mesh(new THREE.CircleGeometry(.75,36),new THREE.MeshBasicMaterial({color:'#02060a',transparent:true,opacity:.35,depthWrite:false}));shadow.position.set(.65,-1.17,.55);shadow.scale.set(1,.28,1);overlayScene.add(shadow);
 
     const duration=7,clock=new THREE.Clock();let current=0,playing=false,playStart=0,fromTime=0,lastTime=0;
     const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)};const mix=(a,b,t)=>a+(b-a)*t;const between=(t,a,b)=>smooth((t-a)/(b-a));
@@ -171,37 +178,32 @@
     const stages=[{at:0,label:'通常プレイ',pill:'試合中 · タスクへ移動',cap:''},{at:1.5,label:'人狼が接近',pill:'試合中 · 接近に気づいていない',cap:'背後から接近'},{at:2.45,label:'キル発生',pill:'キルされました',cap:''},{at:3.35,label:'倒れる',pill:'死亡 · 幽霊化まで',cap:''},{at:4.55,label:'ゴースト化',pill:'ゴースト · 船内を見渡す',cap:'幽霊として試合に残る'}];
     let flashAt=-100;
     function updateAt(t){
-      current=Math.max(0,Math.min(duration,t));const approach=between(current,1.1,2.15),strike=between(current,2.27,2.48),fall=between(current,2.48,3.45),rise=between(current,3.7,4.65),ghost=between(current,4.15,5.0),leave=between(current,2.85,4.1);
-      victim.position.set(mix(-.22,-.55,between(current,.3,1.0)),0,mix(.15,.05,between(current,.3,1.0)));victim.rotation.y=-.34+strike*.16;
-      victim.position.y=-fall*.28+ghost*.72;victim.rotation.z=-fall*1.22+ghost*1.22;victim.rotation.x=.04*Math.sin(current*5)*(1-fall);
-      const walk= current<1.05?1:current<1.45?1-between(current,1.05,1.45):0;const step=Math.sin(current*10);
-      victim.userData.legs[0].rotation.x=step*.48*walk;victim.userData.legs[1].rotation.x=-step*.48*walk;victim.userData.arms[0].rotation.x=-step*.26*walk;victim.userData.arms[1].rotation.x=step*.26*walk;
-      // A short recoil precedes the fall; no black transition hides the game scene.
-      const recoil=(1-between(current,2.45,2.72))*strike;victim.position.x+=recoil*.12;victim.rotation.z-=recoil*.19;
-      const kp=between(current,0,2.25);killer.position.set(mix(2.7,.45,kp)+leave*2.6,0,mix(2.8,.78,kp)+leave*.22);killer.rotation.y=mix(-2.3,-Math.PI+0.28,kp)+leave*.18;
-      killer.userData.legs[0].rotation.x=-step*.4*(1-approach+leave);killer.userData.legs[1].rotation.x=step*.4*(1-approach+leave);killer.userData.arms[1].rotation.x=mix(0,-1.05,strike)*(1-leave);killer.userData.knife.visible=current>2.24&&current<2.85;killer.userData.knife.rotation.x=.18+strike*.9;
-      killer.visible=current<4.6;
-      const hit=between(current,2.38,2.52);slash.scale.set(Math.max(.001,hit*1.08),Math.max(.001,hit),1);slash.material.opacity=hit*.87*(1-between(current,2.53,2.77));slash.position.set(-.15,1.35,1.38);slash.rotation.z=-.17;
-      hitRing.position.set(victim.position.x,.09,victim.position.z);const ringAge=Math.max(0,current-2.42);hitRing.scale.setScalar(.45+ringAge*2.7);hitRing.material.opacity=current>2.4&&current<3.05?Math.max(0,.85-ringAge*1.3):0;
-      for(const [i,p] of sparks.entries()){const age=current-2.43;if(age>=0&&age<.75){const burst=smooth(age/.18),fade=1-smooth(age/.68),r=burst*age*p.speed;p.mesh.visible=true;p.mesh.position.set(victim.position.x+Math.cos(p.angle)*r,.72+p.up*age*2+Math.sin(i*5)*.06,victim.position.z+Math.sin(p.angle)*r);p.mesh.material.opacity=fade*.9;}else{p.mesh.visible=false;p.mesh.material.opacity=0;}}
-      corpse.visible=current>=3.25;corpse.position.set(-.55,.02,.05);corpse.rotation.y=-.35;corpse.scale.setScalar(.85+between(current,3.25,3.7)*.15);
-      const aliveOpacity=1-ghost*.58;for(const m of victim.userData.materials){m.transparent=ghost>.01;m.opacity=aliveOpacity;m.depthWrite=ghost<.05;}victim.userData.legs.forEach(l=>{l.visible=ghost<.92;});victim.userData.halo.visible=ghost>.08;victim.userData.halo.material.opacity=Math.min(.88,ghost*.9);victim.userData.halo.rotation.z=current*1.6;victim.userData.ghostGlow.material.opacity=ghost*.16;victim.userData.ghostGlow.scale.setScalar(1+ghost*.14);victim.userData.tag.material.opacity=1-ghost*.2;
-      shadow.material.opacity=.35*(1-ghost*.85);
+      current=Math.max(0,Math.min(duration,t));const approach=between(current,1.05,2.1),strike=between(current,2.22,2.46),fall=between(current,2.48,3.35),ghost=between(current,4.05,4.9),leave=between(current,3.1,4.0);const step=Math.sin(current*10);
+      // The room stays on the victim's live screen. Character models are rendered
+      // as a transparent center overlay, like the in-game kill animation.
+      const victimRecoil=(1-between(current,2.43,2.75))*strike;victim.visible=current>=1.48;victim.scale.setScalar(1.38);victim.position.set(.72+victimRecoil*.18-fall*.35,-1.55-fall*.08+ghost*.84,.35);victim.rotation.set(.03*Math.sin(current*4)*(1-fall),.08,-fall*1.08*(1-ghost)+ghost*.08-victimRecoil*.2);
+      const walk=current<1.05?1:1-between(current,1.05,1.5);victim.userData.legs[0].rotation.x=step*.38*walk;victim.userData.legs[1].rotation.x=-step*.38*walk;victim.userData.arms[0].rotation.x=-step*.22*walk;victim.userData.arms[1].rotation.x=step*.22*walk;
+      killer.visible=current>=1.1&&current<3.58;killer.scale.setScalar(1.38);killer.position.set(mix(-4.2,-1.05,approach)-leave*2.3,-1.55,.45);killer.rotation.set(0,.05+approach*.12,leave*.18);
+      killer.userData.legs[0].rotation.x=-step*.38*(1-approach+leave);killer.userData.legs[1].rotation.x=step*.38*(1-approach+leave);killer.userData.arms[1].rotation.x=mix(0,-1.2,strike)*(1-leave);killer.userData.knife.visible=current>2.22&&current<2.88;killer.userData.knife.rotation.x=.18+strike*.9;
+      const cut=between(current,2.32,2.48)*(1-between(current,2.82,3.02));cutGroup.scale.set(mix(.001,1.18,cut),1,1);cutGroup.position.x=mix(-1.1,0,cut);cutGroup.children.forEach(mesh=>mesh.material.opacity=mesh.userData.baseOpacity*cut);
+      const ringAge=Math.max(0,current-2.42);hitRing.position.set(.72,-.32,.8);hitRing.scale.setScalar(.45+ringAge*2.7);hitRing.material.opacity=current>2.4&&current<3.05?Math.max(0,.85-ringAge*1.3):0;
+      for(const [i,p] of sparks.entries()){const age=current-2.43;if(age>=0&&age<.75){const burst=smooth(age/.18),fade=1-smooth(age/.68),r=burst*age*p.speed;p.mesh.visible=true;p.mesh.position.set(.72+Math.cos(p.angle)*r,-.18+p.up*age*1.7+Math.sin(i*5)*.06,1.1+Math.sin(p.angle)*r);p.mesh.material.opacity=fade*.9;}else{p.mesh.visible=false;p.mesh.material.opacity=0;}}
+      const aliveOpacity=1-ghost*.48;for(const m of victim.userData.materials){m.transparent=ghost>.01;m.opacity=aliveOpacity;m.depthWrite=ghost<.05;}victim.userData.halo.visible=ghost>.08;victim.userData.halo.material.opacity=Math.min(.88,ghost*.9);victim.userData.halo.rotation.z=current*1.6;victim.userData.ghostGlow.material.opacity=ghost*.16;victim.userData.ghostGlow.scale.setScalar(1+ghost*.14);shadow.material.opacity=current>=1.48&&current<3.6?.25*(1-ghost*.8):0;
       let stageIndex=0;for(let i=0;i<stages.length;i++)if(current>=stages[i].at)stageIndex=i;const phase=stages[stageIndex];statePill.textContent=phase.pill;statePill.classList.toggle('ghost',stageIndex>=4);caption.textContent=phase.cap;caption.classList.toggle('show',!!phase.cap&&current<phase.at+1.12);ghostNotice.classList.toggle('show',current>=4.65&&current<6.7);
       timelineLabel.textContent=`${String(Math.floor(current/60)).padStart(2,'0')}:${(current%60).toFixed(1).padStart(4,'0')} · ${phase.label}`;
       document.querySelectorAll('.step').forEach((el,i)=>{const at=Number(el.dataset.at);el.classList.toggle('active',i===stageIndex);el.classList.toggle('past',i<stageIndex);});
       if(!scrubber.matches(':active'))scrubber.value=String(current);currentTime.textContent=current.toFixed(1)+'s';
-      const camTarget=new THREE.Vector3(mix(0,victim.position.x,.28),mix(.85,1.05,between(current,2.1,3.2)),mix(0,victim.position.z,.24));const basePos=new THREE.Vector3(0,4.15,8.7),closePos=new THREE.Vector3(0,3.05,6.05),pull=between(current,2.0,3.1);camera.position.lerpVectors(basePos,closePos,pull);camera.lookAt(camTarget);
       if(current>=2.42&&lastTime<2.42){flash.classList.remove('hit');void flash.offsetWidth;flash.classList.add('hit');}
-      lastTime=current;renderer.render(scene,camera);
+      lastTime=current;renderFrame();
     }
-    function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';}}else renderer.render(scene,camera);}
+    function renderFrame(){renderer.clear();renderer.render(scene,camera);renderer.clearDepth();renderer.render(overlayScene,overlayCamera);}
+    function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';}}else renderFrame();}
     function play(){if(current>=duration)updateAt(0);playing=true;fromTime=current;playStart=performance.now();playBtn.textContent='Ⅱ 一時停止';}
     playBtn.addEventListener('click',()=>{if(playing){playing=false;playBtn.textContent='▶ 再生';}else play();});
     document.querySelector('#replayBtn').addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(0);play();});
     scrubber.addEventListener('input',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(scrubber.value));});
     document.querySelectorAll('.step').forEach(el=>el.addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(el.dataset.at));}));
-    const resize=()=>{const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();renderer.render(scene,camera);};window.addEventListener('resize',resize);new ResizeObserver(resize).observe(stage);
+    const resize=()=>{const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();overlayCamera.left=-4*w/h;overlayCamera.right=4*w/h;overlayCamera.updateProjectionMatrix();renderFrame();};window.addEventListener('resize',resize);new ResizeObserver(resize).observe(stage);
     updateAt(0);requestAnimationFrame(frame);
   </script>
 </body>
