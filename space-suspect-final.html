@@ -9376,6 +9376,16 @@ const result = await runTransaction(
       throw new Error("部屋コードの発行に失敗しました。もう一度お試しください");
 }
 
+async function readRoomListingPresence(roomCode){
+  const base=`rooms/${roomCode}`;
+  const [hostSnap,createdSnap,playersSnap,phaseSnap]=await Promise.all([
+    get(ref(db,`${base}/hostId`)),get(ref(db,`${base}/createdAt`)),
+    get(ref(db,`${base}/players`)),get(ref(db,`${base}/game/phase`))
+  ]);
+  if(!hostSnap.exists())return null;
+  return {hostId:hostSnap.val(),createdAt:createdSnap.val(),players:playersSnap.val()||{},game:{phase:phaseSnap.val()||"lobby"}};
+}
+
 async function readRoomBootstrap(roomCode){
   const base=`rooms/${roomCode}`;
   const [hostSnap,createdSnap,playersSnap,phaseSnap,ownGamePlayerSnap,inviteSnap,lobbySettingsSnap,roundSnap]=await Promise.all([
@@ -9666,7 +9676,7 @@ function syncRoomSummary(roomCode=code){
   const expectedSession=session;
   roomSummaryTimer=setTimeout(()=>{
     if(expectedSession!==session||roomCode!==code||!isHost()||leaving)return;
-    const onlineCount=Object.values(players||{}).filter(player=>player?.online===true).length;
+    const onlineCount=Object.values(players||{}).filter(player=>roomHumanIsOnline(player,now()-ROOM_PRESENCE_GRACE_MS)).length;
     const summary={hostId,hostName:players[hostId]?.name||"GM",hostOnline:connected&&(isHost()||players[hostId]?.online===true),
       onlineCount,maxPlayers:20,phase:game.phase||"lobby",createdAt:Number(roomCreatedAt)||now(),updatedAt:now()};
     const signature=[summary.hostId,summary.hostName,summary.hostOnline,summary.onlineCount,summary.phase].join("|");
@@ -9676,22 +9686,19 @@ function syncRoomSummary(roomCode=code){
   },180);
 }
 $("inviteOnlineFloating").onclick=inviteOnlineUsers;
-const ROOM_PRESENCE_GRACE_MS=90000;
+const ROOM_PRESENCE_GRACE_MS=60000;
 function roomHumanIsOnline(player,cutoff){
   if(!player||player.bot===true||player.online!==true)return false;
   const seen=Number(player.lastSeenAt??player.updatedAt);
-  return !Number.isFinite(seen)||seen>=cutoff;
+  return Number.isFinite(seen)&&seen>=cutoff;
 }
 function roomNeedsCleanup(room,stamp=now(),summary=null){
   if(!room)return true;
   const cutoff=stamp-ROOM_PRESENCE_GRACE_MS;
   const roster=room.players||{};
-  const summaryConfirmsEmpty=Number(summary?.onlineCount)===0&&Number(summary?.updatedAt||0)<cutoff;
   if(Object.keys(room.activeConnections||{}).length)return false;
   const humanPlayers=Object.values(roster).filter(player=>player&&player.bot!==true);
-  if(!summaryConfirmsEmpty&&humanPlayers.some(player=>roomHumanIsOnline(player,cutoff)||Number(player.updatedAt)>=cutoff))return false;
-  const host=roster[room.hostId];
-  if(!summaryConfirmsEmpty&&host?.disconnectMode==="left"&&humanPlayers.some(player=>player!==host&&Number(player.updatedAt)>=cutoff))return false;
+  if(humanPlayers.some(player=>roomHumanIsOnline(player,cutoff)||Number(player.updatedAt)>=cutoff))return false;
   return Number(room.createdAt)<cutoff;
 }
 async function cleanupInactiveRoomSummaries(summaries){
@@ -9702,8 +9709,7 @@ async function cleanupInactiveRoomSummaries(summaries){
   try{
     for(const [roomCode,summary] of Object.entries(summaries||{})){
       if(!/^\d{4}$/.test(roomCode))continue;
-      const candidate=summary?.hostOnline===false||Number(summary?.onlineCount)===0||Number(summary?.updatedAt||0)<staleBefore;
-      if(!candidate||Number(summary?.updatedAt||0)>=staleBefore)continue;
+      if(Number(summary?.updatedAt||0)>=staleBefore)continue;
       try{
         const roomSnapshot=await get(ref(db,"rooms/"+roomCode));
         if(!roomSnapshot.exists()){
@@ -9730,7 +9736,7 @@ async function cleanupInactiveRoomSummaries(summaries){
 function startRoomCleanupLoop(){
   if(roomCleanupTimer)return;
   const sweepOfflineRooms=async()=>{
-    if(!connected||!uid||roomCleanupBusy)return;
+    if(!connected||!uid||setupMode!=="online"||roomCleanupBusy)return;
     try{
       const constraints=[orderByChild("updatedAt"),limitToFirst(100)];
       if(roomCleanupCursor)constraints.push(startAfter(roomCleanupCursor.at,roomCleanupCursor.id));
@@ -9807,7 +9813,7 @@ async function loadRoomList(){
   if(!connected)return;
   try{
     const isSiteAdmin=isSpaceSuspectAdmin();
-    if(isSiteAdmin)startRoomCleanupLoop();
+    startRoomCleanupLoop();
     let latestSummaries,summaryRows;
     try{
       const [snapshot,staleOfflineSummaries,staleOnlineSummaries]=await Promise.all([get(query(ref(db,"roomSummaries"),orderByChild("updatedAt"),limitToLast(50))),get(query(ref(db,"roomSummaries"),orderByChild("hostOnline"),equalTo(false),limitToLast(20))),get(query(ref(db,"roomSummaries"),orderByChild("hostOnline"),equalTo(true),limitToLast(20)))]);
@@ -9828,12 +9834,13 @@ async function loadRoomList(){
     }
     const rooms=[];
     const oldSupplements=Object.entries(summaryRows).filter(([roomCode])=>!Object.prototype.hasOwnProperty.call(latestSummaries,roomCode)).slice(-20);
-    const recentSuspects=Object.entries(latestSummaries).filter(([,summary])=>summary?.hostOnline!==true||(Number(summary.onlineCount)||0)<=0||!["lobby","play","meeting","results","ended"].includes(summary.phase)).sort((a,b)=>(Number(b[1]?.updatedAt)||0)-(Number(a[1]?.updatedAt)||0)).slice(0,20);
+    const staleBefore=now()-ROOM_PRESENCE_GRACE_MS;
+    const recentSuspects=Object.entries(latestSummaries).filter(([,summary])=>summary?.hostOnline!==true||(Number(summary.onlineCount)||0)<=0||Number(summary.updatedAt||0)<staleBefore||!["lobby","play","meeting","results","ended"].includes(summary.phase)).sort((a,b)=>(Number(b[1]?.updatedAt)||0)-(Number(a[1]?.updatedAt)||0)).slice(0,20);
     const supplements=[...oldSupplements,...recentSuspects.filter(([roomCode])=>!oldSupplements.some(row=>row[0]===roomCode))];
-    const liveSupplementRows=await Promise.all(supplements.map(async([roomCode,summary])=>{try{const room=await readRoomBootstrap(roomCode);if(!room?.players?.[room.hostId]?.online)return null;const occupants=Object.values(room.players||{}).filter(p=>p?.online===true).length;return[roomCode,{...summary,phase:room.game?.phase||"lobby",hostOnline:true,onlineCount:occupants}];}catch{return null;}}));
+    const liveSupplementRows=await Promise.all(supplements.map(async([roomCode,summary])=>{try{const room=await readRoomListingPresence(roomCode);if(!room)return[roomCode,{...summary,hostOnline:false,onlineCount:0}];const cutoff=now()-ROOM_PRESENCE_GRACE_MS;const occupants=Object.values(room.players||{}).filter(player=>roomHumanIsOnline(player,cutoff)).length;const hostOnline=roomHumanIsOnline(room.players?.[room.hostId],cutoff);return[roomCode,{...summary,createdAt:Number(room.createdAt)||summary.createdAt,phase:room.game?.phase||"lobby",hostOnline,onlineCount:occupants}];}catch{return null;}}));
     if(!requestIsCurrent())return;
     for(const row of liveSupplementRows)if(row)summaryRows[row[0]]=row[1];
-    const removedRooms=isSiteAdmin?await cleanupInactiveRoomSummaries(summaryRows):[];
+    const removedRooms=await cleanupInactiveRoomSummaries(summaryRows);
     if(!requestIsCurrent())return;
     for(const [roomCode,summary] of Object.entries(summaryRows)){
       if(removedRooms.includes(roomCode))continue;
