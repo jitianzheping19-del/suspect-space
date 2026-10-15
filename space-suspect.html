@@ -2715,7 +2715,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
       </div><p class="inputKeyMapStatus" data-core-input-map-status role="status">ボタンを押して新しいキーを選べます。</p><button type="button" data-core-input-reset>初期設定に戻す</button></fieldset>
       <p class="inputDeviceHelp" data-core-input-help aria-live="polite"></p>
     </div>
-    <section class="unifiedRoomSettings" aria-label="部屋"><h3>部屋</h3><div id="settingsRoomForecastMount"><section id="lobbyRolePreview" aria-live="polite"><strong>今回の役職</strong><div id="lobbyRolePreviewList">設定を読み込み中…</div></section></div><button type="button" id="settingsLeaveBtn" class="danger" hidden>ゲームを切断</button></section>
+    <section class="unifiedRoomSettings" aria-label="部屋"><h3>部屋</h3><div id="settingsRoomForecastMount"><section id="lobbyRolePreview" aria-live="polite"><strong>今回の役職</strong><div id="lobbyRolePreviewList">設定を読み込み中…</div></section></div><section id="settingsRoomPlayers" class="settingsRoomPlayers" aria-label="ルーム内プレイヤー" hidden><div class="settingsRoomPlayersHeading"><strong>プレイヤー</strong><span>ホストは追放、全員は個別の受信音量を調整できます</span></div><div id="settingsPlayerList" class="settingsPlayerList"></div></section><button type="button" id="settingsLeaveBtn" class="danger" hidden>ゲームを切断</button></section>
     <section class="unifiedAccountSettings"><h3>アカウント</h3><div id="settingsAccountMount"></div><button id="logoutBtn" type="button" class="secondary" style="margin-top:10px">ログアウト</button></section>
   </div>
 </section>
@@ -8187,6 +8187,28 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     // synchronization remains on the existing ~100 ms roster updates.
     let voiceEnabledByRoom=false,voiceJoined=false,voiceMuted=true,voicePromptOpen=false,voiceStream=null,voiceContext=null,voiceSessionId="",voicePresenceUnsub=[],voiceDisplayUnsub=[],voiceDisplayRoom="",voicePeers=new Map(),voiceRemoteStates=new Map(),voicePositionOverride=null;
     let voiceMeterSource=null,voiceAnalyser=null,voiceMeterFrame=0,voiceSpeaking=false,voicePresenceSignature="";
+    let voicePrefsOwner="",voicePlayerPrefs={},voicePrefsSaveTimer=0;
+    function syncVoicePlayerPrefs(){
+      const owner=String(uid||"");if(owner===voicePrefsOwner)return;if(voicePrefsSaveTimer)saveVoicePlayerPrefs();voicePrefsOwner=owner;voicePlayerPrefs={};
+      if(!owner)return;
+      try{const saved=JSON.parse(localStorage.getItem(`space-suspect-voice-player:v1:${encodeURIComponent(owner)}`)||"{}");if(saved&&typeof saved==="object"&&!Array.isArray(saved))voicePlayerPrefs=saved;}catch{}
+    }
+    function voicePlayerPreference(playerId){
+      syncVoicePlayerPrefs();const saved=voicePlayerPrefs?.[playerId]||{},percent=Number.isFinite(Number(saved.volume))?clamp(Number(saved.volume),0,150):100;
+      return{volumePercent:percent,volume:percent/100,muted:saved.muted===true};
+    }
+    function saveVoicePlayerPrefs(){
+      clearTimeout(voicePrefsSaveTimer);voicePrefsSaveTimer=0;if(!voicePrefsOwner)return;
+      try{localStorage.setItem(`space-suspect-voice-player:v1:${encodeURIComponent(voicePrefsOwner)}`,JSON.stringify(voicePlayerPrefs));}catch{}
+    }
+    function setVoicePlayerPreference(playerId,patch){
+      syncVoicePlayerPrefs();if(!voicePrefsOwner||!playerId||playerId===uid)return;
+      const previous=voicePlayerPrefs[playerId]||{},next={...previous};
+      if(Number.isFinite(Number(patch?.volume)))next.volume=clamp(Number(patch.volume),0,150);
+      if(typeof patch?.muted==="boolean")next.muted=patch.muted;
+      voicePlayerPrefs[playerId]=next;clearTimeout(voicePrefsSaveTimer);voicePrefsSaveTimer=setTimeout(saveVoicePlayerPrefs,220);updateVoiceReceiveGates();
+    }
+    window.addEventListener("pagehide",saveVoicePlayerPrefs);
     const voiceRoomIsEnabled=()=>voiceEnabledByRoom===true&&!!code;
     function voiceSabotageActive(){return !!code&&game?.phase==="play"&&game.sabotage?.type==="comms"&&Number(game.sabotage.endsAt)>now();}
     function voiceIsImpostor(playerId){return (game.players?.[playerId]||players?.[playerId])?.role==="impostor";}
@@ -8402,10 +8424,49 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         const nearby=cameraMonitoring?cameraPlayerVisible:meeting||remoteComms||doorLeakGain>0||(gap<=7.5&&!blockedByWall&&playerOnScreen);
         const rangeGain=cameraMonitoring?(cameraPlayerVisible?1:0):(meeting||remoteComms)?1:doorLeakGain>0?doorLeakGain*(gap>=7.5?0:Math.min(1,Math.max(0,(7.5-gap)/2.1))):(blockedByWall||gap>=7.5||!playerOnScreen?0:Math.min(1,Math.max(0,(7.5-gap)/2.1)));
         const audible=connected&&voiceRoomIsEnabled()&&!receiveMuted&&voiceJoined&&players?.[peerId]?.online===true&&remote?.joined===true&&remote.mic===true&&sameSabotageFaction&&nearby&&(meeting?(localGhost===voicePlayerIsGhost(peerId)):(localGhost||!voicePlayerIsGhost(peerId)));
-        const targetGain=audible?rangeGain:0;
+        const individual=voicePlayerPreference(peerId),targetGain=audible&&!individual.muted?rangeGain*individual.volume:0;
         try{peer.gain.gain.setTargetAtTime(targetGain,time,targetGain > peer.gain.gain.value ? .08 : .14);}catch{peer.gain.gain.value=targetGain;}
       }
     }
+    function renderRoomPlayerSettings(){
+      const section=$("settingsRoomPlayers"),list=$("settingsPlayerList");if(!section||!list)return;
+      const joined=!!code&&!!uid&&!!players?.[uid];section.hidden=!joined;
+      if(!joined){list.replaceChildren();list.dataset.stamp="";return;}
+      syncVoicePlayerPrefs();
+      const roster=Object.entries(players||{}).filter(([id,p])=>p?.online===true&&String(p.name||"").trim()).sort((a,b)=>Number(b[0]===hostId)-Number(a[0]===hostId)||String(a[1].name||"").localeCompare(String(b[1].name||""),"ja"));
+      const stamp=JSON.stringify([voiceEnabledByRoom,isHost(),roster.map(([id,p])=>{const pref=voicePlayerPreference(id);return[id,p.name,p.hue,p.bot===true,id===hostId,id===uid,game.expulsions?.[id]?.roomEpoch===Number(roomCreatedAt),pref.volumePercent,pref.muted];})]);
+      if(list.dataset.stamp===stamp||list.dataset.adjusting==="true")return;list.dataset.stamp=stamp;list.replaceChildren();
+      if(!voiceEnabledByRoom){const hint=document.createElement("p");hint.className="settingsRoomPlayerHint";hint.textContent="この部屋ではボイスチャットが無効です。個別音量設定は保存され、VC対応の部屋で使えます。";list.append(hint);}
+      if(!roster.length){const empty=document.createElement("p");empty.className="settingsRoomPlayerHint";empty.textContent="オンラインのプレイヤーはいません。";list.append(empty);return;}
+      for(const [id,player] of roster){
+        const row=document.createElement("article"),identity=document.createElement("div"),dot=document.createElement("i"),name=document.createElement("strong");
+        row.className="settingsRoomPlayer";row.dataset.settingsPlayerId=id;identity.className="settingsRoomPlayerIdentity";dot.className="settingsRoomPlayerDot";
+        const hue=Number.isFinite(Number(player.hue))?Number(player.hue):.53;dot.style.background=new THREE.Color().setHSL(hue,.68,.52).getStyle();dot.style.color=dot.style.background;
+        name.className="settingsRoomPlayerName";name.textContent=player.name||"プレイヤー";identity.append(dot,name);
+        const badge=document.createElement("span");badge.className="settingsRoomPlayerBadge";badge.textContent=id===hostId?"ホスト":id===uid?"あなた":player.bot?"CPU":"参加中";identity.append(badge);row.append(identity);
+        if(isHost()&&id!==uid&&!player.bot){const kick=document.createElement("button");kick.type="button";kick.className="settingsRoomKick";kick.dataset.settingsKick=id;kick.textContent=game.expulsions?.[id]?.roomEpoch===Number(roomCreatedAt)?"追放処理中":"追放";kick.disabled=!connected||game.expulsions?.[id]?.roomEpoch===Number(roomCreatedAt);row.append(kick);}
+        if(id!==uid&&!player.bot){
+          const pref=voicePlayerPreference(id),controls=document.createElement("div"),volumeLabel=document.createElement("label"),volumeName=document.createElement("span"),slider=document.createElement("input"),output=document.createElement("output"),mute=document.createElement("button");
+          controls.className="settingsRoomVoiceControls";volumeLabel.className="settingsRoomVolume";volumeName.textContent="受信音量";slider.type="range";slider.min="0";slider.max="150";slider.step="5";slider.value=String(pref.volumePercent);slider.dataset.playerVolume=id;slider.setAttribute("aria-label",`${player.name||"プレイヤー"}の受信音量`);output.value=`${pref.volumePercent}%`;output.textContent=output.value;
+          mute.type="button";mute.className="settingsRoomMute";mute.dataset.settingsMute=id;mute.setAttribute("aria-pressed",String(pref.muted));mute.textContent=pref.muted?"ミュート中":"ミュート";volumeLabel.append(volumeName,slider,output);controls.append(volumeLabel,mute);row.append(controls);
+        }else{const hint=document.createElement("p");hint.className="settingsRoomPlayerHint";hint.textContent=player.bot?"CPUプレイヤーにボイス音声はありません。":"自分の音声はこの一覧では変更できません。";row.append(hint);}
+        list.append(row);
+      }
+    }
+    $("settingsPlayerList")?.addEventListener("input",event=>{
+      const slider=event.target.closest?.("input[data-player-volume]");if(!slider)return;
+      setVoicePlayerPreference(slider.dataset.playerVolume,{volume:Number(slider.value)});
+      const output=slider.closest(".settingsRoomVolume")?.querySelector("output");if(output){output.value=`${slider.value}%`;output.textContent=output.value;}
+    });
+    $("settingsPlayerList")?.addEventListener("pointerdown",event=>{if(event.target.closest?.("input[data-player-volume]"))$("settingsPlayerList").dataset.adjusting="true";});
+    $("settingsPlayerList")?.addEventListener("change",event=>{if(!event.target.matches?.("input[data-player-volume]"))return;const list=$("settingsPlayerList");list.dataset.adjusting="false";renderRoomPlayerSettings();});
+    $("settingsPlayerList")?.addEventListener("pointercancel",()=>{const list=$("settingsPlayerList");list.dataset.adjusting="false";renderRoomPlayerSettings();});
+    $("settingsPlayerList")?.addEventListener("click",event=>{
+      const mute=event.target.closest?.("button[data-settings-mute]");
+      if(mute){const id=mute.dataset.settingsMute,next=!voicePlayerPreference(id).muted;setVoicePlayerPreference(id,{muted:next});mute.setAttribute("aria-pressed",String(next));mute.textContent=next?"ミュート中":"ミュート";return;}
+      const kick=event.target.closest?.("button[data-settings-kick]");if(kick){event.preventDefault();event.stopPropagation();void kickRoomPlayerFromSettings(kick.dataset.settingsKick);}
+    });
+    window.addEventListener("spacesuspect:input-settings-open",renderRoomPlayerSettings);
     function stopVoiceActivityMeter(){
       if(voiceMeterFrame)cancelAnimationFrame(voiceMeterFrame);voiceMeterFrame=0;
       try{voiceMeterSource?.disconnect();voiceAnalyser?.disconnect();}catch{}
@@ -11045,6 +11106,27 @@ async function confirmKickWrite(confirmFn,writeFn){
   if(typeof confirmFn!=="function"||!confirmFn())return false;
   if(typeof writeFn!=="function")return false;
   return await writeFn()!==false;
+}
+
+async function kickRoomPlayerFromSettings(playerId,fallbackName=""){
+  const player=players?.[playerId];
+  if(!isHost()||!code||!connected||playerId===uid||player?.online!==true||player?.bot)return false;
+  const targetName=player.name||fallbackName||"プレイヤー",roomCode=code,roomEpoch=Number(roomCreatedAt)||0,currentSession=session;
+  try{
+    const wrote=await confirmKickWrite(
+      ()=>window.confirm(`${targetName}を部屋から追放しますか？`),
+      async()=>{
+        if(!isHost()||playerId===uid||!connected||players?.[playerId]?.online!==true||currentSession!==session||code!==roomCode)return false;
+        const message=`${targetName}はホストにより部屋から追放されました。`;
+        const event={id:token(),name:targetName,by:uid,roomEpoch,at:now(),reason:"管理者による追放",message};
+        await update(ref(db,`rooms/${roomCode}/game/expulsions/${playerId}`),event);
+        if(currentSession===session){game.expulsions={...(game.expulsions||{}),[playerId]:event};toast(`${targetName}を追放しました。`,`command-success`);}
+        return true;
+      }
+    );
+    if(wrote)safeRenderUI();
+    return wrote;
+  }catch(error){if(currentSession===session)toast("追放を同期できませんでした。接続を確認してください。","command-error");console.warn("設定からの参加者追放に失敗しました",error);return false;}
 }
 
 function commandContextError(cmd,g){
@@ -17575,6 +17657,7 @@ function bountyTargetInView(target){
   return bountyScreenPoint.z>-1&&bountyScreenPoint.z<1&&Math.abs(bountyScreenPoint.x)<.92&&Math.abs(bountyScreenPoint.y)<.9;
 }
 function renderUI() {
+      renderRoomPlayerSettings();
       if (!code) return;
       refreshVoiceUI();
       if(game.phase==="lobby"){window.SpaceSuspect.runtime.waitingLobbyForRunningMatch=false;window.SpaceSuspect.runtime.waitingLobbyRollback=null;}
@@ -20411,6 +20494,28 @@ if (!byId("ssxExperienceStyles")) document.head.insertAdjacentHTML("beforeend", 
   #nameGate #loginBtn,#nameGate #createAccountBtn,#nameGate #loginBackBtn{width:100%;min-height:48px;margin-top:4px;font-weight:850}
   #roomBrowserEmpty{min-height:1.4em}
   @media(max-width:600px){#inputSettingsNav{margin-inline:-2px}#inputSettingsNav button{padding-inline:9px}}
+
+.settingsRoomPlayers{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #36536b}
+.settingsRoomPlayers[hidden]{display:none!important}
+.settingsRoomPlayersHeading{display:grid;gap:2px;color:#e9f7ff}
+.settingsRoomPlayersHeading strong{font-size:14px}
+.settingsRoomPlayersHeading span,.settingsRoomPlayerHint{color:#9db6c9;font-size:11px;line-height:1.45}
+.settingsPlayerList{display:grid;gap:7px}
+.settingsRoomPlayer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;align-items:center;padding:9px 10px;border:1px solid #33516a;border-radius:11px;background:linear-gradient(135deg,#11263a,#0a1725)}
+.settingsRoomPlayerIdentity{display:flex;align-items:center;gap:8px;min-width:0}
+.settingsRoomPlayerDot{flex:0 0 12px;width:12px;height:12px;border:1px solid #d8f8ff;border-radius:50%;box-shadow:0 0 8px currentColor}
+.settingsRoomPlayerName{min-width:0;overflow:hidden;color:#edf8ff;font-size:13px;font-weight:850;text-overflow:ellipsis;white-space:nowrap}
+.settingsRoomPlayerBadge{flex:0 0 auto;padding:2px 6px;border:1px solid #3a7180;border-radius:999px;background:#153846;color:#a4f3e3;font-size:9px;font-weight:800}
+.settingsRoomKick{min-height:36px;padding:6px 10px;border:1px solid #f27988;border-radius:9px;background:#421c2b;color:#ffeef1;font-size:11px;font-weight:850;white-space:nowrap}
+.settingsRoomKick:disabled{opacity:.5}
+.settingsRoomVoiceControls{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;align-items:center}
+.settingsRoomVolume{display:grid;grid-template-columns:auto minmax(90px,1fr) 42px;gap:8px;align-items:center;min-width:0;color:#b8d1e1;font-size:11px;font-weight:750}
+.settingsRoomVolume input{width:100%;min-width:0;accent-color:#76e2db;touch-action:pan-y}
+.settingsRoomVolume output{text-align:right;color:#effbff;font-size:11px;font-variant-numeric:tabular-nums}
+.settingsRoomMute{min-height:38px;min-width:76px;padding:6px 9px;border:1px solid #52738a;border-radius:9px;background:#142a3b;color:#deeff9;font-size:11px;font-weight:800}
+.settingsRoomMute[aria-pressed="true"]{border-color:#ff8897;background:#4a1928;color:#fff1f3}
+.settingsRoomPlayerHint{grid-column:1/-1;margin:0}
+@media(max-width:600px){.settingsRoomPlayer{padding:8px;gap:6px}.settingsRoomPlayerName{font-size:12px}.settingsRoomVolume{grid-template-columns:auto minmax(55px,1fr) 38px;gap:5px}.settingsRoomKick{min-height:40px}.settingsRoomMute{min-height:40px;min-width:70px}}
 
 /* Room settings are a centered, inset dialog with a tappable backdrop. */
 #lobby{pointer-events:auto!important;background:#0207129c!important;backdrop-filter:blur(3px)!important;padding:12px!important;place-items:center!important}
