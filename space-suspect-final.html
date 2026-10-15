@@ -2490,6 +2490,9 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 #roundRoles #roundRoleList .roleFactionColumn:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,transparent,#79e7ed,#80b5ff,transparent);opacity:.9;pointer-events:none}
 #roundRoles #roundRoleList .roleFactionHeading{position:relative;border-bottom:1px solid #80c5db55;text-shadow:0 1px 8px #49c7e888}
 #roundRoles #roundRoleList .roleFactionCards{perspective:900px}
+#roundRoles #roundRoleList .roleSubHeading{margin:12px 0 6px;padding:7px 4px 5px;border-top:1px solid #8bd8e477;color:#bceff5;font-size:clamp(11px,1.2vw,15px);letter-spacing:.08em}
+#roleSettingsList .roleSettingsSubRoles{margin-top:12px;padding-top:7px;border-top:1px solid #70b7c577}
+#roleSettingsList .roleSettingsSubRoles h4{margin:0 0 7px;color:#bceff5;font-size:14px}
 #roundRoles #roundRoleList .roleChoiceButton{position:relative;border:1px solid #6489a5!important;border-radius:10px!important;background:linear-gradient(155deg,#294966 0%,#152e47 55%,#0c1b2b 100%)!important;box-shadow:inset 0 1px 0 #ffffff26,inset 0 -3px 0 #030b15a8,0 4px 9px #0006!important;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease!important}
 #roundRoles #roundRoleList .roleChoiceButton:hover{transform:translateY(-2px)!important;border-color:#a2f4ef!important;box-shadow:inset 0 1px 0 #ffffff32,0 8px 16px #0008,0 0 15px #55d9ea44!important}
 #roundRoles #roundRoleList .roleChoiceBadge{border:1px solid #d3b67388;border-radius:999px;background:linear-gradient(145deg,#493e2b,#20283a);box-shadow:inset 0 1px 0 #ffffff26,0 2px 5px #0007}
@@ -7007,7 +7010,7 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       photographer: ["カメラマン", "能力を使うと現在のゲーム画面を端末内に記録します。写真はこの端末だけに保存されます。"],
       lightkeeper: ["ライトキーパー", "停電中に周囲を20秒間明るくします。クールダウンは60秒です。"],
       navigator: ["ナビゲーター", "能力を使うと最寄りの死体の方向を8秒間示します。名前や正体は表示しません。"],
-      cupid: ["キューピット", "生存者2人を恋人にします。能力は1試合に1回です。"],
+      cupid: ["キューピット", "第三陣営。生存者2人を恋人にします。能力は1試合に1回です。"],
       mini: ["ミニ", "0歳から成長します。クルーなら18歳までキルされず、未成年で追放されると全員が敗北します。"],
       guesser: ["ナイスゲッサー", "市民陣営です。会議で役職を推理し、正解すると対象を退場させ、外すと自分が退場します。推理できる回数は部屋設定で変更できます。"],
       guardianAngel: ["守護天使", "Gキーで近くの生存クルーを一度守ります。シールドの再使用には30秒必要です。"],
@@ -7032,7 +7035,7 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       matryoshka: ["マトリョーシカ", "最寄りの死体の姿をまとうインポスターです。能力ボタンでもとの姿に戻り、25秒で自動解除されます。"],
       triggerHappy: ["トリガーハッピー", "向いている方向へ扇状に連射します。味方も巻き込み、命中が必要数に達するとキルします。"],
       conjurer: ["コンジュラー", "3つのマーカーで三角形を作り、内側のプレイヤーをキルします。通常キルはできません。"],
-      mirage: ["ミラージュ", "死亡後に直近の死体を複製し、通報可能な偽の死体を作ります。陣営はインポスターのままです。"],
+      mirage: ["ミラージュ", "死亡して幽霊になった後に使えるサブ役職です。直近の死体を複製し、通報可能な偽の死体を作ります。元の人狼陣営のままです。"],
       arsonist: ["アーソニスト", "第三陣営です。生存者全員に着火剤を付け、着火して全員を燃やすと単独勝利します。着火後、再び着火できるまで5秒待ちます。"],
       lovers: ["恋人", "2人組の追加役職です。互いを認識し、2人とも生存した状態で通常の勝敗条件を満たすと恋人勝利を得ます。"],
       god: ["神", "第三陣営です。部屋設定でタスク達成を勝利条件に含めるか選べます。"],
@@ -7068,7 +7071,7 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       { id: "photographer", side: "crew", count: 0 },
       { id: "lightkeeper", side: "crew", count: 0 },
       { id: "navigator", side: "crew", count: 0 },
-      { id: "cupid", side: "crew", count: 0 },
+      { id: "cupid", side: "neutral", count: 0 },
       { id: "mini", side: "both", count: 0 },
       { id: "guesser", side: "crew", count: 0 },
       { id: "blackCat", side: "crew", count: 0 },
@@ -7366,6 +7369,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       const columns={crew:document.createElement("section"),impostor:document.createElement("section"),neutral:document.createElement("section")};
       const headings={crew:"市民陣営",impostor:"人狼陣営",neutral:"第三陣営"};
       for(const [category,column] of Object.entries(columns)){column.className="roleFactionColumn";column.dataset.faction=category;const title=document.createElement("h3");title.textContent=headings[category];const total=document.createElement("span");total.className="roleFactionTotal";total.dataset.roleTotal=category;total.textContent="0人";title.append(total);column.append(title);list.append(column);}
+       const subRoles=document.createElement("div");subRoles.className="roleSettingsSubRoles";const subTitle=document.createElement("h4");subTitle.textContent="サブ役職";subRoles.append(subTitle);
       const baseRow=document.createElement("div");baseRow.className="roleSettingRow roleSettingBaseImpostor";baseRow.dataset.roleCategory="impostor";
       const baseName=document.createElement("span");baseName.className="roleSettingName";baseName.textContent="インポスター合計（特殊役職を含む）";
       const baseDown=document.createElement("button");baseDown.type="button";baseDown.className="roleCountStep";baseDown.textContent="−";baseDown.setAttribute("aria-label","人狼陣営の合計人数を1人減らす");
@@ -7390,8 +7394,9 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
         for(const button of [down,up])button.addEventListener("pointerdown",event=>event.preventDefault());
         count.addEventListener("input",sync);down.addEventListener("click",event=>stepCount(-1,event));up.addEventListener("click",event=>stepCount(1,event));
         enabled.addEventListener("change",()=>{if(!enabled.checked)count.value="0";else if(Number(count.value)===0)count.value="1";sync();});
-        row.append(name,enabled,down,count,up,countLabel);columns[row.dataset.roleCategory].append(row);
+        row.append(name,enabled,down,count,up,countLabel);(["mini","mirage"].includes(option.id)?subRoles:columns[row.dataset.roleCategory]).append(row);
       }
+       columns.neutral.append(subRoles);
       document.querySelectorAll("[data-role-tab]").forEach(button=>button.addEventListener("click",()=>setRoleCategory(button.dataset.roleTab)));
       setRoleCategory(activeRoleTab);
     }
@@ -8646,7 +8651,7 @@ function roleLook(p){return ROLE_LOOKS[p?.subrole]||ROLE_LOOKS[p?.role]||ROLE_LO
 function roleNameFor(p){return p?.observer?"観戦者":ROLE_LABELS[p?.subrole]?.[0]||ROLE_LABELS[p?.role]?.[0]||"クルーメイト";}
 function addedGuessRoleId(player){const subrole=String(player?.subrole||"");if(ROLE_OPTIONS.some(role=>role.id===subrole))return subrole;const role=String(player?.role||"");return ROLE_OPTIONS.some(option=>option.id===role)?role:"";}
 function matchAddedGuessRoles(players=game.players){const active=new Set();for(const player of Object.values(players||{})){const roleId=addedGuessRoleId(player);if(roleId)active.add(roleId);}return active;}
-function isNeutralRole(p){return p?.role==="neutral"||["jackal","jester","arsonist","god","vulture","fox"].includes(p?.role)||["jackal","teleportJackal","waveCannonJackal","jester","arsonist","god","vulture","fox"].includes(p?.subrole);}
+function isNeutralRole(p){return p?.role==="neutral"||["jackal","jester","arsonist","god","vulture","fox"].includes(p?.role)||["jackal","teleportJackal","waveCannonJackal","jester","arsonist","god","vulture","fox","cupid"].includes(p?.subrole);}
 function hasImpostorVision(p,settings=game.settings){return p?.role==="impostor"||p?.subrole==="blackCat"&&settings?.blackCatImpostorVision===true;}
 function canUseVentRole(p,settings=game.settings){return !!p&&(p.subrole==="samurai"&&settings?.samuraiCanVent!==true?false:p.subrole==="serialKiller"&&settings?.serialKillerCanVent===false?false:p.role==="impostor"&&(p.subrole!=="doubleKiller"||settings?.doubleKillerCanVent===true)||p.role==="jackal"||p.subrole==="engineer"||p.subrole==="blackCat"&&settings?.blackCatCanVent===true);}
 function viewerKnowsImpostors(p,settings=game.settings){
@@ -8783,10 +8788,14 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
         const cards=document.createElement("div");cards.className="roleFactionCards";
         const baseCount=roleFactionCounts.get(`${faction.id}:${faction.baseId}`)||0;
         if(faction.baseId&&(baseCount>0||lobby))addRoleCard(cards,faction.baseId,"",baseCount);
-        const roleIds=[...roleFactionCounts.keys()].filter(key=>key.startsWith(`${faction.id}:`)).map(key=>key.slice(faction.id.length+1)).filter(id=>id!==faction.baseId).sort((a,b)=>ROLE_OPTIONS.findIndex(role=>role.id===a)-ROLE_OPTIONS.findIndex(role=>role.id===b));
+         const roleIds=[...roleFactionCounts.keys()].filter(key=>key.startsWith(`${faction.id}:`)).map(key=>key.slice(faction.id.length+1)).filter(id=>id!==faction.baseId&&!(["mini","mirage"].includes(id))).sort((a,b)=>ROLE_OPTIONS.findIndex(role=>role.id===a)-ROLE_OPTIONS.findIndex(role=>role.id===b));
         for(const id of roleIds)addRoleCard(cards,id,"",roleFactionCounts.get(`${faction.id}:${id}`));
         if(faction.id==="neutral"&&(counts.get("lovers")||0)>0)addRoleCard(cards,"lovers","恋人（追加属性）",counts.get("lovers"));
-        if(!cards.childElementCount){const empty=document.createElement("p");empty.className="roleFactionEmpty";empty.textContent="設定された役職はありません。";cards.append(empty);}
+         if(!cards.childElementCount){const empty=document.createElement("p");empty.className="roleFactionEmpty";empty.textContent="設定された役職はありません。";cards.append(empty);}
+         if(faction.id==="neutral"){
+           const subHeading=document.createElement("h4");subHeading.className="roleSubHeading";subHeading.textContent="サブ役職";cards.append(subHeading);
+           for(const id of ["mini","mirage"]){const value=counts.get(id)||0;if(value>0||lobby)addRoleCard(cards,id,"",value);}
+         }
         column.append(cards);list.append(column);
       }
       list.append(detail);
@@ -10603,7 +10612,7 @@ hostBusy = true;
             hue: isBot ? botHue : players[id].hue,
             playerNumber:ids.indexOf(id)+1,
             costume: isBot ? "standard" : (players[id].costume || readStored("space-suspect-costume") || "standard"),
-            role: waveModeSelected!=="normal"?"crew":isImpostor ? "impostor" : ["jackal","teleportJackal","waveCannonJackal","jester","arsonist","god","vulture","fox"].includes(specialRoles.get(id)) ? ["teleportJackal","waveCannonJackal"].includes(specialRoles.get(id))?"jackal":specialRoles.get(id) : "crew",
+            role: waveModeSelected!=="normal"?"crew":isImpostor ? "impostor" : ["jackal","teleportJackal","waveCannonJackal","jester","arsonist","god","vulture","fox","cupid"].includes(specialRoles.get(id)) ? ["teleportJackal","waveCannonJackal"].includes(specialRoles.get(id))?"jackal":specialRoles.get(id) : "crew",
             subrole: waveModeSelected!=="normal"?"waveCannon":specialRoles.get(id) || (isImpostor ? "impostor" : "crewmate"),
             ...(waveModeSelected==="team"?{waveTeam:waveTeamById[id]}:{}),
             bot: isBot,
