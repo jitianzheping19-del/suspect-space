@@ -2548,7 +2548,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
   </section>
   <section id="voicePermissionPanel" class="hidden" role="dialog" aria-modal="false" aria-labelledby="voicePermissionTitle">
     <strong id="voicePermissionTitle">近アモに参加</strong>
-    <p>マイクを許可すると、近くにいるプレイヤーと距離に応じた音量で会話できます。</p>
+    <p>近くの人と距離に応じた音量で話せます。ノイズ・エコー抑制を使い、対応端末では音声分離も有効にします。</p>
     <div class="row"><button id="voicePermissionAllow" type="button">マイクを許可して参加</button><button id="voicePermissionCancel" type="button">あとで</button></div>
     <small id="voicePermissionMessage" aria-live="polite"></small>
     <a id="voicePermissionSettings" class="hidden" href="https://support.google.com/chrome/answer/2693767" target="_blank" rel="noopener">マイク許可の設定方法（Chrome）</a>
@@ -8336,13 +8336,13 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       const inRoom=!!code,enabled=voiceRoomIsEnabled();button.classList.toggle("hidden",!inRoom||!enabled);panel.classList.toggle("hidden",!inRoom||!enabled||!voicePromptOpen);
       document.body.classList.toggle("voiceAvailable",inRoom&&enabled);document.body.classList.toggle("voicePromptOpen",inRoom&&enabled&&voicePromptOpen);document.body.classList.toggle("voiceInRoom",inRoom);
       button.disabled=!enabled||!!voiceForcedMuteReason();
-      button.dataset.state=voiceJoined&&!voiceEffectiveMuted()?"on":"muted";
+      button.dataset.state=voiceJoined&&!voiceEffectiveMuted()?"on":"muted";button.dataset.speaking=String(voiceJoined&&!voiceEffectiveMuted()&&voiceSpeaking);
       button.setAttribute("aria-pressed",String(voiceJoined&&!voiceEffectiveMuted()));
       button.textContent=voiceJoined&&!voiceEffectiveMuted()?"🎙️":"🔇";
       button.setAttribute("aria-label",voiceForcedMuteReason()?voiceForcedMuteReason()+"のためミュート":voiceJoined&&!voiceEffectiveMuted()?"マイクをミュート":"マイクをオンにする");
       button.title=button.getAttribute("aria-label");
       const voiceStatus=$("voiceStatusLabel");if(voiceStatus){const forced=voiceForcedMuteReason(),on=voiceJoined&&!voiceEffectiveMuted();
-        voiceStatus.dataset.state=on?"on":"muted";let label;
+        voiceStatus.dataset.state=on?"on":"muted";voiceStatus.dataset.speaking=String(on&&voiceSpeaking);let label;
         if(!enabled)label="🎙 この部屋では音声チャットOFF";
         else if(forced)label="🎙 マイクOFF · "+forced;
         else if(voiceJoined&&!connected)label="🔇 マイクOFF · 接続待ち";
@@ -8372,10 +8372,21 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       const localGhost=voicePlayerIsGhost(uid),time=voiceContext?.currentTime||0;
       for(const [peerId,peer] of voicePeers){
         if(!peer.gain)continue;
-        const remote=voiceRemoteStates.get(peerId),sabotage=voiceSabotageActive(),sameSabotageFaction=!sabotage||(voiceIsImpostor(uid)&&voiceIsImpostor(peerId));
-        const meeting=game?.phase==="meeting",own=players?.[uid]||game?.players?.[uid],other=players?.[peerId]||game?.players?.[peerId],gap=Math.hypot((Number(own?.x)||0)-(Number(other?.x)||0),(Number(own?.z)||0)-(Number(other?.z)||0)),remoteComms=sabotage&&voiceIsImpostor(uid)&&voiceIsImpostor(peerId),nearby=meeting||remoteComms||gap<=7.5;
+        const remote=voiceRemoteStates.get(peerId),sabotage=voiceSabotageActive();
+        const sameSabotageFaction=!sabotage||(voiceIsImpostor(uid)&&voiceIsImpostor(peerId));
+        const meeting=game?.phase==="meeting";
+        const remoteComms=sabotage&&voiceIsImpostor(uid)&&voiceIsImpostor(peerId);
+        const own=players?.[uid]||game?.players?.[uid],other=players?.[peerId]||game?.players?.[peerId];
+        const ox=Number(own?.x),oz=Number(own?.z),px=Number(other?.x),pz=Number(other?.z);
+        const positionsKnown=[ox,oz,px,pz].every(Number.isFinite);
+        const gap=positionsKnown?Math.hypot(ox-px,oz-pz):Infinity;
+        let blockedByWall=false;
+        if(positionsKnown)try{blockedByWall=wallBetween({x:ox,z:oz},{x:px,z:pz});}catch{}
+        const nearby=meeting||remoteComms||(gap<=7.5&&!blockedByWall);
+        const rangeGain=(meeting||remoteComms)?1:(blockedByWall||gap>=7.5?0:Math.min(1,Math.max(0,(7.5-gap)/2.1)));
         const audible=connected&&voiceRoomIsEnabled()&&!voiceForcedMuteReason()&&voiceJoined&&players?.[peerId]?.online===true&&remote?.joined===true&&remote.mic===true&&sameSabotageFaction&&nearby&&(meeting?(localGhost===voicePlayerIsGhost(peerId)):(localGhost||!voicePlayerIsGhost(peerId)));
-        try{peer.gain.gain.setTargetAtTime(audible?1:0,time,.045);}catch{peer.gain.gain.value=audible?1:0;}
+        const targetGain=audible?rangeGain:0;
+        try{peer.gain.gain.setTargetAtTime(targetGain,time,targetGain > peer.gain.gain.value ? .08 : .14);}catch{peer.gain.gain.value=targetGain;}
       }
     }
     function stopVoiceActivityMeter(){
@@ -8464,7 +8475,10 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       try{
         $("voicePermissionAllow").disabled=true;message.textContent="ブラウザのマイク許可を確認しています…";
         // Call getUserMedia synchronously within the click activation, before any await.
-        const mediaRequest=navigator.mediaDevices.getUserMedia({audio:{echoCancellation:{ideal:true},noiseSuppression:{ideal:true},autoGainControl:{ideal:true},voiceIsolation:{ideal:true},channelCount:{ideal:1}},video:false});
+        const voiceCaps=navigator.mediaDevices.getSupportedConstraints?.()||{};
+        const voiceAudio={echoCancellation:{ideal:true},noiseSuppression:{ideal:true},autoGainControl:{ideal:true},channelCount:{ideal:1}};
+        if(voiceCaps.voiceIsolation)voiceAudio.voiceIsolation={ideal:true};
+        const mediaRequest=navigator.mediaDevices.getUserMedia({audio:voiceAudio,video:false});
         const AudioContextClass=window.AudioContext||window.webkitAudioContext;
         const requestedRoom=code,requestedSession=session;
         const audioResume=AudioContextClass?(voiceContext=new AudioContextClass(),voiceContext.resume().catch(()=>{})):Promise.resolve();
@@ -21264,6 +21278,144 @@ body[data-phase="meeting"] #titleInputSettingsBtn,body[data-phase="results"] #ti
 @media(min-width:900px) and (max-width:1366px) and (min-height:600px) and (orientation:landscape) and (pointer:coarse){
   #buttons>#killBtn,#buttons>#abilityBtn{min-height:64px!important;max-height:64px!important}
   #buttons>#killBtn{border-radius:12px!important}
+}
+</style>
+<style id="mobile-full-overhaul-vc-v1">
+/* Touch-first layout: protect the play view, respect safe areas, and make controls predictable. */
+@media(max-width:900px) and (pointer:coarse){
+  :root{--ssx-touch-hit:46px;--ssx-panel:#081827f2;--ssx-edge:#4f7188;--ssx-accent:#73dce2}
+  html,body{width:100%;min-height:100%;overscroll-behavior:none;-webkit-text-size-adjust:100%;touch-action:manipulation}
+  button,select,input{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  #controls{position:fixed!important;left:0!important;right:0!important;bottom:0!important;z-index:82!important;display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:0!important;padding:0 max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;pointer-events:none!important}
+  #controls>*{pointer-events:auto!important}
+  #controls #stick{flex:0 0 min(var(--stick-size,150px),29vw,118px)!important;width:min(var(--stick-size,150px),29vw,118px)!important;height:min(var(--stick-size,150px),29vw,118px)!important;max-width:min(var(--stick-size,150px),29vw,118px)!important;max-height:min(var(--stick-size,150px),29vw,118px)!important;margin:0!important;touch-action:none!important;border:2px solid #8dc4d377!important;background:radial-gradient(circle at 42% 35%,#8dd9ec44,#152a3dcc 68%,#091624ee)!important;box-shadow:inset 0 0 0 3px #d7f5ff14,0 5px 20px #0007!important}
+  #controls #knob{width:clamp(42px,12vw,56px)!important;height:clamp(42px,12vw,56px)!important;background:#a9e6ffb8!important;border:2px solid #e0f8ff!important;box-shadow:0 2px 12px #7ad8ff66!important}
+  #controls>div:last-child{position:fixed!important;left:auto!important;right:max(8px,env(safe-area-inset-right))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:min(40vw,340px)!important;max-width:min(40vw,340px)!important;margin:0!important;z-index:83!important}
+  #controls[data-left-handed="true"]>div:last-child{left:max(8px,env(safe-area-inset-left))!important;right:auto!important}
+  #controls[data-left-handed="true"] #stick{left:auto!important;right:calc(env(safe-area-inset-right) + var(--stick-x,3%))!important}
+  #controls:not([data-left-handed="true"]) #stick{right:auto!important;left:calc(env(safe-area-inset-left) + var(--stick-x,3%))!important}
+  #buttons{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(2,48px)!important;grid-auto-flow:row!important;grid-auto-rows:48px!important;align-items:stretch!important;justify-content:stretch!important;gap:5px!important;width:100%!important;max-width:100%!important;max-height:101px!important;margin:0!important;padding:0!important;overflow:visible!important}
+  #buttons>button,#buttons>select{box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:46px!important;height:48px!important;max-height:48px!important;padding:4px 5px!important;border-radius:12px!important;clip-path:none!important;font-size:clamp(10px,2.45vw,13px)!important;line-height:1.05!important;font-weight:850!important;white-space:normal!important;overflow-wrap:anywhere!important;box-shadow:0 3px 10px #0007!important}
+  #buttons>#jumpBtn,#buttons>#waveHawkBtn,#buttons>#killSecondBtn{grid-column:1!important;grid-row:1!important}
+  #buttons>#killBtn{grid-column:2!important;grid-row:1!important;width:100%!important;height:48px!important;min-width:0!important;min-height:46px!important;max-height:48px!important;justify-self:stretch!important;border-radius:12px!important}
+  #buttons>#sabotageBtn{grid-column:3!important;grid-row:1!important}
+  #buttons>#taskBtn{grid-column:1!important;grid-row:2!important}
+  #buttons>#abilityBtn,#buttons>#rocketLaunchBtn{grid-column:2!important;grid-row:2!important;width:100%!important;height:48px!important;min-width:0!important;min-height:46px!important;max-height:48px!important;justify-self:stretch!important;border-radius:12px!important;padding:3px 4px!important}
+  #buttons>#abilityBtn #abilityCaption,#buttons>#rocketLaunchCaption{font-size:clamp(9px,2.2vw,12px)!important;line-height:1!important}
+  #buttons>#reportBtn{grid-column:3!important;grid-row:2!important}
+  #buttons>#mapBtn{position:fixed!important;left:auto!important;right:max(8px,env(safe-area-inset-right))!important;top:max(8px,env(safe-area-inset-top))!important;z-index:250!important;width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important;max-height:44px!important;padding:2px!important;border-radius:12px!important;font-size:10px!important}
+  #controls[data-left-handed="true"] #buttons>#mapBtn{left:max(8px,env(safe-area-inset-left))!important;right:auto!important}
+  #hint{display:none!important}
+  #taskProgressHud{position:fixed!important;left:50%!important;right:auto!important;top:max(8px,env(safe-area-inset-top))!important;transform:translateX(-50%)!important;width:clamp(145px,32vw,270px)!important;max-width:calc(100vw - 190px)!important;padding:7px 9px!important;border-radius:12px!important;z-index:42!important;background:#071522e8!important;backdrop-filter:blur(8px)!important}
+  #taskProgressLabel{font-size:clamp(9px,2vw,12px)!important;line-height:1.1!important}
+  #taskTrack{height:5px!important;margin-top:5px!important}
+  #role{left:max(8px,env(safe-area-inset-left))!important;top:max(8px,env(safe-area-inset-top))!important;max-width:min(30vw,190px)!important;padding:6px 9px!important;border-radius:10px!important;font-size:clamp(10px,2.5vw,13px)!important;line-height:1.12!important}
+  #roundRoleBtn{position:fixed!important;left:auto!important;right:calc(max(8px,env(safe-area-inset-right)) + 50px)!important;top:max(8px,env(safe-area-inset-top))!important;z-index:250!important;min-width:76px!important;min-height:42px!important;height:42px!important;padding:4px 8px!important;border-radius:12px!important;font-size:clamp(10px,2.2vw,12px)!important}
+  #waveSurvivalHud{top:max(8px,env(safe-area-inset-top))!important;left:50%!important;transform:translateX(-50%)!important;max-width:44vw!important;padding:6px 8px!important;font-size:clamp(11px,2.6vw,15px)!important}
+  #meetingCooldownHud,#sabotageTimerHud,#abilityDurationBar{max-width:min(48vw,280px)!important;font-size:clamp(10px,2.3vw,13px)!important}
+  #toast{top:calc(env(safe-area-inset-top) + 54px)!important;max-width:calc(100vw - 24px)!important;width:max-content!important;padding:8px 12px!important;border-radius:11px!important;font-size:12px!important;line-height:1.25!important}
+  #bountyHud{max-width:min(42vw,230px)!important;top:calc(env(safe-area-inset-top) + 54px)!important;padding:5px 8px!important}
+  #lobbyRoster{left:max(8px,env(safe-area-inset-left))!important;right:auto!important;width:min(46vw,270px)!important;max-height:36dvh!important;overflow:auto!important;padding:8px!important;border-radius:13px!important}
+  #lobbyRoster h3{font-size:12px!important;margin:0 0 5px!important}
+  #lobbyRosterList>div{min-height:32px!important;padding:4px 6px!important;font-size:11px!important}
+  #lobbyChat{left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;bottom:calc(58px + env(safe-area-inset-bottom))!important;width:auto!important;max-height:min(42dvh,300px)!important;border-radius:14px!important}
+  #lobbyChatTitle{min-height:38px!important;padding:5px 8px!important}
+  #lobbyChatTitle h3{font-size:12px!important}
+  #lobbyChatMessages{max-height:24dvh!important;font-size:12px!important}
+  #lobbyChatInput,#chatInput{font-size:16px!important;min-height:42px!important}
+  #lobbyChatToggleBtn{right:max(8px,env(safe-area-inset-right))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;min-width:46px!important;min-height:44px!important;padding:5px 10px!important;border-radius:12px!important}
+  #readyBtn:not(.hidden),#startBtn:not(.hidden){bottom:calc(8px + env(safe-area-inset-bottom))!important;min-height:46px!important;height:46px!important;width:min(180px,44vw)!important;min-width:140px!important;padding:5px 12px!important;font-size:14px!important}
+  body[data-phase="lobby"] #readyBtn:not(.hidden){bottom:calc(8px + env(safe-area-inset-bottom))!important;min-height:46px!important;height:46px!important;width:min(180px,44vw)!important;min-width:140px!important;font-size:14px!important}
+  body[data-phase="lobby"] #startBtn:not(.hidden){bottom:calc(8px + env(safe-area-inset-bottom))!important;min-height:46px!important;height:46px!important;width:min(180px,44vw)!important;min-width:140px!important;font-size:14px!important}
+  #mapPanel:not(.hidden){position:fixed!important;left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;top:calc(max(8px,env(safe-area-inset-top)) + 54px)!important;bottom:calc(112px + env(safe-area-inset-bottom))!important;width:auto!important;height:auto!important;max-width:none!important;max-height:none!important;z-index:48!important;border-radius:14px!important;overflow:hidden!important}
+  #mapPanelHeader{min-height:40px!important;padding:4px 7px!important}
+  #mapPanelHeader strong{font-size:12px!important}
+  #mapCloseBtn,#sabotageMapClose{min-width:40px!important;min-height:40px!important;width:40px!important;height:40px!important}
+  #mapWorld{height:calc(100% - 42px)!important;min-height:0!important;touch-action:pan-x pan-y!important}
+  #sabotageMap:not(.hidden){position:fixed!important;left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;top:calc(max(8px,env(safe-area-inset-top)) + 54px)!important;bottom:calc(112px + env(safe-area-inset-bottom))!important;width:auto!important;height:auto!important;z-index:49!important;border-radius:14px!important;overflow:hidden!important}
+  .sabotageShell{width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;padding:8px!important;border-radius:14px!important}
+  #sabotageMapHeader{min-height:42px!important;padding:2px 4px!important}
+  #sabotageMapTitle strong{font-size:13px!important}
+  #sabotageMapTitle small,#sabotageMapFooter{font-size:10px!important}
+  #sabotageMapCanvas{min-height:0!important;height:calc(100% - 82px)!important;max-height:none!important}
+  #sabotageMapFooter{min-height:28px!important;padding:3px!important}
+  .overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles){padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;overflow:auto!important;overscroll-behavior:contain!important}
+  .overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles)>.card{box-sizing:border-box!important;width:min(94vw,680px)!important;max-width:94vw!important;max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px)!important;margin:auto!important;padding:clamp(12px,3vw,20px)!important;border-radius:16px!important;overflow:auto!important}
+  #inputSettingsDialog>.card{width:min(96vw,760px)!important;max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;padding:10px!important}
+  #inputSettingsDialog h2{font-size:18px!important}
+  #inputSettingsDialog button,#inputSettingsDialog summary{min-height:42px!important}
+  #taskGame>.card{width:min(96vw,650px)!important;max-height:90dvh!important;overflow:auto!important;padding:12px!important}
+  #taskGameTitle{font-size:clamp(16px,4vw,22px)!important}
+  #taskGameButtons button,#numberButtons button,#emergencyKeypad button{min-height:42px!important}
+  #voiceToggleBtn{position:fixed!important;left:max(8px,env(safe-area-inset-left))!important;right:auto!important;top:calc(max(8px,env(safe-area-inset-top)) + 54px)!important;z-index:252!important;width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;border-radius:14px!important;font-size:21px!important;box-shadow:0 5px 18px #0009,0 0 0 2px #091827aa!important}
+  #voiceToggleBtn[data-state="on"]{border-color:#4ff0b2!important;background:linear-gradient(145deg,#087b5a,#064b3b)!important;box-shadow:0 0 18px #36e3ad66,0 5px 18px #0009!important}
+  #voiceToggleBtn[data-speaking="true"]{animation:voicePulseMobile 1s ease-in-out infinite alternate!important}
+  #voiceToggleBtn[data-state="muted"]{border-color:#d4ac60!important;background:#352a18!important}
+  #voiceToggleBtn:disabled{opacity:.8!important;filter:saturate(.55)!important}
+  #voiceStatusLabel{left:calc(max(8px,env(safe-area-inset-left)) + 54px)!important;right:auto!important;top:calc(max(8px,env(safe-area-inset-top)) + 61px)!important;z-index:251!important;max-width:min(42vw,210px)!important;min-height:32px!important;padding:6px 9px!important;border-radius:10px!important;font-size:10px!important;line-height:1.15!important;background:#071522ee!important;white-space:normal!important}
+  #voiceStatusLabel[data-speaking="true"]{border-color:#42e8ac!important;color:#c7ffe7!important;box-shadow:0 0 14px #31dfa244!important}
+  #audioSettingsBtn{position:fixed!important;right:max(8px,env(safe-area-inset-right))!important;top:calc(max(8px,env(safe-area-inset-top)) + 58px)!important;z-index:252!important;width:44px!important;height:44px!important;min-height:44px!important;padding:0!important;border-radius:13px!important;font-size:0!important}
+  #audioSettingsBtn::before{content:"🔊";font-size:18px;line-height:1}
+  #audioSettingsPanel:not(.unifiedAudioPanel){position:fixed!important;left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;top:auto!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:auto!important;max-width:520px!important;margin:0 auto!important;padding:14px!important;border-radius:20px!important;z-index:1450!important;background:linear-gradient(160deg,#102437f8,#06111ff7)!important;box-shadow:0 0 0 100vmax #0008,0 18px 50px #000c!important;backdrop-filter:blur(18px)!important}
+  #audioSettingsPanel:not(.unifiedAudioPanel) header{min-height:42px!important}
+  #audioSettingsPanel:not(.unifiedAudioPanel) header strong{font-size:16px!important}
+  #audioSettingsPanel:not(.unifiedAudioPanel) .audioVolumeRow{grid-template-columns:minmax(72px,90px) minmax(80px,1fr) 42px!important;gap:8px!important;min-height:42px!important;font-size:12px!important}
+  #audioSettingsPanel:not(.unifiedAudioPanel) .audioVolumeRow input{min-height:36px!important}
+  #audioSettingsPanel:not(.unifiedAudioPanel) p{font-size:11px!important;line-height:1.35!important}
+  #voicePermissionPanel:not(.hidden){position:fixed!important;left:max(10px,env(safe-area-inset-left))!important;right:max(10px,env(safe-area-inset-right))!important;top:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;width:auto!important;max-width:460px!important;margin:0 auto!important;padding:16px!important;border-radius:20px!important;z-index:1452!important;background:linear-gradient(155deg,#122a3cf8,#071321fa)!important;border:1px solid #6baac5!important;box-shadow:0 0 0 100vmax #0009,0 18px 50px #000c!important;backdrop-filter:blur(18px)!important}
+  body.voicePromptOpen #lobbyRoster{top:calc(max(8px,env(safe-area-inset-top)) + 106px)!important}
+  #inputSettingsDialog #audioSettingsPanel.unifiedAudioPanel{position:static!important;inset:auto!important;width:auto!important;max-width:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+  #inputSettingsDialog #audioSettingsPanel.unifiedAudioPanel header{min-height:38px!important;margin:0 0 5px!important}
+  #inputSettingsDialog #audioSettingsPanel.unifiedAudioPanel header strong{font-size:13px!important}
+  #inputSettingsDialog #audioSettingsPanel.unifiedAudioPanel .audioVolumeRow{grid-template-columns:minmax(68px,84px) minmax(75px,1fr) 40px!important;gap:6px!important;margin:4px 0!important;font-size:11px!important}
+  #inputSettingsDialog #audioSettingsPanel.unifiedAudioPanel .audioVolumeRow input{min-height:34px!important}
+  #inputSettingsDialog #audioSettingsPanel.unifiedAudioPanel p{font-size:10px!important;line-height:1.3!important}
+  #voicePermissionTitle{font-size:17px!important}
+  #voicePermissionPanel p{font-size:12px!important;line-height:1.45!important;margin:8px 0 12px!important}
+  #voicePermissionPanel .row{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(84px,.42fr)!important;gap:8px!important}
+  #voicePermissionPanel button{min-height:48px!important;border-radius:13px!important;font-size:12px!important}
+  #voicePermissionMessage{font-size:11px!important;line-height:1.35!important}
+  #voicePermissionSettings{display:inline-block!important;margin-top:5px!important;font-size:11px!important}
+  @keyframes voicePulseMobile{to{box-shadow:0 0 20px #36e3ad88,0 5px 18px #0009;transform:scale(1.035)}}
+}
+@media(max-width:700px) and (orientation:portrait) and (pointer:coarse){
+  #taskProgressHud{width:min(62vw,250px)!important;max-width:calc(100vw - 166px)!important;top:max(7px,env(safe-area-inset-top))!important}
+  #role{max-width:32vw!important;font-size:10px!important}
+  #controls>div:last-child{width:min(47vw,220px)!important;max-width:min(47vw,220px)!important}
+  #buttons{grid-template-rows:repeat(2,48px)!important;grid-auto-rows:48px!important;gap:4px!important}
+  #controls #stick{flex-basis:min(var(--stick-size,150px),29vw,114px)!important;width:min(var(--stick-size,150px),29vw,114px)!important;height:min(var(--stick-size,150px),29vw,114px)!important}
+  #voiceStatusLabel{max-width:min(46vw,220px)!important}
+  #taskProgressHud{width:clamp(118px,34vw,210px)!important;max-width:calc(100vw - 260px)!important;left:47%!important}
+  #mapPanel:not(.hidden),#sabotageMap:not(.hidden){top:calc(max(8px,env(safe-area-inset-top)) + 52px)!important;bottom:calc(120px + env(safe-area-inset-bottom))!important}
+  #lobbyRoster{width:min(64vw,330px)!important;max-height:30dvh!important}
+  #ssxOrientationGuide{top:calc(env(safe-area-inset-top) + 54px)!important;width:min(92vw,480px)!important;padding:7px 10px!important;font-size:11px!important;border-radius:10px!important}
+  body[data-phase="play"] #ssxOrientationGuide,body[data-phase="meeting"] #ssxOrientationGuide{display:none!important}
+  #lobbyChat{max-height:38dvh!important;bottom:calc(62px + env(safe-area-inset-bottom))!important}
+  #lobbyChatMessages{max-height:21dvh!important}
+  #roundRoles:not(.autoLaunchRoles)>.card{width:94vw!important;max-height:84dvh!important}
+  #roleReveal .card{width:min(88vw,480px)!important;max-height:78dvh!important}
+  #meeting #meetingChat{font-size:12px!important}
+}
+@media(max-width:740px) and (orientation:landscape) and (pointer:coarse){
+  #controls>div:last-child{width:min(40vw,340px)!important;max-width:min(40vw,340px)!important}
+  #buttons{grid-template-rows:repeat(2,44px)!important;grid-auto-rows:44px!important;max-height:92px!important}
+  #buttons>button,#buttons>select{height:44px!important;min-height:44px!important;max-height:44px!important}
+  #buttons>#killBtn,#buttons>#abilityBtn,#buttons>#rocketLaunchBtn{height:44px!important;min-height:44px!important;max-height:44px!important}
+  #controls #stick{flex-basis:min(var(--stick-size,150px),27vh,116px)!important;width:min(var(--stick-size,150px),27vh,116px)!important;height:min(var(--stick-size,150px),27vh,116px)!important}
+  #taskProgressHud{max-width:30vw!important}
+  #lobbyRoster{max-height:50dvh!important}
+  #lobbyChat{max-height:55dvh!important}
+}
+/* Tablet touch layouts get larger hit areas without scaling the playfield or HUD text. */
+@media(min-width:800px) and (max-width:1366px) and (min-height:600px) and (pointer:coarse){
+  #controls>div:last-child{width:min(34vw,390px)!important;max-width:min(34vw,390px)!important}
+  #buttons{grid-template-rows:repeat(2,60px)!important;grid-auto-rows:60px!important;max-height:124px!important;gap:7px!important}
+  #buttons>button,#buttons>select{height:60px!important;min-height:58px!important;max-height:60px!important;font-size:clamp(12px,1.45vw,16px)!important}
+  #buttons>#killBtn,#buttons>#abilityBtn,#buttons>#rocketLaunchBtn{height:60px!important;min-height:58px!important;max-height:60px!important}
+  #controls #stick{flex-basis:min(var(--stick-size,150px),18vw,148px)!important;width:min(var(--stick-size,150px),18vw,148px)!important;height:min(var(--stick-size,150px),18vw,148px)!important}
+  #voiceToggleBtn{width:50px!important;height:50px!important;min-width:50px!important;min-height:50px!important}
+  #audioSettingsBtn{width:48px!important;height:48px!important;min-height:48px!important}
+  #voiceStatusLabel{font-size:11px!important;max-width:240px!important}
 }
 </style>
 </body>
