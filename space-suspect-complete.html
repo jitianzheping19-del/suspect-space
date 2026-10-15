@@ -7132,11 +7132,11 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       serialKiller:["シリアルキラー","インポスター陣営。キル後、制限時間までに次のキルをできなければ自滅します。会議でタイマーをリセットできます。"],
       teleporter:["テレポーター","インポスター陣営。発動待機後、ランダムな対象地点へテレポート可能な生存者を集合させます。最初の使用には8秒の待ち時間があります。ベント・梯子・移動床の利用者は対象外です。"],
       revenant:["レヴェナント","死亡後にタスクを行えるゴースト役職です。レヴェナントのタスクはクルーのタスク勝利に加算されません。"],
-      penguin:["ペンギン","インポスター陣営。対象をつかんでドラッグし、タイマー満了時にキルします。会議中にタイマーが満了した場合の処理と、通常キルの可否を設定できます。"],samurai:["侍","インポスター陣営。必殺技は1試合に1回、初期範囲3mの円形範囲にいる複数のクルーを斬ります。壁の向こうは対象外で、部屋設定から範囲を調整できます。"],
+      penguin:["ペンギン","インポスター陣営。対象をつかんでドラッグし、タイマー満了時にキルします。会議中にタイマーが満了した場合の処理と、通常キルの可否を設定できます。"],samurai:["侍","インポスター陣営。必殺技は1試合に1回、初期範囲5mの円形範囲にいる複数のクルーを斬ります。壁の向こうは対象外で、部屋設定から範囲を調整できます。"],
       suicideBomber:["自爆魔","インポスター陣営。自爆して範囲内の対象を巻き込みます。"],slugger:["スラッガー","インポスター陣営。チャージ攻撃を行います。"],rocket:["ロケット","インポスター陣営。対象を捕獲し、ロケットで打ち上げます。"],
       necromancer:["ネクロマンサー","インポスター陣営。近くの死体から、元の役職とタスクを保ってプレイヤーを復活させます。"],
       waveCannonJackal:["波動砲ジャッカル","ジャッカル陣営。壁を貫通する波動砲を発射します。"],
-      santa:["サンタ","市民役職を近くの人にランダムに贈ります。クルー以外に贈ると自滅します。クールダウンは30秒固定です。"],chief:["村長","近くの市民をシェリフに任命します。人狼・第三陣営を任命すると村長が自滅します。この仕様は固定です。クールダウン30秒。"],jumpDancer:["ジャンプダンサー","自分と周囲の生存者が、光のリングと音符の演出とともに一斉にジャンプします。ベント・はしご・昇降機中の人には作用しません。"],lighter:["ライター","一定時間、停電中も視界を広げます。点灯時間・視界倍率・クールダウンを役職詳細で設定できます。"],ubiquitous:["ユビキタス","公開ドローンを遠隔操作します。機体と操作中の本人は周囲の全員に見えます。待機時・帰還時も機体が動きます。通過者をマップへ記録する機能はありません。"]
+      santa:["サンタ","市民役職を近くの人にランダムに贈ります。クルー以外に贈ると自滅します。クールダウンは30秒固定です。"],chief:["村長","近くの市民をシェリフに任命します。人狼・第三陣営を任命すると村長が自滅します。この仕様は固定です。クールダウンは役職詳細で設定できます。"],jumpDancer:["ジャンプダンサー","自分と周囲の生存者が、光のリングと音符の演出とともに一斉にジャンプします。ベント・はしご・昇降機中の人には作用しません。"],lighter:["ライター","一定時間、停電中も視界を広げます。点灯時間・視界倍率・クールダウンを役職詳細で設定できます。"],ubiquitous:["ユビキタス","公開ドローンを遠隔操作します。機体と操作中の本人は周囲の全員に見えます。待機時・帰還時も機体が動きます。通過者をマップへ記録する機能はありません。"]
     };
     const ROLE_OPTIONS = [
       { id: "engineer", side: "crew", count: 0 }, { id: "scientist", side: "crew", count: 0 },
@@ -7528,6 +7528,57 @@ registerModEffectHandler("jumpDancerPulse",({THREE,scene,event})=>{
  },dispose:scope.dispose};
 });
 /* ROLE_PROP_ANIMATIONS_V1_END */
+/* SUPPORT_ROLE_PRESENTATION_V1 */
+function buildSupportGift(THREE,scene){
+ const s=rolePropScope(THREE,scene),{root,mesh,standard,glow}=s,blue=standard(0x315b92,{roughness:.3}),gold=standard(0xe9be68,{metalness:.8}),paper=standard(0xf0cfac,{roughness:.8});
+ mesh(new THREE.BoxGeometry(.43,.36,.36),blue,root,0,0,0);mesh(new THREE.BoxGeometry(.075,.365,.365),gold,root);mesh(new THREE.BoxGeometry(.435,.075,.365),gold,root);
+ const lid=new THREE.Group();lid.position.set(0,.19,-.18);root.add(lid);mesh(new THREE.BoxGeometry(.46,.07,.39),blue,lid,0,.015,.18);mesh(new THREE.BoxGeometry(.08,.075,.395),gold,lid,0,.015,.18);
+ for(const side of [-1,1]){const bow=mesh(new THREE.TorusGeometry(.09,.018,6,22),gold,lid,side*.08,.10,.18);bow.rotation.set(Math.PI/2,side*.45,0);bow.scale.y=.55;}mesh(new THREE.SphereGeometry(.035,10,8),gold,lid,0,.10,.18);
+ mesh(new THREE.BoxGeometry(.08,.10,.015),paper,root,.18,.08,.20).rotation.z=-.3;
+ const geometry=s.geometry(new THREE.OctahedronGeometry(.025)),material=glow(0xffd887,.9),stars=new THREE.InstancedMesh(geometry,material,18),dummy=new THREE.Object3D();root.add(stars);stars.count=0;
+ return{scope:s,root,lid,stars,dummy};
+}
+function buildAppointmentBadge(THREE,scene){
+ const s=rolePropScope(THREE,scene),{root,mesh,standard,glow}=s,gold=standard(0xeac46d,{metalness:.88,roughness:.24}),dark=standard(0x203748),shape=new THREE.Shape();
+ for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?.14:.30,x=Math.cos(a)*r,y=Math.sin(a)*r;i?shape.lineTo(x,y):shape.moveTo(x,y);}shape.closePath();
+ mesh(new THREE.ExtrudeGeometry(shape,{depth:.055,bevelEnabled:true,bevelThickness:.016,bevelSize:.015,bevelSegments:2}),gold);
+ const face=mesh(new THREE.CylinderGeometry(.115,.115,.025,24),dark,root,0,0,.09);face.rotation.x=Math.PI/2;const pin=mesh(new THREE.TorusGeometry(.095,.014,6,24),gold,root,0,0,.112);
+ const shine=mesh(new THREE.BoxGeometry(.06,.33,.005),glow(0xffffd5,.65),root,-.2,0,.13);shine.rotation.z=-.4;return{scope:s,root,shine};
+}
+function supportDeliveryEffect({THREE,scene,event},badge=false){
+ const model=badge?buildAppointmentBadge(THREE,scene):buildSupportGift(THREE,scene),start=Number(event.at)||now(),duration=badge?2600:3000;
+ return{update(stamp){const t=Math.max(0,(stamp-start)/duration);if(t>=1)return false;
+  const a=roleVisualPose(event.by,{x:Number(event.x)||0,z:Number(event.z)||0}),b=roleVisualPose(event.target,{x:Number(event.targetX)||0,z:Number(event.targetZ)||0}),yaw=Number(a.yaw)||0;
+  const from={x:a.x+Math.sin(yaw+.75)*.38,z:a.z+Math.cos(yaw+.75)*.38},to={x:b.x+Math.sin(Number(b.yaw)||0)*.32,z:b.z+Math.cos(Number(b.yaw)||0)*.32},u=clamp((t-.12)/.48,0,1),e=u*u*(3-2*u),y=(Number(a.y)||0)+.72+((Number(b.y)||0)-(Number(a.y)||0))*e+Math.sin(Math.PI*u)*.7;
+  model.root.position.set(from.x+(to.x-from.x)*e,y,from.z+(to.z-from.z)*e);model.root.rotation.y=badge?(Number(b.yaw)||0):(Number(a.yaw)||0)+Math.sin(u*Math.PI)*.4;
+  const fade=clamp((1-t)/.16,0,1),pop=clamp(t/.10,0,1);model.root.scale.setScalar(pop*fade*(badge?1:.85));model.root.visible=rolePropObservable(model.root.position);
+  if(badge){model.shine.position.x=-.33+clamp((t-.56)/.28,0,1)*.66;model.shine.visible=t>.56&&t<.84;}
+  else{const opening=clamp((t-.60)/.18,0,1);model.lid.rotation.x=-opening*1.55;model.stars.count=opening>0?18:0;for(let i=0;i<model.stars.count;i++){const a=i*2.399963,r=opening*(.18+(i%4)*.08);model.dummy.position.set(Math.cos(a)*r,.22+opening*(.25+(i%5)*.08),Math.sin(a)*r);model.dummy.rotation.set(opening*5+i,opening*3,opening*4);model.dummy.scale.setScalar((1-opening*.7)*fade);model.dummy.updateMatrix();model.stars.setMatrixAt(i,model.dummy.matrix);}model.stars.instanceMatrix.needsUpdate=true;}
+  return true;},dispose:()=>model.scope.dispose()};
+}
+registerModEffectHandler('supportGift',args=>supportDeliveryEffect(args,false));
+registerModEffectHandler('supportAppoint',args=>supportDeliveryEffect(args,true));
+function buildRoleFlashlight(THREE,scene){
+ const s=rolePropScope(THREE,scene),{root,mesh,standard,glow}=s,body=standard(0x31566a,{metalness:.6}),rubber=standard(0x142332,{roughness:.9}),trim=standard(0xd3c38b,{metalness:.8});
+ const handle=mesh(new THREE.CylinderGeometry(.055,.064,.28,16),rubber,root,0,0,.03);handle.rotation.x=Math.PI/2;
+ const head=mesh(new THREE.CylinderGeometry(.10,.065,.15,20),body,root,0,0,.21);head.rotation.x=Math.PI/2;const lens=mesh(new THREE.CircleGeometry(.084,24),glow(0xfff1c0),root,0,0,.293);
+ const bezel=mesh(new THREE.TorusGeometry(.092,.013,6,24),trim,root,0,0,.293);mesh(new THREE.BoxGeometry(.045,.025,.065),trim,root,0,.06,.03);
+ const beam=mesh(new THREE.ConeGeometry(.62,2.2,24,1,true),glow(0xffeac0,.035),root,0,0,1.35);beam.rotation.x=-Math.PI/2;
+ const light=new THREE.PointLight(0xffedc5,.65,3.5,2);light.position.z=.35;root.add(light);return{scope:s,root,lens,beam,light};
+}
+const QUALITY_LIGHTER_PROPS=new Map();
+function updateSupportRoleProps(THREE,scene,g,avatarMap,dt,stamp){
+ const keep=new Set();if(g.phase==='play')for(const [id,p]of Object.entries(g.players||{})){
+  if(!p?.alive||p.disconnected||p.observer||p.subrole!=='lighter'||!(Number(p.lighterUntil)>stamp-350))continue;const avatar=avatarMap.get(id);if(!avatar)continue;
+  keep.add(id);let m=QUALITY_LIGHTER_PROPS.get(id);if(!m){m=buildRoleFlashlight(THREE,scene);QUALITY_LIGHTER_PROPS.set(id,m);}
+  const start=Number(p.lighterStartedAt)||Number(p.lighterUntil)-roleBehaviorValue(g.settings,'lighterDurationSeconds')*1000,open=clamp((stamp-start)/430,0,1),end=clamp((Number(p.lighterUntil)+350-stamp)/350,0,1),yaw=avatar.rotation.y;
+  m.root.position.set(avatar.position.x+Math.sin(yaw+.65)*.36,avatar.position.y+.79,avatar.position.z+Math.cos(yaw+.65)*.36);m.root.rotation.set((1-open)*.75+(1-end)*.75,yaw,0);m.root.scale.setScalar(Math.min(open,end));
+  m.root.visible=avatar.visible&&rolePropObservable(m.root.position);m.beam.visible=stamp<Number(p.lighterUntil);m.light.intensity=stamp<Number(p.lighterUntil)?.65*open:0;
+ }
+ for(const [id,m]of QUALITY_LIGHTER_PROPS)if(!keep.has(id)){m.scope.dispose();QUALITY_LIGHTER_PROPS.delete(id);}
+}
+/* SUPPORT_ROLE_PRESENTATION_V1_END */
+
 
 /* MOD_COMBAT_ROLE_MECHANICS */
 const modCombatClamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,Number.isFinite(Number(v))?Number(v):lo));
@@ -7799,6 +7850,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
         const inDetail=row.closest("#gmSettingsRoleDetailRows");
         row.classList.toggle("hidden",inDetail?!roleIds.includes(activeRoleDetail):!roleIds.some(id=>counts[id]>0));
       });
+      updateRoleSettingsPreview();
     }
     function setupRoleSettingsPanels(){
       const root=$("gmSettings");if(!root||root.dataset.settingsTabsReady==="true")return;
@@ -7814,7 +7866,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       const roleNav=document.createElement("div");roleNav.className="roleDetailFactionNav";roleNav.id="roleDetailFactionNav";
       const roleValues=document.createElement("div");roleValues.className="roleDetailValues";
       const roleRows=document.createElement("div");roleRows.id="gmSettingsRoleDetailRows";roleRows.className="gmSettingsFieldGrid";
-      const emptyDetail=document.createElement("p");emptyDetail.className="roleDetailEmptySelection";emptyDetail.textContent="役職を追加すると詳細を変更できます。";roleValues.append(roleRows,emptyDetail);detailLayout.append(roleNav,roleValues);detailPanel.append(detailLayout);
+      const emptyDetail=document.createElement("p");emptyDetail.className="roleDetailEmptySelection";emptyDetail.textContent="役職を追加すると詳細を変更できます。";const preview=document.createElement("section");preview.id="roleSettingsPreview";preview.hidden=true;roleValues.append(preview,roleRows,emptyDetail);roleRows.addEventListener("input",updateRoleSettingsPreview);roleRows.addEventListener("change",updateRoleSettingsPreview);detailLayout.append(roleNav,roleValues);detailPanel.append(detailLayout);
       const countNodes=new Set(["roleCategoryTabs","roleCapacityWarning","roleSettingsList"]);
       const roomIds=new Set(["waveMode","botMode","botCountControl","voiceRoomEnabled","meetingSeconds","taskCount","killCooldownSeconds","sabotageCooldownSeconds","anonymousVotes","roomViewMode","roomMapMode","ejectionRevealMode","confirmEjects"]);
       for(const node of old){
@@ -9192,8 +9244,74 @@ function showRoleReveal(player) {
       },launchWait+1900);
     }
 
+/* ROLE_ABILITY_PRESENTATION_V1 */
+function roleIconKind(id){
+ const groups={gift:['santa'],badge:['chief','mayor','meetingSheriff','sheriff'],lamp:['lighter','lightkeeper'],drone:['ubiquitous'],fire:['arsonist'],gun:['triggerHappy','guesser','evilGuesser','bountyHunter'],sword:['samurai','slugger'],eye:['hawk','niceHawk','god','seer','scientist'],camera:['photographer','detective','tracker','navigator'],heart:['cupid','lovers','medic','angel','necromancer'],mask:['matryoshka','morphing','shapeshifter','camouflager','phantom','mirage'],scale:['scales','swapper'],rocket:['rocket','teleporter','teleportJackal'],bomb:['bomber','suicideBomber','conjurer'],jump:['jumpDancer','speedBooster','mini']};return Object.keys(groups).find(kind=>groups[kind].includes(id))||(id==='impostor'||ROLE_OPTIONS.find(role=>role.id===id)?.side==='impostor'?'sword':'crew');
+}
+function roleIconSvg(id){
+ const shapes={gift:'<rect x="6" y="14" width="28" height="22" rx="3"/><path d="M20 14v22M6 21h28M20 13c-12 0-13-11-7-10 5 0 7 10 7 10s2-10 7-10c6-1 5 10-7 10z"/>',badge:'<path d="m20 3 5 10 11 2-8 8 2 12-10-6-10 6 2-12-8-8 11-2z"/><circle cx="20" cy="20" r="5"/>',lamp:'<path d="m12 27 6-10 10 6-6 10zM18 17l3-9 15 9-8 6M25 8l4-5m3 10 6-1m-4 8 3 4"/>',drone:'<rect x="14" y="14" width="12" height="12" rx="4"/><path d="M14 14 9 9m17 5 5-5M14 26l-5 5m17-5 5 5"/><circle cx="8" cy="8" r="5"/><circle cx="32" cy="8" r="5"/><circle cx="8" cy="32" r="5"/><circle cx="32" cy="32" r="5"/>',fire:'<path d="M22 3c3 11-1 12-1 17 4-1 7-4 7-8 15 20 2 26-8 26S0 28 12 15c-1 8 2 8 4 10C13 13 19 11 22 3z"/>',gun:'<path d="M5 12h27v9H19l-4 14H7l4-14H5zM28 12V8m7 5h3m-3 6h3"/><path d="M22 21v6h-5"/>',sword:'<path d="m10 32 19-20 8-9-4 13-20 19zM7 26l12 12m-5-3-6 5-5-5 5-6"/>',eye:'<path d="M2 20s7-12 18-12 18 12 18 12-7 12-18 12S2 20 2 20z"/><circle cx="20" cy="20" r="6"/><path d="M18 17h3"/>',camera:'<rect x="4" y="11" width="32" height="24" rx="4"/><path d="m12 11 3-6h10l3 6"/><circle cx="20" cy="23" r="8"/><path d="M31 15h1"/>',heart:'<path d="M20 35C-4 20 3 4 13 7c4 1 7 6 7 6s3-5 7-6c10-3 17 13-7 28z"/><path d="M8 21h7l3-6 5 13 3-7h6"/>',mask:'<path d="M5 8c10 5 20 5 30 0v14c0 9-10 16-15 16S5 31 5 22z"/><path d="M10 19q5-5 9 0m3 0q4-5 9 0M14 28q6 6 12 0"/>',scale:'<path d="M20 4v31M9 36h22M6 11h28M9 11 3 25h12L9 11m22 0-6 14h12l-6-14"/><circle cx="20" cy="8" r="3"/>',rocket:'<path d="M14 29c-2-14 0-20 6-26 6 6 8 12 6 26zM14 19l-8 7v9l8-6m12-10 8 7v9l-8-6M17 32l3 7 3-7"/><circle cx="20" cy="15" r="4"/>',bomb:'<circle cx="18" cy="25" r="12"/><path d="m22 13 2-5h6l2-4M32 9l5 1m-7-7V1M12 21l3-3"/>',jump:'<path d="m5 16 6-6 7 7 8-9 9 3M11 10l-1 12-6 8m14-13 4 11 9 5M27 8l-3-5"/><circle cx="14" cy="5" r="3"/><path d="M5 37h30"/>',crew:'<path d="M11 33V17a11 11 0 0 1 22 0v16h-7v-7h-7v7zM10 16H5v13h6"/><rect x="21" y="12" width="15" height="9" rx="4"/>'};
+ return '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+shapes[roleIconKind(id)]+'</svg>';
+}
+function createRoleIcon(id){const icon=document.createElement('span');icon.className='roleAbilityIcon';icon.dataset.kind=roleIconKind(id);icon.innerHTML=roleIconSvg(id);return icon;}
+function rolePresentationSettings(id,fromInputs=false,settings={}){
+ const values={...settings},fields=[];
+ for(const row of document.querySelectorAll('[data-role-setting]')){
+  if(!row.dataset.roleSetting.split(',').includes(id))continue;
+  for(const input of row.querySelectorAll('input,select')){
+   const key=input.dataset.matchSettingAlias||input.id;if(!key)continue;
+   const spec=ROLE_BEHAVIOR_SETTINGS[key]||ROLE_COOLDOWN_SETTINGS[key],label=spec?.label||[...row.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim()||row.querySelector('span')?.textContent||key;
+   const fallback=spec?.default??(input.type==='checkbox'?input.defaultChecked:input.defaultValue||input.value),raw=fromInputs?(input.type==='checkbox'?input.checked:input.value):(settings[key]??fallback),value=input.type==='checkbox'?raw===true:Number.isFinite(Number(raw))?Number(raw):Number(fallback)||0;
+   values[key]=value;
+   if(spec?.enabledBy&&values[spec.enabledBy]===false)continue;
+   if(!fields.some(field=>field.key===key))fields.push({key,label,value,unit:spec?.unit||(/Seconds|Cooldown|Delay|Seconds$/.test(key)?'秒':/Range|Radius/.test(key)?'m':/Multiplier/.test(key)?'倍':'')});
+  }
+ }
+ for(const [key,spec]of Object.entries(ROLE_COOLDOWN_SETTINGS))if(spec.fixed&&spec.roles.includes(id)&&!fields.some(field=>field.key===key)){values[key]=spec.default;fields.push({key,label:spec.label,value:spec.default,unit:'秒'});}
+ return{values,fields};
+}
+function createRoleAbilityPresentation(id,{fromInputs=false,settings={}}={}){
+ const {values,fields}=rolePresentationSettings(id,fromInputs,settings),kind=roleIconKind(id),value=(key,fallback)=>values[key]??fallback,wrap=document.createElement('figure');wrap.className='roleAbilityPreview';wrap.dataset.role=id;
+ const title=document.createElement('figcaption');title.textContent=fromInputs?'能力プレビュー':'能力の使い方';wrap.append(title);
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('roleAbilityDiagram');svg.setAttribute('viewBox','0 0 320 132');svg.setAttribute('role','img');
+ const suit=(x,y,color)=>`<g transform="translate(${x} ${y})" fill="${color}" stroke="#071824" stroke-width="2"><rect x="-13" y="-24" width="26" height="37" rx="12"/><rect x="-12" y="5" width="10" height="17" rx="4"/><rect x="3" y="5" width="10" height="17" rx="4"/><rect x="0" y="-18" width="18" height="11" rx="5" fill="#c4f3ff"/></g>`,icon=`<g transform="translate(141 36) scale(.95)" color="#ffe6a0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${roleIconSvg(id).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'')}</g>`;
+ let picture='',description='';
+ if(id==='lighter'){
+  const radius=10.2*Number(value('lighterVisionMultiplier',2)),r=18+Number(value('lighterVisionMultiplier',2))*8;
+  picture=`<circle cx="91" cy="64" r="${r}" fill="#ffe18a1b" stroke="#ffe18a" stroke-width="1.8"/><circle cx="91" cy="64" r="26" fill="none" stroke="#9abac366" stroke-dasharray="3 4"/>${suit(91,64,'#e5bd62')}<path d="M160 65h18" stroke="#70e3cd"/>${icon.replace('141 36','201 41')}<text x="232" y="109" text-anchor="middle">${radius.toFixed(1)}m</text>`;
+  description=`${value('lighterDurationSeconds',10)}秒間、通常視界の${value('lighterVisionMultiplier',2)}倍まで見渡せます。`;
+ }else if(id==='triggerHappy'){
+  const radius=Number(value('triggerHappyBulletRadius',.14)),ammo=Math.max(1,Math.min(30,Number(value('triggerHappyAmmo',9)))),dots=Array.from({length:Math.min(10,ammo)},(_,i)=>`<circle cx="${92+i*14}" cy="64" r="${Math.max(2,radius*15)}" fill="#ffd289" class="diagramBullet" style="animation-delay:${i*.09}s"/>`).join('');
+  picture=`${suit(39,64,'#f0768c')}<path d="M65 64h190" stroke="#608798" stroke-dasharray="3 5"/>${dots}${suit(279,64,'#6fc6e3')}`;description=`${ammo}発を連射。弾の半径${radius.toFixed(2)}m、${value('triggerHappyHits',3)}発命中でキル。味方への命中：${value('triggerHappyFriendlyFire',true)?'あり':'なし'}。`;
+ }else if(['samurai','slugger','suicideBomber'].includes(id)){
+  const range=Number(id==='samurai'?value('samuraiRange',5):id==='slugger'?value('sluggerRange',5):value('suicideBomberRadius',4)),r=15+range*3.3;
+  picture=`<circle cx="102" cy="64" r="${r}" fill="#f99c7c18" stroke="#ffbd94" stroke-width="2"/><path d="M102 64h${r}" stroke="#ffbd94"/>${suit(102,64,'#ef8795')}${suit(244,64,'#71c8df')}<text x="204" y="111">範囲 ${range}m</text>`;description=id==='slugger'?`前方${range}mの範囲に攻撃します。`: `自分を中心に${range}mの範囲に効果があります。`;
+ }else if(id==='arsonist'){
+  const duration=Number(value('arsonistDouseSeconds',3)),width=duration/15*132;
+  picture=`${suit(51,64,'#efb376')}${suit(268,64,'#83c3dc')}<path d="M85 58h144" stroke="#eab763" stroke-dasharray="5 5"/><rect x="94" y="81" width="132" height="7" rx="3" fill="#233f4a"/><rect x="94" y="81" width="${width}" height="7" rx="3" fill="#eab763"/>${icon}`;description=`相手の近くで${duration}秒間、着火剤を塗ります。ベント：${value('arsonistCanVent',false)?'使用可':'使用不可'}。`;
+ }else if(['gift','badge'].includes(kind)){
+  picture=`${suit(48,75,'#70d6c8')}${suit(270,75,'#86b9e8')}<path d="M78 65Q160 0 242 65" fill="none" stroke="#d5b969" stroke-width="2" stroke-dasharray="5 5"/>${icon}`;description=id==='santa'?'近くの市民にランダムな市民役職を贈ります。再使用は30秒後。':'近くの市民をシェリフに任命。人狼・第三陣営を任命すると自滅します。';
+ }else if(kind==='drone'){
+  picture=`${suit(48,76,'#7ac8d8')}<path d="M82 66q35-45 76-13t91-6" fill="none" stroke="#72dfcd" stroke-dasharray="5 5"/>${icon.replace('141 36','237 27')}<path d="M265 79l-28 21h56z" fill="#74e5cf25"/>`;description='操縦者はその場に留まり、ドローンを遠隔操作します。ドローンと操縦者は周囲の全員から見えます。';
+ }else{
+  picture=`<circle cx="160" cy="61" r="47" fill="#81dbd90c" stroke="#5d9dab" stroke-dasharray="3 5"/>${icon}<path d="M112 111h96" stroke="#538090" stroke-width="2"/>`;description=id==='crewmate'?'特殊能力はありません。タスクと会議で市民陣営の勝利を目指します。':id==='impostor'?'近くの相手へのキルと妨害を使います。':id==='mirage'?'死亡後、そのターンに死亡した人からランダムに偽死体を複製します。標準は使用回数無制限です。':kind==='mask'?'変装・姿の変化はゲーム内のキャラクターに反映されます。':kind==='scale'?'会議の対象を選んで能力を発動します。':'設定した条件で能力を発動します。';
+ }
+ svg.innerHTML='<path d="M0 124h320" stroke="#274452"/>'+picture;svg.setAttribute('aria-label',description);wrap.append(svg);
+ const caption=document.createElement('p');caption.className='roleAbilityCaption';caption.textContent=description;wrap.append(caption);
+ const stats=document.createElement('div');stats.className='roleAbilityStats';
+ for(const field of fields.slice(0,5)){const item=document.createElement('span'),name=document.createElement('small'),number=document.createElement('strong');name.textContent=field.label;number.textContent=typeof field.value==='boolean'?(field.value?'ON':'OFF'):field.value+field.unit;item.append(name,number);stats.append(item);}
+ if(stats.childElementCount)wrap.append(stats);
+ const timeline=document.createElement('div');timeline.className='roleTimePreview';
+ for(const field of fields.filter(field=>field.unit==='秒').slice(0,2)){const row=document.createElement('div'),label=document.createElement('small'),meter=document.createElement('meter'),number=document.createElement('strong'),spec=ROLE_COOLDOWN_SETTINGS[field.key]||ROLE_BEHAVIOR_SETTINGS[field.key];label.textContent=field.label;meter.min=0;meter.max=Math.max(1,Number(document.getElementById(field.key)?.max)||Number(spec?.max)||120);meter.value=field.value;meter.setAttribute('aria-label',field.label);number.textContent=field.value+'秒';row.append(label,meter,number);timeline.append(row);}
+ if(timeline.childElementCount)wrap.append(timeline);return wrap;
+}
+function updateRoleSettingsPreview(){
+ const host=document.getElementById('roleSettingsPreview');if(!host)return;host.hidden=!activeRoleDetail;if(!activeRoleDetail){host.replaceChildren();return;}
+ const fields=rolePresentationSettings(activeRoleDetail,true).fields,stamp=JSON.stringify([activeRoleDetail,fields.map(field=>[field.key,field.value])]);if(host.dataset.stamp===stamp)return;host.dataset.stamp=stamp;host.replaceChildren(createRoleAbilityPresentation(activeRoleDetail,{fromInputs:true}));
+}
+/* ROLE_ABILITY_PRESENTATION_V1_END */
+
 function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",settingsOverride=game.lobbySettings,gameOverride=game){
-      const list=$("roundRoleList");list.classList.remove("hasRoleDetail");list.replaceChildren();
+      const list=$("roundRoleList");list.dataset.roleLayout="quality";list.classList.remove("hasRoleDetail");list.replaceChildren();
       const lobby=source==="lobby",counts=new Map(),playersForRoles=gameOverride.players||{};
       const factionNames={crew:"市民陣営",impostor:"人狼陣営",neutral:"第三陣営"};
       const factionOf=id=>{const side=ROLE_OPTIONS.find(role=>role.id===id)?.side;return id==="impostor"||["madmate","blackCat"].includes(id)||side==="impostor"?"impostor":id==="jackal"||side==="neutral"?"neutral":"crew";};
@@ -9251,11 +9369,12 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
         list.querySelectorAll(".roleChoiceButton").forEach(item=>item.classList.toggle("active",item===button));
         list.classList.add("hasRoleDetail");detail.hidden=false;
         const info=roleMeta[id]||ROLE_LABELS[id]||[id,"この役職の説明はありません。"];
-        detail.replaceChildren();const heading=document.createElement("h3");heading.textContent=info[0];detail.append(heading);
+        detail.replaceChildren();const heading=document.createElement("h3");heading.textContent=info[0];heading.prepend(createRoleIcon(id));detail.append(heading);
         const value=valueOverride??(counts.get(id)||0),count=document.createElement("p");count.className="roleChoiceCount";
         count.textContent=id==="lovers"?`${lobby?"設定":"参加"}ペア数：${value}組（${value*2}人）`:lobby?`予定人数：${value}人`:`参加人数：${value}人`;detail.append(count);
         const description=document.createElement("p");description.textContent=info[1];detail.append(description);
         window.__ssxRoleDetails?.(detail,id,lobby);
+        detail.append(createRoleAbilityPresentation(id,{settings:lobby?settingsOverride:gameOverride.settings||{}}));
       }
       function addRoleCard(container,id,labelOverride="",valueOverride=undefined){
         const info=roleMeta[id]||ROLE_LABELS[id]||[id,"この役職の説明はありません。"];
@@ -9264,7 +9383,7 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
         const badge=document.createElement("span");badge.className="roleChoiceBadge";const value=valueOverride??(counts.get(id)||0);
         const lottery=lobby&&id!=="lovers"&&lotteryFactions[factionOf(id)];
         badge.textContent=lottery?"ランダム抽選":id==="lovers"?`${value}組`:`${value}人`;
-      button.append(title);button.append(badge);button.addEventListener("click",()=>showRole(id,button,value));container.append(button);if(!firstCard)firstCard=button;
+      button.append(createRoleIcon(id),title,badge);button.addEventListener("click",()=>showRole(id,button,value));container.append(button);if(!firstCard)firstCard=button;
       }
       for(const faction of columnData){
         const column=document.createElement("section");column.className=`roleFactionColumn roleFaction-${faction.id}`;column.dataset.faction=faction.id;
@@ -13955,30 +14074,50 @@ function runBots(g) {
   return {dirty,moved};
 }
 
-function chooseBotMeetingVote(g,voterId,choices){
-  const eligible=[...new Set((choices||[]).filter(id=>g.players?.[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected))];
-  if(!eligible.length)return "skip";
-  const nameRows=eligible.map(id=>({id,name:String(g.players[id].name||"").trim()})).filter(row=>row.name);
-  const duplicateNames=new Set(nameRows.filter(row=>nameRows.filter(other=>other.name.toLocaleLowerCase()===row.name.toLocaleLowerCase()).length>1).map(row=>row.name.toLocaleLowerCase()));
-  const remainingRows=nameRows.filter(row=>!duplicateNames.has(row.name.toLocaleLowerCase())).sort((a,b)=>b.name.length-a.name.length);
-  const mentions=new Map(eligible.map(id=>[id,0]));
-  for(const message of g.meeting?.chat||[]){
-    if(message?.system||message?.channel==="ghost"||message?.alive===false)continue;
-    let remaining=String(message?.text||"").toLocaleLowerCase();
-    for(const row of remainingRows){
-      const name=row.name.toLocaleLowerCase();let at=remaining.indexOf(name);
-      while(at>=0){mentions.set(row.id,(mentions.get(row.id)||0)+1);remaining=remaining.slice(0,at)+" ".repeat(name.length)+remaining.slice(at+name.length);at=remaining.indexOf(name,at+name.length);}
-    }
+/* PUBLIC_MEETING_EVIDENCE_V1 */
+function analyzeBotMeetingEvidence(g,voterId,choices){
+ const ids=[...new Set(choices||[])].filter(id=>g.players?.[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected),normalize=value=>String(value||'').normalize('NFKC').toLocaleLowerCase();
+ const names=ids.map(id=>({id,name:normalize(g.players[id].name).trim()})).filter(row=>row.name),rows=names.filter(row=>names.filter(other=>other.name===row.name).length===1).sort((a,b)=>b.name.length-a.name.length),authors=new Map(ids.map(id=>[id,new Map()]));
+ for(const message of (g.meeting?.chat||[]).slice(-80)){
+  if(message?.system||message?.channel==='ghost'||message?.alive===false||!g.players?.[message.uid]||g.players[message.uid].observer||String(message.uid)===String(voterId))continue;
+  // A quotation is somebody else's statement, not an additional witness.
+  const text=normalize(message.text).replace(/「[^」]*」|『[^』]*』|"[^"]*"|“[^”]*”/g,' '),perMessage=new Map();
+  for(const clause of text.split(/[。!?！？\n;；]/)){
+   let available=clause;const mentions=[];
+   for(const row of rows){let at=available.indexOf(row.name);while(at>=0){const before=clause[at-1]||'',after=clause[at+row.name.length]||'',ascii=/^[a-z0-9_ -]+$/.test(row.name);if(!ascii||(!/[a-z0-9_]/.test(before)&&!/[a-z0-9_]/.test(after)))mentions.push({...row,at});available=available.slice(0,at)+' '.repeat(row.name.length)+available.slice(at+row.name.length);at=available.indexOf(row.name,at+row.name.length);}}
+   mentions.sort((a,b)=>a.at-b.at);
+   mentions.forEach((row,index)=>{
+    const after=clause.slice(row.at+row.name.length,mentions[index+1]?.at??clause.length),before=clause.slice(Math.max(0,row.at-12),row.at);let score=0;
+    const defense=/(?:怪しく(?:は)?ない|怪しいわけ(?:では|じゃ)ない|(?:黒|人狼|狼|インポスター|犯人)(?:では|じゃ)ない|違う|無実|白(?:だ|です|い|だった|っぽい|確|と思|で|$)|殺して(?:は)?ない|キルして(?:は)?ない|殺したの(?:では|じゃ)ない|疑って(?:は)?ない|投票しない|吊らない)/.test(after),accuse=/(?:怪し|(?:黒|人狼|狼|インポスター)(?:だ|です|い|だった|っぽい|確|と思|かも|$)|犯人|殺した|キルした|投票(?:する|したい|しよう|します|して|した|$)|に(?:一票|1票|入れる)|吊(?:る|りたい|ろう)|つ(?:る|りたい))/.test(after)||/(?:疑うのは|怪しいのは|犯人は|投票先は)$/.test(before),nearby=/(?:近く|そば|現場|付近).*(?:いた|見た|見かけ|確認|目撃)/.test(after);
+    if(defense)score=-1.6;else if(accuse)score=1.5;else if(nearby)score=.65;
+    if(/(?:理由|根拠|確認したい|教えて|本当|という話|って話|と言って|って言って)/.test(after))score=0;
+    if(/(?:かも|気がする|っぽい|らしい|聞いた|たぶん|多分)/.test(after))score*=.55;
+    if(String(message.uid)===row.id&&score<0)score*=.3;
+    if(score)perMessage.set(row.id,score);
+   });
   }
-  const persona=botPersonalityFor(voterId);
-  const rows=eligible.map(id=>({id,weight:1+(mentions.get(id)||0)*persona.accusationTrust}));
-  const hasMention=[...mentions.values()].some(count=>count>0);
-  const skipWeight=Math.max(1,Math.round(eligible.length*(hasMention ? persona.skipBias*.52 : persona.skipBias)));
-  const total=rows.reduce((sum,row)=>sum+row.weight,skipWeight);
-  let pick=Math.random()*total;
-  for(const row of rows){pick-=row.weight;if(pick<0)return row.id;}
-  return "skip";
+  // One author's latest opinion replaces their previous one; repeating a name
+  // cannot manufacture independent support or a larger voting weight.
+  for(const [id,score]of perMessage)authors.get(id)?.set(String(message.uid),score);
+ }
+ const scores=new Map(ids.map(id=>[id,[...authors.get(id).values()].reduce((sum,value)=>sum+value,0)])),support=new Map(ids.map(id=>[id,[...authors.get(id).values()].filter(value=>value>0).length]));
+ return{scores,support,ranked:ids.map(id=>({id,score:scores.get(id),support:support.get(id)})).sort((a,b)=>b.score-a.score)};
 }
+function chooseBotMeetingVote(g,voterId,choices){
+ const eligible=[...new Set((choices||[]).filter(id=>id!==voterId&&g.players?.[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected))];if(!eligible.length)return 'skip';
+ const evidence=analyzeBotMeetingEvidence(g,voterId,eligible),persona=botPersonalityFor(voterId),strongest=Math.max(0,...evidence.scores.values());
+ if(strongest<=0)return 'skip';
+ const rows=eligible.map(id=>({id,weight:Math.max(.04,.12+Math.max(0,evidence.scores.get(id)||0)*persona.accusationTrust)})),skipWeight=Math.max(.65,eligible.length*persona.skipBias/(1+strongest*.7));
+ let pick=Math.random()*(skipWeight+rows.reduce((sum,row)=>sum+row.weight,0));for(const row of rows){pick-=row.weight;if(pick<0)return row.id;}return 'skip';
+}
+function botEvidenceReplyLines(g,botId){
+ const eligible=Object.keys(g.players||{}).filter(id=>id!==botId),analysis=analyzeBotMeetingEvidence(g,botId,eligible),top=analysis.ranked.find(row=>row.score>0),defended=analysis.ranked.find(row=>row.score<0);
+ if(top){const name=g.players[top.id].name;return[`${name}の名前が出ているね。疑う理由を確認したい。`,`${name}について、実際に見た出来事と時刻を教えて。`,`${name}の行動について、ほかに見た人はいる？`,`${name}についての証言は聞いたよ。反対の情報も確認しよう。`,`${name}の名前だけで決めず、場所と時間を比べたい。`];}
+ if(defended){const name=g.players[defended.id].name;return[`${name}は違うという話だね。ほかの目撃情報も聞こう。`,`${name}を擁護する話は聞いたよ。時刻も確認しよう。`,`${name}の名前が出ただけで投票先を決めないようにしよう。`];}
+ return [];
+}
+/* PUBLIC_MEETING_EVIDENCE_V1_END */
+
 function maybeAddBotMeetingChat(g){
   const meetingId=g.meeting?.id;
   if(g.phase!=="meeting"||!meetingId)return false;
@@ -14084,7 +14223,8 @@ function maybeAddBotMeetingChat(g){
     else if(suspectName)choices=[`死亡時、私の近くに${suspectName}がいたよ。`,`死亡した時、${suspectName}は私の近くにいたよ。`,`死亡が起きた時、私の周りに${suspectName}がいたよ。`,`その時、${suspectName}は私から近い場所にいたよ。`,`死亡時点で、${suspectName}が私の近くにいたのを確認したよ。`,`死亡が起きた時、${suspectName}は周囲にいたよ。`,`私の近くに${suspectName}がいたのは、死亡時のことだよ。`,`死亡時、${suspectName}がすぐ近くにいたよ。`,`その瞬間、${suspectName}は私の周辺にいたよ。`,`死亡が起きた頃、${suspectName}が近くにいたよ。`,`死亡時に私のそばで${suspectName}を確認したよ。`,`その時点では、${suspectName}が私の近くにいたよ。`];
     else choices=["死亡時、私の近くにはほかの人はいなかったよ。","死亡が起きた時、周囲に人の姿は見えなかった。","その時、私の近くにほかの人はいなかったと思う。","死亡時点では、近くに別の人を確認できなかったよ。","死亡が起きた時、私の周りは誰もいなかったよ。","その瞬間、近くにいた人は見当たらなかった。","死亡時、私の周囲には誰も見えなかったよ。","死亡が起きた頃、近くに人影はなかったよ。","その時点では、私の近くにほかの人はいなかった。","死亡時に周りを見たけれど、ほかの人はいなかったよ。","死亡が起きた時、私の近くには誰もいなかったよ。","その瞬間、私の周りに人はいなかったと思う。"];
   }else if(livingChat.length){
-    choices=["その話は聞いたよ。場所と時刻も確認したいな。","なるほど。見たことと推測を分けて整理しよう。","今の話に関連して、ほかに見た人はいる？","証言ありがとう。移動した順番も分かると助かるよ。","さっきの話と合わせて、時間を確認したいな。","その情報を覚えておくね。ほかの人の話も聞こう。","話のあった場所と時刻を、もう一度確認してもいい？","今の発言で分かったことを、事実から整理しよう。","一つの証言だけで決めず、ほかの人とも照らし合わせたい。","その時、近くにいた人を覚えている？","話してくれてありがとう。見た範囲をもう少し聞きたいな。","なるほど。無理に断定せず、情報を比べよう。"];
+    const evidenceReplies=botEvidenceReplyLines(g,botId);
+    choices=[...evidenceReplies,"その話は聞いたよ。場所と時刻も確認したいな。","なるほど。見たことと推測を分けて整理しよう。","今の話に関連して、ほかに見た人はいる？","証言ありがとう。移動した順番も分かると助かるよ。","さっきの話と合わせて、時間を確認したいな。","その情報を覚えておくね。ほかの人の話も聞こう。","話のあった場所と時刻を、もう一度確認してもいい？","今の発言で分かったことを、事実から整理しよう。","一つの証言だけで決めず、ほかの人とも照らし合わせたい。","その時、近くにいた人を覚えている？","話してくれてありがとう。見た範囲をもう少し聞きたいな。","なるほど。無理に断定せず、情報を比べよう。"];
   }else choices=contextLines;
   if(!witnessIds.has(botId))choices=[...choices,...botPersonalityFor(botId).chat];
   if(!choices?.length)return false;
@@ -15269,7 +15409,305 @@ window.__mapScene=scene;
 // Distinct camera/vitals props are placed inside the active security/medical room polygons.
 const TERMINAL_ANCHORS={security:{x:0,z:0},medical:{x:0,z:0}};
 function buildTerminal(anchor,color,label){const root=new THREE.Group();root.position.set(anchor.x,0,anchor.z);root.rotation.y=Number(anchor.rotationY)||0;root.name=label+' wall terminal';const frame=new THREE.MeshStandardMaterial({color:0x253748,metalness:.65,roughness:.38}),screenMat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:1.3,metalness:.2,roughness:.25});const mountPlate=new THREE.Mesh(new THREE.BoxGeometry(.92,.82,.08),frame);mountPlate.position.set(0,1.42,-.035);root.add(mountPlate);const arm=new THREE.Mesh(new THREE.BoxGeometry(.15,.15,.25),frame);arm.position.set(0,1.43,.075);root.add(arm);const housing=new THREE.Mesh(new THREE.BoxGeometry(.84,.64,.13),frame);housing.position.set(0,1.48,.16);root.add(housing);const screen=new THREE.Mesh(new THREE.BoxGeometry(.7,.48,.035),screenMat);screen.position.set(0,1.49,.247);root.add(screen);const labelCanvas=document.createElement('canvas');labelCanvas.width=512;labelCanvas.height=128;const labelContext=labelCanvas.getContext('2d');labelContext.fillStyle='#07131de8';labelContext.strokeStyle=color===0x54d9ed?'#54d9ed':'#75f0c0';labelContext.lineWidth=8;labelContext.beginPath();labelContext.roundRect(8,8,496,112,22);labelContext.fill();labelContext.stroke();labelContext.fillStyle='#f4ffff';labelContext.font='bold 72px sans-serif';labelContext.textAlign='center';labelContext.textBaseline='middle';labelContext.fillText(label==='Vitals'?'バイタル':'カメラ',256,66);const labelTexture=new THREE.CanvasTexture(labelCanvas);labelTexture.colorSpace=THREE.SRGBColorSpace;const sign=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTexture,transparent:true,depthTest:false}));sign.name=label+' wall label';sign.position.set(0,2.03,.25);sign.scale.set(1.55,.39,1);sign.renderOrder=10;root.add(sign);root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});scene.add(root);return root;}
+/* Vitals (バイタル) console, 3D model for Three.js (r164 or newer).
+   Usage:
+     import * as THREE from 'three';
+     import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+     import { buildVitals } from './vitals_model.js';
+     const vitals = buildVitals(THREE, { RoundedBoxGeometry });
+     scene.add(vitals.group);          // front faces +z, y is up, 1 unit = 1 game world unit
+     // every frame (screens, lamps and the hologram animate):  vitals.update(timeInSeconds);
+     // when removing it:  vitals.dispose();
+   Footprint about 3.5 x 1.05, height about 2.4 (scale the group down to fit a room). */
+/* ===== Vitals console (Airship medical room) =====
+   Units: 1 = one game world unit. Front faces +z, the back of the unit is at -z, y is up.
+   Footprint about 3.0 x 1.0, height about 2.3 (main monitor top). */
+function buildLiveVitalsModel(THREE, ex) {
+  const { RoundedBoxGeometry } = ex;
+  const group = new THREE.Group(); group.name = 'vitals-console';
+  const geos = new Map(), mats = new Map(), extraMats = [], textures = [], screens = [], animated = {};
+
+  /* ---------- small helpers ---------- */
+  const G = (key, make) => { let g = geos.get(key); if (!g) { g = make(); geos.set(key, g); } return g; };
+  const box = (w, h, d) => G(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
+  const rbox = (w, h, d, r = .02) => G(`r${w},${h},${d},${r}`, () => new RoundedBoxGeometry(w, h, d, 4, r));
+  const cyl = (rt, rb, h, s = 24) => G(`c${rt},${rb},${h},${s}`, () => new THREE.CylinderGeometry(rt, rb, h, s));
+  const sph = (r, s = 16) => G(`s${r},${s}`, () => new THREE.SphereGeometry(r, s, Math.max(8, s >> 1)));
+  const tor = (r, t, rs = 12, ts = 48) => G(`t${r},${t},${rs},${ts}`, () => new THREE.TorusGeometry(r, t, rs, ts));
+  const mat = (color, o = {}) => { const k = color + JSON.stringify(o); let m = mats.get(k); if (!m) { m = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .1, ...o }); mats.set(k, m); } return m; };
+  const glow = (color, i = 1.8) => mat(color, { emissive: color, emissiveIntensity: i, roughness: .45, metalness: 0 });
+  const add = (parent, geo, material, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+    const m = new THREE.Mesh(geo, material); m.position.set(x, y, z); m.rotation.set(rx, ry, rz);
+    m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+  };
+  const sub = (parent, x, y, z, rx = 0, ry = 0, rz = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.set(rx, ry, rz); parent.add(g); return g; };
+
+  /* ---------- materials ---------- */
+  const steel = mat('#b9c3cf', { metalness: .78, roughness: .3 });
+  const steelDark = mat('#3b4452', { metalness: .72, roughness: .38 });
+  const plastic = mat('#1b212b', { metalness: .15, roughness: .5 });
+  const rubber = mat('#12151a', { metalness: 0, roughness: .92 });
+  const white = mat('#eef2f5', { metalness: .05, roughness: .45 });
+  const teal = mat('#2db8a4', { metalness: .35, roughness: .38 });
+  const glass = new THREE.MeshPhysicalMaterial({ color: '#cfeeff', transparent: true, opacity: .1, roughness: .04, metalness: 0, clearcoat: 1, clearcoatRoughness: .04, depthWrite: false });
+
+  /* ---------- screens ---------- */
+  function makeScreen(w, h, draw) {
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d'), tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; textures.push(tex);
+    const s = { canvas, ctx, tex, draw, w, h }; screens.push(s); draw(ctx, 0, w, h); tex.needsUpdate = true; return s;
+  }
+  const g2 = (x, m, s) => Math.exp(-((x - m) * (x - m)) / (2 * s * s));
+  const ecg = p => { p -= Math.floor(p); return .12 * g2(p, .18, .035) - .14 * g2(p, .27, .012) + 1.0 * g2(p, .30, .011) - .25 * g2(p, .33, .014) + .3 * g2(p, .56, .055); };
+  const rr = (ctx, x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+  const shade = (hex, a) => { const n = parseInt(hex.slice(1), 16); const f = c => Math.max(0, Math.min(255, Math.round(c + (a < 0 ? c * a : (255 - c) * a)))); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; };
+  const trace = (ctx, x, y, w, h, t, speed, cycles, color, amp, flat = false, width = 2) => {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.beginPath();
+    for (let i = 0; i <= w; i += 2) {
+      const ph = (i / w) * cycles - t * speed, v = flat ? Math.sin(i * .9 + t * 9) * .02 : ecg(ph);
+      const py = y + h / 2 - v * amp; i ? ctx.lineTo(x + i, py) : ctx.moveTo(x + i, py);
+    }
+    ctx.stroke();
+  };
+  const miniGrid = (ctx, x, y, w, h, step, color) => { ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i <= w; i += step) { ctx.moveTo(x + i, y); ctx.lineTo(x + i, y + h); } for (let j = 0; j <= h; j += step) { ctx.moveTo(x, y + j); ctx.lineTo(x + w, y + j); } ctx.stroke(); };
+  const bean = (ctx, cx, cy, s, col, alpha = 1) => {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); ctx.globalAlpha = alpha;
+    ctx.fillStyle = shade(col, -.38); rr(ctx, -36, -6, 16, 36, 7); ctx.fill();
+    ctx.fillStyle = col; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 3;
+    rr(ctx, -24, -36, 50, 66, 24); ctx.fill(); ctx.stroke();
+    rr(ctx, -22, 20, 19, 18, 7); ctx.fill(); ctx.stroke(); rr(ctx, 4, 20, 19, 18, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#a9e8f7'; ctx.beginPath(); ctx.ellipse(9, -19, 17, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(14, -23, 7, 3, -.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  };
+  let CREW=[];const DEAD=new Set(),LOST=new Set();
+
+
+  function drawMain(ctx,t,w,h){
+    ctx.fillStyle='#041b1b';ctx.fillRect(0,0,w,h);miniGrid(ctx,0,0,w,h,32,'#37dba00a');
+    ctx.textBaseline='middle';ctx.textAlign='left';ctx.font='700 34px sans-serif';ctx.fillStyle='#6dffd0';ctx.fillText('VITALS',24,33);
+    ctx.font='600 20px sans-serif';ctx.textAlign='right';ctx.fillText('乗員 '+CREW.length+'人',w-24,33);
+    const cols=Math.min(5,Math.max(1,CREW.length)),rows=Math.max(2,Math.ceil(CREW.length/cols)),gap=12,tw=(w-36-(cols-1)*gap)/cols,th=(h-116-(rows-1)*gap)/rows;
+    CREW.forEach(([name,col],i)=>{const dead=DEAD.has(i),lost=LOST.has(i),edge=lost?'#687e83':dead?'#ff6579':'#42e5b0';
+      ctx.save();ctx.translate(18+(i%cols)*(tw+gap),74+Math.floor(i/cols)*(th+gap));ctx.scale(tw/188,th/214);
+      ctx.fillStyle=lost?'#142b30':dead?'#3b1825':'#0a3932';rr(ctx,0,0,188,214,13);ctx.fill();ctx.strokeStyle=edge;ctx.lineWidth=2.4;ctx.stroke();
+      bean(ctx,94,61,1.02,col,dead||lost?.48:1);ctx.font='700 19px sans-serif';ctx.textAlign='center';ctx.fillStyle='#d9fff2';ctx.fillText(name,94,117,168);
+      ctx.fillStyle='#031417';ctx.fillRect(10,135,168,45);miniGrid(ctx,10,135,168,45,13,'#2fe6a21c');
+      if(lost){ctx.strokeStyle='#84969b';ctx.setLineDash([6,5]);ctx.beginPath();ctx.moveTo(13,157);ctx.lineTo(175,157);ctx.stroke();ctx.setLineDash([]);}
+      else trace(ctx,10,135,168,45,t,.84+(i%4)*.04,2.6,edge,18,dead,2.4);
+      ctx.font='700 21px sans-serif';ctx.fillStyle=edge;ctx.fillText(lost?'信号なし':dead?'死亡':'生存',94,199);ctx.restore();
+    });
+    if(!CREW.length){ctx.textAlign='center';ctx.font='600 28px sans-serif';ctx.fillStyle='#8bb5ac';ctx.fillText('乗員データを待機中',w/2,h/2);}
+    ctx.textAlign='left';ctx.font='600 18px sans-serif';ctx.fillStyle='#8ed0ba';ctx.fillText('SHIP MEDICAL / LIVE STATUS',22,h-20);
+  }
+  function drawLeft(ctx,t,w,h){
+    const [name,col]=CREW[0]||['待機中','#68d8bd'],dead=DEAD.has(0),lost=LOST.has(0);ctx.fillStyle='#05231f';ctx.fillRect(0,0,w,h);miniGrid(ctx,0,0,w,h,24,'#3cffbe12');
+    ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#b8f9dd';ctx.font='700 28px sans-serif';ctx.fillText(name,20,36,w-110);bean(ctx,w-53,51,.8,col);
+    ctx.font='700 64px sans-serif';ctx.fillStyle=lost?'#81969b':dead?'#ff7289':'#56efb9';ctx.fillText(!CREW.length?'待機':lost?'信号なし':dead?'死亡':'生存',22,137);
+    trace(ctx,16,190,w-32,115,t,.9,3.2,dead?'#ff7289':'#56efb9',40,dead||lost,3);ctx.font='600 23px sans-serif';ctx.fillStyle='#8eb7ae';ctx.fillText('MEDICAL TELEMETRY',20,h-35);
+  }
+  function drawRight(ctx,t,w,h){
+    ctx.fillStyle='#05231f';ctx.fillRect(0,0,w,h);ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#a8eed6';ctx.font='700 27px sans-serif';ctx.fillText('乗員モニター',22,35);
+    const groups=[['生存',CREW.length-DEAD.size-LOST.size,'#56efb9'],['死亡',DEAD.size,'#ff7289'],['信号なし',LOST.size,'#81969b']];
+    groups.forEach(([name,n,color],i)=>{const y=90+i*76;ctx.fillStyle='#102c2b';rr(ctx,20,y-22,w-40,57,9);ctx.fill();ctx.fillStyle=color;ctx.font='600 23px sans-serif';ctx.fillText(name,34,y+5);ctx.textAlign='right';ctx.font='700 35px sans-serif';ctx.fillText(String(n),w-32,y+5);ctx.textAlign='left';});
+    CREW.forEach(([,c],i)=>{ctx.fillStyle=LOST.has(i)?'#81969b':DEAD.has(i)?'#ff7289':c;ctx.beginPath();ctx.arc(25+(i%10)*45,344+Math.floor(i/10)*28,9,0,Math.PI*2);ctx.fill();});
+  }
+  function dead_flash(t) { return Math.floor(t * 2) % 2 === 0; }
+
+  function drawSign(ctx, t, w, h) {
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const bg = ctx.createLinearGradient(0, 0, w, 0); bg.addColorStop(0, '#05231f'); bg.addColorStop(.5, '#0a3a33'); bg.addColorStop(1, '#05231f');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#35e6a2'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(10, 44); ctx.lineTo(120, 44); ctx.lineTo(136, 14); ctx.lineTo(160, 68); ctx.lineTo(178, 44); ctx.lineTo(w - 10, 44); ctx.stroke();
+    ctx.fillStyle = '#35e6a2'; ctx.font = '700 52px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('VITALS', w / 2 + 40, 42);
+  }
+  /* ---------- base, plinth and cabinet ---------- */
+  add(group, rbox(3.5, .07, 1.05, .025), rubber, 0, .035, 0);
+  add(group, rbox(2.0, .80, .74, .035), steel, 0, .47, 0);
+  add(group, box(1.9, .07, .66), steelDark, 0, .105, .02);                    // recessed kick plate
+  for (const s of [-1, 1]) {
+    add(group, rbox(.94, .62, .022, .012), steelDark, s * .5, .47, .375);     // door panels
+    add(group, cyl(.011, .011, .17, 14), steel, s * .09, .53, .395, 0, 0, Math.PI / 2); // handles
+    add(group, cyl(.007, .007, .03, 10), steel, s * .16, .53, .385, Math.PI / 2, 0, 0);
+    add(group, cyl(.007, .007, .03, 10), steel, s * .02, .53, .385, Math.PI / 2, 0, 0);
+    for (let i = 0; i < 6; i++) add(group, box(.5, .012, .01), plastic, s * .5, .2 + i * .03, .388); // vent slits
+  }
+  // medical emblem plate
+  add(group, rbox(.3, .24, .016, .012), white, 0, .66, .385);
+  add(group, box(.15, .045, .012), glow('#35e6a2', 1.4), 0, .66, .396);
+  add(group, box(.045, .15, .012), glow('#35e6a2', 1.4), 0, .66, .396);
+  // side rails
+  for (const s of [-1, 1]) {                                                    // vertical grab bars on the cabinet sides
+    add(group, cyl(.016, .016, .5, 14), steel, s * 1.06, .47, .3);
+    for (const y of [.28, .66]) add(group, box(.06, .03, .03), steelDark, s * 1.035, y, .3);
+  }
+
+  /* ---------- sloped control deck ---------- */
+  const deck = sub(group, 0, .95, .03, .28, 0, 0);
+  add(deck, rbox(2.04, .07, .68, .025), steelDark, 0, 0, 0);
+  add(deck, rbox(1.94, .012, .58, .01), plastic, 0, .04, 0);                  // inset panel
+  const btnCols = ['#41e08d', '#ffcf4a', '#4fd3ff', '#ff5a64', '#ffffff'];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 11; c++) {
+    const col = btnCols[(r * 3 + c) % btnCols.length], x = -.86 + c * .15, z = -.22 + r * .075;
+    add(deck, cyl(.04, .04, .01, 20), steel, x, .05, z);                       // bezel
+    add(deck, cyl(.029, .031, .02, 20), glow(col, .9 + ((r + c) % 3) * .35), x, .06, z);
+  }
+  // rotary dials with tick rings
+  for (const x of [.45, .68]) {
+    add(deck, cyl(.062, .068, .028, 28), steelDark, x, .055, .12);
+    add(deck, cyl(.048, .052, .03, 28), steel, x, .075, .12);
+    add(deck, box(.012, .008, .04), white, x, .095, .105);
+    for (let i = 0; i < 12; i++) { const a = -2.4 + i * .44; add(deck, box(.008, .006, .02), i < 8 ? glow('#4fd3ff', 1.2) : glow('#ff5a64', 1.2), x + Math.sin(a) * .09, .05, .12 + Math.cos(a) * .09, 0, a, 0); }
+  }
+  // sliders
+  for (let i = 0; i < 4; i++) {
+    add(deck, box(.012, .008, .22), plastic, -.38 + i * .1, .048, .16);
+    add(deck, rbox(.035, .026, .05, .008), white, -.38 + i * .1, .062, .1 + ((i * 37) % 10) * .012);
+  }
+  // LED bar
+  animated.leds = [];
+  for (let i = 0; i < 8; i++) { const m = glow(i < 5 ? '#41e08d' : i < 7 ? '#ffcf4a' : '#ff5a64', 1.3).clone(); extraMats.push(m); animated.leds.push(add(deck, box(.05, .012, .028), m, -.4 + i * .065, .05, .27)); }
+  // trackpad and keypad
+  add(deck, rbox(.34, .012, .21, .01), mat('#0b0e13', { roughness: .15, metalness: .4 }), .02, .048, .2);
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) add(deck, rbox(.045, .014, .04, .008), r === 1 && c === 3 ? glow('#35e6a2', 1) : white, .5 + c * .06, .05, .245 + r * .05);
+  // speaker grille
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) add(deck, cyl(.01, .01, .01, 8), rubber, .86 + c * .028, .046, .02 + r * .028);
+
+  /* ---------- main monitor ---------- */
+  add(group, rbox(.56, .34, .14, .02), steelDark, 0, 1.12, -.33);             // neck
+  for (const s of [-1, 1]) add(group, cyl(.032, .032, .45, 14), steel, s * .6, 1.12, -.33);
+  const mon = sub(group, 0, 1.68, -.2, -.1, 0, 0);
+  add(mon, rbox(1.66, .98, .13, .035), plastic, 0, 0, 0);
+  add(mon, rbox(1.56, .88, .02, .018), mat('#080b10', { roughness: .3, metalness: .5 }), 0, 0, .066);
+  add(mon, box(.12, .012, .01), glow('#35e6a2', 2), 0, -.465, .068);
+  add(mon, rbox(1.76, .05, .34, .02), steelDark, 0, .52, .1);                 // hood
+  add(mon, box(1.5, .012, .02), glow('#5ff0ff', 2.2), 0, .487, .25);          // under-hood light strip
+  for (const s of [-1, 1]) add(mon, box(.02, .06, .3), steelDark, s * .87, .5, .1);
+  const mainScreen = makeScreen(1024, 576, drawMain);
+  add(mon, new THREE.PlaneGeometry(1.46, .82), new THREE.MeshBasicMaterial({ map: mainScreen.tex, toneMapped: false }), 0, 0, .0785).castShadow = false;
+  add(mon, new THREE.PlaneGeometry(1.46, .82), glass, 0, 0, .084).castShadow = false;
+  // sign above the monitor
+  const sign = sub(group, 0, 2.3, -.24, -.1, 0, 0);
+  add(sign, rbox(1.0, .16, .06, .03), plastic, 0, 0, 0);
+  const signScreen = makeScreen(512, 80, drawSign);
+  add(sign, new THREE.PlaneGeometry(.94, .12), new THREE.MeshBasicMaterial({ map: signScreen.tex, toneMapped: false }), 0, 0, .031).castShadow = false;
+  for (const s of [-1, 1]) add(group, cyl(.012, .012, .12, 10), steel, s * .4, 2.2, -.24);
+
+  /* ---------- side monitors on poles ---------- */
+  const sideDraw = [drawLeft, drawRight];
+  [-1, 1].forEach((s, i) => {
+    add(group, cyl(.05, .06, .06, 20), steelDark, s * 1.58, .1, -.1);
+    add(group, cyl(.028, .028, 1.25, 16), steel, s * 1.58, .75, -.1);
+    add(group, cyl(.02, .02, .32, 12), steel, s * 1.44, 1.3, -.1, 0, 0, Math.PI / 2);
+    const m = sub(group, s * 1.28, 1.3, -.02, -.05, -s * .42, 0);
+    add(m, rbox(.66, .5, .07, .025), plastic, 0, 0, 0);
+    add(m, rbox(.6, .44, .014, .014), mat('#080b10', { roughness: .3, metalness: .5 }), 0, 0, .036);
+    const sc = makeScreen(512, 384, sideDraw[i]);
+    add(m, new THREE.PlaneGeometry(.57, .41), new THREE.MeshBasicMaterial({ map: sc.tex, toneMapped: false }), 0, 0, .044).castShadow = false;
+    add(m, new THREE.PlaneGeometry(.57, .41), glass, 0, 0, .048).castShadow = false;
+    add(m, box(.08, .01, .008), glow('#35e6a2', 2), 0, -.235, .04);
+  });
+
+  /* ---------- holographic heart ---------- */
+  const holoBase = sub(group, -.86, .945, .175);
+  add(holoBase, cyl(.075, .095, .04, 28), steel, 0, 0, 0);
+  add(holoBase, cyl(.055, .055, .012, 28), glow('#35e6a2', 2), 0, .026, 0);
+  const holo = sub(group, -.86, 1.27, .175);
+  const heartShape = new THREE.Shape();
+  heartShape.moveTo(.25, .25); heartShape.bezierCurveTo(.25, .25, .2, 0, 0, 0); heartShape.bezierCurveTo(-.3, 0, -.3, .35, -.3, .35);
+  heartShape.bezierCurveTo(-.3, .55, -.1, .77, .25, .95); heartShape.bezierCurveTo(.6, .77, .8, .55, .8, .35);
+  heartShape.bezierCurveTo(.8, .35, .8, 0, .5, 0); heartShape.bezierCurveTo(.35, 0, .25, .25, .25, .25);
+  const heartGeo = new THREE.ExtrudeGeometry(heartShape, { depth: .12, bevelEnabled: true, bevelThickness: .03, bevelSize: .03, bevelSegments: 3, curveSegments: 18 });
+  heartGeo.center(); geos.set('heart', heartGeo);
+  const heart = new THREE.Mesh(heartGeo, new THREE.MeshBasicMaterial({ color: '#35ffb0', transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  heart.scale.setScalar(.2); heart.rotation.z = Math.PI; holo.add(heart);
+  const ringMat = new THREE.MeshBasicMaterial({ color: '#35ffb0', transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const ring1 = new THREE.Mesh(tor(.15, .004, 8, 64), ringMat); ring1.rotation.x = Math.PI / 2; ring1.position.y = -.17; holo.add(ring1);
+  const ring2 = new THREE.Mesh(tor(.11, .003, 8, 64), ringMat); ring2.rotation.x = Math.PI / 2; ring2.position.y = -.1; holo.add(ring2);
+  const beam = new THREE.Mesh(cyl(.13, .055, .28, 32), new THREE.MeshBasicMaterial({ color: '#35ffb0', transparent: true, opacity: .1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+  beam.position.set(-.86, 1.1, .175); group.add(beam);
+  animated.heart = heart; animated.ring1 = ring1; animated.ring2 = ring2; animated.holo = holo; animated.beam = beam;
+
+  /* ---------- cables and ECG leads ---------- */
+  const tube = (pts, r, material) => { const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))); const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, r, 8, false), material); m.castShadow = true; group.add(m); geos.set('tube' + geos.size, m.geometry); return m; };
+  tube([[-.2, 1.3, -.28], [-.3, 1.05, -.42], [-.45, .75, -.42], [-.5, .5, -.38]], .02, rubber);
+  tube([[.2, 1.3, -.28], [.32, 1.0, -.44], [.5, .72, -.42], [.55, .5, -.38]], .02, rubber);
+  tube([[-.62, 1.6, -.25], [-1.0, 1.7, -.3], [-1.3, 1.45, -.2], [-1.2, 1.05, -.12]], .014, rubber);
+  tube([[.62, 1.6, -.25], [1.0, 1.7, -.3], [1.3, 1.45, -.2], [1.2, 1.05, -.12]], .014, rubber);
+  const leadCols = ['#ff4b57', '#ffd34a', '#41e08d'];
+  add(group, rbox(.2, .04, .035, .012), plastic, .84, .83, .39);                // lead socket block
+  leadCols.forEach((c, i) => {
+    const x0 = .78 + i * .06, ex2 = x0 + .03 * (i - 1), ez = .5 + i * .03, ey = .32 + i * .035;
+    tube([[x0, .83, .4], [x0 + .01, .7, .46 + i * .01], [ex2, ey + .14, ez - .01], [ex2, ey, ez]], .01, mat(c, { roughness: .6 }));
+    add(group, cyl(.032, .032, .012, 20), white, ex2, ey - .004, ez);
+    add(group, cyl(.012, .012, .016, 12), mat('#d7b24a', { metalness: .9, roughness: .3 }), ex2, ey + .004, ez);
+  });
+
+  /* ---------- status lamps on the cabinet ---------- */
+  for (let i = 0; i < 3; i++) add(group, sph(.016, 12), glow(['#41e08d', '#ffcf4a', '#ff5a64'][i], 1.6), .72 + i * .07, .82, .376);
+
+  /* ---------- animation and disposal ---------- */
+  let last = -1;
+  const update = (t = 0) => {
+    if (t - last > 1 / 14 || t < last) { last = t; for (const s of screens) { s.draw(s.ctx, t, s.w, s.h); s.tex.needsUpdate = true; } }
+    animated.holo.rotation.y = t * .9;
+    const k = 1 + .08 * Math.sin(t * 6.4) * (Math.sin(t * 3.2) > -.2 ? 1 : 0);
+    animated.heart.scale.setScalar(.2 * k); animated.ring1.scale.setScalar(1 + .06 * Math.sin(t * 3)); animated.ring2.scale.setScalar(1 + .06 * Math.sin(t * 3 + 1.6));
+    animated.beam.material.opacity = .08 + .04 * Math.sin(t * 6.4);
+    animated.leds.forEach((m, i) => { m.material.emissiveIntensity = .9 + .6 * (Math.sin(t * 2.4 + i * .8) > 0 ? 1 : 0); });
+  };
+  let disposed=false;const dispose=()=>{if(disposed)return;disposed=true;const gs=new Set(geos.values()),ms=new Set([...mats.values(),...extraMats,glass]);group.traverse(o=>{if(o.isInstancedMesh)o.dispose();if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});for(const g of gs)g.dispose();for(const m of ms)m.dispose();for(const t of textures)t.dispose();group.removeFromParent();};
+  let rosterKey='';const setPlayers=rows=>{const key=JSON.stringify(rows);if(key===rosterKey)return;rosterKey=key;CREW=rows.map(r=>[r.name,r.color]);DEAD.clear();LOST.clear();rows.forEach((r,i)=>{if(r.status==='dead')DEAD.add(i);else if(r.status==='lost')LOST.add(i);});last=-1;};
+  update(0);
+  return { group, update, dispose, setPlayers, hologram:animated.holo, footprint: [3.5, 1.05], height: 2.4 };
+}
+
+/* LIVE_VITALS_ADAPTER_V1 */
+function buildVitalsRoundedGeometry(THREE,w,h,d,segments=4,r=.02){
+ r=Math.max(0,Math.min(r,w/2,h/2,d/2));
+ const g=new THREE.BoxGeometry(w,h,d,Math.max(2,segments),Math.max(2,segments),Math.max(2,segments)),p=g.attributes.position,n=g.attributes.normal,v=new THREE.Vector3(),q=new THREE.Vector3(),half=new THREE.Vector3(w/2-r,h/2-r,d/2-r);
+ for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);q.set(Math.max(-half.x,Math.min(half.x,v.x)),Math.max(-half.y,Math.min(half.y,v.y)),Math.max(-half.z,Math.min(half.z,v.z)));v.sub(q).normalize();n.setXYZ(i,v.x,v.y,v.z);q.addScaledVector(v,r);p.setXYZ(i,q.x,q.y,q.z);}return g;
+}
+function liveVitalsRoster(g,profiles={}){
+ return Object.entries(g?.players||{}).filter(([,p])=>p&&!p.observer).map(([id,p])=>({id,name:String(p.name||profiles[id]?.name||'乗員'),color:'#'+new THREE.Color().setHSL(Number.isFinite(Number(p.hue))?Number(p.hue):.52,.72,.52).getHexString(),status:p.alive===false?'dead':p.disconnected||(!p.bot&&profiles[id]?.online===false)?'lost':'alive'}));
+}
+function mountLiveVitalsConsole(THREE,scene,old){
+ const api=buildLiveVitalsModel(THREE,{RoundedBoxGeometry:function(w,h,d,n,r){return buildVitalsRoundedGeometry(THREE,w,h,d,n,r);}}),root=new THREE.Group();root.name='Vitals wall terminal';
+ root.position.copy(old.position);root.rotation.copy(old.rotation);api.group.scale.setScalar(.68);api.group.position.z=.25;root.add(api.group);
+ const sign=old.children.find(n=>n.isSprite);if(sign){old.remove(sign);sign.position.set(0,1.98,.31);root.add(sign);}
+ disposeObject(old);scene.add(root);
+ // Merge static cabinet parts by material; the hologram retains its own moving graph.
+ api.group.updateMatrixWorld(true);const inverse=new THREE.Matrix4().copy(api.group.matrixWorld).invert(),batches=new Map();
+ api.group.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||Array.isArray(o.material))return;for(let p=o.parent;p&&p!==api.group;p=p.parent)if(p===api.hologram)return;const key=o.material.uuid;if(!batches.has(key))batches.set(key,[]);batches.get(key).push(o);});
+ for(const nodes of batches.values())if(nodes.length>=2){
+  const parts=nodes.map(o=>{const clone=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();clone.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,o.matrixWorld));return clone;}),count=parts.reduce((n,g)=>n+g.attributes.position.count,0),geometry=new THREE.BufferGeometry();
+  for(const [name,size]of [['position',3],['normal',3],['uv',2]]){const data=new Float32Array(count*size);let offset=0;for(const part of parts){const attr=part.getAttribute(name);if(attr)data.set(attr.array,offset);offset+=part.attributes.position.count*size;}geometry.setAttribute(name,new THREE.BufferAttribute(data,size));}
+  geometry.computeBoundingSphere();const batch=new THREE.Mesh(geometry,nodes[0].material);batch.castShadow=batch.receiveShadow=true;api.group.add(batch);nodes.forEach(o=>o.removeFromParent());parts.forEach(g=>g.dispose());
+ }
+ return{root,api};
+}
+function updateLiveVitalsConsole(record,g,profiles,viewer,stamp){
+ if(!record)return;record.api.setPlayers(liveVitalsRoster(g,profiles));if(record.root.visible&&viewer&&Math.hypot(viewer.x-record.root.position.x,viewer.z-record.root.position.z)<22)record.api.update(stamp/1000);
+}
+function createLiveVitalsTile(row){
+ const node=document.createElement('article');node.className='ssVitalsRow';node.dataset.playerId=row.id;
+ const avatar=document.createElement('div');avatar.className='vitalAvatar';avatar.innerHTML='<svg viewBox="0 0 64 80" aria-hidden="true"><path d="M12 26H7v28h10" fill="var(--crew-color)" stroke="#071b22" stroke-width="4"/><path d="M18 63v10h12V63h7v10h12V30a18 18 0 0 0-36 0v33z" fill="var(--crew-color)" stroke="#071b22" stroke-width="4"/><rect x="29" y="23" width="27" height="16" rx="8" fill="#b8edf7" stroke="#153f50" stroke-width="3"/><path d="M36 27h12" stroke="#f2ffff" stroke-width="3" stroke-linecap="round"/></svg>';
+ const name=document.createElement('strong'),status=document.createElement('small'),wave=document.createElementNS('http://www.w3.org/2000/svg','svg');wave.setAttribute('viewBox','0 0 180 48');wave.setAttribute('aria-hidden','true');wave.classList.add('vitalWave');wave.innerHTML='<path class="vitalGrid" d="M0 12h180M0 24h180M0 36h180M20 0v48M40 0v48M60 0v48M80 0v48M100 0v48M120 0v48M140 0v48M160 0v48"/><path class="vitalPulse"/><path class="vitalScan" d="M0 0v48"/>';
+ node.append(avatar,name,status,wave);updateLiveVitalsTile(node,row);return node;
+}
+function updateLiveVitalsTile(node,row){
+ node.dataset.state=row.status;node.dataset.alive=String(row.status==='alive');node.style.setProperty('--crew-color',row.color);node.querySelector('strong').textContent=row.name;node.querySelector('small').textContent=({alive:'生存',dead:'死亡',lost:'信号なし'})[row.status];
+ node.querySelector('.vitalPulse').setAttribute('d',row.status==='alive'?'M0 27h18l6-4 5 4h11l4 6 5-26 5 35 5-15h13l5-5 6 5h14l4 6 5-26 5 35 5-15h14l6-5 5 5h24':'M0 25h180');
+}
+function renderLiveVitalsRows(container,roster){
+ const keep=new Set();for(const row of roster){keep.add(row.id);let node=[...container.children].find(n=>n.dataset.playerId===row.id);if(!node){node=createLiveVitalsTile(row);container.append(node);}else updateLiveVitalsTile(node,row);}
+ for(const node of [...container.children])if(!keep.has(node.dataset.playerId))node.remove();
+}
+/* LIVE_VITALS_ADAPTER_V1_END */
+
 window.__ssTerminalProps=[buildTerminal(TERMINAL_ANCHORS.security,0x54d9ed,'Security camera'),buildTerminal(TERMINAL_ANCHORS.medical,0x75f0c0,'Vitals')];
+const detailedVitalsConsole=mountLiveVitalsConsole(THREE,scene,window.__ssTerminalProps[1]);window.__ssTerminalProps[1]=detailedVitalsConsole.root;
 let terminalAnchorStamp='';
 function roomWallMount(room,side="north",inset=.24){
   const normals={north:[0,1],south:[0,-1],east:[-1,0],west:[1,0]},wanted=normals[side]||normals.north,poly=room?.polygon||[];
@@ -19271,6 +19709,8 @@ if(movingSample){if(!(id===uid&&game.phase==="play"&&game.settings?.viewMode==="
       }
 
 updateRolePublicProps(THREE,scene,game,avatars,dt,now());
+updateSupportRoleProps(THREE,scene,game,avatars,dt,now());
+updateLiveVitalsConsole(detailedVitalsConsole,game,players,position,now());
 for (const [id, body] of corpses) {
         if (!code || !game.bodies?.[id] || game.phase === "lobby") {
           disposeObject(body);
@@ -19663,22 +20103,34 @@ window.addEventListener("ss-open-nearby-terminal",event=>{if(event.detail==="sec
   function clearCameraPresence(){const path=cameraPresencePath;cameraPresencePath="";cameraPresenceAt=0;cameraPresenceGeneration++;if(path)void remove(ref(db,path)).catch(()=>{});}
   function syncCameraPresence(){const watching=modal.classList.contains("open")&&active()&&inRoom(securityRoom())&&!comms()&&!document.hidden&&code&&connected;const path=watching?`rooms/${code}/players/${uid}/cameraViewingAt`:"";if(path!==cameraPresencePath){clearCameraPresence();if(path){cameraPresencePath=path;const generation=cameraPresenceGeneration;void onDisconnect(ref(db,path)).remove().then(()=>{if(generation===cameraPresenceGeneration&&path===cameraPresencePath)return set(ref(db,path),serverTimestamp());}).catch(()=>{});cameraPresenceAt=performance.now();}}else if(path&&performance.now()-cameraPresenceAt>=4000){cameraPresenceAt=performance.now();void set(ref(db,path),serverTimestamp()).catch(()=>{});}}
   window.addEventListener("pagehide",clearCameraPresence);document.addEventListener("visibilitychange",()=>{if(document.hidden){close();clearCameraPresence();}});
-  function ensureFeed(){if(!feedTarget){feedTarget=new THREE.WebGLRenderTarget(640,360,{depthBuffer:true,stencilBuffer:false});feedTarget.texture.colorSpace=THREE.SRGBColorSpace;feedCamera=new THREE.PerspectiveCamera(64,640/360,.08,65);}}
+  // Reuse the readback buffers and adapt the feed to its visible size.
+  let feedWidth=0,feedHeight=0,feedPixels=null,feedImage=null,feedSizingAt=-Infinity,feedLastTuneAt=0,feedScale=1,feedCost=0;
+  function ensureFeed(){
+    const stamp=performance.now();if(feedTarget&&stamp-feedSizingAt<1200)return;feedSizingAt=stamp;
+    const maxWidth=renderPreset==='low'?640:compactGpu?960:1280,desired=Math.max(1,canvas.clientWidth||640)*Math.min(window.devicePixelRatio||1,1.4)*feedScale,width=Math.min(maxWidth,Math.max(640,Math.ceil(desired/320)*320)),height=width*9/16;
+    if(!feedTarget){feedTarget=new THREE.WebGLRenderTarget(width,height,{depthBuffer:true,stencilBuffer:false});feedTarget.texture.colorSpace=THREE.SRGBColorSpace;feedCamera=new THREE.PerspectiveCamera(64,16/9,.08,65);}
+    if(feedWidth!==width||feedHeight!==height){feedWidth=canvas.width=width;feedHeight=canvas.height=height;feedTarget.setSize(width,height);feedPixels=new Uint8Array(width*height*4);feedImage=ctx.createImageData(width,height);}
+  }
+  function cameraFeedInterval(){return Math.min(125,Math.max(compactGpu?50:1000/24,feedCost*1.45));}
+  function recordCameraFeedCost(cost){
+    feedCost=feedCost?feedCost*.85+cost*.15:cost;const stamp=performance.now();if(stamp-feedLastTuneAt<3000)return;feedLastTuneAt=stamp;
+    const next=feedCost>32?Math.max(.5,feedScale-.2):feedCost<12?Math.min(1,feedScale+.1):feedScale;if(next!==feedScale){feedScale=next;feedSizingAt=-Infinity;}
+  }
   function draw(){if(!modal.classList.contains("open"))return;ensureFeed();const cam=cameras[selected],r=cameraRegion(cam),roomOnly=cam.roomSafe&&currentMapMode==="astra"&&astraMap?.layers?findRoomByAliases(cam.ids,cam.match):null,pose=cameraPose(cam,selected,1.25),origin=new THREE.Vector3(pose.x,pose.y,pose.z);feedCamera.fov=cam.feedFov||(cam.local?44:64);feedCamera.far=cam.feedFar||(cam.local?12:65);feedCamera.updateProjectionMatrix();feedCamera.position.copy(origin);feedCamera.lookAt(r.x,cam.roomSafe?.1:-.35,r.z);feedCamera.updateMatrixWorld();
     const visibility=[],cameraVoiceVisible=[],avatarPoint=new THREE.Vector3();for(const [id,avatar] of avatars){const state=game.players?.[id];let show=!!state&&state.alive===true&&!state.observer&&!state.disconnected&&!state.ventId&&Number(state.phantomUntil||0)<=now();if(show){avatar.updateWorldMatrix(true,false);avatar.getWorldPosition(avatarPoint);if(roomOnly)show=regionContainsPoint(avatarPoint.x,avatarPoint.z,roomOnly);}if(show){const viewPoint=avatarPoint.clone();viewPoint.y+=.9;viewPoint.project(feedCamera);const insideFeed=viewPoint.z>=-1&&viewPoint.z<=1&&Math.abs(viewPoint.x)<=1&&Math.abs(viewPoint.y)<=1,clearFeed=insideFeed&&!wallBetween({x:origin.x,z:origin.z},{x:avatarPoint.x,z:avatarPoint.z});if(clearFeed)cameraVoiceVisible.push(id);}visibility.push([avatar,avatar.visible,show]);}window.__ssCameraVoiceVisibleIds=cameraVoiceVisible;window.__ssCameraVoiceView={x:origin.x,z:origin.z,yaw:Math.atan2(r.x-origin.x,r.z-origin.z)};window.__ssVoiceCameraViewChanged?.();const previousTarget=renderer.getRenderTarget(),previousViewport=renderer.getViewport(new THREE.Vector4()),previousScissor=renderer.getScissor(new THREE.Vector4()),previousScissorTest=renderer.getScissorTest(),previousAutoClear=renderer.autoClear,previousClearColor=renderer.getClearColor(new THREE.Color()),previousClearAlpha=renderer.getClearAlpha(),previousFog=scene.fog;
-    const wallMaterials=[...cameraFadedMeshes].map(([mesh])=>[mesh,mesh.material]),roomVisibility=[],image=ctx.createImageData(640,360),pixels=new Uint8Array(640*360*4);
+    const wallMaterials=[...cameraFadedMeshes].map(([mesh])=>[mesh,mesh.material]),roomVisibility=[],image=feedImage,pixels=feedPixels;
     const ownCameraHardware=cameraHardware.children.find(object=>object.name.startsWith("CAM "+(selected+1)+" ")),ownCameraVisible=ownCameraHardware?.visible;if(ownCameraHardware)ownCameraHardware.visible=false;
-    try{for(const[avatar,,show]of visibility)avatar.visible=show;for(const[mesh]of wallMaterials){const entry=cameraFadedMeshes.get(mesh);if(entry)mesh.material=entry.original;}if(roomOnly){for(const layerName of["floors","hull","details","lights"]){const layer=astraMap.layers[layerName];for(const object of layer?.children||[]){const roomId=object.userData?.roomId;let keep=layerName==="floors"?roomId===roomOnly.id:layerName==="hull"?false:roomId?roomId===roomOnly.id:regionContainsPoint(object.position.x,object.position.z,roomOnly);if(object.visible!==keep){roomVisibility.push([object,object.visible]);object.visible=keep;}}}}scene.fog=null;renderer.autoClear=true;renderer.setClearColor(0x07111a,1);renderer.setRenderTarget(feedTarget);renderer.setViewport(0,0,640,360);renderer.setScissorTest(false);renderer.clear(true,true,true);renderer.render(scene,feedCamera);renderer.readRenderTargetPixels(feedTarget,0,0,640,360,pixels);for(let y=0;y<360;y++)image.data.set(pixels.subarray((359-y)*640*4,(360-y)*640*4),y*640*4);ctx.putImageData(image,0,0);}
+    try{for(const[avatar,,show]of visibility)avatar.visible=show;for(const[mesh]of wallMaterials){const entry=cameraFadedMeshes.get(mesh);if(entry)mesh.material=entry.original;}if(roomOnly){for(const layerName of["floors","hull","details","lights"]){const layer=astraMap.layers[layerName];for(const object of layer?.children||[]){const roomId=object.userData?.roomId;let keep=layerName==="floors"?roomId===roomOnly.id:layerName==="hull"?false:roomId?roomId===roomOnly.id:regionContainsPoint(object.position.x,object.position.z,roomOnly);if(object.visible!==keep){roomVisibility.push([object,object.visible]);object.visible=keep;}}}}scene.fog=null;renderer.autoClear=true;renderer.setClearColor(0x07111a,1);renderer.setRenderTarget(feedTarget);renderer.setViewport(0,0,feedWidth,feedHeight);renderer.setScissorTest(false);renderer.clear(true,true,true);renderer.render(scene,feedCamera);renderer.readRenderTargetPixels(feedTarget,0,0,feedWidth,feedHeight,pixels);for(let y=0;y<feedHeight;y++)image.data.set(pixels.subarray((feedHeight-1-y)*feedWidth*4,(feedHeight-y)*feedWidth*4),y*feedWidth*4);ctx.putImageData(image,0,0);}
     finally{if(ownCameraHardware)ownCameraHardware.visible=ownCameraVisible;renderer.setRenderTarget(previousTarget);renderer.setViewport(previousViewport);renderer.setScissor(previousScissor);renderer.setScissorTest(previousScissorTest);renderer.autoClear=previousAutoClear;renderer.setClearColor(previousClearColor,previousClearAlpha);scene.fog=previousFog;for(const [mesh,material] of wallMaterials)mesh.material=material;for(const [object,visible] of roomVisibility)object.visible=visible;for(const [avatar,visible] of visibility)avatar.visible=visible;}
     $("ssCameraName").textContent=`${cam.name} · ライブ映像`;$("ssSecurityStatus").textContent="船内カメラ映像を受信中";
   }
-  function updateVitals(){const rows=$("ssVitalsRows"),stamp=JSON.stringify(Object.entries(game.players||{}).map(([id,p])=>[id,p.name,p.alive,p.disconnected,p.observer]));if(rows.dataset.stamp===stamp)return;rows.dataset.stamp=stamp;rows.replaceChildren();for(const [id,p] of Object.entries(game.players||{})){if(p.disconnected||p.observer)continue;const row=document.createElement("div"),name=document.createElement("strong"),status=document.createElement("small");row.className="ssVitalsRow";row.dataset.alive=String(p.alive===true);name.textContent=p.name||players[id]?.name||"プレイヤー";status.textContent=p.alive===true?"♥ 生存":"— 死亡";row.append(name,status);rows.append(row);}$("ssVitalsStatus").textContent=comms()?"通信妨害中 — バイタル情報を受信できません。":"生存状態をリアルタイム表示";}
+  function updateVitals(){const rows=$("ssVitalsRows"),roster=liveVitalsRoster(game,players),stamp=JSON.stringify(roster);if(rows.dataset.stamp!==stamp){rows.dataset.stamp=stamp;renderLiveVitalsRows(rows,roster);}$("ssVitalsStatus").textContent=comms()?"通信妨害中 — バイタル情報を受信できません。":"乗員の生存状態と信号を受信中";}
   function drawVitals(){if(!vitalsModal.classList.contains("open"))return;if(!active()||!medicalRoom()||comms()){closeVitals();return;}updateVitals();}
-  function close(){clearCameraPresence();if(!modal.classList.contains("open"))return;modal.classList.remove("open");window.__ssCameraVoiceVisibleIds=[];window.__ssCameraVoiceView=null;window.__ssVoiceCameraViewChanged?.();if(raf)cancelAnimationFrame(raf);raf=0;feedTarget?.dispose();feedTarget=null;feedCamera=null;lastFocus?.focus?.({preventScroll:true});lastFocus=null;}
+  function close(){clearCameraPresence();if(!modal.classList.contains("open"))return;modal.classList.remove("open");window.__ssCameraVoiceVisibleIds=[];window.__ssCameraVoiceView=null;window.__ssVoiceCameraViewChanged?.();if(raf)cancelAnimationFrame(raf);raf=0;feedTarget?.dispose();feedTarget=null;feedCamera=null;feedPixels=null;feedImage=null;feedWidth=feedHeight=0;lastFocus?.focus?.({preventScroll:true});lastFocus=null;}
   function closeVitals(){if(!vitalsModal.classList.contains("open"))return;vitalsModal.classList.remove("open");vitalsFocus?.focus?.({preventScroll:true});vitalsFocus=null;}
-  function loop(){raf=0;if(!modal.classList.contains("open"))return;if(!active()||!inRoom(securityRoom())){close();return;}if(comms()){ $("ssSecurityStatus").textContent="通信妨害中 — 映像信号が遮断されています";ctx.clearRect(0,0,canvas.width,canvas.height);return;}const stamp=performance.now();if(stamp-lastFeedDrawAt>=100){draw();lastFeedDrawAt=stamp;}raf=requestAnimationFrame(loop);}
+  function loop(){raf=0;if(!modal.classList.contains("open"))return;if(!active()||!inRoom(securityRoom())){close();return;}if(comms()){$("ssSecurityStatus").textContent="通信妨害中 — 映像信号が遮断されています";ctx.clearRect(0,0,canvas.width,canvas.height);}else{const stamp=performance.now();if(stamp-lastFeedDrawAt>=cameraFeedInterval()){try{draw();recordCameraFeedCost(performance.now()-stamp);}catch(error){console.warn("Camera feed render failed",error);$("ssSecurityStatus").textContent="映像の再接続を待っています";}lastFeedDrawAt=performance.now();}}raf=requestAnimationFrame(loop);}
   function inRoom(room){return !!room&&Math.abs(position.x-room.x)<Math.max(3,(room.w||6)*.72)&&Math.abs(position.z-room.z)<Math.max(3,(room.d||6)*.72);}
-  function show(){if(!active()||!inRoom(securityRoom()))return toast("生存中に警備室で使用できます");if(comms())return toast("通信妨害中はカメラを使用できません");lastFocus=document.activeElement;lastFeedDrawAt=performance.now()-100;window.__ssCameraVoiceVisibleIds=[];window.__ssCameraVoiceView=null;modal.classList.add("open");window.__ssVoiceCameraViewChanged?.();syncCameraPresence();$("ssCameraTabs").children[selected]?.focus();draw();lastFeedDrawAt=performance.now();if(!raf)raf=requestAnimationFrame(loop);}
+  function show(){if(!active()||!inRoom(securityRoom()))return toast("生存中に警備室で使用できます");if(comms())return toast("通信妨害中はカメラを使用できません");lastFocus=document.activeElement;feedScale=1;feedCost=0;feedSizingAt=-Infinity;lastFeedDrawAt=performance.now()-100;window.__ssCameraVoiceVisibleIds=[];window.__ssCameraVoiceView=null;modal.classList.add("open");window.__ssVoiceCameraViewChanged?.();syncCameraPresence();$("ssCameraTabs").children[selected]?.focus();draw();lastFeedDrawAt=performance.now();if(!raf)raf=requestAnimationFrame(loop);}
   function showVitals(){if(!active()||!inRoom(medicalRoom()))return toast("生存中に医務室で使用できます");if(comms())return toast("通信妨害中はバイタル端末を使用できません");vitalsFocus=document.activeElement;vitalsModal.classList.add("open");updateVitals();$("ssVitalsClose").focus();}
   window.__ssOpenSecurity=show;window.__ssOpenVitals=showVitals;openButton.onclick=show;$("ssSecurityClose").onclick=close;medicalButton.onclick=showVitals;$("ssVitalsClose").onclick=closeVitals;
   for(const overlay of [modal,vitalsModal])overlay.addEventListener("click",e=>{if(e.target===overlay)(overlay===modal?close():closeVitals());});document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modal.classList.contains("open")){e.preventDefault();close();}else if(vitalsModal.classList.contains("open")){e.preventDefault();closeVitals();}}});
@@ -19701,11 +20153,11 @@ function ability({g,actor,cmd,p,now:stamp,players,botPositions,markDirty,setResu
     if(!selected){setResult(false,"近くの生存者に近づいてください。");return true;}const q=selected.q;
     if(role==="santa"){
       if(q.role!=="crew"){recordDeath(g,actor,actor,here,{cause:"santaMistake"});setResult(false,"クルー以外に贈り、サンタは倒れました。");}
-      else{const pool=(q.bot?["engineer","scientist","tracker","noisemaker","detective","medic","mayor","scales"]:["engineer","scientist","tracker","noisemaker","detective","medic","santa","chief","jumpDancer","lighter","ubiquitous","mayor","scales","speedBooster","niceHawk","seer","swapper","sage","stuntman"]).filter(id=>id!==q.subrole);q.subrole=pool[randomInt(pool.length)];q.abilityReadyAt=stamp+20000;q.roleGiftEvent=token();setResult(true,`${q.name||"乗員"}にプレゼントを渡しました。`);}
+      else{const pool=(q.bot?["engineer","scientist","tracker","noisemaker","detective","medic","mayor","scales"]:["engineer","scientist","tracker","noisemaker","detective","medic","santa","chief","jumpDancer","lighter","ubiquitous","mayor","scales","speedBooster","niceHawk","seer","swapper","sage","stuntman"]).filter(id=>id!==q.subrole);q.subrole=pool[randomInt(pool.length)];q.abilityReadyAt=stamp+20000;q.roleGiftEvent=token();emitModRoleEvent(g,"supportGift",actor,{target:selected.id,x:here.x,z:here.z,targetX:selected.at.x,targetZ:selected.at.z,at:stamp});setResult(true,`${q.name||"乗員"}にプレゼントを渡しました。`);}
       p.abilityReadyAt=stamp+30000;
     }else{
       if(isImpostorTeamPlayer(q)||isNeutralRole(q)){recordDeath(g,actor,actor,here,{cause:"chiefMistake"});setResult(false,"人狼・第三陣営を任命し、村長は倒れました。");}
-      else{q.role="crew";q.subrole="sheriff";q.readyAt=Math.max(Number(q.readyAt)||0,stamp+10000);q.abilityEvent=token();setResult(true,`${q.name||"乗員"}をシェリフに任命しました。`);}p.abilityReadyAt=stamp+roleCooldownMs("chief",g.settings);
+      else{q.role="crew";q.subrole="sheriff";q.readyAt=Math.max(Number(q.readyAt)||0,stamp+10000);q.abilityEvent=token();emitModRoleEvent(g,"supportAppoint",actor,{target:selected.id,x:here.x,z:here.z,targetX:selected.at.x,targetZ:selected.at.z,at:stamp});setResult(true,`${q.name||"乗員"}をシェリフに任命しました。`);}p.abilityReadyAt=stamp+roleCooldownMs("chief",g.settings);
     }
     p.abilityEvent=token();markDirty();return true;
   }
@@ -19716,7 +20168,7 @@ function ability({g,actor,cmd,p,now:stamp,players,botPositions,markDirty,setResu
   }
   if(role==="lighter"&&a==="lighter"){
     if(Number(p.abilityReadyAt)>stamp){setResult(false,"ライターの準備中です。");return true;}
-    const duration=roleBehaviorValue(g.settings,"lighterDurationSeconds");p.lighterUntil=stamp+duration*1000;p.abilityReadyAt=stamp+roleCooldownMs("lighter",g.settings);p.abilityEvent=token();setResult(true,`${duration}秒間、視界を広げます。`);markDirty();return true;
+    const duration=roleBehaviorValue(g.settings,"lighterDurationSeconds");p.lighterStartedAt=stamp;p.lighterUntil=stamp+duration*1000;p.abilityReadyAt=stamp+roleCooldownMs("lighter",g.settings);p.abilityEvent=token();setResult(true,`${duration}秒間、視界を広げます。`);markDirty();return true;
   }
   if(role==="ubiquitous"&&a==="droneStart"){
     if(p.drone?.active||Number(p.abilityReadyAt)>stamp){setResult(false,"ドローンの準備中です。");return true;}
@@ -22230,6 +22682,29 @@ body[data-phase="play"] #buttons>#rocketLaunchBtn:not(.hidden){grid-column:3!imp
  #taskGame[data-machine3d="true"] #taskGameStatus{min-height:16px!important;font-size:11px!important}
  #taskGame[data-machine3d="true"] #taskGameHint{font-size:10px!important}
 }
+
+
+/* QUALITY_FINISH_VISUALS_V1 */
+#roundRoles[data-source]:not(.hidden) #roundRoleList[data-role-layout=quality]{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:auto!important;gap:8px!important;width:100%!important;min-width:0!important;align-items:stretch!important}
+#roundRoles[data-source]:not(.hidden) #roundRoleList[data-role-layout=quality] .roleFactionCards{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-auto-rows:max-content!important;grid-template-rows:none!important;align-content:start!important;gap:6px!important;min-width:0!important}
+#ssVitalsPanel{width:min(1060px,100%)!important;max-height:92dvh!important;padding:clamp(10px,2vw,24px)!important;background:radial-gradient(ellipse at top,#10332f,#071b24 65%)!important;border-color:#459b8f!important;box-shadow:0 25px 80px #000b,inset 0 1px #b8ffe533}
+#ssVitalsPanel #ssSecurityHeader{gap:8px}#ssVitalsTitle{font-size:clamp(15px,2vw,22px)!important}#ssVitalsClose{min-height:40px;padding:7px 12px;border:1px solid #579c99;border-radius:9px;background:#123534;color:#e4fff6;font-weight:800;flex-shrink:0}#ssVitalsStatus{font-size:12px;margin:9px 0 13px;color:#95ccbf}
+#ssVitalsRows{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))!important;gap:10px!important}
+#ssVitalsRows .ssVitalsRow{--vital-signal:#69f5bd;position:relative;display:grid!important;grid-template-columns:48px minmax(0,1fr);grid-template-rows:auto auto 38px;align-items:center;gap:3px 7px;min-width:0;padding:10px!important;border:1px solid #427e6b!important;border-radius:12px!important;background:linear-gradient(140deg,#123e31,#09271f)!important;box-shadow:inset 0 1px #b8ffe51f}
+#ssVitalsRows .vitalAvatar{grid-row:1/3;align-self:center;width:42px;height:53px}#ssVitalsRows .vitalAvatar svg{display:block;width:100%;height:100%}#ssVitalsRows .ssVitalsRow strong{font-size:13px;overflow-wrap:anywhere;line-height:1.2;color:#f2fff8;min-width:0}#ssVitalsRows .ssVitalsRow small{font-size:12px;font-weight:800;color:var(--vital-signal)!important}
+#ssVitalsRows .vitalWave{grid-column:1/-1;display:block;width:100%;height:38px;overflow:hidden;background:#021c19;border-radius:4px;color:var(--vital-signal)}.vitalGrid{stroke:#62b49c24;stroke-width:.7;fill:none}.vitalPulse{stroke:currentColor;stroke-width:2;fill:none;filter:drop-shadow(0 0 2px currentColor)}.vitalScan{stroke:#ceffdf;stroke-width:2;opacity:.5;animation:vitalScan 2s linear infinite}
+#ssVitalsRows .ssVitalsRow[data-state=dead]{--vital-signal:#ff8393;border-color:#9e4e65!important;background:linear-gradient(140deg,#3e2633,#281b26)!important}#ssVitalsRows .ssVitalsRow[data-state=dead] .vitalWave{background:#210f1b}#ssVitalsRows .ssVitalsRow[data-state=lost]{--vital-signal:#9daeb7;border-color:#52636a!important;background:linear-gradient(140deg,#27383e,#17242d)!important}#ssVitalsRows .ssVitalsRow[data-state=lost] .vitalPulse{stroke-dasharray:5 4}#ssVitalsRows .ssVitalsRow:not([data-state=alive]) .vitalScan{display:none}#ssVitalsRows .ssVitalsRow:not([data-state=alive]) .vitalAvatar{opacity:.48}
+@keyframes vitalScan{from{transform:translateX(0)}to{transform:translateX(180px)}}
+#roundRoles #roundRoleList .roleChoiceButton{grid-template-columns:27px minmax(0,1fr) auto!important;gap:6px!important;align-items:center!important;padding:8px!important}#roundRoles #roundRoleList .roleChoiceTitle{grid-column:2!important;grid-row:1!important;overflow-wrap:anywhere!important;line-height:1.28!important}#roundRoles #roundRoleList .roleChoiceBadge{grid-column:3!important;grid-row:1!important;max-width:64px;white-space:normal;line-height:1.2!important;font-size:10px!important}
+.roleAbilityIcon{display:inline-grid;place-items:center;width:27px;height:31px;flex:0 0 auto;grid-column:1;grid-row:1;color:#a7eeec;filter:drop-shadow(0 2px 3px #0008)}.roleAbilityIcon svg{width:100%;height:100%}.roleFaction-impostor .roleAbilityIcon{color:#ffafb7}.roleFaction-neutral .roleAbilityIcon{color:#d1b7ff}#roundRoles .roleDetailPane>h3{display:flex;align-items:center;gap:10px}#roundRoles .roleDetailPane>h3 .roleAbilityIcon{width:31px;height:35px}
+.roleAbilityPreview{margin:12px 0 0;padding:12px;border:1px solid #46677b;border-radius:12px;background:linear-gradient(145deg,#122f3e,#091c2a);min-width:0;overflow:hidden}.roleAbilityPreview figcaption{font-size:12px;font-weight:800;letter-spacing:.04em;color:#b9dce7}.roleAbilityDiagram{display:block;width:100%;height:132px;max-height:24vh;margin:4px auto;color:#d8eef4}.roleAbilityDiagram text{font:600 13px system-ui;fill:#cee9eb}.roleAbilityPreview .roleAbilityCaption{margin:4px 0!important;font-size:12px!important;line-height:1.65!important;color:#c4dce5!important}.roleAbilityStats{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}.roleAbilityStats>span{display:flex;flex:1 1 115px;justify-content:space-between;align-items:center;gap:8px;border:1px solid #335364;background:#071d2a;border-radius:6px;padding:6px 8px;min-width:0}.roleAbilityStats small{font-size:10px;line-height:1.4;color:#a6c8d1}.roleAbilityStats strong{font-size:12px;white-space:nowrap;color:#adf1de}.diagramBullet{animation:diagramBullet .9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}@keyframes diagramBullet{from{opacity:.55}to{opacity:1;transform:translateX(5px)}}
+#roleSettingsPreview{margin:0 0 12px}#roleSettingsPreview[hidden]{display:none!important}#roleSettingsPreview .roleAbilityPreview{margin:0}#gmSettingsRoleDetailPanel .roleDetailValues{scrollbar-gutter:stable}
+.roleTimePreview{display:grid;gap:5px;margin-top:9px}.roleTimePreview>div{display:grid;grid-template-columns:minmax(80px,1.2fr) minmax(40px,1fr) auto;align-items:center;gap:8px}.roleTimePreview small{font-size:10px;color:#abcad5;line-height:1.4}.roleTimePreview strong{font-size:11px;color:#d6f0e9}.roleTimePreview meter{appearance:none;width:100%;height:7px;border:0;background:#263f50;border-radius:5px}.roleTimePreview meter::-webkit-meter-bar{background:#263f50;border:0;border-radius:5px;height:7px}.roleTimePreview meter::-webkit-meter-optimum-value{background:linear-gradient(90deg,#379baf,#88eed7);border-radius:5px}.roleTimePreview meter::-moz-meter-bar{background:#88eed7;border-radius:5px}
+@media(max-height:540px),(max-width:760px){#ssVitalsRows{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))!important;gap:6px!important}#ssVitalsRows .ssVitalsRow{grid-template-columns:34px minmax(0,1fr);grid-template-rows:auto auto 27px;padding:7px!important;gap:2px 4px}#ssVitalsRows .vitalAvatar{width:30px;height:40px}#ssVitalsRows .vitalWave{height:27px}#ssVitalsRows .ssVitalsRow strong{font-size:11px}#ssVitalsRows .ssVitalsRow small{font-size:10px}#ssVitalsStatus{margin:5px 0 8px;font-size:10px}#ssVitalsPanel #ssSecurityHeader h2{font-size:15px!important}#ssVitalsClose{min-height:36px;font-size:11px}#roundRoles #roundRoleList .roleChoiceButton{grid-template-columns:21px minmax(0,1fr) auto!important;gap:4px!important;padding:6px!important}#roundRoles #roundRoleList .roleAbilityIcon{width:21px;height:26px}#roundRoles #roundRoleList .roleChoiceBadge{font-size:9px!important;max-width:48px}.roleAbilityPreview{padding:8px}.roleAbilityDiagram{height:112px}.roleAbilityPreview .roleAbilityCaption{font-size:11px!important}.roleAbilityStats{margin-top:6px}.roleAbilityStats>span{padding:4px 6px}.roleAbilityStats small{font-size:9px}.roleAbilityStats strong{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.vitalScan,.diagramBullet{animation:none!important}.vitalScan{display:none}}
+@media(max-width:900px),(max-height:540px){#gmSettingsRoleDetailPanel .roleDetailValues{max-height:none!important;overflow:visible!important}#gmSettingsRoleDetailPanel>h3{margin:8px 0!important;font-size:14px!important}#gmSettingsRoleDetailPanel .roleDetailFactionNav{max-height:clamp(80px,26dvh,120px)!important}#gmSettingsRoleDetailPanel .roleDetailWorkbench{min-height:0!important}}
+@media(max-width:580px) and (orientation:portrait){#roundRoles[data-source]:not(.hidden) #roundRoleList[data-role-layout=quality]{gap:4px!important}#roundRoles #roundRoleList[data-role-layout=quality] .roleChoiceButton{grid-template-columns:18px minmax(0,1fr)!important;gap:3px!important;padding:5px!important}#roundRoles #roundRoleList[data-role-layout=quality] .roleChoiceTitle{font-size:11px!important;grid-row:1/3!important}#roundRoles #roundRoleList[data-role-layout=quality] .roleChoiceBadge{grid-column:1!important;grid-row:2!important;max-width:22px;justify-self:center;font-size:8px!important;padding:2px!important}#roundRoles #roundRoleList[data-role-layout=quality] .roleAbilityIcon{width:18px;height:22px}#roundRoles .roleFactionHeading{font-size:11px!important}.roleAbilityStats>span{flex-basis:100px}}
+/* QUALITY_FINISH_VISUALS_V1_END */
 
 </style>
 </body>
