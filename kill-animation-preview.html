@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <title>SPACE SUSPECT | キルからゴースト化まで</title>
+  <style>
+    :root{color-scheme:dark;--ink:#eaf7ff;--muted:#96afc3;--cyan:#79e7ed;--line:#75c5d944;--panel:#091726;--accent:#ff526a}
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:#030914;color:var(--ink);font-family:Inter,"Hiragino Sans","Yu Gothic UI",system-ui,sans-serif}
+    body{padding:clamp(8px,2vw,24px);display:grid;place-items:center}
+    button,input{font:inherit}
+    .app{width:min(1320px,100%);border:1px solid #78cfe344;border-radius:20px;background:linear-gradient(150deg,#0c1b2d,#060d18 72%);box-shadow:0 24px 90px #0009;overflow:hidden}
+    .top{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 18px;border-bottom:1px solid #84cce526;background:#0b1725}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .mark{width:34px;height:34px;border:1.5px solid #8ef3f0;border-radius:50%;display:grid;place-items:center;color:#b5ffff;font-weight:1000;box-shadow:0 0 18px #67e8e955}
+    .brand strong{font-size:14px;letter-spacing:.09em;white-space:nowrap}
+    .brand small{display:block;color:#8fa9ba;font-size:10px;letter-spacing:.14em;margin-top:2px}
+    .live{display:flex;align-items:center;gap:8px;color:#a9c5d4;font-size:12px;font-weight:750;white-space:nowrap}
+    .live i{width:8px;height:8px;border-radius:50%;background:#67edb8;box-shadow:0 0 12px #67edb8}
+    .stage{position:relative;height:min(68vh,700px);min-height:430px;background:#0a1420;overflow:hidden;isolation:isolate}
+    #scene{display:block;width:100%;height:100%;touch-action:none}
+    .hud{position:absolute;inset:0;pointer-events:none;z-index:2}
+    .hudTop{position:absolute;left:18px;right:18px;top:16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .miniPanel{border:1px solid #8fe9f033;background:#07111bc9;backdrop-filter:blur(8px);border-radius:10px;padding:8px 11px;color:#d9edf7;font-size:11px;font-weight:800;letter-spacing:.02em}
+    .objective{width:min(270px,38vw)}
+    .objectiveHead{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
+    .taskTrack{height:4px;background:#142b3b;border-radius:9px;overflow:hidden}.taskTrack span{display:block;width:48%;height:100%;background:linear-gradient(90deg,#65dbe5,#81ffc2);box-shadow:0 0 12px #68e5e8}
+    .roundInfo{color:#b9d5e1;line-height:1.5}
+    .statePill{position:absolute;left:50%;top:18px;transform:translateX(-50%);padding:8px 14px;border:1px solid #8fdef34c;border-radius:99px;background:#081521d9;color:#d8f8ff;font-size:12px;font-weight:850;white-space:nowrap;box-shadow:0 6px 22px #0004;transition:opacity .25s,transform .25s}
+    .statePill.ghost{border-color:#bba6ff88;color:#e1d8ff;box-shadow:0 0 24px #a58aff32}
+    .caption{position:absolute;left:50%;top:19%;transform:translate(-50%,-10px);opacity:0;transition:opacity .24s,transform .24s;text-align:center;text-shadow:0 3px 18px #001;font-size:clamp(16px,2vw,24px);font-weight:950;letter-spacing:.06em;white-space:nowrap}
+    .caption.show{opacity:1;transform:translate(-50%,0)}
+    .ghostNotice{position:absolute;left:50%;top:29%;transform:translate(-50%,12px) scale(.96);opacity:0;padding:12px 18px;border:1px solid #bdabff88;border-radius:13px;background:#0b1024bb;color:#e8e1ff;font-weight:950;font-size:clamp(17px,2.4vw,27px);letter-spacing:.08em;text-shadow:0 0 20px #baa5ff;box-shadow:0 0 30px #a892ff24;transition:opacity .5s,transform .5s;white-space:nowrap}
+    .ghostNotice.show{opacity:1;transform:translate(-50%,0) scale(1)}
+    .timelineLabel{position:absolute;left:18px;bottom:16px;color:#c7dbe6;font-size:11px;font-weight:800;text-shadow:0 2px 8px #001}
+    .controls{padding:15px 18px 17px;background:#091523;border-top:1px solid #82cadd25}
+    .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0 0 12px}
+    .step{display:flex;align-items:center;gap:7px;min-width:0;color:#7891a3;font-size:11px;font-weight:750;transition:color .2s}
+    .step b{width:21px;height:21px;border:1px solid #496274;border-radius:50%;display:grid;place-items:center;font-size:10px;flex:none;background:#101e2c;transition:.2s}
+    .step.active{color:#e7fbff}.step.active b{border-color:#8df4f1;background:#16434b;color:#c8ffff;box-shadow:0 0 13px #70e9e660}
+    .step.past{color:#a6d9ce}.step.past b{border-color:#62c9ad;background:#15342e;color:#a7ffe4}
+    .transport{display:grid;grid-template-columns:auto minmax(120px,1fr) auto;align-items:center;gap:12px}
+    .buttonRow{display:flex;gap:8px;align-items:center}
+    .controlBtn{height:42px;min-width:44px;padding:0 13px;border-radius:11px;border:1px solid #688da2;background:#132639;color:#eafaff;font-weight:850;cursor:pointer;touch-action:manipulation;transition:transform .16s,background .16s,border-color .16s}
+    .controlBtn:hover{background:#1a3549;border-color:#91d8e5}.controlBtn:active{transform:scale(.96)}
+    .controlBtn.primary{min-width:104px;background:linear-gradient(130deg,#126d75,#154758);border-color:#71e3df;color:#eaffff}
+    .controlBtn[aria-pressed="true"]{border-color:#c4b2ff;background:#332958}
+    .scrubberWrap{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:8px;color:#a9c1cf;font-size:10px;font-variant-numeric:tabular-nums}
+    input[type=range]{width:100%;accent-color:#82edea;cursor:pointer}
+    .speed{min-width:78px;height:42px;padding:0 9px;border:1px solid #496274;border-radius:10px;background:#0d1c2b;color:#d6e9f0;font-weight:800}
+    .foot{padding:0 18px 13px;color:#7892a4;font-size:10px;line-height:1.5;background:#091523}
+    .flash{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 52%,#fff9 0%,#ffcbd244 27%,transparent 63%);opacity:0;pointer-events:none;mix-blend-mode:screen}
+    .flash.hit{animation:hitflash .38s ease-out}
+    @keyframes hitflash{0%{opacity:0}17%{opacity:.88}38%{opacity:.12}55%{opacity:.35}100%{opacity:0}}
+    @media(max-width:680px){
+      body{padding:0;display:block}.app{min-height:100svh;border:0;border-radius:0;display:flex;flex-direction:column;box-shadow:none}
+      .top{min-height:54px;padding:9px 12px}.mark{width:29px;height:29px}.brand strong{font-size:12px}.live{font-size:10px}
+      .stage{height:min(57svh,580px);min-height:340px;flex:0 0 auto}.hudTop{top:10px;left:10px;right:10px}.miniPanel{font-size:9px;padding:6px 8px}.objective{width:min(190px,48vw)}.statePill{top:57px;font-size:10px;padding:6px 10px}.roundInfo{display:none}
+      .caption{top:24%;font-size:17px}.ghostNotice{top:36%;font-size:16px;padding:10px 12px}.timelineLabel{left:10px;bottom:10px;font-size:9px}
+      .controls{padding:12px 11px 10px}.steps{gap:2px;margin-bottom:10px}.step{display:grid;justify-items:center;gap:4px;font-size:9px;text-align:center;line-height:1.1}.step b{width:19px;height:19px}.transport{grid-template-columns:auto minmax(0,1fr) auto;gap:7px}.controlBtn{height:40px;min-width:40px;padding:0 9px;font-size:12px}.controlBtn.primary{min-width:72px}.scrubberWrap{grid-template-columns:34px minmax(0,1fr) 34px;gap:4px;font-size:9px}.speed{min-width:58px;height:40px;padding:0 4px;font-size:11px}.foot{padding:0 11px 10px;font-size:9px}
+    }
+    @media(max-height:500px) and (orientation:landscape){body{padding:4px}.app{min-height:0}.top{min-height:42px}.stage{height:calc(100svh - 143px);min-height:220px;flex:1}.controls{padding:7px 12px}.steps{margin-bottom:5px}.step{font-size:9px}.step b{width:17px;height:17px}.controlBtn,.speed{height:34px}.foot{display:none}.statePill{top:10px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="キルアニメーションの再生プレビュー">
+    <header class="top">
+      <div class="brand"><span class="mark" aria-hidden="true">S</span><div><strong>SPACE SUSPECT</strong><small>DEATH SEQUENCE PREVIEW</small></div></div>
+      <div class="live"><i aria-hidden="true"></i><span>試合中 · 被害者視点</span></div>
+    </header>
+    <section class="stage" aria-label="試合中の3Dシーン">
+      <canvas id="scene"></canvas>
+      <div class="hud" aria-hidden="true">
+        <div class="hudTop">
+          <div class="miniPanel roundInfo">航海中 · 乗員 7人<br>カフェテリア付近</div>
+          <div class="miniPanel objective"><div class="objectiveHead"><span>全体タスク</span><span>8 / 24</span></div><div class="taskTrack"><span></span></div></div>
+        </div>
+        <div id="statePill" class="statePill">試合中 · タスクへ移動</div>
+        <div id="caption" class="caption">背後から接近</div>
+        <div id="ghostNotice" class="ghostNotice">あなたはゴーストになりました</div>
+        <div id="timelineLabel" class="timelineLabel">00:00 · 通常プレイ</div>
+        <div id="flash" class="flash"></div>
+      </div>
+    </section>
+    <section class="controls" aria-label="再生コントロール">
+      <div class="steps" id="steps">
+        <div class="step active" data-at="0"><b>1</b><span>試合中</span></div>
+        <div class="step" data-at="1.5"><b>2</b><span>接近</span></div>
+        <div class="step" data-at="2.55"><b>3</b><span>キル</span></div>
+        <div class="step" data-at="3.45"><b>4</b><span>倒れる</span></div>
+        <div class="step" data-at="4.55"><b>5</b><span>ゴースト化</span></div>
+      </div>
+      <div class="transport">
+        <div class="buttonRow">
+          <button class="controlBtn primary" id="playBtn" type="button">▶ 再生</button>
+          <button class="controlBtn" id="replayBtn" type="button" aria-label="最初から再生">↺</button>
+        </div>
+        <label class="scrubberWrap"><span id="currentTime">0.0s</span><input id="scrubber" type="range" min="0" max="7" step="0.01" value="0" aria-label="アニメーションの再生位置"><span>7.0s</span></label>
+        <select class="speed" id="speed" aria-label="再生速度"><option value="0.65">0.65×</option><option value="1" selected>1×</option><option value="1.35">1.35×</option></select>
+      </div>
+    </section>
+    <div class="foot">暗い別画面に切り替えず、試合中の背景を残したまま、キル・倒れる動き・幽霊化を続けて再生します。再生位置をドラッグして途中から確認できます。</div>
+  </main>
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+
+    const canvas=document.querySelector('#scene'),stage=document.querySelector('.stage');
+    const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.setSize(stage.clientWidth,stage.clientHeight,false);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
+    const scene=new THREE.Scene();scene.background=new THREE.Color('#071322');scene.fog=new THREE.Fog('#071322',15,31);
+    const camera=new THREE.PerspectiveCamera(40,stage.clientWidth/stage.clientHeight,.1,80);camera.position.set(0,4.15,8.7);camera.lookAt(0,.9,0);
+    scene.add(new THREE.HemisphereLight(0xa8edff,0x172433,2.15));
+    const key=new THREE.DirectionalLight(0xe4f7ff,3.1);key.position.set(-4,9,5);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-10;key.shadow.camera.right=10;key.shadow.camera.top=10;key.shadow.camera.bottom=-10;scene.add(key);
+    const fill=new THREE.PointLight(0x33cfdd,14,17,2);fill.position.set(-2,3.4,-1.5);scene.add(fill);
+    const warm=new THREE.PointLight(0xff667d,6,8,2);warm.position.set(3,2.4,2);scene.add(warm);
+    const mat=(color,rough=.75,metal=0,extra={})=>new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal,...extra});
+    const room=new THREE.Group();scene.add(room);
+    const floor= new THREE.Mesh(new THREE.BoxGeometry(18,.22,13),mat('#263c4a',.64,.22));floor.position.set(0,-.13,-.4);floor.receiveShadow=true;room.add(floor);
+    const floorTop=new THREE.Mesh(new THREE.PlaneGeometry(17.8,12.8),mat('#425660',.79,.08));floorTop.rotation.x=-Math.PI/2;floorTop.position.set(0,.001,-.4);floorTop.receiveShadow=true;room.add(floorTop);
+    const tileMat=mat('#78909a',.72,.1),darkTile=mat('#445b68',.72,.1),cyanMat=mat('#5bdde3',.32,.3,{emissive:'#1a8e9b',emissiveIntensity:.65});
+    for(let x=-8;x<8;x+=2){const line=new THREE.Mesh(new THREE.BoxGeometry(.025,.012,12.7),tileMat);line.position.set(x,.009,-.4);room.add(line)}
+    for(let z=-6.4;z<6.5;z+=2){const line=new THREE.Mesh(new THREE.BoxGeometry(17.7,.012,.025),tileMat);line.position.set(0,.011,z-.4);room.add(line)}
+    for(let x=-7;x<8;x+=4)for(let z=-5.4;z<5.6;z+=4){const panel=new THREE.Mesh(new THREE.BoxGeometry(1.72,.014,1.72),darkTile);panel.position.set(x,.017,z-.4);panel.receiveShadow=true;room.add(panel);}
+    // Walls and windows keep the setting recognizably inside the ship without obscuring the action.
+    const wallMat=mat('#263e50',.42,.27),trimMat=mat('#91b7c4',.35,.45),glassMat=new THREE.MeshPhysicalMaterial({color:'#7dd8e6',roughness:.2,metalness:.24,transparent:true,opacity:.36,emissive:'#153b50',emissiveIntensity:.4});
+    const wall=(w,h,d,x,y,z,m=wallMat)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;room.add(o);return o};
+    wall(18,3.9,.42,0,1.9,-6.75);wall(.42,3.9,13,-9,1.9,-.4);wall(.42,3.9,13,9,1.9,-.4);
+    wall(5.9,3.9,.42,-6.05,1.9,5.95);wall(5.9,3.9,.42,6.05,1.9,5.95);
+    for(let i=0;i<5;i++){const x=-6.8+i*2.7;if(Math.abs(x)<=2.1)continue;const win=new THREE.Mesh(new THREE.BoxGeometry(2.18,2.05,.08),glassMat);win.position.set(x,2.05,-6.49);room.add(win);wall(.06,2.17,.11,x-1.12,2.05,-6.42,trimMat);wall(.06,2.17,.11,x+1.12,2.05,-6.42,trimMat);wall(2.3,.06,.11,x,1,-6.42,trimMat);wall(2.3,.06,.11,x,3.1,-6.42,trimMat);}
+    for(let x=-8;x<=8;x+=2){if(Math.abs(x)>1.9){wall(.07,3.85,.12,x,1.92,-6.42,trimMat);wall(.07,3.85,.12,x,1.92,5.62,trimMat)}}
+    // Ceiling ribs and cyan floor guides.
+    for(let x=-8;x<=8;x+=4){if(x!==0){const rib=wall(.14,.18,12.4,x,3.82,-.4,trimMat);rib.material=trimMat;}}
+    for(const side of [-1,1]){const guide=new THREE.Mesh(new THREE.BoxGeometry(.045,.023,10.8),cyanMat);guide.position.set(side*7.8,.035,-.4);room.add(guide)}
+    const starMat=new THREE.PointsMaterial({color:'#b6ecff',size:.055,transparent:true,opacity:.78});const starPos=[];for(let i=0;i<110;i++)starPos.push((Math.random()-.5)*40,Math.random()*14-1,-11-Math.random()*18);const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));scene.add(new THREE.Points(starGeo,starMat));
+    // Side console: makes the opening moments read as ordinary gameplay.
+    const consoleRoot=new THREE.Group();consoleRoot.position.set(-3.25,0,-1.1);consoleRoot.rotation.y=-.42;room.add(consoleRoot);
+    const consoleBase=new THREE.Mesh(new THREE.BoxGeometry(1.35,.88,.62),mat('#153548',.34,.42));consoleBase.position.y=.54;consoleBase.castShadow=true;consoleRoot.add(consoleBase);
+    const consoleTop=new THREE.Mesh(new THREE.BoxGeometry(1.48,.12,.72),mat('#3e6674',.32,.5));consoleTop.position.set(0,1.02,0);consoleTop.castShadow=true;consoleRoot.add(consoleTop);
+    const screen=new THREE.Mesh(new THREE.PlaneGeometry(.82,.43),new THREE.MeshStandardMaterial({color:'#52e9d2',emissive:'#31baa8',emissiveIntensity:1.1,roughness:.3}));screen.position.set(0,.8,.321);consoleRoot.add(screen);
+    for(let i=0;i<4;i++){const led=new THREE.Mesh(new THREE.SphereGeometry(.035,10,8),mat(i===0?'#ff6674':'#9ce8f4',.25,.1,{emissive:i===0?'#a20d2d':'#15889c',emissiveIntensity:1}));led.position.set(-.42+i*.28,1.1,.14);consoleRoot.add(led)}
+    // Low console and wall lamps add depth, not UI chrome.
+    for(let x=-6;x<=6;x+=3){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.65,.08,.19),mat('#b6faff',.25,.3,{emissive:'#60deee',emissiveIntensity:1.4}));lamp.position.set(x,3.7,-1.8);room.add(lamp)}
+
+    function makeCrew(color,name){
+      const root=new THREE.Group(),suit=mat(color,.34,.12),visor=new THREE.MeshPhysicalMaterial({color:'#b6edff',metalness:.48,roughness:.18,transparent:true,opacity:.94,clearcoat:.8,clearcoatRoughness:.08});
+      const body=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.48,5,12),suit);body.position.y=1;body.castShadow=true;body.receiveShadow=true;root.add(body);
+      const pack=new THREE.Mesh(new THREE.BoxGeometry(.57,.64,.3),suit);pack.position.set(0,.98,-.42);pack.castShadow=true;root.add(pack);
+      const visorMesh=new THREE.Mesh(new THREE.SphereGeometry(.35,20,14),visor);visorMesh.scale.set(1,.64,.48);visorMesh.position.set(0,1.18,.37);visorMesh.castShadow=true;root.add(visorMesh);
+      const legs=[];for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.24,4,10),suit);leg.position.set(side*.24,.25,0);leg.castShadow=true;root.add(leg);legs.push(leg)}
+      const arms=[];for(const side of [-1,1]){const arm=new THREE.Group();arm.position.set(side*.36,1.08,.02);root.add(arm);const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.3,4,9),suit);sleeve.position.y=-.04;sleeve.rotation.z=side*.08;sleeve.castShadow=true;arm.add(sleeve);arms.push(arm)}
+      const labelCanvas=document.createElement('canvas');labelCanvas.width=512;labelCanvas.height=128;const g=labelCanvas.getContext('2d');g.clearRect(0,0,512,128);g.font='800 54px system-ui, sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=9;g.strokeStyle='#06101b';g.strokeText(name,256,64);g.fillStyle='#f4fbff';g.fillText(name,256,64);const labelTex=new THREE.CanvasTexture(labelCanvas);labelTex.colorSpace=THREE.SRGBColorSpace;const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTex,transparent:true,depthTest:false}));tag.scale.set(2.25,.56,1);tag.position.y=2.05;root.add(tag);
+      const halo=new THREE.Mesh(new THREE.TorusGeometry(.48,.048,8,36),new THREE.MeshBasicMaterial({color:'#bba7ff',transparent:true,opacity:0,depthWrite:false}));halo.rotation.x=Math.PI/2;halo.position.y=2.25;root.add(halo);
+      const ghostGlow=new THREE.Mesh(new THREE.CapsuleGeometry(.48,.5,5,12),new THREE.MeshBasicMaterial({color:'#a894ff',transparent:true,opacity:0,side:THREE.BackSide,depthWrite:false,blending:THREE.AdditiveBlending}));ghostGlow.position.y=1;root.add(ghostGlow);
+      const knife=new THREE.Group();const handle=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.35,8),mat('#273441',.35,.7));handle.rotation.x=Math.PI/2;knife.add(handle);const blade=new THREE.Mesh(new THREE.BoxGeometry(.09,.035,.52),new THREE.MeshStandardMaterial({color:'#e9f7ff',metalness:.86,roughness:.15,emissive:'#a4eaff',emissiveIntensity:.22}));blade.position.z=.38;knife.add(blade);knife.position.set(0,-.05,.18);knife.rotation.x=.18;knife.visible=false;arms[1].add(knife);
+      root.userData={body,visor:visorMesh,legs,arms,tag,halo,ghostGlow,knife,suit,materials:[suit,visor]};scene.add(root);return root;
+    }
+    const victim=makeCrew('#46c4e6','レモンかす'),killer=makeCrew('#ee5368','');
+    const killerTagCanvas=document.createElement('canvas');killerTagCanvas.width=512;killerTagCanvas.height=128;{const g=killerTagCanvas.getContext('2d');g.font='900 52px system-ui';g.textAlign='center';g.textBaseline='middle';g.lineWidth=9;g.strokeStyle='#06101b';g.strokeText('???',256,64);g.fillStyle='#ff8592';g.fillText('???',256,64);const tx=new THREE.CanvasTexture(killerTagCanvas);tx.colorSpace=THREE.SRGBColorSpace;killer.userData.tag.material.map?.dispose?.();killer.userData.tag.material.map=tx;killer.userData.tag.material.needsUpdate=true;}
+    const corpse=new THREE.Group();corpse.visible=false;scene.add(corpse);const deadBody=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.48,5,12),mat('#398ea5',.52,.04));deadBody.scale.set(1,.34,.85);deadBody.rotation.z=Math.PI/2;deadBody.position.y=.23;corpse.add(deadBody);const deadVisor=new THREE.Mesh(new THREE.SphereGeometry(.27,16,12),mat('#9de5f4',.24,.4));deadVisor.scale.set(1,.56,.3);deadVisor.position.set(.12,.34,.24);corpse.add(deadVisor);
+    const slashMat=new THREE.MeshBasicMaterial({color:'#ff405d',transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});const slashShape=new THREE.Shape();slashShape.moveTo(-3,.05);slashShape.quadraticCurveTo(-.25,.58,3,.72);slashShape.lineTo(2.6,.43);slashShape.quadraticCurveTo(0,.12,-3,-.22);slashShape.closePath();const slash=new THREE.Mesh(new THREE.ShapeGeometry(slashShape,24),slashMat);slash.position.set(0,1.3,1.8);slash.scale.set(.001,.001,1);scene.add(slash);
+    const hitRing=new THREE.Mesh(new THREE.TorusGeometry(.5,.035,8,48),new THREE.MeshBasicMaterial({color:'#ffd6de',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));hitRing.rotation.x=Math.PI/2;hitRing.position.y=.1;scene.add(hitRing);
+    const sparks=[];for(let i=0;i<30;i++){const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+(i%3)*.012,0),new THREE.MeshBasicMaterial({color:i%3===0?'#fff2de':i%3===1?'#ff4d68':'#ffb0bf',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));scene.add(mesh);sparks.push({mesh,angle:i*2.3999632297,speed:.8+(i%7)*.17,up:.35+(i%5)*.13});}
+    const shadow=new THREE.Mesh(new THREE.CircleGeometry(.75,36),new THREE.MeshBasicMaterial({color:'#02060a',transparent:true,opacity:.35,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.set(-.35,.025,.25);scene.add(shadow);
+
+    const duration=7,clock=new THREE.Clock();let current=0,playing=false,playStart=0,fromTime=0,lastTime=0;
+    const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)};const mix=(a,b,t)=>a+(b-a)*t;const between=(t,a,b)=>smooth((t-a)/(b-a));
+    const statePill=document.querySelector('#statePill'),caption=document.querySelector('#caption'),ghostNotice=document.querySelector('#ghostNotice'),timelineLabel=document.querySelector('#timelineLabel'),flash=document.querySelector('#flash'),scrubber=document.querySelector('#scrubber'),currentTime=document.querySelector('#currentTime'),playBtn=document.querySelector('#playBtn');
+    const stages=[{at:0,label:'通常プレイ',pill:'試合中 · タスクへ移動',cap:''},{at:1.5,label:'人狼が接近',pill:'試合中 · 接近に気づいていない',cap:'背後から接近'},{at:2.45,label:'キル発生',pill:'キルされました',cap:''},{at:3.35,label:'倒れる',pill:'死亡 · 幽霊化まで',cap:''},{at:4.55,label:'ゴースト化',pill:'ゴースト · 船内を見渡す',cap:'幽霊として試合に残る'}];
+    let flashAt=-100;
+    function updateAt(t){
+      current=Math.max(0,Math.min(duration,t));const approach=between(current,1.1,2.15),strike=between(current,2.27,2.48),fall=between(current,2.48,3.45),rise=between(current,3.7,4.65),ghost=between(current,4.15,5.0),leave=between(current,2.85,4.1);
+      victim.position.set(mix(-.22,-.55,between(current,.3,1.0)),0,mix(.15,.05,between(current,.3,1.0)));victim.rotation.y=-.34+strike*.16;
+      victim.position.y=-fall*.28+ghost*.72;victim.rotation.z=-fall*1.22+ghost*1.22;victim.rotation.x=.04*Math.sin(current*5)*(1-fall);
+      const walk= current<1.05?1:current<1.45?1-between(current,1.05,1.45):0;const step=Math.sin(current*10);
+      victim.userData.legs[0].rotation.x=step*.48*walk;victim.userData.legs[1].rotation.x=-step*.48*walk;victim.userData.arms[0].rotation.x=-step*.26*walk;victim.userData.arms[1].rotation.x=step*.26*walk;
+      // A short recoil precedes the fall; no black transition hides the game scene.
+      const recoil=(1-between(current,2.45,2.72))*strike;victim.position.x+=recoil*.12;victim.rotation.z-=recoil*.19;
+      const kp=between(current,0,2.25);killer.position.set(mix(2.7,.45,kp)+leave*2.6,0,mix(2.8,.78,kp)+leave*.22);killer.rotation.y=mix(-2.3,-Math.PI+0.28,kp)+leave*.18;
+      killer.userData.legs[0].rotation.x=-step*.4*(1-approach+leave);killer.userData.legs[1].rotation.x=step*.4*(1-approach+leave);killer.userData.arms[1].rotation.x=mix(0,-1.05,strike)*(1-leave);killer.userData.knife.visible=current>2.24&&current<2.85;killer.userData.knife.rotation.x=.18+strike*.9;
+      killer.visible=current<4.6;
+      const hit=between(current,2.38,2.52);slash.scale.set(Math.max(.001,hit*1.08),Math.max(.001,hit),1);slash.material.opacity=hit*.87*(1-between(current,2.53,2.77));slash.position.set(-.15,1.35,1.38);slash.rotation.z=-.17;
+      hitRing.position.set(victim.position.x,.09,victim.position.z);const ringAge=Math.max(0,current-2.42);hitRing.scale.setScalar(.45+ringAge*2.7);hitRing.material.opacity=current>2.4&&current<3.05?Math.max(0,.85-ringAge*1.3):0;
+      for(const [i,p] of sparks.entries()){const age=current-2.43;if(age>=0&&age<.75){const burst=smooth(age/.18),fade=1-smooth(age/.68),r=burst*age*p.speed;p.mesh.visible=true;p.mesh.position.set(victim.position.x+Math.cos(p.angle)*r,.72+p.up*age*2+Math.sin(i*5)*.06,victim.position.z+Math.sin(p.angle)*r);p.mesh.material.opacity=fade*.9;}else{p.mesh.visible=false;p.mesh.material.opacity=0;}}
+      corpse.visible=current>=3.25;corpse.position.set(-.55,.02,.05);corpse.rotation.y=-.35;corpse.scale.setScalar(.85+between(current,3.25,3.7)*.15);
+      const aliveOpacity=1-ghost*.58;for(const m of victim.userData.materials){m.transparent=ghost>.01;m.opacity=aliveOpacity;m.depthWrite=ghost<.05;}victim.userData.legs.forEach(l=>{l.visible=ghost<.92;});victim.userData.halo.visible=ghost>.08;victim.userData.halo.material.opacity=Math.min(.88,ghost*.9);victim.userData.halo.rotation.z=current*1.6;victim.userData.ghostGlow.material.opacity=ghost*.16;victim.userData.ghostGlow.scale.setScalar(1+ghost*.14);victim.userData.tag.material.opacity=1-ghost*.2;
+      shadow.material.opacity=.35*(1-ghost*.85);
+      let stageIndex=0;for(let i=0;i<stages.length;i++)if(current>=stages[i].at)stageIndex=i;const phase=stages[stageIndex];statePill.textContent=phase.pill;statePill.classList.toggle('ghost',stageIndex>=4);caption.textContent=phase.cap;caption.classList.toggle('show',!!phase.cap&&current<phase.at+1.12);ghostNotice.classList.toggle('show',current>=4.65&&current<6.7);
+      timelineLabel.textContent=`${String(Math.floor(current/60)).padStart(2,'0')}:${(current%60).toFixed(1).padStart(4,'0')} · ${phase.label}`;
+      document.querySelectorAll('.step').forEach((el,i)=>{const at=Number(el.dataset.at);el.classList.toggle('active',i===stageIndex);el.classList.toggle('past',i<stageIndex);});
+      if(!scrubber.matches(':active'))scrubber.value=String(current);currentTime.textContent=current.toFixed(1)+'s';
+      const camTarget=new THREE.Vector3(mix(0,victim.position.x,.28),mix(.85,1.05,between(current,2.1,3.2)),mix(0,victim.position.z,.24));const basePos=new THREE.Vector3(0,4.15,8.7),closePos=new THREE.Vector3(0,3.05,6.05),pull=between(current,2.0,3.1);camera.position.lerpVectors(basePos,closePos,pull);camera.lookAt(camTarget);
+      if(current>=2.42&&lastTime<2.42){flash.classList.remove('hit');void flash.offsetWidth;flash.classList.add('hit');}
+      lastTime=current;renderer.render(scene,camera);
+    }
+    function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';}}else renderer.render(scene,camera);}
+    function play(){if(current>=duration)updateAt(0);playing=true;fromTime=current;playStart=performance.now();playBtn.textContent='Ⅱ 一時停止';}
+    playBtn.addEventListener('click',()=>{if(playing){playing=false;playBtn.textContent='▶ 再生';}else play();});
+    document.querySelector('#replayBtn').addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(0);play();});
+    scrubber.addEventListener('input',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(scrubber.value));});
+    document.querySelectorAll('.step').forEach(el=>el.addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(el.dataset.at));}));
+    const resize=()=>{const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();renderer.render(scene,camera);};window.addEventListener('resize',resize);new ResizeObserver(resize).observe(stage);
+    updateAt(0);requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
