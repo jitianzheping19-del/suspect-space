@@ -21151,6 +21151,19 @@ setInterval(check,500);
  #numberTask #ssxTerminalCanvas{display:none!important}#numberTask .numberTaskButton{min-height:36px!important}#numberTask .muted{margin:4px 0!important}
 }
 </style>
+<style id="ssx-role-list-three-columns-fix">
+#roundRoles[data-source="lobby"] #roundRoleList:not(.hasRoleDetail),
+#roundRoles[data-source="game"] #roundRoleList:not(.hasRoleDetail){grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#roundRoles:not(.autoLaunchRoles)[data-source="lobby"] #roundRoleList.hasRoleDetail,
+#roundRoles:not(.autoLaunchRoles)[data-source="game"] #roundRoleList.hasRoleDetail{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(220px,1.25fr)!important}
+#roundRoles #roundRoleList .roleFactionColumn{min-width:0!important}
+#roundRoles #roundRoleList .roleFactionHeading{display:flex;flex-wrap:wrap;align-items:center;gap:3px;min-width:0}
+#roundRoles #roundRoleList .roleChoiceButton{min-width:0!important;max-width:100%;box-sizing:border-box}
+@media(max-width:820px){
+ #roundRoles:not(.autoLaunchRoles)[data-source="lobby"] #roundRoleList.hasRoleDetail,
+ #roundRoles:not(.autoLaunchRoles)[data-source="game"] #roundRoleList.hasRoleDetail{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+</style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
 </html>
