@@ -14623,7 +14623,7 @@ function roomWallMount(room,side="north",inset=.24){
   const x=Number(room?.x)||0,z=Number(room?.z)||0,w=Math.max(2,Number(room?.w)||8),d=Math.max(2,Number(room?.d)||8),[nx,nz]=wanted;
   return{x:x-nx*(w/2-inset),z:z-nz*(d/2-inset),nx,nz};
 }
-function locateTerminal(roomId){const aliases=roomId==='security'?['security']:roomId==='med'?['med','medical','medbay']:[roomId],room=(ROOMS||[]).find(r=>aliases.includes(String(r.id||'')));return room?roomWallMount(room,"north",.28):null;}
+function locateTerminal(roomId){const aliases=roomId==='security'?['security']:roomId==='med'?['med','medical','medbay']:[roomId],room=(ROOMS||[]).find(r=>aliases.includes(String(r.id||'')));return room?roomWallMount(room,roomId==='med'?"west":"north",.28):null;}
 function syncTerminalLocations(){const terminalRoomIds=['security','electrical','med','medical','medbay'];const stamp=JSON.stringify([(ROOMS||[]).filter(r=>terminalRoomIds.includes(String(r.id||''))).map(r=>[r.id,r.x,r.z,r.w,r.d,r.polygon]),(TASKS||[]).filter(t=>terminalRoomIds.includes(String(t.room||''))).map(t=>[t.id,t.room,t.x,t.z])]);if(stamp===terminalAnchorStamp)return;terminalAnchorStamp=stamp;for(const [id,roomId] of [['security','security'],['medical','med']]){const point=locateTerminal(roomId);if(!point)continue;TERMINAL_ANCHORS[id].x=point.x;TERMINAL_ANCHORS[id].z=point.z;TERMINAL_ANCHORS[id].rotationY=Math.atan2(point.nx,point.nz);}window.__ssTerminalProps.forEach((prop,index)=>{const p=TERMINAL_ANCHORS[index?'medical':'security'];prop.position.set(p.x,0,p.z);prop.rotation.y=Number(p.rotationY)||0;});}
 syncTerminalLocations();
 // The wave cannon hits every player in its forward beam through walls.
@@ -16290,7 +16290,7 @@ function drawVisibilityFrame(){
           vec2 maskUV=(p-origin)/(2.*radius)+.5;
           float inside=step(0.,maskUV.x)*step(maskUV.x,1.)*step(0.,maskUV.y)*step(maskUV.y,1.);
           float visible=inside*step(.5,texture2D(sight,maskUV).r)*(1.-step(.999999,d));
-          gl_FragColor=vec4(texture2D(image,uvScreen).rgb*visible,1.);
+          gl_FragColor=vec4(texture2D(image,uvScreen).rgb*mix(.30,1.,visible),1.);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`});
@@ -16453,7 +16453,7 @@ function updateCameraOccluders(target,active){
     if(!entry||entry.original!==original){
       if(entry)for(const material of entry.faded)material.dispose();
       const materials=Array.isArray(original)?original:[original];
-      const faded=materials.map(material=>{const copy=material.clone();copy.transparent=true;copy.opacity=Math.min(material.opacity,.2);copy.depthWrite=false;return copy;});
+      const faded=materials.map(material=>{const copy=material.clone();copy.transparent=true;copy.opacity=Math.min(material.opacity,.72);copy.depthWrite=false;return copy;});
       entry={original,faded};cameraFadeMaterialCache.set(mesh,entry);
     }
     cameraFadedMeshes.set(mesh,entry);mesh.material=Array.isArray(original)?entry.faded:entry.faded[0];
@@ -18978,7 +18978,7 @@ window.addEventListener("ss-open-nearby-terminal",event=>{if(event.detail==="sec
     {ids:["caf","cafeteria","kitchen"],name:"カフェテリア",match:/カフェテリア|cafeteria|食堂|キッチン|kitchen/i,fallback:[0,0],wallFacing:"north",local:true,pullback:1.2,feedFov:50,feedFar:16},
     {ids:["electrical"],name:"電気室",match:/電気室|electrical/i,fallback:[12,12],wallFacing:"east",roomSafe:true,feedFov:48,feedFar:20},
     {ids:["cockpit","nav","weapons"],name:"操縦室",match:/操縦|cockpit|ナビ|navigation|武器|weapons/i,fallback:[-20,0],wallFacing:"south"},
-    {ids:["cargo","storage","armory"],name:"貨物室",match:/貨物|cargo|保管|storage|武器庫|armory/i,fallback:[20,0],wallFacing:"west",pullback:0.8}
+    {ids:["cargo","storage","armory"],name:"貨物室",match:/貨物|cargo|保管|storage|武器庫|armory/i,fallback:[20,0],wallFacing:"west",pullback:0.8,feedFov:48,feedFar:12}
   ];let selected=0,raf=0,lastFocus=null,feedTarget=null,feedCamera=null,vitalsFocus=null,lastFeedDrawAt=0;
   cameras.forEach((cam,i)=>{const b=document.createElement("button");b.type="button";b.textContent=`CAM ${String(i+1).padStart(2,"0")} · ${cam.name}`;b.setAttribute("aria-pressed",String(i===0));b.onclick=()=>{selected=i;[...$("ssCameraTabs").children].forEach((x,n)=>x.setAttribute("aria-pressed",String(n===i)));draw();};$("ssCameraTabs").append(b);});
   const comms=()=>game.sabotage?.type==="comms"&&Number(game.sabotage.endsAt)>now()&&self()?.role!=="impostor";
@@ -18992,7 +18992,7 @@ window.addEventListener("ss-open-nearby-terminal",event=>{if(event.detail==="sec
   const cameraBox=new THREE.BoxGeometry(1,1,1),cameraLens=new THREE.CylinderGeometry(1,1,1,16),cameraDot=new THREE.SphereGeometry(1,10,8);
   const cameraShell=new THREE.MeshStandardMaterial({color:0xc4d5dd,roughness:.48,metalness:.55}),cameraTrim=new THREE.MeshStandardMaterial({color:0x162c3d,roughness:.6,metalness:.65}),cameraGlass=new THREE.MeshStandardMaterial({color:0x237b92,emissive:0x123b50,emissiveIntensity:.35,roughness:.18,metalness:.7}),cameraLED=new THREE.MeshStandardMaterial({color:0x35151a,emissive:0xff2638,emissiveIntensity:0});
   let cameraLayout=null,cameraMap="",cameraPresencePath="",cameraPresenceAt=0,cameraPresenceGeneration=0;
-  function cameraPose(cam,index){const r=cameraRegion(cam),wall=roomWallMount(r.room,cam.wallFacing||"north",.25),targetY=.78;return{x:wall.x,y:1.55,z:wall.z,nx:wall.nx,nz:wall.nz,targetX:r.x,targetY,targetZ:r.z};}
+  function cameraPose(cam,index,inset=.25){const r=cameraRegion(cam),wall=roomWallMount(r.room,cam.wallFacing||"north",inset),targetY=.78;return{x:wall.x,y:1.55,z:wall.z,nx:wall.nx,nz:wall.nz,targetX:r.x,targetY,targetZ:r.z};}
   function cameraPart(parent,geometry,material,x,y,z,sx,sy,sz){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);parent.add(mesh);return mesh;}
   function rebuildCameraHardware(){if(cameraLayout===ROOMS&&cameraMap===currentMapMode)return;cameraLayout=ROOMS;cameraMap=currentMapMode;cameraHardware.clear();cameras.forEach((cam,index)=>{if(!findRoomByAliases(cam.ids,cam.match))return;const pose=cameraPose(cam,index),mount=new THREE.Group();mount.name="CAM "+(index+1)+" "+cam.name;mount.position.set(pose.x,pose.y,pose.z);mount.rotation.y=Math.atan2(pose.nx,pose.nz);cameraHardware.add(mount);
     cameraPart(mount,cameraBox,cameraTrim,0,0,-.035,.52,.4,.07);cameraPart(mount,cameraBox,cameraShell,0,0,.07,.11,.12,.26);
@@ -19007,7 +19007,7 @@ window.addEventListener("ss-open-nearby-terminal",event=>{if(event.detail==="sec
   function syncCameraPresence(){const watching=modal.classList.contains("open")&&active()&&inRoom(securityRoom())&&!comms()&&!document.hidden&&code&&connected;const path=watching?`rooms/${code}/players/${uid}/cameraViewingAt`:"";if(path!==cameraPresencePath){clearCameraPresence();if(path){cameraPresencePath=path;const generation=cameraPresenceGeneration;void onDisconnect(ref(db,path)).remove().then(()=>{if(generation===cameraPresenceGeneration&&path===cameraPresencePath)return set(ref(db,path),serverTimestamp());}).catch(()=>{});cameraPresenceAt=performance.now();}}else if(path&&performance.now()-cameraPresenceAt>=4000){cameraPresenceAt=performance.now();void set(ref(db,path),serverTimestamp()).catch(()=>{});}}
   window.addEventListener("pagehide",clearCameraPresence);document.addEventListener("visibilitychange",()=>{if(document.hidden){close();clearCameraPresence();}});
   function ensureFeed(){if(!feedTarget){feedTarget=new THREE.WebGLRenderTarget(640,360,{depthBuffer:true,stencilBuffer:false});feedTarget.texture.colorSpace=THREE.SRGBColorSpace;feedCamera=new THREE.PerspectiveCamera(64,640/360,.08,65);}}
-  function draw(){if(!modal.classList.contains("open"))return;ensureFeed();const cam=cameras[selected],r=cameraRegion(cam),roomOnly=cam.roomSafe&&currentMapMode==="astra"&&astraMap?.layers?findRoomByAliases(cam.ids,cam.match):null,pose=cameraPose(cam,selected),origin=new THREE.Vector3(pose.x,pose.y,pose.z);feedCamera.fov=cam.feedFov||(cam.local?44:64);feedCamera.far=cam.feedFar||(cam.local?12:65);feedCamera.updateProjectionMatrix();feedCamera.position.copy(origin);feedCamera.lookAt(r.x,cam.roomSafe?.1:-.35,r.z);feedCamera.updateMatrixWorld();
+  function draw(){if(!modal.classList.contains("open"))return;ensureFeed();const cam=cameras[selected],r=cameraRegion(cam),roomOnly=cam.roomSafe&&currentMapMode==="astra"&&astraMap?.layers?findRoomByAliases(cam.ids,cam.match):null,pose=cameraPose(cam,selected,1.25),origin=new THREE.Vector3(pose.x,pose.y,pose.z);feedCamera.fov=cam.feedFov||(cam.local?44:64);feedCamera.far=cam.feedFar||(cam.local?12:65);feedCamera.updateProjectionMatrix();feedCamera.position.copy(origin);feedCamera.lookAt(r.x,cam.roomSafe?.1:-.35,r.z);feedCamera.updateMatrixWorld();
     const visibility=[],avatarPoint=new THREE.Vector3();for(const [id,avatar] of avatars){const state=game.players?.[id];let show=!!state&&state.alive===true&&!state.observer&&!state.disconnected&&!state.ventId&&Number(state.phantomUntil||0)<=now();if(show&&roomOnly){avatar.getWorldPosition(avatarPoint);show=regionContainsPoint(avatarPoint.x,avatarPoint.z,roomOnly);}visibility.push([avatar,avatar.visible,show]);}
     const previousTarget=renderer.getRenderTarget(),previousViewport=renderer.getViewport(new THREE.Vector4()),previousScissor=renderer.getScissor(new THREE.Vector4()),previousScissorTest=renderer.getScissorTest(),previousAutoClear=renderer.autoClear,previousClearColor=renderer.getClearColor(new THREE.Color()),previousClearAlpha=renderer.getClearAlpha(),previousFog=scene.fog;
     const wallMaterials=[...cameraFadedMeshes].map(([mesh])=>[mesh,mesh.material]),roomVisibility=[],image=ctx.createImageData(640,360),pixels=new Uint8Array(640*360*4);
