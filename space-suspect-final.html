@@ -8838,7 +8838,7 @@ function transparentKillAssetSrcdoc(source=KILL_ASSET_SRCDOC){let html=source;if
 
 function clearKillSequence(){clearTimeout(killSequenceTimer);killSequenceTimer=0;killSequenceFrame?.remove();killSequenceFrame=null;killSequenceId="";$("killAnimation")?.removeAttribute("data-authored-role");$("killAnimation")?.removeAttribute("data-kill-swipe");const label=$("killAnimationText");if(label)label.hidden=false;}
 window.addEventListener("message",event=>{if(event.source!==killSequenceFrame?.contentWindow||!(event.data?.type==="ss-kill-done"||event.data?.type==="ss-role-done")||event.data.id!==killSequenceId)return;clearKillSequence();show("killAnimation",false);});
-function showVampireBiteClip(victimId,killerId,stamp){if(victimId!==uid||!killerId)return;if(isMeetingElimination(victimId)){clearVictimDeathOverlays();return;}clearKillSequence();const id=`vampire-bite:${uid}:${stamp}`,stage=$("killAnimation"),label=$("killAnimationText");killSequenceId=id;label.hidden=true;const frame=document.createElement("iframe");frame.title="ヴァンパイアの噛みつき演出";frame.setAttribute("aria-hidden","true");frame.style.cssText="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:#04060d";stage.dataset.authoredRole="vampire";frame.srcdoc=transparentKillAssetSrcdoc(ROLE_KILL_ASSETS.vampireBite);stage.append(frame);killSequenceFrame=frame;const killer=game.players?.[killerId],hue=(value,fallback)=>new THREE.Color().setHSL(Number.isFinite(Number(value))?Number(value):fallback,.7,.52).getStyle();const delaySeconds=Math.max(3,Math.min(60,Number(game.settings?.biteDelaySeconds)||15));frame.addEventListener("load",()=>frame.contentWindow?.postMessage({type:"ss-role-kill-start",role:"vampire",mode:"bite",id,killerColor:hue(killer?.hue,.89),victimColor:hue(self()?.hue,.55),delaySeconds,dissolveSeconds:15,volume:$("audioEffectsVolume")?Math.max(0,Math.min(1,Number($("audioEffectsVolume").value)/100)):.7},"*"),{once:true});show("killAnimation",true);killSequenceTimer=setTimeout(()=>{if(killSequenceId===id){clearKillSequence();show("killAnimation",false);}},3500);}
+function showVampireBiteClip(victimId,killerId,stamp){if(victimId!==uid||!killerId)return;if(isMeetingElimination(victimId)){clearVictimDeathOverlays();return;}clearKillSequence();const id=`vampire-bite:${uid}:${stamp}`,stage=$("killAnimation"),label=$("killAnimationText");killSequenceId=id;label.hidden=true;const frame=document.createElement("iframe");frame.title="ヴァンパイアの噛みつき演出";frame.setAttribute("aria-hidden","true");frame.style.cssText="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:transparent";stage.dataset.authoredRole="vampire";frame.srcdoc=transparentKillAssetSrcdoc(ROLE_KILL_ASSETS.vampireBite);stage.append(frame);killSequenceFrame=frame;const killer=game.players?.[killerId],hue=(value,fallback)=>new THREE.Color().setHSL(Number.isFinite(Number(value))?Number(value):fallback,.7,.52).getStyle();const delaySeconds=Math.max(3,Math.min(60,Number(game.settings?.biteDelaySeconds)||15));frame.addEventListener("load",()=>frame.contentWindow?.postMessage({type:"ss-role-kill-start",role:"vampire",mode:"bite",id,killerColor:hue(killer?.hue,.89),victimColor:hue(self()?.hue,.55),delaySeconds,dissolveSeconds:15,volume:$("audioEffectsVolume")?Math.max(0,Math.min(1,Number($("audioEffectsVolume").value)/100)):.7},"*"),{once:true});show("killAnimation",true);killSequenceTimer=setTimeout(()=>{if(killSequenceId===id){clearKillSequence();show("killAnimation",false);}},3500);}
 function showKillAnimation(name, killer, event = {}) {
   if(event.victim!==uid)return;
   show("deathIntro",false);
@@ -8862,7 +8862,7 @@ function showKillAnimation(name, killer, event = {}) {
   if(authoredRole&&event.victim===uid){
     clearTimeout(effectTimers.get("killAnimation"));effectTimers.delete("killAnimation");
     const id=String(event.id||`victim:${uid}:${event.at||now()}`),stage=$("killAnimation"),label=$("killAnimationText");killSequenceId=id;label.hidden=true;
-    const frame=document.createElement("iframe");frame.title=authoredRole==="vampire"?"ヴァンパイアの遅延死演出":"バイパーの毒死演出";frame.setAttribute("aria-hidden","true");frame.style.cssText="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:#04060d";stage.dataset.authoredRole=authoredRole;frame.srcdoc=transparentKillAssetSrcdoc(ROLE_KILL_ASSETS[authoredRole==="vampire"?"vampireBite":"viper"]);stage.append(frame);killSequenceFrame=frame;
+    const frame=document.createElement("iframe");frame.title=authoredRole==="vampire"?"ヴァンパイアの遅延死演出":"バイパーの毒死演出";frame.setAttribute("aria-hidden","true");frame.style.cssText="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:transparent";stage.dataset.authoredRole=authoredRole;frame.srcdoc=transparentKillAssetSrcdoc(ROLE_KILL_ASSETS[authoredRole==="vampire"?"vampireBite":"viper"]);stage.append(frame);killSequenceFrame=frame;
     const hue=(value,fallback)=>new THREE.Color().setHSL(Number.isFinite(Number(value))?Number(value):fallback,.7,.52).getStyle();
     const configuredSeconds=Math.max(3,Math.min(60,Number(game.settings?.biteDelaySeconds)||15)),dissolveSeconds=Math.max(5,Math.min(60,Number(game.settings?.viperSeconds)||15));
     const duration=(authoredRole==="vampire"?4500:8000);
@@ -8873,7 +8873,7 @@ function showKillAnimation(name, killer, event = {}) {
   if(assetKill&&typeof KILL_ASSET_SRCDOC!=="undefined"){
     clearTimeout(effectTimers.get("killAnimation"));effectTimers.delete("killAnimation");
     const id=String(event.id||`victim:${uid}:${event.at||now()}`),stage=$("killAnimation"),label=$("killAnimationText");killSequenceId=id;label.hidden=true;
-    const frame=document.createElement("iframe");frame.title="キルアニメーション";frame.setAttribute("aria-hidden","true");frame.style.cssText="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:#04060d";frame.srcdoc=transparentKillAssetSrcdoc();stage.append(frame);killSequenceFrame=frame;
+    const frame=document.createElement("iframe");frame.title="キルアニメーション";frame.setAttribute("aria-hidden","true");frame.style.cssText="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:transparent";frame.srcdoc=transparentKillAssetSrcdoc();stage.append(frame);killSequenceFrame=frame;
     const hue=(value,fallback)=>new THREE.Color().setHSL(Number.isFinite(Number(value))?Number(value):fallback,.7,.52).getStyle();
     frame.addEventListener("load",()=>{if(roleStyle==="knife"||roleStyle==="sword")stage.dataset.killSwipe="true";frame.contentWindow?.postMessage({type:"ss-kill-start",id,style:roleStyle,killerColor:hue(killer?.hue,.04),victimColor:hue(self()?.hue,.55),killerCostume:players?.[event.killer]?.costume||killer?.costume||"standard",victimCostume:players?.[uid]?.costume||readStored("space-suspect-costume")||"standard",volume:$("audioEffectsVolume")?Math.max(0,Math.min(1,Number($("audioEffectsVolume").value)/100)):.7},"*");},{once:true});
     show("killAnimation",true);killSequenceTimer=setTimeout(()=>{clearKillSequence();show("killAnimation",false);},11000);return;
@@ -16516,7 +16516,7 @@ function updateCameraOccluders(target,active){
       const firstPerson=use3D&&cameraPerspective==="first";
       const hawkVision=(Number(viewer?.hawkUntil)||0)>now();
       const worldWidth=Math.max(1,(Number(worldBounds.maxX)||0)-(Number(worldBounds.minX)||0)),worldHeight=Math.max(1,(Number(worldBounds.maxZ)||0)-(Number(worldBounds.minZ)||0));
-      const fullMapZoom=Math.min((camera2D.right-camera2D.left)/worldWidth,(camera2D.top-camera2D.bottom)/worldHeight)*.96;
+      const fullMapZoom=Math.min((camera2D.right-camera2D.left)/worldWidth,(camera2D.top-camera2D.bottom)/worldHeight)*1.22;
       const nextZoom=waveHawkVision?fullMapZoom:(hawkVision ? .42 : 1)*manualCameraZoom;if(camera2D.zoom!==nextZoom){camera2D.zoom=nextZoom;camera2D.updateProjectionMatrix();}
       const baseFov=hawkVision?90:firstPerson?70:56,nextFov=Math.max(38,Math.min(waveHawkVision ? 120 : viewer?.alive===false||viewer?.observer ? 120 : 85,baseFov/manualCameraZoom));if(camera3D.fov!==nextFov){camera3D.fov=nextFov;camera3D.updateProjectionMatrix();}
       const nextCameraFar=viewer?.alive===false||viewer?.observer||waveHawkVision ? 240 : hawkVision ? 90 : 70;if(camera3D.far!==nextCameraFar){camera3D.far=nextCameraFar;camera3D.updateProjectionMatrix();}
@@ -21167,6 +21167,14 @@ setInterval(check,500);
 <style id="ssx-meeting-hud-cleanup">
 #meeting #meetingStatusBar,#meeting #meetingSettingsAccessBtn{display:none!important}
 body[data-phase="meeting"] #titleInputSettingsBtn,body[data-phase="results"] #titleInputSettingsBtn{display:none!important}
+</style>
+<style id="ssx-wave-role-death-visual-fix">
+#killAnimation,#deathIntro{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#killAnimation iframe{background:transparent!important}
+#roundRoles:not(.autoLaunchRoles)[data-source="game"]>.card:has(#roundRoleList){width:min(1120px,calc(100vw - 24px))!important;max-width:1120px!important}
+#roundRoles:not(.autoLaunchRoles)[data-source="game"] #roundRoleList{width:100%!important;max-width:100%!important;justify-content:stretch!important}
+#buttons>#abilityBtn{width:100%!important;height:44px!important;min-width:0!important;min-height:44px!important;max-height:44px!important;border-radius:12px!important;justify-self:stretch!important}
+@media(min-width:900px) and (max-width:1366px) and (min-height:600px) and (orientation:landscape) and (pointer:coarse){#buttons>#abilityBtn{height:64px!important;min-height:64px!important;max-height:64px!important;border-radius:12px!important}}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
