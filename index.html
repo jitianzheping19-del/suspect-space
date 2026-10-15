@@ -7038,11 +7038,11 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       seer: ["シーア", "誰かが死亡すると画面が青くフラッシュします。死亡したプレイヤーの魂も見え、会議後も消えません。"],
       swapper: ["スワッパー", "会議中に2人を選ぶと、その2人に集まった投票数を入れ替えます。使用回数は部屋設定で変更できます。"],
       sage: ["賢者", "能力を使うと自分だけに見えるシールドを展開します。展開中は移動できず、持続時間とクールダウンを設定できます。"],
-      matryoshka: ["マトリョーシカ", "最寄りの死体の姿をまとうインポスターです。能力ボタンでもとの姿に戻り、25秒で自動解除されます。"],
-      triggerHappy: ["トリガーハッピー", "向いている方向へ扇状に連射します。味方も巻き込み、命中が必要数に達するとキルします。"],
+      matryoshka:["マトリョーシカ","近くの死体の姿をまといます。通常キルクールダウンと変装1回ごとの加算秒数を役職詳細で変更できます。"],
+      triggerHappy:["トリガーハッピー","向いている方向へ銃で連射します。弾数・味方への命中・弾の大きさを設定でき、必要な弾数が命中するとキルします。"],
       conjurer: ["コンジュラー", "3つのマーカーで三角形を作り、内側のプレイヤーをキルします。通常キルはできません。"],
-      mirage: ["ミラージュ", "死亡して幽霊になった後に使えるサブ役職です。直近の死体を複製し、通報可能な偽の死体を作ります。元の人狼陣営のままです。"],
-      arsonist: ["アーソニスト", "第三陣営です。生存者全員に着火剤を付け、着火して全員を燃やすと単独勝利します。着火後、再び着火できるまで5秒待ちます。"],
+      mirage:["ミラージュ","死亡後に使う人狼陣営のサブ役職です。このターンの死体からランダムに1人を選び、自分の幽霊の現在地に通報可能な偽死体を作ります。クールダウンなし。標準は回数無制限で、回数制限も設定できます。"],
+      arsonist:["アーソニスト","第三陣営。近くの相手に設定時間をかけて着火剤を塗ります。離れると中断します。全員に塗った後に点火すると単独勝利。塗布時間とベント可否を設定できます。"],
       lovers: ["恋人", "2人組の追加役職です。互いを認識し、2人とも生存した状態で通常の勝敗条件を満たすと恋人勝利を得ます。"],
       god: ["神", "第三陣営です。部屋設定でタスク達成を勝利条件に含めるか選べます。"],
       vulture: ["ハゲタカ", "第三陣営です。死体を指定数食べると単独勝利します。必要な死体数は部屋設定で変更できます。死体を食べた後、次の死体を食べるまで3秒待ちます。"],
@@ -7061,7 +7061,7 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       suicideBomber:["自爆魔","インポスター陣営。自爆して範囲内の対象を巻き込みます。"],slugger:["スラッガー","インポスター陣営。チャージ攻撃を行います。"],rocket:["ロケット","インポスター陣営。対象を捕獲し、ロケットで打ち上げます。"],
       necromancer:["ネクロマンサー","インポスター陣営。近くの死体から、元の役職とタスクを保ってプレイヤーを復活させます。"],
       waveCannonJackal:["波動砲ジャッカル","ジャッカル陣営。壁を貫通する波動砲を発射します。"],
-      santa:["サンタ","クルー陣営。近くの生存者へランダムなクルー役職を贈ります。対象がクルーでなければ自分が死亡します。クールダウン25秒。"],chief:["村長","クルー陣営。最寄りの生存者をシェリフに任命します。対象がインポスターなら自分が死亡します。クールダウン30秒。"],jumpDancer:["ジャンプダンサー","クルー陣営。自分と近くの生存者が一斉にジャンプします。クールダウン25秒。"],lighter:["ライター","クルー陣営。10秒間、停電中も通常視界を保ちます。クールダウン30秒。"],ubiquitous:["ユビキタス","クルー陣営。個人ドローンで遠隔確認し、周囲を個人マップに記録します。会議中もドローンは表示されます。クールダウン15秒。"]
+      santa:["サンタ","市民役職を近くの人にランダムに贈ります。クルー以外に贈ると自滅します。クールダウンは30秒固定です。"],chief:["村長","近くの市民をシェリフに任命します。人狼・第三陣営を任命すると村長が自滅します。この仕様は固定です。クールダウン30秒。"],jumpDancer:["ジャンプダンサー","自分と周囲の生存者が、光のリングと音符の演出とともに一斉にジャンプします。ベント・はしご・昇降機中の人には作用しません。"],lighter:["ライター","一定時間、停電中も視界を広げます。点灯時間・視界倍率・クールダウンを役職詳細で設定できます。"],ubiquitous:["ユビキタス","公開ドローンを遠隔操作します。機体と操作中の本人は周囲の全員に見えます。待機時・帰還時も機体が動きます。通過者をマップへ記録する機能はありません。"]
     };
     const ROLE_OPTIONS = [
       { id: "engineer", side: "crew", count: 0 }, { id: "scientist", side: "crew", count: 0 },
@@ -7109,8 +7109,8 @@ const ROLE_COOLDOWN_SETTINGS=Object.freeze({
   matryoshkaCooldownSeconds:{roles:["matryoshka"],label:"変装クールダウン",default:35,min:5,max:120,step:5},
   triggerHappyCooldownSeconds:{roles:["triggerHappy"],label:"連射クールダウン",default:35,min:5,max:120,step:5},
   conjurerCooldownSeconds:{roles:["conjurer"],label:"召喚陣クールダウン",default:45,min:5,max:120,step:5},
-  mirageCooldownSeconds:{roles:["mirage"],label:"偽死体クールダウン",default:45,min:5,max:120,step:5},
-  santaCooldownSeconds:{roles:["santa"],label:"プレゼントクールダウン",default:25,min:5,max:120,step:5},
+  mirageCooldownSeconds:{roles:["mirage"],label:"偽死体クールダウン",default:0,min:0,max:0,step:1,fixed:true},
+  santaCooldownSeconds:{roles:["santa"],label:"プレゼントクールダウン",default:30,min:30,max:30,step:1,fixed:true},
   chiefCooldownSeconds:{roles:["chief"],label:"任命クールダウン",default:30,min:5,max:120,step:5},
   jumpDancerCooldownSeconds:{roles:["jumpDancer"],label:"ジャンプクールダウン",default:25,min:5,max:120,step:5},
   lighterCooldownSeconds:{roles:["lighter"],label:"能力クールダウン",default:30,min:5,max:120,step:5},
@@ -7127,13 +7127,56 @@ const ROLE_COOLDOWN_SETTINGS=Object.freeze({
   phantomCooldownSeconds:{roles:["phantom"],label:"透明化クールダウン",default:25,min:5,max:120,step:5},
   detectiveCooldownSeconds:{roles:["detective"],label:"尋問クールダウン",default:10,min:5,max:120,step:5}
 });
-function roleCooldownSettingsFromInputs(){return Object.fromEntries(Object.entries(ROLE_COOLDOWN_SETTINGS).map(([id,setting])=>[id,clamp(Number($(id)?.value)||setting.default,setting.min,setting.max)]));}
+function roleCooldownSettingsFromInputs(){return {...Object.fromEntries(Object.entries(ROLE_COOLDOWN_SETTINGS).map(([id,setting])=>[id,setting.fixed?setting.default:clamp(Number($(id)?.value)||setting.default,setting.min,setting.max)])),...roleBehaviorSettingsFromInputs()};}
+
+const ROLE_BEHAVIOR_SETTINGS=Object.freeze({
+  lighterDurationSeconds:{roles:["lighter"],label:"点灯時間",default:10,min:1,max:60,step:1,unit:"秒"},
+  lighterVisionMultiplier:{roles:["lighter"],label:"点灯中の視界倍率",default:2,min:1,max:5,step:.25,unit:"倍"},
+  matryoshkaKillCooldownSeconds:{roles:["matryoshka"],label:"通常キルクールダウン",default:35,min:5,max:120,step:5,unit:"秒"},
+  matryoshkaKillCooldownIncreaseSeconds:{roles:["matryoshka"],label:"変装1回ごとのキルクールダウン加算",default:0,min:0,max:60,step:1,unit:"秒"},
+  triggerHappyAmmo:{roles:["triggerHappy"],label:"1回の連射の弾数",default:9,min:1,max:30,step:1,unit:"発"},
+  triggerHappyHits:{roles:["triggerHappy"],label:"キルに必要な命中数",default:3,min:1,max:8,step:1,unit:"発"},
+  triggerHappyFriendlyFire:{roles:["triggerHappy"],label:"味方にも弾が当たる",default:true,type:"checkbox"},
+  triggerHappyBulletRadius:{roles:["triggerHappy"],label:"弾の大きさ（半径）",default:.14,min:.08,max:.6,step:.02,unit:"m"},
+  mirageLimitUse:{roles:["mirage"],label:"偽死体の使用回数を制限する",default:false,type:"checkbox"},
+  mirageLimitCount:{roles:["mirage"],label:"1試合の使用回数",default:2,min:1,max:10,step:1,unit:"回",enabledBy:"mirageLimitUse"},
+  arsonistDouseSeconds:{roles:["arsonist"],label:"着火剤を塗る時間",default:3,min:0,max:15,step:.25,unit:"秒"},
+  arsonistCanVent:{roles:["arsonist"],label:"ベントを使える",default:false,type:"checkbox"}
+});
+function roleBehaviorValue(settings,id){
+  const spec=ROLE_BEHAVIOR_SETTINGS[id],value=settings?.[id];if(!spec)return undefined;
+  if(spec.type==="checkbox")return value===undefined?spec.default:value===true;
+  const number=Number(value);return clamp(value!==undefined&&value!==null&&Number.isFinite(number)?number:spec.default,spec.min,spec.max);
+}
+function roleBehaviorSettingsFromInputs(){
+  const values={};for(const [id,spec] of Object.entries(ROLE_BEHAVIOR_SETTINGS)){const control=$(id);values[id]=control?(spec.type==="checkbox"?control.checked:control.value):spec.default;}
+  return Object.fromEntries(Object.keys(values).map(id=>[id,roleBehaviorValue(values,id)]));
+}
+function createRoleBehaviorControls(container){
+  for(const [id,spec] of Object.entries(ROLE_BEHAVIOR_SETTINGS)){
+    if($(id))continue;
+    const row=document.createElement("label");row.dataset.roleSetting=spec.roles.join(",");
+    const title=document.createElement("span");title.textContent=spec.label;
+    const input=document.createElement("input");input.id=id;input.type=spec.type||"range";row.append(title,input);
+    if(input.type==="checkbox")input.checked=spec.default;
+    else{input.min=String(spec.min);input.max=String(spec.max);input.step=String(spec.step);input.value=String(spec.default);const output=document.createElement("output");row.append(output);const updateOutput=()=>{output.textContent=Number(input.value)+spec.unit;};input.addEventListener("input",updateOutput);updateOutput();}
+    const changed=()=>{queueLobbySettingsSave();if(id==="mirageLimitUse"){const count=$("mirageLimitCount");if(count)count.disabled=!input.checked;}};
+    input.addEventListener("input",changed);input.addEventListener("change",changed);container.append(row);
+    if(spec.enabledBy)input.disabled=!$(spec.enabledBy)?.checked;
+  }
+}
+function lighterSightRadius(player,settings=game.settings,stamp=now()){return Number(player?.lighterUntil)>stamp?10.2*roleBehaviorValue(settings,"lighterVisionMultiplier"):10.2;}
+function upgradedRoleCooldownMs(role,settings){
+  const spec=ROLE_COOLDOWN_SETTINGS[role+"CooldownSeconds"];if(!spec)return 0;if(spec.fixed)return spec.default*1000;
+  const value=Number(settings?.[role+"CooldownSeconds"]);return clamp(Number.isFinite(value)?value:spec.default,spec.min,spec.max)*1000;
+}
+
 // MOD_CORE_PATCH_BEGIN
 const MOD_ROLE_HOOK_KINDS=new Set(["ability","beforeKill","afterKill","beforeDeath","meeting","tick","win"]),MOD_ROLE_HOOKS=Object.fromEntries(["ability","beforeKill","afterKill","beforeDeath","meeting","tick","win"].map(k=>[k,[]]));
 const MOD_ROLE_EFFECT_HANDLERS=new Map(),MOD_ROLE_ACTIVE_EFFECTS=new Map(),MOD_ROLE_SEEN_EFFECT_IDS=new Set();let MOD_ROLE_EFFECT_SESSION="",MOD_ROLE_EFFECT_PHASE="";
 function registerModRoleHook(kind,fn){if(!MOD_ROLE_HOOK_KINDS.has(kind)||typeof fn!=="function")throw new TypeError("unknown MOD hook: "+kind);if(!MOD_ROLE_HOOKS[kind].includes(fn))MOD_ROLE_HOOKS[kind].push(fn);return fn;}
 function runModRoleHooks(kind,ctx){let result;for(const fn of MOD_ROLE_HOOKS[kind]||[]){try{const value=fn(ctx);if(value){result=value;if(["ability","beforeDeath","win"].includes(kind))break;}}catch(error){console.error("MOD role hook failed",kind,error);if(kind==="ability"){try{ctx?.setResult?.(false,"役職能力処理に失敗したため、安全のため中止しました。");}catch{}result=true;break;}if(kind==="beforeDeath"){result={blocked:true};break;}if(kind==="beforeKill"){result="役職能力の確認に失敗したためキルを中止しました。";break;}}}return result;}
-function emitModRoleEvent(g,type,by,fields={}){const event={id:token(),type:String(type),by:String(by||""),at:now(),...fields};(g.modRoleEvents||=[]).push(event);if(g.modRoleEvents.length>48)g.modRoleEvents.splice(0,g.modRoleEvents.length-48);return event;}
+function emitModRoleEvent(g,type,by,fields={}){const event={id:token(),type:String(type),by:String(by||""),at:now(),...fields};(g.modRoleEvents||=[]).push(event);if(g.modRoleEvents.length>96)g.modRoleEvents.splice(0,g.modRoleEvents.length-96);return event;}
 function registerModEffectHandler(type,fn){if(typeof fn!=="function")throw new TypeError("effect handler must be a function");MOD_ROLE_EFFECT_HANDLERS.set(String(type),fn);return ()=>MOD_ROLE_EFFECT_HANDLERS.delete(String(type));}
 function clearModRoleEffects(){for(const fx of MOD_ROLE_ACTIVE_EFFECTS.values())try{fx.dispose?.();}catch(e){console.warn("MOD effect disposal",e);}MOD_ROLE_ACTIVE_EFFECTS.clear();}
 function updateModRoleEffects(g,THREE,scene,ownerId,stamp=now()){
@@ -7146,7 +7189,7 @@ function updateModRoleEffects(g,THREE,scene,ownerId,stamp=now()){
   if(!MOD_ROLE_SEEN_EFFECT_IDS.has(key)){MOD_ROLE_SEEN_EFFECT_IDS.add(key);if(MOD_ROLE_SEEN_EFFECT_IDS.size>256)MOD_ROLE_SEEN_EFFECT_IDS.delete(MOD_ROLE_SEEN_EFFECT_IDS.values().next().value);
     const rocketAudioRecipient=ownerId===event.by||ownerId===event.target||(Array.isArray(event.targets)&&event.targets.includes(ownerId));
     if(rocketAudioRecipient&&(event.type==="rocket-capture"||event.type==="rocket-launch"))try{playKillSfx("rocket");}catch{}
-   const age=stamp-Number(event.at||0);if(age>=0&&age<15000){for(const [oldKey,old] of MOD_ROLE_ACTIVE_EFFECTS){if(old.__event?.type===event.type&&old.__event?.by===event.by){try{old.dispose?.();}catch{}MOD_ROLE_ACTIVE_EFFECTS.delete(oldKey);}}
+   const age=stamp-Number(event.at||0);if(age>=0&&age<15000){for(const [oldKey,old] of MOD_ROLE_ACTIVE_EFFECTS){if(old.__event?.type===event.type&&old.__event?.by===event.by&&!["triggerHappyShot","triggerHappyImpact","arsonistDoused"].includes(event.type)){try{old.dispose?.();}catch{}MOD_ROLE_ACTIVE_EFFECTS.delete(oldKey);}}
     try{const fx=MOD_ROLE_EFFECT_HANDLERS.get(event.type)({THREE,scene,event,ownerId,stamp});if(fx){fx.__event=event;MOD_ROLE_ACTIVE_EFFECTS.set(key,fx);}}catch(error){console.error("MOD effect create failed",event.type,error);}
    }
   }
@@ -7156,9 +7199,261 @@ function updateModRoleEffects(g,THREE,scene,ownerId,stamp=now()){
 }
 function planTeleporterGather(roster,profiles,targetId,findOffset){const entries=Object.entries(roster||{}),poseFor=([id,p])=>p?.bot?p:profiles?.[id],eligible=entries.filter(entry=>{const p=entry[1],loc=poseFor(entry);return p?.alive&&!p.observer&&!p.disconnected&&!p.ventId&&!p.onLadder&&!p.ladderId&&!p.movingPlatform&&!p.onMovingPlatform&&p.teleportable!==false&&loc&&(p.bot||loc.online===true)&&Number.isFinite(Number(loc.x))&&Number.isFinite(Number(loc.z));});const anchor=eligible.find(([id])=>id===targetId)||eligible[0];if(!anchor)return null;const anchorLoc=poseFor(anchor),reserved=[],positions={};let index=0;for(const [id,p] of eligible){const point=findOffset(anchorLoc,index++,reserved);reserved.push(point);positions[id]={x:Number(point.x),z:Number(point.z)};}return {anchorId:anchor[0],anchorLoc:{x:Number(anchorLoc.x),z:Number(anchorLoc.z)},positions,eligibleIds:eligible.map(([id])=>id)};}
 function ssxImpostorTriangleContains(pts,q){const area=(a,b,c)=>(b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x),s=[area(pts[0],pts[1],q),area(pts[1],pts[2],q),area(pts[2],pts[0],q)];return s.every(v=>v>=0)||s.every(v=>v<=0); }
-const MOD_ROLE_DEFINITIONS=Object.freeze({matryoshka:{side:"impostor",humanOnly:true},triggerHappy:{side:"impostor",humanOnly:true},conjurer:{side:"impostor",humanOnly:true},mirage:{side:"impostor",humanOnly:true},santa:{side:"crew"},chief:{side:"crew"},jumpDancer:{side:"crew"},lighter:{side:"crew"},ubiquitous:{side:"crew"},penguin:{side:"impostor",humanOnly:true},samurai:{side:"impostor",humanOnly:true},suicideBomber:{side:"impostor",humanOnly:true},slugger:{side:"impostor",humanOnly:true},rocket:{side:"impostor",humanOnly:true},serialKiller:{side:"impostor",humanOnly:true},teleporter:{side:"impostor",humanOnly:true},necromancer:{side:"impostor",humanOnly:true},stuntman:{side:"crew",humanOnly:true},waveCannonJackal:{side:"neutral",humanOnly:true}});
-const MOD_ROLE_DEFAULTS=Object.freeze({matryoshkaDurationSeconds:25,matryoshkaCooldownSeconds:35,triggerHappyHits:3,triggerHappyCooldownSeconds:35,triggerHappyRange:9,conjurerCooldownSeconds:45,mirageCooldownSeconds:45,sluggerRange:5,stuntmanUses:1,serialKillerKillCooldownSeconds:15,serialKillerSuicideSeconds:30,samuraiCanVent:false,samuraiCanSabotage:false,serialKillerResetOnMeeting:true,serialKillerCanVent:true,serialKillerCanSabotage:true,teleporterCooldownSeconds:45,teleporterDelaySeconds:5,penguinDragSeconds:5,penguinCooldownSeconds:30,penguinKillOnMeeting:true,penguinCanKillNormally:true,samuraiRange:5,samuraiCooldownSeconds:40,suicideBomberRadius:4,suicideBomberCooldownSeconds:35,suicideBomberCrewOnly:false,sluggerChargeSeconds:1,sluggerCooldownSeconds:45,sluggerMaxHits:3,sluggerMultiHitEnabled:false,sluggerAllowKillDuringCharge:false,rocketInitialCaptureCooldownSeconds:25,rocketAdditionalCaptureCooldownSeconds:8,rocketLaunchAfterMeeting:false,necromancerCooldownSeconds:30,necromancerMaxRevenants:2,necromancerRequiredTasks:2,necromancerCurseSeconds:18,necromancerCurseVisionMultiplier:.35,necromancerCurseBlocksReport:true});
+const MOD_ROLE_DEFINITIONS=Object.freeze({arsonist:{side:"neutral",humanOnly:true},matryoshka:{side:"impostor",humanOnly:true},triggerHappy:{side:"impostor",humanOnly:true},conjurer:{side:"impostor",humanOnly:true},mirage:{side:"impostor",humanOnly:true},santa:{side:"crew"},chief:{side:"crew"},jumpDancer:{side:"crew"},lighter:{side:"crew"},ubiquitous:{side:"crew"},penguin:{side:"impostor",humanOnly:true},samurai:{side:"impostor",humanOnly:true},suicideBomber:{side:"impostor",humanOnly:true},slugger:{side:"impostor",humanOnly:true},rocket:{side:"impostor",humanOnly:true},serialKiller:{side:"impostor",humanOnly:true},teleporter:{side:"impostor",humanOnly:true},necromancer:{side:"impostor",humanOnly:true},stuntman:{side:"crew",humanOnly:true},waveCannonJackal:{side:"neutral",humanOnly:true}});
+const MOD_ROLE_DEFAULTS=Object.freeze({lighterDurationSeconds:10,lighterVisionMultiplier:2,matryoshkaKillCooldownSeconds:35,matryoshkaKillCooldownIncreaseSeconds:0,triggerHappyAmmo:9,triggerHappyFriendlyFire:true,triggerHappyBulletRadius:.14,mirageLimitUse:false,mirageLimitCount:2,arsonistDouseSeconds:3,arsonistCanVent:false,matryoshkaDurationSeconds:25,matryoshkaCooldownSeconds:35,triggerHappyHits:3,triggerHappyCooldownSeconds:35,triggerHappyRange:9,conjurerCooldownSeconds:45,mirageCooldownSeconds:0,sluggerRange:5,stuntmanUses:1,serialKillerKillCooldownSeconds:15,serialKillerSuicideSeconds:30,samuraiCanVent:false,samuraiCanSabotage:false,serialKillerResetOnMeeting:true,serialKillerCanVent:true,serialKillerCanSabotage:true,teleporterCooldownSeconds:45,teleporterDelaySeconds:5,penguinDragSeconds:5,penguinCooldownSeconds:30,penguinKillOnMeeting:true,penguinCanKillNormally:true,samuraiRange:5,samuraiCooldownSeconds:40,suicideBomberRadius:4,suicideBomberCooldownSeconds:35,suicideBomberCrewOnly:false,sluggerChargeSeconds:1,sluggerCooldownSeconds:45,sluggerMaxHits:3,sluggerMultiHitEnabled:false,sluggerAllowKillDuringCharge:false,rocketInitialCaptureCooldownSeconds:25,rocketAdditionalCaptureCooldownSeconds:8,rocketLaunchAfterMeeting:false,necromancerCooldownSeconds:30,necromancerMaxRevenants:2,necromancerRequiredTasks:2,necromancerCurseSeconds:18,necromancerCurseVisionMultiplier:.35,necromancerCurseBlocksReport:true});
 // MOD_ROLE_EXTENSION_API_END
+
+/* ROLE_BEHAVIOR_UPGRADE_V1: host-authoritative rules; rendering never determines hits. */
+function roleUpgradePose(g,id,profiles={},bots={}){
+  const p=g.players?.[id],at=p?.bot?(bots[id]||p):profiles[id];
+  if(!p||!at||(!p.bot&&at.online!==true)||!Number.isFinite(Number(at.x))||!Number.isFinite(Number(at.z)))return null;
+  return{x:Number(at.x),z:Number(at.z)};
+}
+function mirageBodyCandidates(g,stamp=now()){
+  const turnStart=Number(g.turnStartedAt||g.playStartsAt||g.startedAt)||0,found=new Map();
+  for(const [bodyId,body] of Object.entries(g.bodies||{})){
+    if(!body||body.removed||body.dissolved||(Number(body.dissolveAt)>0&&Number(body.dissolveAt)<=stamp))continue;
+    const id=String(body.sourcePlayerId||body.sourceVictim||bodyId),victim=g.players?.[id],death=g.deathRecords?.[id]||victim?.deathRecord;
+    if(!victim||victim.alive!==false||victim.observer)continue;
+    if(turnStart&&(Number(death?.at||victim.deathAt)||0)<turnStart)continue;
+    found.set(id,{id,body,victim});
+  }
+  return [...found.values()];
+}
+function spawnMirageBody({g,p,actor,loc,stamp}){
+  if(roleBehaviorValue(g.settings,"mirageLimitUse")&&Number(p.mirageUses||0)>=roleBehaviorValue(g.settings,"mirageLimitCount"))return{error:"この試合の偽死体の使用回数を使い切りました。"};
+  const choices=mirageBodyCandidates(g,stamp);if(!choices.length)return{error:"このターンに複製できる死体がありません。"};
+  if(!loc||!Number.isFinite(Number(loc.x))||!Number.isFinite(Number(loc.z)))return{error:"幽霊の現在地を確認できません。"};
+  const source=choices[randomInt(choices.length)],id="mirage-"+token(),body={name:source.victim.name,hue:source.victim.hue,costume:source.victim.costume||"standard",id,owner:actor,sourceVictim:source.id,sourcePlayerId:source.id,at:stamp,x:Number(loc.x),z:Number(loc.z),killerId:"",witnesses:[],dissolveAt:0,reportable:true,fake:true};
+  (g.bodies||={})[id]=body;p.mirageUses=(Number(p.mirageUses)||0)+1;p.abilityReadyAt=0;p.abilityEvent=token();
+  emitModRoleEvent(g,"mirage",actor,{x:body.x,z:body.z,at:stamp});return{ok:true};
+}
+function triggerHappyAllied(a,b){return (a?.role==="impostor"||["madmate","blackCat"].includes(a?.subrole))&&(b?.role==="impostor"||["madmate","blackCat"].includes(b?.subrole));}
+function triggerHappyTargets(g,actor,profiles,bots){
+  const owner=g.players?.[actor],friendly=roleBehaviorValue(g.settings,"triggerHappyFriendlyFire");
+  return Object.entries(g.players||{}).filter(([id,p])=>id!==actor&&p?.alive&&!p.observer&&!p.disconnected&&!p.ventId&&(friendly||!triggerHappyAllied(owner,p))).map(([id,p])=>({id,p,at:roleUpgradePose(g,id,profiles,bots)})).filter(t=>t.at);
+}
+function triggerHappyCanAim(g,actor,origin,yaw,profiles,bots){
+  if(!origin)return false;
+  const range=clamp(Number(g.settings?.triggerHappyRange)||9,2,15),radius=roleBehaviorValue(g.settings,"triggerHappyBulletRadius");
+  return triggerHappyTargets(g,actor,profiles,bots).some(t=>{const dx=t.at.x-origin.x,dz=t.at.z-origin.z,d=Math.hypot(dx,dz),delta=Math.atan2(Math.sin(Math.atan2(dx,dz)-yaw),Math.cos(Math.atan2(dx,dz)-yaw));return d<=range+.4&&Math.abs(delta)<=.14+Math.atan2(.42+radius,Math.max(.1,d))&&!wallBetween(origin,t.at);});
+}
+function triggerHappyRayLength(origin,yaw,range){
+  const dx=Math.sin(yaw),dz=Math.cos(yaw),end={x:origin.x+dx*range,z:origin.z+dz*range};
+  if(!wallBetween(origin,end))return range;
+  let lo=0,hi=range;for(let n=0;n<11;n++){const mid=(lo+hi)/2;if(wallBetween(origin,{x:origin.x+dx*mid,z:origin.z+dz*mid}))hi=mid;else lo=mid;}
+  return Math.max(0,lo-.04);
+}
+function beginTriggerHappyVolley({g,p,actor,loc,cmd,stamp,players,botPositions}){
+  const yaw=Number.isFinite(Number(cmd.yaw))?Number(cmd.yaw):0;
+  if(p.triggerHappyVolley)return{error:"連射中です。"};
+  if(!triggerHappyCanAim(g,actor,loc,yaw,players,botPositions))return{error:"射線の範囲内に対象がいません。"};
+  const count=Math.trunc(roleBehaviorValue(g.settings,"triggerHappyAmmo")),radius=roleBehaviorValue(g.settings,"triggerHappyBulletRadius"),id=token();
+  p.triggerHappyVolley={id,yaw,count,radius,range:clamp(Number(g.settings?.triggerHappyRange)||9,2,15),speed:22,intervalMs:110,startedAt:stamp+120,nextShot:0,hits:{},projectiles:[]};
+  p.abilityReadyAt=stamp+upgradedRoleCooldownMs("triggerHappy",g.settings);p.readyAt=Math.max(Number(p.readyAt)||0,p.abilityReadyAt);p.abilityEvent=token();
+  emitModRoleEvent(g,"triggerHappy",actor,{volleyId:id,x:loc.x,z:loc.z,yaw,shots:count,radius,intervalMs:110,fireAt:stamp+120,endsAt:stamp+120+count*110+900,at:stamp});return{ok:true};
+}
+function tickTriggerHappy(ctx){
+  const {g,now:stamp,players,botPositions}=ctx;let changed=false;
+  for(const [actor,p] of Object.entries(g.players||{})){
+    const volley=p.triggerHappyVolley;if(!volley)continue;
+    if(g.phase!=="play"||!p.alive||p.disconnected||p.observer||p.ventId){delete p.triggerHappyVolley;changed=true;continue;}
+    const origin=roleUpgradePose(g,actor,players,botPositions);if(!origin){delete p.triggerHappyVolley;changed=true;continue;}
+    while(volley.nextShot<volley.count&&stamp>=volley.startedAt+volley.nextShot*volley.intervalMs){
+      const index=volley.nextShot++,yaw=volley.yaw+Math.sin(index*2.399963)*.10,fireAt=volley.startedAt+index*volley.intervalMs,length=triggerHappyRayLength(origin,yaw,volley.range),projectile={index,x:origin.x,z:origin.z,yaw,length,fireAt,travel:0,done:false};
+      volley.projectiles.push(projectile);emitModRoleEvent(g,"triggerHappyShot",actor,{volleyId:volley.id,shot:index,x:origin.x,z:origin.z,yaw,length,radius:volley.radius,speed:volley.speed,fireAt,at:fireAt});changed=true;
+    }
+    const need=clamp(Number(g.settings?.triggerHappyHits)||3,1,8);
+    for(const shot of volley.projectiles){
+      if(shot.done||stamp<shot.fireAt)continue;
+      const traveled=clamp((stamp-shot.fireAt)/1000*volley.speed,0,shot.length),old=Number(shot.travel)||0,dirX=Math.sin(shot.yaw),dirZ=Math.cos(shot.yaw),hitRadius=.42+volley.radius;
+      const hits=triggerHappyTargets(g,actor,players,botPositions).map(t=>{const dx=t.at.x-shot.x,dz=t.at.z-shot.z,along=dx*dirX+dz*dirZ,side=Math.abs(dx*dirZ-dz*dirX),half=Math.sqrt(Math.max(0,hitRadius*hitRadius-side*side));return{...t,along,side,entry:along-half,exit:along+half};}).filter(t=>t.exit>=old&&t.entry<=traveled&&t.entry<=shot.length&&t.exit>=0&&t.side<=hitRadius&&!wallBetween({x:shot.x,z:shot.z},t.at)).sort((a,b)=>a.entry-b.entry);
+      const target=hits[0];shot.travel=traveled;changed=true;
+      if(target){shot.done=true;volley.hits[target.id]=(Number(volley.hits[target.id])||0)+1;emitModRoleEvent(g,"triggerHappyImpact",actor,{volleyId:volley.id,shot:shot.index,target:target.id,x:target.at.x,z:target.at.z,at:stamp});if(volley.hits[target.id]>=need)recordDeath(g,target.id,actor,target.at,{moveKiller:false,cause:"triggerHappy"});}
+      else if(traveled>=shot.length)shot.done=true;
+    }
+    if(volley.nextShot>=volley.count&&volley.projectiles.every(s=>s.done))delete p.triggerHappyVolley;
+  }
+  return changed;
+}
+function roleUpgradeArsonistAbility(ctx){
+  const {g,p,actor,cmd,now:stamp,players,botPositions,markDirty,setResult}=ctx;if(p?.subrole!=="arsonist")return false;
+  if(!p.alive||p.disconnected||p.observer||p.ventId||g.phase!=="play"){setResult(false,"生存中のプレイ時間に使用できます。");return true;}
+  if(p.arsonistDouse){setResult(false,"着火剤を塗っています。対象の近くに留まってください。");return true;}
+  if(Number(p.abilityReadyAt)>stamp){setResult(false,"着火剤の準備中です。");return true;}
+  const origin=roleUpgradePose(g,actor,players,botPositions);
+  if(cmd.ability==="arsonistDouse"){
+    const target=g.players?.[cmd.target],at=roleUpgradePose(g,cmd.target,players,botPositions);
+    if(!origin||!target?.alive||target.observer||target.disconnected||target.ventId||cmd.target===actor||p.dousedTargets?.[cmd.target]||!at||distance(origin,at)>=2.9||wallBetween(origin,at)){setResult(false,"着火剤を塗れる相手に近づいてください。");return true;}
+    const duration=roleBehaviorValue(g.settings,"arsonistDouseSeconds")*1000;
+    p.arsonistDouse={id:token(),target:cmd.target,startedAt:stamp,endsAt:stamp+duration};p.abilityReadyAt=stamp+duration+clamp(Number(g.settings?.arsonistDouseCooldownSeconds)||5,3,30)*1000;p.abilityEvent=token();
+    emitModRoleEvent(g,"arsonistDouse",actor,{douseId:p.arsonistDouse.id,target:cmd.target,x:origin.x,z:origin.z,targetX:at.x,targetZ:at.z,startedAt:stamp,endsAt:stamp+duration,at:stamp});
+    setResult(true,duration?"着火剤を塗り始めました。対象の近くに留まってください。":"着火剤を塗りました。");markDirty();if(!duration)tickArsonistDousing(ctx);return true;
+  }
+  if(cmd.ability==="arsonistIgnite"){
+    const living=Object.entries(g.players||{}).filter(([id,q])=>id!==actor&&q.alive&&!q.observer&&!q.disconnected);
+    if(!living.length||!living.every(([id])=>p.dousedTargets?.[id])){setResult(false,"生存者全員に着火剤を塗る必要があります。");return true;}
+    const targets=living.map(([id,q])=>({id,...(roleUpgradePose(g,id,players,botPositions)||{x:Number(q.x)||0,z:Number(q.z)||0})}));
+    emitModRoleEvent(g,"arsonistIgnite",actor,{targets,at:stamp});for(const target of targets)recordDeath(g,target.id,actor,target,{moveKiller:false,cause:"arsonist"});
+    p.abilityReadyAt=stamp+5000;
+    if(p.alive&&!Object.entries(g.players||{}).some(([id,q])=>id!==actor&&q.alive&&!q.observer&&!q.disconnected)){g.winner="arsonist";g.reason=`${p.name}が全員に着火し、アーソニストの勝利です。`;g.phase="ended";delete g.meeting;}
+    setResult(true,"着火しました。");markDirty();return true;
+  }
+  setResult(false,"この役職ではその能力を使えません。");return true;
+}
+function tickArsonistDousing(ctx){
+  const {g,now:stamp,players,botPositions}=ctx;let changed=false;
+  for(const [actor,p] of Object.entries(g.players||{})){
+    const d=p.arsonistDouse;if(!d)continue;
+    const q=g.players?.[d.target],a=roleUpgradePose(g,actor,players,botPositions),b=roleUpgradePose(g,d.target,players,botPositions),valid=g.phase==="play"&&p.alive&&!p.disconnected&&!p.ventId&&q?.alive&&!q.disconnected&&!q.observer&&!q.ventId&&a&&b&&distance(a,b)<2.9&&!wallBetween(a,b);
+    if(!valid){delete p.arsonistDouse;p.abilityReadyAt=stamp+clamp(Number(g.settings?.arsonistDouseCooldownSeconds)||5,3,30)*1000;emitModRoleEvent(g,"arsonistDouseCancel",actor,{douseId:d.id,at:stamp});changed=true;continue;}
+    if(stamp>=d.endsAt){(p.dousedTargets||={})[d.target]=true;delete p.arsonistDouse;p.abilityReadyAt=stamp+clamp(Number(g.settings?.arsonistDouseCooldownSeconds)||5,3,30)*1000;emitModRoleEvent(g,"arsonistDoused",actor,{target:d.target,x:b.x,z:b.z,at:stamp});changed=true;}
+  }
+  return changed;
+}
+registerModRoleHook("ability",roleUpgradeArsonistAbility);
+registerModRoleHook("tick",ctx=>{const a=tickTriggerHappy(ctx),b=tickArsonistDousing(ctx);return a||b;});
+registerModRoleHook("meeting",({g})=>{for(const p of Object.values(g.players||{})){delete p.triggerHappyVolley;delete p.arsonistDouse;if(p.drone?.active){p.drone.active=false;p.drone.returnedAt=now();}}});
+/* ROLE_BEHAVIOR_UPGRADE_V1_END */
+
+
+/* ROLE_PROP_ANIMATIONS_V1 */
+function rolePropScope(THREE,scene){
+ const root=new THREE.Group(),geometries=new Set(),materials=new Set();scene.add(root);let disposed=false;
+ const geometry=g=>(geometries.add(g),g),material=m=>(materials.add(m),m),standard=(color,extra={})=>material(new THREE.MeshStandardMaterial({color,metalness:.45,roughness:.35,...extra})),glow=(color,opacity=1)=>material(new THREE.MeshBasicMaterial({color,transparent:opacity<1,opacity,depthWrite:opacity>=1,toneMapped:false}));
+ const mesh=(g,m,parent=root,x=0,y=0,z=0)=>{const node=new THREE.Mesh(geometry(g),m);node.position.set(x,y,z);parent.add(node);return node;};
+ return{root,geometry,material,standard,glow,mesh,dispose(){if(disposed)return;disposed=true;root.traverse(node=>{if(node.isInstancedMesh)node.dispose();});root.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials){m.map?.dispose();m.dispose();}}};
+}
+function roleVisualPose(id,fallback={x:0,z:0}){
+ const avatar=avatars.get(id);if(avatar)return{x:avatar.position.x,y:avatar.position.y,z:avatar.position.z,yaw:avatar.rotation.y,visible:avatar.visible};
+ const p=game.players?.[id],at=p?.bot?(botPositions[id]||p):players[id];return at?{x:Number(at.x)||0,y:0,z:Number(at.z)||0,yaw:Number(at.yaw)||0,visible:!!p?.alive}:fallback;
+}
+function rolePropObservable(point){
+ const viewer=self();if(!viewer||!point||!["play","ended"].includes(game.phase))return false;
+ if(viewer.alive===false||viewer.observer||viewer.subrole==="god")return true;
+ const radius=Number(viewer.waveHawkUntil)>now()?fullMapSightRadius():Number(viewer.hawkUntil)>now()?hawkVisionRadius():lighterSightRadius(viewer);
+ return distance(position,point)<=radius+1.2&&!wallBetween(position,point);
+}
+function buildUbiquitousDrone(THREE,scene){
+ const scope=rolePropScope(THREE,scene),root=scope.root,{mesh,standard,glow}=scope,shell=standard(0x153747,{metalness:.72,roughness:.25}),edge=standard(0x9badb4,{metalness:.85,roughness:.22}),black=standard(0x0c1520,{metalness:.35}),cyan=glow(0x69ffe6),red=glow(0xff5c71);
+ mesh(new THREE.BoxGeometry(.36,.15,.43),shell,root,0,.02,0);
+ mesh(new THREE.BoxGeometry(.28,.018,.32),edge,root,0,.103,-.02);
+ mesh(new THREE.BoxGeometry(.20,.012,.12),black,root,0,.116,-.015);
+ for(const x of[-.065,0,.065])mesh(new THREE.BoxGeometry(.018,.014,.085),cyan,root,x,.126,-.015);
+ const rotors=[];
+ for(const sx of[-1,1])for(const sz of[-1,1]){
+  const arm=new THREE.Group();arm.rotation.y=Math.atan2(sx,sz);root.add(arm);
+  mesh(new THREE.BoxGeometry(.065,.045,.39),shell,arm,0,.025,.22);mesh(new THREE.BoxGeometry(.019,.012,.24),edge,arm,0,.054,.22);
+  const duct=mesh(new THREE.TorusGeometry(.15,.021,6,24),edge,arm,0,.047,.42);duct.rotation.x=Math.PI/2;
+  mesh(new THREE.CylinderGeometry(.045,.052,.095,12),black,arm,0,.045,.42);mesh(new THREE.CylinderGeometry(.027,.027,.018,10),cyan,arm,0,.099,.42);
+  const rotor=new THREE.Group();rotor.position.set(0,.103,.42);arm.add(rotor);rotors.push(rotor);
+  for(let i=0;i<3;i++){const mount=new THREE.Group();mount.rotation.y=i*Math.PI*2/3;rotor.add(mount);mesh(new THREE.BoxGeometry(.035,.008,.132),black,mount,0,0,.064);}
+  mesh(new THREE.SphereGeometry(.024,8,6),sx<0?cyan:red,arm,0,.04,.58);
+ }
+ const gimbal=new THREE.Group();gimbal.position.set(0,-.105,.18);root.add(gimbal);
+ const lens=mesh(new THREE.CylinderGeometry(.064,.074,.105,14),black,gimbal,0,0,.012);lens.rotation.x=Math.PI/2;
+ mesh(new THREE.CircleGeometry(.049,16),glow(0x59cdf5),gimbal,0,0,.067);mesh(new THREE.SphereGeometry(.012,8,6),glow(0xe6fdff),gimbal,-.016,.017,.069);
+ for(const x of[-.15,.15]){mesh(new THREE.BoxGeometry(.022,.11,.022),edge,root,x,-.10,-.08);mesh(new THREE.BoxGeometry(.028,.02,.30),black,root,x,-.16,-.02);}
+ root.scale.setScalar(.85);return{drone:root,rotors,gimbal,scope};
+}
+function buildDroneController(THREE,scene){
+ const scope=rolePropScope(THREE,scene),{root,mesh,standard,glow}=scope;mesh(new THREE.BoxGeometry(.36,.07,.19),standard(0x183847),root);
+ const panel=mesh(new THREE.PlaneGeometry(.17,.095),glow(0x65eed9),root,0,.038,-.015);panel.rotation.x=-Math.PI/2;
+ for(const x of[-.13,.13])mesh(new THREE.CylinderGeometry(.035,.04,.032,10),standard(0x92aab3),root,x,.043,.025);
+ return{controller:root,scope};
+}
+const ROLE_PUBLIC_DRONES=new Map();
+function updateRolePublicProps(THREE,scene,g,avatarMap,dt,stamp){
+ const present=new Set();if(g.phase==="play")for(const [id,p] of Object.entries(g.players||{})){
+  if(p.subrole!=="ubiquitous"||!p.alive||p.disconnected||p.observer)continue;
+  const body=avatarMap.get(id);if(!body)continue;present.add(id);let model=ROLE_PUBLIC_DRONES.get(id);
+  if(!model){const controller=buildDroneController(THREE,scene);model={...buildUbiquitousDrone(THREE,scene),controller:controller.controller,controllerScope:controller.scope};model.drone.position.set(body.position.x+.85,1.2,body.position.z-.25);ROLE_PUBLIC_DRONES.set(id,model);}
+  const active=p.drone?.active,drone=model.drone,oldX=drone.position.x,oldZ=drone.position.z,home={x:body.position.x+.85,z:body.position.z-.25};
+  if(!active&&wallBetween(body.position,home)){home.x=body.position.x;home.z=body.position.z;}
+  const target=active?p.drone:home,step=Math.min(.05,Math.max(0,dt)),gap=Math.hypot(Number(target.x)-drone.position.x,Number(target.z)-drone.position.z),blend=Math.min(1-Math.exp(-step*(active?10:6)),(active?10:8.5)*step/Math.max(.001,gap));
+  drone.position.x+=(Number(target.x)-drone.position.x)*blend;drone.position.z+=(Number(target.z)-drone.position.z)*blend;
+  drone.position.y+=((active?1.45:1.15)+Math.sin(stamp*.004+id.length)*.035-drone.position.y)*(1-Math.exp(-step*7));
+  const vx=(drone.position.x-oldX)/Math.max(.001,step),vz=(drone.position.z-oldZ)/Math.max(.001,step),yaw=active?Number(p.drone.yaw)||0:Math.hypot(vx,vz)>.1?Math.atan2(vx,vz):drone.rotation.y;
+  drone.rotation.y+=Math.atan2(Math.sin(yaw-drone.rotation.y),Math.cos(yaw-drone.rotation.y))*Math.min(1,step*8);
+  drone.rotation.x+=(clamp(vz*.035,-.18,.18)-drone.rotation.x)*Math.min(1,step*7);drone.rotation.z+=(clamp(-vx*.035,-.18,.18)-drone.rotation.z)*Math.min(1,step*7);
+  model.rotorSpeed=(Number(model.rotorSpeed)||24)+((active?65:24)-(Number(model.rotorSpeed)||24))*(1-Math.exp(-step*6));for(let i=0;i<model.rotors.length;i++)model.rotors[i].rotation.y+=step*model.rotorSpeed*(i%2?1:-1);
+  model.gimbal.rotation.x=Math.sin(stamp*.0015)*.06;drone.visible=rolePropObservable(drone.position);
+  const controller=model.controller,angle=body.rotation.y;controller.position.set(body.position.x+Math.sin(angle)*.38,(body.position.y||0)+.68,body.position.z+Math.cos(angle)*.38);controller.rotation.set(-.24,angle,0);controller.visible=active&&body.visible;
+ }
+ for(const [id,model] of ROLE_PUBLIC_DRONES)if(!present.has(id)){model.scope.dispose();model.controllerScope.dispose();ROLE_PUBLIC_DRONES.delete(id);}
+}
+function buildTriggerHappyGun(THREE,scene){
+ const scope=rolePropScope(THREE,scene),{root,mesh,standard,glow}=scope,metal=standard(0x193244,{metalness:.83,roughness:.24}),trim=standard(0x99adb4,{metalness:.9,roughness:.21}),grip=standard(0x0d1722),brass=standard(0xd6a45a,{metalness:.9}),accent=glow(0xffb36b);
+ mesh(new THREE.BoxGeometry(.16,.18,.46),metal,root,0,0,.04);mesh(new THREE.BoxGeometry(.19,.025,.32),trim,root,0,.10,.03);
+ const barrel=mesh(new THREE.CylinderGeometry(.035,.045,.40,12),metal,root,0,.025,.43);barrel.rotation.x=Math.PI/2;
+ const muzzle=mesh(new THREE.CylinderGeometry(.055,.055,.085,12),trim,root,0,.025,.65);muzzle.rotation.x=Math.PI/2;mesh(new THREE.CircleGeometry(.033,12),grip,root,0,.025,.695);
+ const stock=mesh(new THREE.BoxGeometry(.105,.12,.28),grip,root,0,-.015,-.32);stock.rotation.x=-.1;mesh(new THREE.BoxGeometry(.14,.19,.045),metal,root,0,-.035,-.465);
+ const handle=mesh(new THREE.BoxGeometry(.085,.22,.105),grip,root,0,-.17,-.085);handle.rotation.x=.18;
+ const magazine=mesh(new THREE.BoxGeometry(.105,.27,.14),metal,root,0,-.205,.145);magazine.rotation.x=-.1;
+ for(let i=0;i<4;i++)mesh(new THREE.BoxGeometry(.114,.014,.145),trim,root,0,-.13-i*.047,.145);
+ mesh(new THREE.BoxGeometry(.08,.055,.09),grip,root,0,.15,-.02);mesh(new THREE.BoxGeometry(.04,.018,.055),accent,root,0,.184,-.014);
+ for(let i=0;i<3;i++)mesh(new THREE.BoxGeometry(.018,.028,.042),accent,root,.087,.025,-.075+i*.065);
+ const flash=new THREE.Group();flash.position.set(0,.025,.72);root.add(flash);
+ const core=mesh(new THREE.SphereGeometry(.085,10,8),glow(0xffffdf),flash);core.scale.set(.65,.65,1.8);
+ for(let i=0;i<5;i++){const spark=mesh(new THREE.ConeGeometry(.038,.31,5),glow(i%2?0xff8845:0xffd78b),flash);spark.rotation.x=Math.PI/2;spark.rotation.z=i*Math.PI*2/5;spark.position.set(Math.sin(i*1.25)*.055,Math.cos(i*1.25)*.055,.10);}
+ const shells=new THREE.InstancedMesh(scope.geometry(new THREE.CylinderGeometry(.018,.018,.075,7)),brass,30);root.add(shells);shells.count=0;
+ return{scope,root,flash,shells};
+}
+registerModEffectHandler("triggerHappy",({THREE,scene,event})=>{
+ const prop=buildTriggerHappyGun(THREE,scene),dummy=new THREE.Object3D(),start=Number(event.fireAt)||Number(event.at),count=Number(event.shots)||9,interval=Number(event.intervalMs)||110;
+ return{update(stamp){if(game.phase!=="play"||stamp>Number(event.endsAt||start+count*interval+900))return false;
+  const pose=roleVisualPose(event.by,event),age=stamp-start,shot=Math.floor(age/interval),phase=((age%interval)+interval)%interval/interval,recoil=age>=0&&shot<count?Math.exp(-phase*13):0,yaw=Number(event.yaw)||0;
+  prop.root.position.set(pose.x+Math.cos(yaw)*.25+Math.sin(yaw)*.14,(pose.y||0)+.68,pose.z-Math.sin(yaw)*.25+Math.cos(yaw)*.14);prop.root.rotation.set(-recoil*.07,yaw,Math.sin(age*.01)*.012);prop.root.position.x-=Math.sin(yaw)*recoil*.06;prop.root.position.z-=Math.cos(yaw)*recoil*.06;prop.root.visible=(event.by===uid||pose.visible!==false)&&rolePropObservable(pose);
+  prop.flash.visible=age>=0&&shot<count&&phase<.42;prop.flash.scale.setScalar(.8+recoil*.8);
+  let shells=0;for(let i=0;i<count;i++){const t=(age-i*interval)/1000;if(t<0||t>.65)continue;dummy.position.set(.13+t*.9,.02+t*.9-t*t*2.7,.04+t*.24);dummy.rotation.set(t*16+i,t*22,t*11);dummy.scale.setScalar(1);dummy.updateMatrix();prop.shells.setMatrixAt(shells++,dummy.matrix);}prop.shells.count=shells;prop.shells.instanceMatrix.needsUpdate=true;return true;
+ },dispose:prop.scope.dispose};
+});
+registerModEffectHandler("triggerHappyShot",({THREE,scene,event})=>{
+ const scope=rolePropScope(THREE,scene),radius=clamp(Number(event.radius)||.14,.08,.6),root=scope.root;
+ const ball=scope.mesh(new THREE.SphereGeometry(radius,12,8),scope.standard(0xffd091,{emissive:0xff8b25,emissiveIntensity:1.2,metalness:.7,roughness:.2}));
+ const trace=scope.mesh(new THREE.ConeGeometry(radius*.55,.65,8),scope.glow(0xffd28a,.55));trace.rotation.x=-Math.PI/2;trace.position.z=-.34;
+ const yaw=Number(event.yaw)||0,start=Number(event.fireAt||event.at),length=Number(event.length)||0,speed=Number(event.speed)||22;
+ return{update(stamp){const age=(stamp-start)/1000,travel=age*speed;if(game.phase!=="play"||travel>length+.12||age>.95)return false;
+  if((game.modRoleEvents||[]).some(e=>e.type==="triggerHappyImpact"&&e.volleyId===event.volleyId&&e.shot===event.shot))return false;
+  root.position.set(Number(event.x)+Math.sin(yaw)*Math.max(0,travel),.705,Number(event.z)+Math.cos(yaw)*Math.max(0,travel));root.rotation.y=yaw;root.visible=age>=0&&rolePropObservable(root.position);ball.rotation.z=age*12;return true;
+ },dispose:scope.dispose};
+});
+function roleSparkEffect({THREE,scene,event},color=0xffba73){
+ const scope=rolePropScope(THREE,scene),root=scope.root,material=scope.glow(color,.9),geometry=scope.geometry(new THREE.SphereGeometry(.035,5,4)),sparks=[];
+ for(let i=0;i<16;i++){const mesh=new THREE.Mesh(geometry,material);root.add(mesh);sparks.push({mesh,vx:Math.sin(i*2.4)*(1+i%3*.5),vy:1.6+(i%4)*.3,vz:Math.cos(i*2.4)*(1+i%3*.5)});}root.position.set(Number(event.x)||0,.6,Number(event.z)||0);
+ return{update(stamp){const t=(stamp-Number(event.at))/1000;if(t<0||t>.6)return false;root.visible=rolePropObservable(root.position);material.opacity=Math.max(0,1-t/.6);for(const s of sparks)s.mesh.position.set(s.vx*t,s.vy*t-3.8*t*t,s.vz*t);return true;},dispose:scope.dispose};
+}
+registerModEffectHandler("triggerHappyImpact",ctx=>roleSparkEffect(ctx));
+registerModEffectHandler("arsonistDoused",ctx=>roleSparkEffect(ctx,0xffce63));
+registerModEffectHandler("arsonistDouse",({THREE,scene,event})=>{
+ const scope=rolePropScope(THREE,scene),{root,mesh,standard,glow}=scope,can=new THREE.Group();root.add(can);
+ const amber=standard(0xe3a53c,{metalness:.6}),dark=standard(0x22323b),sprayMat=glow(0xffda86,.8);
+ mesh(new THREE.CylinderGeometry(.075,.09,.25,12),amber,can);mesh(new THREE.CylinderGeometry(.055,.055,.04,10),dark,can,0,.145,0);
+ const nozzle=mesh(new THREE.CylinderGeometry(.018,.025,.14,8),dark,can,0,.17,.06);nozzle.rotation.x=Math.PI/2;mesh(new THREE.BoxGeometry(.06,.05,.02),glow(0xffebc0),can,0,0,.084);
+ const drops=new THREE.InstancedMesh(scope.geometry(new THREE.SphereGeometry(.028,5,4)),sprayMat,30);root.add(drops);const dummy=new THREE.Object3D(),segments=[];
+ for(let i=0;i<16;i++){const ring=mesh(new THREE.TorusGeometry(.54,.024,4,6,Math.PI*2/16*.78),dark);ring.rotation.x=Math.PI/2;ring.rotation.z=i*Math.PI*2/16;segments.push(ring);}
+ return{update(stamp){const start=Number(event.startedAt||event.at),ends=Number(event.endsAt)||start,owner=game.players?.[event.by],pending=owner?.arsonistDouse;if(game.phase!=="play"||stamp>ends+200||pending?.id!==event.douseId)return false;
+  const a=roleVisualPose(event.by,event),b=roleVisualPose(event.target,{x:event.targetX,z:event.targetZ}),dx=b.x-a.x,dz=b.z-a.z,yaw=Math.atan2(dx,dz),time=(stamp-start)/1000,progress=clamp((stamp-start)/Math.max(1,ends-start),0,1);
+  root.visible=rolePropObservable(a)||rolePropObservable(b);can.position.set(a.x+Math.sin(yaw)*.38,(a.y||0)+.65,a.z+Math.cos(yaw)*.38);can.rotation.set(.25+Math.sin(time*12)*.02,yaw,0);
+  for(let i=0;i<30;i++){const u=(time*2.4+i/30)%1,wobble=Math.sin(i*7.13)*.08*u;dummy.position.set(can.position.x+(b.x-can.position.x)*u+Math.cos(yaw)*wobble,.80+(b.y||0)*u+Math.sin(u*Math.PI)*.18-u*.18,can.position.z+(b.z-can.position.z)*u-Math.sin(yaw)*wobble);dummy.scale.setScalar(.55+Math.sin(i*1.3)*.15+u*.6);dummy.updateMatrix();drops.setMatrixAt(i,dummy.matrix);}drops.instanceMatrix.needsUpdate=true;
+  for(let i=0;i<segments.length;i++){segments[i].position.set(b.x,.06,b.z);segments[i].material=i<progress*segments.length?amber:dark;}return true;
+ },dispose:scope.dispose};
+});
+registerModEffectHandler("arsonistIgnite",({THREE,scene,event})=>{
+ const scope=rolePropScope(THREE,scene),flames=[],orange=scope.glow(0xff862e,.88),yellow=scope.glow(0xffe69a,.94);
+ for(const target of event.targets||[])for(let i=0;i<8;i++){const a=i*Math.PI/4,flame=scope.mesh(new THREE.ConeGeometry(.19,.9,6),i%2?orange:yellow,scope.root,Number(target.x)+Math.sin(a)*.26,.45,Number(target.z)+Math.cos(a)*.26);flames.push({flame,target,i});}
+ return{update(stamp){const age=(stamp-Number(event.at))/1000;if(age<0||age>1.7)return false;orange.opacity=Math.max(0,.88*(1-age/1.7));yellow.opacity=Math.max(0,.94*(1-age/1.7));for(const f of flames){f.flame.scale.set(1,Math.max(.1,Math.sin(age*13+f.i)*.18+1-age*.25),1);f.flame.position.y=.45+age*.55;f.flame.visible=rolePropObservable(f.target);}return true;},dispose:scope.dispose};
+});
+registerModEffectHandler("jumpDancerPulse",({THREE,scene,event})=>{
+ const scope=rolePropScope(THREE,scene),ringMat=scope.glow(0xa9fff0,.9),accent=scope.glow(0xffd775,.9),ring=scope.mesh(new THREE.TorusGeometry(1,.035,5,64),ringMat),targets=[];
+ ring.rotation.x=Math.PI/2;ring.position.set(Number(event.x)||0,.06,Number(event.z)||0);const noteGeometry=scope.geometry(new THREE.SphereGeometry(.07,8,6));
+ for(const target of event.targets||[]){const ground=scope.mesh(new THREE.TorusGeometry(.4,.025,5,24),accent);ground.rotation.x=Math.PI/2;const notes=[];for(let i=0;i<3;i++){const note=new THREE.Group(),head=new THREE.Mesh(noteGeometry,accent);head.scale.set(1.2,.7,1);note.add(head);scope.mesh(new THREE.CylinderGeometry(.012,.012,.25,5),accent,note,0,.12,0);scope.root.add(note);notes.push(note);}targets.push({target,ground,notes});}
+ return{update(stamp){const t=(stamp-Number(event.at))/1000;if(game.phase!=="play"||t<0||t>1.6)return false;scope.root.visible=rolePropObservable(event)||targets.some(t=>rolePropObservable(t.target));ring.scale.setScalar(.2+Math.min(5,t*7));ringMat.opacity=Math.max(0,.9*(1-t/1.1));accent.opacity=Math.max(0,.9*(1-t/1.6));
+  for(const item of targets){const at=roleVisualPose(item.target.id,item.target),u=clamp(t/.78,0,1),height=Math.sin(u*Math.PI)*1.12;item.ground.position.set(at.x,.05,at.z);item.ground.scale.setScalar(.7+t*.65);for(let i=0;i<item.notes.length;i++){const a=i*Math.PI*2/3+t*2.3;item.notes[i].position.set(at.x+Math.sin(a)*.45,1+height+t*.7+i*.10,at.z+Math.cos(a)*.45);item.notes[i].rotation.y=-a;}}return true;
+ },dispose:scope.dispose};
+});
+/* ROLE_PROP_ANIMATIONS_V1_END */
+
 /* MOD_COMBAT_ROLE_MECHANICS */
 const modCombatClamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,Number.isFinite(Number(v))?Number(v):lo));
 const modCombatAlive=p=>!!p&&p.alive===true&&!p.observer&&!p.disconnected;
@@ -7310,7 +7605,7 @@ function modCombatEffect({THREE,scene,event,ownerId,stamp}){
   return {update(t){if(disposed)return false;stamp=t;if(t>ends+150){done=true;root.visible=false;return false;}if(!done){root.visible=canObserve();if(root.visible)animate();}return true;},dispose};
 }
 for(const type of ["penguinGrab","penguinFinish","samuraiSlash","suicideBomber","sluggerCharge","sluggerSwing"])registerModEffectHandler(type,modCombatEffect);
-registerModEffectHandler("triggerHappy",({THREE,scene,event,stamp})=>{const group=new THREE.Group(),lines=[];scene.add(group);for(const hit of event.targets||[]){const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(Number(event.x)||0,.55,Number(event.z)||0),new THREE.Vector3(Number(hit.x)||0,.4,Number(hit.z)||0)]),mat=new THREE.LineBasicMaterial({color:0xffb267,transparent:true,opacity:.95,depthWrite:false});const line=new THREE.Line(geo,mat);group.add(line);lines.push({geo,mat});}return {update(t){const k=Math.max(0,1-(t-stamp)/550);for(const x of lines)x.mat.opacity=.95*k;return t-stamp<550;},dispose(){for(const x of lines){x.geo.dispose();x.mat.dispose();}group.parent?.remove(group);}};});
+
 registerModEffectHandler("conjurer",ctx=>createModRoleRingEffect(ctx.THREE,ctx.scene,ctx.event,ctx.ownerId,ctx.stamp));
 
 // Stuntman protection is match-limited; only the killer receives the replicated event.
@@ -7455,13 +7750,15 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       }
       for(const [id,setting] of Object.entries(ROLE_COOLDOWN_SETTINGS)){
         if($(id))continue;
+        if(setting.fixed){const note=document.createElement("p");note.dataset.roleSetting=setting.roles.join(",");note.textContent=id==="mirageCooldownSeconds"?"クールダウンなし。標準は使用回数無制限です。":"プレゼントのクールダウンは30秒固定です。";roleRows.append(note);continue;}
         const label=document.createElement("label");label.dataset.roleSetting=setting.roles.join(",");label.textContent=setting.label+" ";
         const input=document.createElement("input");input.id=id;input.type="range";input.min=String(setting.min);input.max=String(setting.max);input.step=String(setting.step);input.value=String(setting.default);
         const output=document.createElement("output");output.textContent=`${setting.default}秒`;label.append(input,output);roleRows.append(label);
         input.addEventListener("input",()=>{output.textContent=`${input.value}秒`;queueLobbySettingsSave();});
       }
+      createRoleBehaviorControls(roleRows);
       const baseKillSetting=$("killCooldownSeconds");
-      const baseKillRoles=ROLE_OPTIONS.filter(option=>option.side==="impostor"&&!['madmate','doubleKiller','serialKiller'].includes(option.id)).map(option=>option.id);
+      const baseKillRoles=ROLE_OPTIONS.filter(option=>option.side==="impostor"&&!['madmate','doubleKiller','serialKiller','matryoshka'].includes(option.id)).map(option=>option.id);
       baseKillRoles.push("sheriff","bountyHunter");
       const baseKillAlias=document.createElement("label");baseKillAlias.dataset.roleSetting=baseKillRoles.join(",");baseKillAlias.textContent="通常キルクールダウン ";
       const baseKillAliasInput=document.createElement("input");baseKillAliasInput.id="roleBaseKillCooldownAlias";baseKillAliasInput.type="range";baseKillAliasInput.min=baseKillSetting?.min||"5";baseKillAliasInput.max=baseKillSetting?.max||"60";baseKillAliasInput.step=baseKillSetting?.step||"5";baseKillAliasInput.value=baseKillSetting?.value||"35";baseKillAliasInput.dataset.matchSettingAlias="killCooldownSeconds";
@@ -7576,6 +7873,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
     const KILL_COOLDOWN = 35000;
     const killCooldownFor = (player,settings=game.settings) => {
       const base=clamp(Number(settings?.killCooldownSeconds)||35,5,60)*1000;
+      if(player?.subrole==="matryoshka")return Math.min(600,roleBehaviorValue(settings,"matryoshkaKillCooldownSeconds")+roleBehaviorValue(settings,"matryoshkaKillCooldownIncreaseSeconds")*(Number(player.matryoshkaUses)||0))*1000;
       return player?.subrole==="serialKiller" ? clamp(Number(settings?.serialKillerKillCooldownSeconds)||15,5,60)*1000
         : player?.role === "jackal" ? clamp(Number(settings?.jackalCooldownSeconds)||30,5,60)*1000
         : player?.subrole === "doubleKiller"
@@ -8764,7 +9062,7 @@ function addedGuessRoleId(player){const subrole=String(player?.subrole||"");if(R
 function matchAddedGuessRoles(players=game.players){const active=new Set();for(const player of Object.values(players||{})){const roleId=addedGuessRoleId(player);if(roleId)active.add(roleId);}return active;}
 function isNeutralRole(p){return p?.role==="neutral"||["jackal","jester","arsonist","god","vulture","fox"].includes(p?.role)||["jackal","teleportJackal","waveCannonJackal","jester","arsonist","god","vulture","fox","cupid"].includes(p?.subrole);}
 function hasImpostorVision(p,settings=game.settings){return p?.role==="impostor"||p?.subrole==="blackCat"&&settings?.blackCatImpostorVision===true;}
-function canUseVentRole(p,settings=game.settings){return !!p&&(p.subrole==="samurai"&&settings?.samuraiCanVent!==true?false:p.subrole==="serialKiller"&&settings?.serialKillerCanVent===false?false:p.role==="impostor"&&(p.subrole!=="doubleKiller"||settings?.doubleKillerCanVent===true)||p.role==="jackal"||p.subrole==="engineer"||p.subrole==="blackCat"&&settings?.blackCatCanVent===true);}
+function canUseVentRole(p,settings=game.settings){return !!p&&(p.subrole==="samurai"&&settings?.samuraiCanVent!==true?false:p.subrole==="serialKiller"&&settings?.serialKillerCanVent===false?false:p.role==="impostor"&&(p.subrole!=="doubleKiller"||settings?.doubleKillerCanVent===true)||p.role==="jackal"||p.subrole==="engineer"||p.subrole==="blackCat"&&settings?.blackCatCanVent===true||p.subrole==="arsonist"&&settings?.arsonistCanVent===true);}
 function viewerKnowsImpostors(p,settings=game.settings){
   if(p?.role==="impostor"||p?.subrole==="madmate")return true;
   if(p?.subrole!=="blackCat"||settings?.blackCatRecognizeImpostors===false)return false;
@@ -10805,7 +11103,7 @@ hostBusy = true;
             case "waveCannonJackal":case "jackalWaveCannon":return seconds("waveCannonCooldownSeconds",45,10,120);
             case "arsonist":return seconds("arsonistDouseCooldownSeconds",5,3,30);
             case "teleportJackal":return seconds("teleportJackalInitialCooldownSeconds",12,5,120);
-            default:return 0;
+            default:return upgradedRoleCooldownMs(player.subrole,settings);
           }
         };
         for(const player of Object.values(roster)){
@@ -11037,7 +11335,8 @@ function applySavedMatchSettings(settings){
   for(const id of ["guesserNoFirstMeeting","guesserRequireDead","guesserCannotShootStar","starFlashEnabled","starFlashStopOnDeath","blackCatExcludeImpostors","blackCatImpostorVision","blackCatRecognizeImpostors","blackCatCanVent","doubleSecondLimitEnabled","doubleKillerCanVent","doubleKillerCanSabotage"])if($(id)&&settings[id]!==undefined)$(id).checked=!!settings[id];
   if($("meetingSheriffMisfire")&&settings.meetingSheriffMisfire)$("meetingSheriffMisfire").value=settings.meetingSheriffMisfire;
   for(const id of ["meetingSeconds","taskCount","killCooldownSeconds","sabotageCooldownSeconds","cleanerCooldownSeconds","viperSeconds","miniGrowSeconds","guesserShots","guesserTotalShots","guesserStarExcludedMeetings","scalesSeconds","scalesUses","meetingSheriffMaxKills","meetingSheriffPerMeeting","speedBoostSeconds","speedBoostCooldownSeconds","speedBoostMultiplier","blackCatRecognizeTasks","doubleMainCooldown","doubleSecondCooldown","doubleSecondMaxUses","bountyChangeSeconds","morphDurationSeconds","biteDelaySeconds","hawkVisionSeconds","hawkCooldownSeconds","waveCannonChargeSeconds","waveCannonCooldownSeconds","penguinDragSeconds","penguinCooldownSeconds","samuraiRange","samuraiCooldownSeconds","serialKillerKillCooldownSeconds","suicideBomberRadius","suicideBomberCooldownSeconds","sluggerRange","sluggerChargeSeconds","sluggerCooldownSeconds","sluggerMaxHits","rocketInitialCaptureCooldownSeconds","rocketAdditionalCaptureCooldownSeconds","necromancerCooldownSeconds","necromancerMaxRevenants","necromancerRequiredTasks","necromancerCurseSeconds","necromancerCurseVisionMultiplier","stuntmanUses","serialKillerSuicideSeconds","teleporterCooldownSeconds","teleporterDelaySeconds","swapperUses","sageShieldSeconds","sageCooldownSeconds","arsonistDouseCooldownSeconds","vultureBodiesToWin"])$(id)?.dispatchEvent(new Event("input"));
-  for(const id of Object.keys(ROLE_COOLDOWN_SETTINGS))$(id)?.dispatchEvent(new Event("input"));
+  for(const id of [...Object.keys(ROLE_COOLDOWN_SETTINGS),...Object.keys(ROLE_BEHAVIOR_SETTINGS)])$(id)?.dispatchEvent(new Event("input"));
+  if($("mirageLimitCount"))$("mirageLimitCount").disabled=!$("mirageLimitUse")?.checked;
   if(settings.roles)syncLobbyRoleInputs({roles:settings.roles,impostorCount:settings.impostorCount});
   }finally{applyingSavedMatchSettings=false;}
 }
@@ -12108,8 +12407,15 @@ function ssxControlUpdate(phase,me,ready){
   const ssxImpRealCorpses=Object.entries(game.bodies||{}).filter(([id,b])=>b&&!b.fake&&!b.removed&&!b.dissolved&&game.players?.[id]?.alive===false);
   const ssxMatryCanUse=!!(me?.matryoshkaUntil>now()||ssxImpRealCorpses.some(([,b])=>distance(position,b)<=8));
   const ssxImpYaw=Number(avatars.get(uid)?.rotation.y)||0;
-  const ssxHappyCanUse=Object.entries(game.players||{}).some(([id,p])=>{if(id===uid||!p?.alive||p.observer||p.disconnected)return false;const q=p.bot?(botPositions[id]||p):players[id];if(!q)return false;const dx=Number(q.x)-position.x,dz=Number(q.z)-position.z,d=Math.hypot(dx,dz),angle=Math.atan2(dx,dz)-ssxImpYaw,delta=Math.atan2(Math.sin(angle),Math.cos(angle));return d<=clamp(Number(game.settings?.triggerHappyRange)||9,2,15)&&Math.abs(delta)<=.75&&!wallBetween(position,q);});
-  const ssxMirageCanUse=ssxImpRealCorpses.length>0;
+  const ssxHappyCanUse=triggerHappyCanAim(game,uid,position,ssxImpYaw,players,botPositions);
+  const ssxMirageCanUse=mirageBodyCandidates(game).length>0&&(!roleBehaviorValue(game.settings,"mirageLimitUse")||Number(me?.mirageUses||0)<roleBehaviorValue(game.settings,"mirageLimitCount"));
+  if(me?.subrole==="arsonist"){
+    const living=Object.entries(game.players||{}).filter(([id,p])=>id!==uid&&p?.alive&&!p.observer&&!p.disconnected);
+    const all=living.length>0&&living.every(([id])=>me.dousedTargets?.[id]);
+    const nearby=living.some(([id,p])=>{const at=roleUpgradePose(game,id,players,botPositions);return !me.dousedTargets?.[id]&&!p.ventId&&at&&distance(position,at)<2.9&&!wallBetween(position,at);});
+    if(me.arsonistDouse){$("abilityBtn").disabled=true;$("abilityCaption").textContent="塗布中";}
+    else{if(!all&&!nearby)$("abilityBtn").disabled=true;if(Number(me.abilityReadyAt||0)<=now())$("abilityCaption").textContent=all?"点火":"塗布";}
+  }
   if(me?.subrole==="matryoshka"&&!ssxMatryCanUse||me?.subrole==="triggerHappy"&&!ssxHappyCanUse||me?.subrole==="mirage"&&me.alive===false&&!ssxMirageCanUse)$("abilityBtn").disabled=true;
   const proximityRole=["rocket","necromancer","revenant","penguin","samurai","suicideBomber","slugger","santa","chief"].includes(me?.subrole),target=proximityRole?ssxControlNearestTarget(me.subrole):null;
   if(proximityRole){
@@ -12221,10 +12527,8 @@ function useRoleAbility(){
   if(me.subrole==="arsonist"){
     const living=Object.entries(game.players||{}).filter(([id,p])=>id!==uid&&p.alive&&!p.observer&&!p.disconnected),allDoused=living.length>0&&living.every(([id])=>me.dousedTargets?.[id]);
     if(allDoused){sendCommand("ability",{ability:"arsonistIgnite"});return;}
-    const list=abilityPanel("ARSONIST ／ 着火剤","近くの相手に着火剤を付けます。全員に付けた後、もう一度能力を使うと着火します。");
-    const targets=living.filter(([id,p])=>!me.dousedTargets?.[id]&&players[id]?.online&&distance(position,players[id])<2.9&&!wallBetween(position,players[id]));
-    for(const [id,p] of targets){const button=document.createElement("button");button.textContent=`♨ ${p.name} に着火剤`;button.onclick=()=>{sendCommand("ability",{ability:"arsonistDouse",target:id});show("abilityTargetSelect",false);};list.append(button);}
-    if(!targets.length){const empty=document.createElement("p");empty.textContent=`着火剤 ${Object.keys(me.dousedTargets||{}).length}/${living.length} 人。次の対象に近づいてください。`;list.append(empty);}return;
+    const target=living.map(([id,p])=>({id,p,at:roleUpgradePose(game,id,players,botPositions)})).filter(t=>!me.dousedTargets?.[t.id]&&!t.p.ventId&&t.at&&distance(position,t.at)<2.9&&!wallBetween(position,t.at)).sort((a,b)=>distance(position,a.at)-distance(position,b.at))[0];
+    if(target)sendCommand("ability",{ability:"arsonistDouse",target:target.id});return;
   }
   if(me.subrole==="vulture"){
     const list=abilityPanel("VULTURE ／ 死体を食べる",`死体を ${clamp(Number(game.settings?.vultureBodiesToWin)||3,1,5)} 体食べると単独勝利です。`);
@@ -13164,7 +13468,7 @@ function recordDeathAudit(g,victimId,killerId,cause,stamp=now(),locations=null){
   const victim=g.players?.[victimId];if(!victim)return null;
   const killer=killerId?g.players?.[killerId]:null;
   const meetingElimination=!!g.meeting&&(g.phase==="meeting"||g.phase==="results")&&new Set(["会議で追放","投票で追放","会議シェリフ","meetingSheriff","guesser","evilGuesser","天秤で追放","loverFollow"]).has(String(cause||""));
-  const audit={name:victim.name||"不明",at:stamp,phase:g.phase||"play",meetingId:meetingElimination?String(g.meeting?.id||""):"",meetingElimination,room:locations?.[victimId]||"通路",locations:locations||{},killerId:killerId||"",killerName:killer?.name||(killerId===victimId?(victim.name||"不明"):new Set(["会議で追放","切断による離脱"]).has(cause)?"":"不明"),cause:({killed:"殺害",vampireBite:"ヴァンパイアの噛みつき",viper:"バイパーの毒",suicide:"自殺",sheriffMisfire:"シェリフの誤射",waveCannon:"波動砲",rocket:"ロケット",loverFollow:"恋人の後を追った",penguin:"拉致",samurai:"侍",suicideBomber:"自爆魔",slugger:"スラッガー"}[cause]||cause||"不明")};
+  const audit={name:victim.name||"不明",at:stamp,phase:g.phase||"play",meetingId:meetingElimination?String(g.meeting?.id||""):"",meetingElimination,room:locations?.[victimId]||"通路",locations:locations||{},killerId:killerId||"",killerName:killer?.name||(killerId===victimId?(victim.name||"不明"):new Set(["会議で追放","切断による離脱"]).has(cause)?"":"不明"),cause:({killed:"殺害",vampireBite:"ヴァンパイアの噛みつき",viper:"バイパーの毒",suicide:"自殺",sheriffMisfire:"シェリフの誤射",waveCannon:"波動砲",rocket:"ロケット",arsonist:"アーソニストの着火",triggerHappy:"トリガーハッピーの銃撃",loverFollow:"恋人の後を追った",penguin:"拉致",samurai:"侍",suicideBomber:"自爆魔",slugger:"スラッガー"}[cause]||cause||"不明")};
   (g.deathRecords||={})[victimId]=audit;
   victim.deathRecord={killerId:audit.killerId,killerName:audit.killerName,cause:audit.cause,at:stamp,phase:audit.phase,meetingId:audit.meetingId,meetingElimination};
   return audit;
@@ -13782,7 +14086,7 @@ if (!players[id]?.online) {
                   waveCannonJackal:settingCooldown("waveCannonCooldownSeconds",45,10,120),jackalWaveCannon:settingCooldown("waveCannonCooldownSeconds",45,10,120),
                   arsonist:settingCooldown("arsonistDouseCooldownSeconds",5,3,30)
                 };
-                const lethalCooldown=lethalCooldownByRole[player.subrole];
+                const lethalCooldown=lethalCooldownByRole[player.subrole]||upgradedRoleCooldownMs(player.subrole,g.settings);
                 if(lethalCooldown){
                   const canNormalKill=player.role==="impostor"||player.role==="jackal"||player.subrole==="sheriff";
                   const sharedCooldown=Math.max(lethalCooldown,canNormalKill?killCooldownFor({...player,bountyCooldownMs:0},g.settings):0);
@@ -13978,23 +14282,20 @@ commandWork.push({actor,id:commandToken,path:cmd._path});
             const deadMirage=p.subrole==="mirage"&&p.alive===false;
             if(p.role!=="impostor")why="インポスター陣営だけが使えます。";
             else if(!live||p.disconnected||p.observer||(!deadMirage&&!p.alive)||!p.bot&&players?.[actor]?.online!==true)why="プレイ中にだけ使えます。";
-            else if((Number(p.abilityReadyAt)||0)>stamp&&!(p.subrole==="matryoshka"&&p.matryoshkaUntil>stamp))why=`クールダウン中です（残り${Math.ceil((p.abilityReadyAt-stamp)/1000)}秒）。`;
+            else if(!deadMirage&&(Number(p.abilityReadyAt)||0)>stamp&&!(p.subrole==="matryoshka"&&p.matryoshkaUntil>stamp))why=`クールダウン中です（残り${Math.ceil((p.abilityReadyAt-stamp)/1000)}秒）。`;
             else if(p.subrole==="matryoshka"&&a==="matryoshka"){
               if(p.matryoshkaUntil>stamp){p.hue=p.matryoshkaLook?.oldHue??p.hue;p.costume=p.matryoshkaLook?.oldCostume??p.costume;if(p.matryoshkaLook?.corpse&&p.matryoshkaLook?.corpseId)g.bodies[p.matryoshkaLook.corpseId]=p.matryoshkaLook.corpse;delete p.matryoshkaUntil;delete p.matryoshkaLook;setCommandResult(g,actor,cmd,true,"変装を解除しました。");}
-              else {let nearest=null,nearestId="",best=Infinity;for(const [id,b] of Object.entries(g.bodies||{})){const victim=g.players?.[id];if(!b||b.removed||b.dissolved||b.fake||!victim||victim.alive!==false)continue;const d=Math.hypot(Number(b.x)-Number(loc?.x),Number(b.z)-Number(loc?.z));if(Number.isFinite(d)&&d<best){best=d;nearest=victim;nearestId=id;}}if(!nearest||best>8)why="近くに変装できる死体がありません。";else{p.matryoshkaLook={oldHue:p.hue,oldCostume:p.costume,corpseId:nearestId,corpse:g.bodies[nearestId]||null,name:nearest.name,hue:nearest.hue,costume:nearest.costume};delete g.bodies[nearestId];p.hue=nearest.hue;p.costume=nearest.costume;p.matryoshkaUntil=stamp+clamp(Number(g.settings?.matryoshkaDurationSeconds)||25,5,60)*1000;p.abilityReadyAt=stamp+clamp(Number(g.settings?.matryoshkaCooldownSeconds)||35,5,120)*1000;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"死体の姿に変装しました。");}}
+              else {let nearest=null,nearestId="",best=Infinity;for(const [id,b] of Object.entries(g.bodies||{})){const victim=g.players?.[id];if(!b||b.removed||b.dissolved||b.fake||!victim||victim.alive!==false)continue;const d=Math.hypot(Number(b.x)-Number(loc?.x),Number(b.z)-Number(loc?.z));if(Number.isFinite(d)&&d<best){best=d;nearest=victim;nearestId=id;}}if(!nearest||best>8)why="近くに変装できる死体がありません。";else{p.matryoshkaLook={oldHue:p.hue,oldCostume:p.costume,corpseId:nearestId,corpse:g.bodies[nearestId]||null,name:nearest.name,hue:nearest.hue,costume:nearest.costume};delete g.bodies[nearestId];p.matryoshkaUses=(Number(p.matryoshkaUses)||0)+1;p.readyAt=Math.max(Number(p.readyAt)||0,stamp+killCooldownFor(p,g.settings));p.hue=nearest.hue;p.costume=nearest.costume;p.matryoshkaUntil=stamp+clamp(Number(g.settings?.matryoshkaDurationSeconds)||25,5,60)*1000;p.abilityReadyAt=stamp+clamp(Number(g.settings?.matryoshkaCooldownSeconds)||35,5,120)*1000;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"死体の姿に変装しました。");}}
             } else if(p.subrole==="triggerHappy"&&a==="triggerHappy"){
-              const yaw=Number(cmd.yaw)||0,range=clamp(Number(g.settings?.triggerHappyRange)||9,2,15),need=clamp(Number(g.settings?.triggerHappyHits)||3,1,8),shots=9,hitCounts={},impacts=[];
-              const candidates=[];for(const [id,v] of Object.entries(g.players||{})){if(id===actor||!v.alive||v.disconnected||v.observer)continue;const q=v.bot?(botPositions[id]||v):players[id];if(!q||!Number.isFinite(Number(q.x))||!Number.isFinite(Number(q.z)))continue;const dx=Number(q.x)-Number(loc.x),dz=Number(q.z)-Number(loc.z),d=Math.hypot(dx,dz),angle=Math.atan2(dx,dz)-yaw,delta=Math.atan2(Math.sin(angle),Math.cos(angle));if(d<=range&&Math.abs(delta)<=.75&&!wallBetween(loc,q))candidates.push({id,v,q,d,delta});}
-              for(let shot=0;shot<shots;shot++){const lane=(shot/(shots-1)-.5)*1.05,hit=candidates.filter(t=>Math.abs(t.delta-lane)<.22).sort((a,b)=>a.d-b.d)[0];if(!hit)continue;hitCounts[hit.id]=(hitCounts[hit.id]||0)+1;impacts.push({id:hit.id,x:Number(hit.q.x),z:Number(hit.q.z),shot});if(hitCounts[hit.id]>=need&&hit.v.alive)recordDeath(g,hit.id,actor,{x:Number(hit.q.x)||0,z:Number(hit.q.z)||0},{moveKiller:false,cause:"triggerHappy"});}
-              p.abilityReadyAt=stamp+clamp(Number(g.settings?.triggerHappyCooldownSeconds)||35,5,120)*1000;p.readyAt=Math.max(Number(p.readyAt)||0,p.abilityReadyAt);p.abilityEvent=token();emitModRoleEvent(g,"triggerHappy",actor,{x:Number(loc.x),z:Number(loc.z),yaw,shots,targets:impacts,at:stamp});setCommandResult(g,actor,cmd,true,`${impacts.length}発命中しました。`);
+              const result=beginTriggerHappyVolley({g,p,actor,loc,cmd,stamp,players,botPositions});
+              if(result.error)why=result.error;else setCommandResult(g,actor,cmd,true,"連射を開始しました。");
             } else if(p.subrole==="conjurer"&&a==="conjurer"){
               const pts=(p.conjurerMarkers||[]).slice(0,3),point={x:Number(loc.x),z:Number(loc.z)};
               if(!Number.isFinite(point.x)||!Number.isFinite(point.z))why="現在地を確認できません。";
               else if(pts.length<2){pts.push(point);p.conjurerMarkers=pts;emitModRoleEvent(g,"conjurerMarker",actor,{markers:pts,at:stamp});setCommandResult(g,actor,cmd,true,`マーカー ${pts.length}/3 を設置しました。`);}
               else {pts.push(point);const area=(a,b,c)=>((b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x));if(Math.abs(area(...pts))<1)why="マーカー同士が近すぎます。位置を変えて置き直してください。";else{const inside=(q)=>ssxImpostorTriangleContains(pts,q),targets=[];for(const [id,v] of Object.entries(g.players||{})){if(id===actor||!v.alive||v.observer||v.disconnected)continue;const q=v.bot?(botPositions[id]||v):players[id];if(q&&inside({x:Number(q.x),z:Number(q.z)})&&!wallBetween(loc,q)&&recordDeath(g,id,actor,{x:Number(q.x),z:Number(q.z)},{moveKiller:false,cause:"conjurer"}))targets.push({id,x:Number(q.x),z:Number(q.z)});}delete p.conjurerMarkers;p.abilityReadyAt=stamp+clamp(Number(g.settings?.conjurerCooldownSeconds)||45,5,120)*1000;p.readyAt=Math.max(Number(p.readyAt)||0,p.abilityReadyAt);p.abilityEvent=token();emitModRoleEvent(g,"conjurer",actor,{markers:pts,targets,at:stamp});setCommandResult(g,actor,cmd,true,`${targets.length}人を召喚陣で倒しました。`);}}
             } else if(p.subrole==="mirage"&&deadMirage&&a==="mirage"){
-              let latest=null;for(const [id,b] of Object.entries(g.bodies||{})){if(id===actor||!b||b.removed||b.dissolved||b.fake)continue;const t=Number(g.deathRecords?.[id]?.at||b.at||b.createdAt)||0;if(!latest||t>latest.t)latest={id,b,t};}
-              if(!latest)why="複製できる死体がありません。";else{const id=`mirage-${token()}`,body={...latest.b,id,owner:actor,sourceVictim:latest.id,sourcePlayerId:latest.id,at:stamp,x:Number(latest.b.x)||0,z:Number(latest.b.z)||0,killerId:"",witnesses:[],dissolveAt:0,reportable:true,fake:true};g.bodies[id]=body;p.abilityReadyAt=stamp+clamp(Number(g.settings?.mirageCooldownSeconds)||45,5,120)*1000;p.abilityEvent=token();emitModRoleEvent(g,"mirage",actor,{x:body.x,z:body.z,at:stamp});setCommandResult(g,actor,cmd,true,"偽の死体を配置しました。");}
+              const result=spawnMirageBody({g,p,actor,loc,stamp});if(result.error)why=result.error;else setCommandResult(g,actor,cmd,true,"幽霊の現在地に偽の死体を配置しました。");
             } else if(!why)why="この役職はその能力を使えません。";
             if(why)setCommandResult(g,actor,cmd,false,why);(g.processedCommands||={})[actor]=commandToken;dirty=true;continue;
           }
@@ -14147,26 +14448,7 @@ if (g.phase !== "play") {
             }
             continue;
           }
-          if(cmd.type==="ability"&&p.alive&&p.subrole==="arsonist"){
-            if(cmd.ability==="arsonistDouse"&&(p.abilityReadyAt||0)<=now()){
-              const target=g.players[cmd.target],targetLoc=players[cmd.target];
-              if(target?.alive&&!target.observer&&!target.disconnected&&!target.ventId&&cmd.target!==actor&&targetLoc?.online&&distance(loc,targetLoc)<2.9&&!wallBetween(loc,targetLoc)){
-                (p.dousedTargets||={})[cmd.target]=true;p.abilityReadyAt=now()+clamp(Number(g.settings?.arsonistDouseCooldownSeconds)||5,3,30)*1000;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"着火剤を付けました。");dirty=true;
-              }
-            }else if(cmd.ability==="arsonistIgnite"&&(p.abilityReadyAt||0)<=now()){
-              const living=Object.entries(g.players||{}).filter(([id,target])=>id!==actor&&target.alive&&!target.observer&&!target.disconnected);
-              if(living.length&&living.every(([id])=>p.dousedTargets?.[id])){
-                for(const [targetId,target] of living){const targetLoc=target.bot?target:players[targetId]||target;recordDeath(g,targetId,actor,{x:Number(targetLoc.x)||0,z:Number(targetLoc.z)||0},{moveKiller:false});}
-                const survivors=Object.values(g.players||{}).filter(target=>target.alive&&!target.observer&&!target.disconnected&&target!==p);
-                p.abilityReadyAt=now()+5000;
-                if(p.alive&&!survivors.length){g.winner="arsonist";g.reason=`${p.name}が全員に着火し、アーソニストの勝利です。`;g.phase="ended";delete g.meeting;}
-                else g.notice="シールドなどで生き残ったプレイヤーがいます。もう一度着火できます。";
-                setCommandResult(g,actor,cmd,true,"着火しました。");
-                dirty=true;
-              }
-            }
-            continue;
-          }
+
           if(cmd.type==="ability"&&p.subrole==="teleporter"&&cmd.ability==="teleporter"){
             const ready=Number(p.abilityReadyAt||p.teleportReadyAt)||0,delay=clamp(Number(g.settings?.teleporterDelaySeconds)||5,1,20)*1000,cooldown=clamp(Number(g.settings?.teleporterCooldownSeconds)||45,10,120)*1000;
             const candidates=Object.entries(g.players||{}).filter(([id,t])=>{const q=t.bot?t:players[id];return t.alive&&!t.observer&&!t.disconnected&&!t.ventId&&!t.onLadder&&!t.ladderId&&!t.movingPlatform&&!t.onMovingPlatform&&t.teleportable!==false&&q&&(t.bot||q.online===true)&&Number.isFinite(Number(q.x))&&Number.isFinite(Number(q.z));});
@@ -16456,7 +16738,7 @@ function drawVisibilityFrame(){
     visibilityPass={canvas,context:canvas.getContext("2d"),texture,target,uniforms,composite,camera:new THREE.Camera(),size:new THREE.Vector2(),x:NaN,z:NaN,range:0,walls:null,wallKey:"",lastMaskAt:-Infinity};
   }
   const waveHawkVision=Number(viewer?.waveHawkUntil)>now();
-  const pass=visibilityPass,range=waveHawkVision?fullMapSightRadius():(viewer.hawkUntil||0)>now()?hawkVisionRadius():(Number(viewer.lighterUntil)||0)>now()?60:10.2;
+  const pass=visibilityPass,range=waveHawkVision?fullMapSightRadius():(viewer.hawkUntil||0)>now()?hawkVisionRadius():lighterSightRadius(viewer);
   const maskAt=performance.now(),refreshMask=pass.walls!==WALLS||pass.range!==range||maskAt-pass.lastMaskAt>=50;
   if(refreshMask){
   const nearby=Array.from(wallsInBounds(position.x-range,position.z-range,position.x+range,position.z+range));
@@ -18353,12 +18635,13 @@ if (phase === "ended") {
         else if(me.subrole==="hawk"||me.subrole==="niceHawk"){effectName="拡張視界";effectUntil=Number(me.hawkUntil)||0;effectTotal=(Number(game.settings?.hawkVisionSeconds)||10)*1000;}
         else if(me.subrole==="sage"){effectName="賢者のシールド";effectUntil=Number(me.sageShieldUntil)||0;effectTotal=(Number(game.settings?.sageShieldSeconds)||10)*1000;}
         else if(me.subrole==="speedBooster"){effectName="スピードブースト";effectUntil=Number(me.speedBoostUntil)||0;effectTotal=(Number(game.settings?.speedBoostSeconds)||5)*1000;}
-        else if(me.subrole==="lighter"){effectName="通常視界";effectUntil=Number(me.lighterUntil)||0;effectTotal=10000;}
+        else if(me.subrole==="lighter"){effectName="点灯中";effectUntil=Number(me.lighterUntil)||0;effectTotal=roleBehaviorValue(game.settings,"lighterDurationSeconds")*1000;}
+        else if(me.subrole==="arsonist"&&me.arsonistDouse){effectName="着火剤を塗布中";effectUntil=Number(me.arsonistDouse.endsAt)||0;effectTotal=Math.max(1,Number(me.arsonistDouse.endsAt)-Number(me.arsonistDouse.startedAt));}
         else if(me.subrole==="tracker"){effectName="追跡";effectUntil=Number(me.trackUntil)||0;effectTotal=15000;}
       }
       const effectLeft=Math.max(0,effectUntil-now());show("abilityDurationBar",effectLeft>0);
       if(effectLeft>0){$("abilityDurationName").textContent=effectName;$("abilityDurationSeconds").textContent=`残り ${Math.ceil(effectLeft/1000)} 秒`;$("abilityDurationFill").style.width=(clamp(effectLeft/effectTotal,0,1)*100)+"%";$("abilityDurationFill").style.background=me.role==="impostor"?"#ff647c":"#71e4d0";}
-      const specialReadyAt=["santa","chief","jumpDancer","lighter","ubiquitous"].includes(me?.subrole)?me.abilityReadyAt:["waveCannon","waveCannonJackal","jackalWaveCannon"].includes(me?.subrole)?Math.max(Number(me?.waveCannonReadyAt)||0,Number(me?.abilityReadyAt)||0):me?.subrole==="rocket"?me.rocketReadyAt:me?.subrole==="necromancer"?me.necromancerReadyAt:me?.abilityReadyAt;
+      const specialReadyAt=me?.subrole==="mirage"&&me.alive===false||me?.subrole==="ubiquitous"&&me.drone?.active?0:["santa","chief","jumpDancer","lighter","ubiquitous"].includes(me?.subrole)?me.abilityReadyAt:["waveCannon","waveCannonJackal","jackalWaveCannon"].includes(me?.subrole)?Math.max(Number(me?.waveCannonReadyAt)||0,Number(me?.abilityReadyAt)||0):me?.subrole==="rocket"?me.rocketReadyAt:me?.subrole==="necromancer"?me.necromancerReadyAt:me?.abilityReadyAt;
       const remaining=Math.max(0,Math.ceil(((( ["teleportJackal","teleporter"].includes(me?.subrole)?me.teleportReadyAt:["shapeshifter","morphing"].includes(me?.subrole)?me.shapeshiftReadyAt:specialReadyAt)||0)-now())/1000));
       const actionLockRemaining=Math.max(0,Math.ceil(((Number(me?.meetingActionReadyAt)||0)-now())/1000));
       const look=roleLook(me);$("abilityBtn").style.setProperty("--role-color",look.color);
@@ -18581,7 +18864,9 @@ const length = Math.hypot(dx, dz);
       );
       if(jumpButton.classList.contains("hidden")===showJump)jumpButton.classList.toggle("hidden",!showJump);
       if(showJump){const disabled=!jumpAvailable();if(jumpButton.disabled!==disabled)jumpButton.disabled=disabled;}
-      const tankControls=movingAllowed&&game.phase==="play"&&game.settings?.viewMode==="3d";
+      const controllingDrone=me?.subrole==="ubiquitous"&&me?.drone?.active;
+      if(controllingDrone)window.__ssCrewDroneInput?.(movingAllowed?dx:0,movingAllowed?dz:0);
+      const tankControls=movingAllowed&&!controllingDrone&&game.phase==="play"&&game.settings?.viewMode==="3d";
       if(tankControls){
         const ownAvatar=avatars.get(uid),facingYaw=ownAvatar?.rotation.y||0;
         const firstPersonTank=cameraPerspective==="first";
@@ -18660,7 +18945,7 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         const hideDeadAvatarFromLiving=inRound&&state?.alive===false&&id!==uid&&!viewerGhost&&!viewerObserver&&!rocketAvatarVisible;
         const hawkBoosted=(me?.hawkUntil||0)>now(),waveHawkVision=Number(me?.waveHawkUntil)>now();
         const curseActive=Number(me?.revenantCurseUntil||0)>now();
-        const viewRange=waveHawkVision?fullMapSightRadius():(hawkBoosted?hawkVisionRadius():10.2)*(curseActive?clamp(Number(me?.revenantCurseVisionScale)||.35,.12,1):1);
+        const viewRange=waveHawkVision?fullMapSightRadius():(hawkBoosted?hawkVisionRadius():lighterSightRadius(me))*(curseActive?clamp(Number(me?.revenantCurseVisionScale)||.35,.12,1):1);
         const visibleToPlayer = id === uid || viewerCanSeeRoles || waveHawkVision || viewerGhost || viewerObserver ||
           (distance(position, p) <= viewRange && !wallBetween(position, p));
         const recentDeathAt=Number(game.deathRecords?.[id]?.at||state?.deathAt||0),deathAgeRender=now()-recentDeathAt;
@@ -18786,6 +19071,7 @@ if(movingSample){if(!(id===uid&&game.phase==="play"&&game.settings?.viewMode==="
         ssxUpdateRoleTransformFx(avatar,id,state,p,{inRound,visible:avatar.visible,visibleToPlayer,ghost,time,desiredHue:suitHue,dt});
       }
 
+updateRolePublicProps(THREE,scene,game,avatars,dt,now());
 for (const [id, body] of corpses) {
         if (!code || !game.bodies?.[id] || game.phase === "lobby") {
           disposeObject(body);
@@ -19205,86 +19491,87 @@ window.addEventListener("ss-open-nearby-terminal",event=>{if(event.detail==="sec
 
 /* OCT10_MOD_CREWS_V1 */
 (()=>{
-  const defs={santa:{side:"crew"},chief:{side:"crew"},jumpDancer:{side:"crew"},lighter:{side:"crew"},ubiquitous:{side:"crew"}};
-  const labels={santa:["サンタ","クルー陣営。能力ボタンで近くの生存者1人にランダムなクルー役職を贈ります。対象がクルーでなければサンタは死亡します。クールダウン25秒。"],chief:["村長","クルー陣営。最寄りの生存者をシェリフに任命します。対象がインポスターなら村長は死亡します。クールダウン30秒。"],jumpDancer:["ジャンプダンサー","クルー陣営。自分と近くの生存者が一斉にジャンプします。クールダウン25秒。"],lighter:["ライター","クルー陣営。10秒間、停電中も通常視界を保ちます。クールダウン30秒。"],ubiquitous:["ユビキタス","クルー陣営。個人ドローンを飛ばし、周囲を確認できます。会議中もドローンは見え、近くの乗員を個人マップに記録します。クールダウン15秒。"]};
-  const roleCooldownMs=(role,settings)=>{const id=role+"CooldownSeconds",fallback=ROLE_COOLDOWN_SETTINGS[id]?.default||({santa:25,chief:30,jumpDancer:25,lighter:30,ubiquitous:15}[role]||30);return clamp(Number(settings?.[id])||fallback,5,120)*1000;};
-  function ability({g,actor,cmd,p,now:stamp,players,botPositions,markDirty,setResult}){
-    const role=p?.subrole,a=cmd?.ability||"";
-    if(!defs[role])return false;
-    if(g.phase!=="play"||p.alive!==true||p.disconnected||p.observer||p.ventId){setResult(false,"生存中のプレイ時間に使用できます。");return true;}
-    if(role==="santa"&&a==="santaGift"){
-      const here=ssxTargetLocation(actor,p,players,botPositions),chosen=Object.entries(g.players||{}).map(([id,q])=>({id,q,l:ssxTargetLocation(id,q,players,botPositions)})).filter(x=>x.id!==actor&&x.q.alive===true&&!x.q.observer&&!x.q.disconnected&&ssxConnected(x.q,x.l)&&x.l&&distance(here,x.l)<3.2&&!wallBetween(here,x.l)).sort((a,b)=>distance(here,a.l)-distance(here,b.l))[0],q=chosen?.q,l=chosen?.l,chosenId=chosen?.id;
-      if((p.abilityReadyAt||0)>stamp){setResult(false,"プレゼントの準備中です。");return true;}
-      if(!q||chosenId===actor||q.alive!==true||q.observer||q.disconnected||!ssxConnected(q,l)||distance(here,l)>=3.2||wallBetween(here,l)){setResult(false,"近くの生存者を選んでください。");return true;}
-      if(q.role!=="crew"){recordDeath(g,actor,actor,ssxTargetLocation(actor,p,players,botPositions),{cause:"santaMistake"});setResult(false,"クルー以外に贈り、サンタは倒れました。");}
-      else {const pool=(q.bot?["engineer","scientist","tracker","noisemaker","detective","medic","mayor","scales"]:["engineer","scientist","tracker","noisemaker","detective","medic","santa","chief","jumpDancer","lighter","ubiquitous","mayor","scales","speedBooster","niceHawk","seer","swapper","sage","stuntman"]).filter(x=>x!==q.subrole);q.subrole=pool[randomInt(pool.length)];q.abilityReadyAt=stamp+20000;q.roleGiftEvent=token();setResult(true,`${q.name||"乗員"}にプレゼントを渡しました。`);}
-      p.abilityReadyAt=stamp+roleCooldownMs("santa",g.settings);p.abilityEvent=token();markDirty();return true;
+const defs={santa:{side:"crew"},chief:{side:"crew"},jumpDancer:{side:"crew"},lighter:{side:"crew"},ubiquitous:{side:"crew"}},roleCooldownMs=(role,settings)=>upgradedRoleCooldownMs(role,settings);
+function ability({g,actor,cmd,p,now:stamp,players,botPositions,markDirty,setResult}){
+  const role=p?.subrole,a=cmd?.ability||"";if(!defs[role])return false;
+  if(g.phase!=="play"||!p.alive||p.disconnected||p.observer||p.ventId){setResult(false,"生存中のプレイ時間に使用できます。");return true;}
+  const here=roleUpgradePose(g,actor,players,botPositions);if(!here){setResult(false,"現在地を確認できません。");return true;}
+  if(role==="santa"&&a==="santaGift"||role==="chief"&&a==="chiefAppoint"){
+    if(Number(p.abilityReadyAt)>stamp){setResult(false,"能力の準備中です。");return true;}
+    const selected=Object.entries(g.players||{}).map(([id,q])=>({id,q,at:roleUpgradePose(g,id,players,botPositions)})).filter(t=>t.id!==actor&&t.q.alive&&!t.q.disconnected&&!t.q.observer&&!t.q.ventId&&t.at&&distance(here,t.at)<3.2&&!wallBetween(here,t.at)).sort((a,b)=>distance(here,a.at)-distance(here,b.at))[0];
+    if(!selected){setResult(false,"近くの生存者に近づいてください。");return true;}const q=selected.q;
+    if(role==="santa"){
+      if(q.role!=="crew"){recordDeath(g,actor,actor,here,{cause:"santaMistake"});setResult(false,"クルー以外に贈り、サンタは倒れました。");}
+      else{const pool=(q.bot?["engineer","scientist","tracker","noisemaker","detective","medic","mayor","scales"]:["engineer","scientist","tracker","noisemaker","detective","medic","santa","chief","jumpDancer","lighter","ubiquitous","mayor","scales","speedBooster","niceHawk","seer","swapper","sage","stuntman"]).filter(id=>id!==q.subrole);q.subrole=pool[randomInt(pool.length)];q.abilityReadyAt=stamp+20000;q.roleGiftEvent=token();setResult(true,`${q.name||"乗員"}にプレゼントを渡しました。`);}
+      p.abilityReadyAt=stamp+30000;
+    }else{
+      if(isImpostorTeamPlayer(q)||isNeutralRole(q)){recordDeath(g,actor,actor,here,{cause:"chiefMistake"});setResult(false,"人狼・第三陣営を任命し、村長は倒れました。");}
+      else{q.role="crew";q.subrole="sheriff";q.readyAt=Math.max(Number(q.readyAt)||0,stamp+10000);q.abilityEvent=token();setResult(true,`${q.name||"乗員"}をシェリフに任命しました。`);}p.abilityReadyAt=stamp+roleCooldownMs("chief",g.settings);
     }
-    if(role==="chief"&&a==="chiefAppoint"){
-      const here=ssxTargetLocation(actor,p,players,botPositions),chosen=Object.entries(g.players||{}).map(([id,q])=>({id,q,l:ssxTargetLocation(id,q,players,botPositions)})).filter(x=>x.id!==actor&&x.q.alive===true&&!x.q.observer&&!x.q.disconnected&&ssxConnected(x.q,x.l)&&x.l&&distance(here,x.l)<3.2&&!wallBetween(here,x.l)).sort((a,b)=>distance(here,a.l)-distance(here,b.l))[0],q=chosen?.q,l=chosen?.l,chosenId=chosen?.id;
-      if((p.abilityReadyAt||0)>stamp){setResult(false,"任命の準備中です。");return true;}
-      if(!q||chosenId===actor||q.alive!==true||q.observer||q.disconnected||!ssxConnected(q,l)||distance(here,l)>=3.2||wallBetween(here,l)){setResult(false,"近くの生存者を選んでください。");return true;}
-      if(q.role==="impostor"){recordDeath(g,actor,actor,here,{cause:"chiefMistake"});setResult(false,"インポスターを任命し、村長は倒れました。");}
-      else {q.role="crew";q.subrole="sheriff";q.readyAt=Math.max(Number(q.readyAt)||0,stamp+10000);q.abilityEvent=token();setResult(true,`${q.name||"乗員"}をシェリフに任命しました。`);}
-      p.abilityReadyAt=stamp+roleCooldownMs("chief",g.settings);p.abilityEvent=token();markDirty();return true;
-    }
-    if(role==="jumpDancer"&&a==="jumpDancer"){
-      if((p.abilityReadyAt||0)>stamp){setResult(false,"ジャンプの準備中です。");return true;}
-      const here=ssxTargetLocation(actor,p,players,botPositions),ids=[];
-      for(const [id,q] of Object.entries(g.players||{})){const l=ssxTargetLocation(id,q,players,botPositions);if(q.alive&& !q.observer&&!q.disconnected&&ssxConnected(q,l)&&distance(here,l)<=5&&!wallBetween(here,l)){q.jumpAt=stamp;q.jumpEvent=token();ids.push(id);}}
-      p.abilityReadyAt=stamp+roleCooldownMs("jumpDancer",g.settings);p.abilityEvent=token();setResult(true,`近くの${ids.length}人がジャンプしました。`);markDirty();return true;
-    }
-    if(role==="lighter"&&a==="lighter"){
-      if((p.abilityReadyAt||0)>stamp){setResult(false,"ライターの準備中です。");return true;}
-      p.lighterUntil=stamp+10000;p.abilityReadyAt=stamp+roleCooldownMs("lighter",g.settings);p.abilityEvent=token();setResult(true,"10秒間、停電中も視界を保ちます。");markDirty();return true;
-    }
-    if(role==="ubiquitous"&&a==="droneStart"){
-      if((p.abilityReadyAt||0)>stamp){setResult(false,"ドローンの準備中です。");return true;}
-      const l=ssxTargetLocation(actor,p,players,botPositions);p.drone={active:true,x:Number(l.x),z:Number(l.z),startedAt:stamp,seen:{}};p.abilityReadyAt=stamp+roleCooldownMs("ubiquitous",g.settings);p.abilityEvent=token();setResult(true,"ドローンを起動しました。矢印キーまたは画面ボタンで移動、Fで帰還します。");markDirty();return true;
-    }
-    if(role==="ubiquitous"&&a==="droneMove"){
-      const d=p.drone,l=ssxTargetLocation(actor,p,players,botPositions),x=Number(cmd.x),z=Number(cmd.z);
-      const bounds=g.worldBounds||g.mapBounds||g.map?.bounds||(typeof WORLD!=="undefined"?WORLD:null),minX=Number(bounds?.minX),maxX=Number(bounds?.maxX),minZ=Number(bounds?.minZ),maxZ=Number(bounds?.maxZ);
-      const blocked=!d?.active||!Number.isFinite(x)||!Number.isFinite(z)||Math.hypot(x-(Number(d?.x)||0),z-(Number(d?.z)||0))>.9||Math.hypot(x-Number(l.x),z-Number(l.z))>30||!Number.isFinite(minX)||!Number.isFinite(maxX)||!Number.isFinite(minZ)||!Number.isFinite(maxZ)||x<minX||x>maxX||z<minZ||z>maxZ||wallBetween(d,{x,z});
-      if(blocked){setResult(false,"ドローンの移動位置を確認できません。");return true;}
-      d.x=x;d.z=z;d.updatedAt=stamp;d.seen={};for(const [id,q] of Object.entries(g.players||{})){const at=ssxTargetLocation(id,q,players,botPositions);if(q.alive&&!q.observer&&!q.disconnected&&at&&distance(d,at)<=5)d.seen[id]=stamp;}
-      setResult(true,"ドローンを移動しました。");markDirty();return true;
-    }
-    if(role==="ubiquitous"&&a==="droneReturn"){
-      if(p.drone){p.drone.active=false;p.drone.returnedAt=stamp;}setResult(true,"ドローンが帰還しました。");markDirty();return true;
-    }
-    if(role==="ubiquitous"&&a==="droneHack"){
-      const d=p.drone;if(!d?.active||!Array.isArray(g.doors)){setResult(false,"ハックできる扉がありません。");return true;}
-      const door=g.doors.find(x=>x.id===cmd.doorId&&Number.isFinite(Number(x.x))&&Number.isFinite(Number(x.z))&&Math.hypot(d.x-Number(x.x),d.z-Number(x.z))<=2.3);
-      if(!door){setResult(false,"ドローンを実際の扉の近くに移動してください。");return true;}door.openUntil=stamp+8000;door.hackedBy=actor;setResult(true,"扉を8秒間ハックしました。");markDirty();return true;
-    }
-    return false;
+    p.abilityEvent=token();markDirty();return true;
   }
-  registerModRoleHook("ability",ability);
-  window.__oct10CrewRoles={defs,roleCooldownMs};
-  // The drone feed is rendered from a private camera into its own target. It
-  // temporarily hides distant avatars, restores all visibility and renderer
-  // state, and never changes the player's authoritative or visual position.
-  const style=document.createElement("style");style.textContent="#ssCrewDrone{position:fixed;right:14px;top:70px;width:min(38vw,320px);aspect-ratio:4/3;z-index:90;border:2px solid #78efdc;border-radius:12px;background:#06101a;box-shadow:0 8px 30px #000b}#ssCrewDrone[hidden]{display:none}#ssCrewDroneLabel{position:fixed;right:22px;top:76px;z-index:91;color:#baffef;font:800 12px system-ui;pointer-events:none}#ssDronePad{position:fixed;right:18px;top:min(43vw,406px);z-index:92;display:none;grid-template-columns:repeat(3,44px);gap:5px}#ssDronePad.active{display:grid}#ssDronePad button{height:42px;border:1px solid #77dccc;border-radius:9px;background:#0a2830ef;color:#fff;font-weight:900;touch-action:manipulation}#ssDronePad [data-dir=up]{grid-column:2}#ssDronePad [data-dir=left]{grid-column:1;grid-row:2}#ssDronePad [data-dir=down]{grid-column:2;grid-row:2}#ssDronePad [data-dir=right]{grid-column:3;grid-row:2}#ssDroneReturn{grid-column:1/4}";document.head.append(style);
-  const feed=document.createElement("canvas");feed.id="ssCrewDrone";feed.width=480;feed.height=360;feed.hidden=true;document.body.append(feed);const label=document.createElement("div");label.id="ssCrewDroneLabel";label.textContent="ユビキタス · DRONE";label.hidden=true;document.body.append(label);
-  const pad=document.createElement("div");pad.id="ssDronePad";for(const [dir,txt] of [["up","↑"],["left","←"],["down","↓"],["right","→"]]){const b=document.createElement("button");b.type="button";b.dataset.dir=dir;b.textContent=txt;pad.append(b);}const back=document.createElement("button");back.type="button";back.id="ssDroneReturn";back.textContent="ドローンを帰還";back.onclick=()=>sendCommand("ability",{ability:"droneReturn"});pad.append(back);document.body.append(pad);
-  let target=null,feedCamera=null,frame=0;
-  function showFeed(){const me=self(),d=me?.drone;if(!me||me.subrole!=="ubiquitous"||!d?.active||game.phase==="lobby"||game.phase==="ended"||game.phase==="results"||!me.alive||me.disconnected||me.observer){feed.hidden=label.hidden=pad.hidden=true;pad.classList.remove("active");target?.dispose();target=null;feedCamera=null;return;}feed.hidden=label.hidden=false;pad.hidden=false;pad.classList.toggle("active",!!d.active);
-    try{if(!target){target=new THREE.WebGLRenderTarget(480,360,{depthBuffer:true});feedCamera=new THREE.PerspectiveCamera(58,4/3,.08,10);}
-      const saved=[],seen=new Set(Object.keys(d.seen||{}));for(const [id,av] of avatars){saved.push([av,av.visible]);const p=game.players?.[id],at=ssxTargetLocation(id,p,players,botPositions);const visible=!!p&&p.alive&&!p.observer&&!p.disconnected&&!p.ventId&&!(Number(p.activephantomUntil)>now())&&!!at&&distance(d,at)<=9&&!wallBetween(d,at);av.visible=visible;if(visible)seen.add(id);}
-      const origin=new THREE.Vector3(d.x,3.6,d.z+5.5);feedCamera.position.copy(origin);feedCamera.lookAt(d.x,.6,d.z);feedCamera.updateMatrixWorld();
-      const oldTarget=renderer.getRenderTarget(),oldViewport=renderer.getViewport(new THREE.Vector4()),oldScissor=renderer.getScissor(new THREE.Vector4()),oldTest=renderer.getScissorTest(),oldAuto=renderer.autoClear,oldFog=scene.fog,oldColor=renderer.getClearColor(new THREE.Color()),oldAlpha=renderer.getClearAlpha();const pixels=new Uint8Array(480*360*4);
-      try{scene.fog=null;renderer.autoClear=true;renderer.setClearColor(0x06101a,1);renderer.setRenderTarget(target);renderer.setViewport(0,0,480,360);renderer.setScissorTest(false);renderer.clear(true,true,true);renderer.render(scene,feedCamera);renderer.readRenderTargetPixels(target,0,0,480,360,pixels);const ctx=feed.getContext("2d"),img=ctx.createImageData(480,360);for(let y=0;y<360;y++)img.data.set(pixels.subarray((359-y)*480*4,(360-y)*480*4),y*480*4);ctx.putImageData(img,0,0);}
-      finally{renderer.setRenderTarget(oldTarget);renderer.setViewport(oldViewport);renderer.setScissor(oldScissor);renderer.setScissorTest(oldTest);renderer.autoClear=oldAuto;renderer.setClearColor(oldColor,oldAlpha);scene.fog=oldFog;for(const [av,v] of saved)av.visible=v;}
-      const names=[...seen].map(id=>game.players?.[id]?.name||players[id]?.name).filter(Boolean);label.textContent="ユビキタス · MAP: "+(names.length?names.join(" · "):"近くに乗員なし");if(game.phase==="play"){d.seen=Object.fromEntries([...seen].map(id=>[id,now()]));}
-    }catch(error){console.warn("Drone feed render failed",error);}
+  if(role==="jumpDancer"&&a==="jumpDancer"){
+    if(Number(p.abilityReadyAt)>stamp){setResult(false,"ジャンプの準備中です。");return true;}
+    const targets=[];for(const [id,q] of Object.entries(g.players||{})){const at=roleUpgradePose(g,id,players,botPositions);if(q.alive&&!q.observer&&!q.disconnected&&!q.ventId&&!q.onLadder&&!q.ladderId&&!q.movingPlatform&&!q.onMovingPlatform&&at&&distance(here,at)<=5&&!wallBetween(here,at)){q.jumpAt=stamp;q.jumpEvent=token();targets.push({id,x:at.x,z:at.z});}}
+    p.abilityReadyAt=stamp+roleCooldownMs("jumpDancer",g.settings);p.abilityEvent=token();emitModRoleEvent(g,"jumpDancerPulse",actor,{x:here.x,z:here.z,targets,at:stamp});setResult(true,`近くの${targets.length}人がジャンプしました。`);markDirty();return true;
   }
-  frame=setInterval(showFeed,180);window.addEventListener("pagehide",()=>{clearInterval(frame);target?.dispose();target=null;});
-  function droneStep(dx,dz){const d=self()?.drone;if(!d?.active)return;const n=Math.hypot(dx,dz)||1;sendCommand("ability",{ability:"droneMove",x:d.x+dx/n*.55,z:d.z+dz/n*.55});}
-  for(const b of pad.querySelectorAll("button[data-dir]")){const v={up:[0,1],down:[0,-1],left:[-1,0],right:[1,0]}[b.dataset.dir];b.addEventListener("click",()=>droneStep(...v));}
-  document.addEventListener("keydown",e=>{const me=self(),d=me?.drone;if(me?.subrole!=="ubiquitous"||!d?.active||e.repeat||["INPUT","TEXTAREA"].includes(document.activeElement?.tagName))return;const step=.55,yaw=Number(avatars.get(uid)?.rotation.y)||0,forward={x:Math.sin(yaw),z:Math.cos(yaw)},right={x:Math.cos(yaw),z:-Math.sin(yaw)};let dx=0,dz=0;if(["ArrowUp","KeyW"].includes(e.code)){dx+=forward.x;dz+=forward.z;}if(["ArrowDown","KeyS"].includes(e.code)){dx-=forward.x;dz-=forward.z;}if(["ArrowLeft","KeyA"].includes(e.code)){dx-=right.x;dz-=right.z;}if(["ArrowRight","KeyD"].includes(e.code)){dx+=right.x;dz+=right.z;}if(dx||dz){e.preventDefault();e.stopImmediatePropagation();const n=Math.hypot(dx,dz);sendCommand("ability",{ability:"droneMove",x:d.x+dx/n*step,z:d.z+dz/n*step});}else if(e.code==="KeyF"){e.preventDefault();e.stopImmediatePropagation();sendCommand("ability",{ability:"droneReturn"});}else if(e.code==="Space"){e.preventDefault();e.stopImmediatePropagation();}},true);
+  if(role==="lighter"&&a==="lighter"){
+    if(Number(p.abilityReadyAt)>stamp){setResult(false,"ライターの準備中です。");return true;}
+    const duration=roleBehaviorValue(g.settings,"lighterDurationSeconds");p.lighterUntil=stamp+duration*1000;p.abilityReadyAt=stamp+roleCooldownMs("lighter",g.settings);p.abilityEvent=token();setResult(true,`${duration}秒間、視界を広げます。`);markDirty();return true;
+  }
+  if(role==="ubiquitous"&&a==="droneStart"){
+    if(p.drone?.active||Number(p.abilityReadyAt)>stamp){setResult(false,"ドローンの準備中です。");return true;}
+    const idle={x:here.x+.85,z:here.z-.25},start=wallBetween(here,idle)?here:idle;
+    p.drone={active:true,x:start.x,z:start.z,yaw:Number(players[actor]?.yaw)||0,startedAt:stamp,updatedAt:stamp};p.abilityReadyAt=stamp+roleCooldownMs("ubiquitous",g.settings);p.abilityEvent=token();setResult(true,"ドローン起動。スティック・WASDで操作、Fで帰還。");markDirty();return true;
+  }
+  if(role==="ubiquitous"&&a==="droneMove"){
+    const d=p.drone,x=Number(cmd.droneX),z=Number(cmd.droneZ),bounds=typeof WORLD!=="undefined"?WORLD:g.worldBounds,delta=Math.hypot(x-Number(d?.x),z-Number(d?.z)),elapsed=Math.max(0,stamp-Number(d?.updatedAt||d?.startedAt||stamp));
+    if(!d?.active||!Number.isFinite(x)||!Number.isFinite(z)||!bounds||delta>Math.min(1.3,.45+elapsed*.0045)||Math.hypot(x-here.x,z-here.z)>30||x<bounds.minX||x>bounds.maxX||z<bounds.minZ||z>bounds.maxZ||wallBetween(d,{x,z})){setResult(false,"ドローンを移動できない位置です。");return true;}
+    if(delta>.001)d.yaw=Math.atan2(x-d.x,z-d.z);d.x=x;d.z=z;d.updatedAt=stamp;delete d.seen;setResult(true,"");markDirty();return true;
+  }
+  if(role==="ubiquitous"&&a==="droneReturn"){if(p.drone){p.drone.active=false;p.drone.returnedAt=stamp;delete p.drone.seen;}setResult(true,"ドローンが帰還しました。");markDirty();return true;}
+  if(role==="ubiquitous"&&a==="droneHack"){
+    const d=p.drone,door=d?.active?shipDoorLayout(g).doors.find(door=>door.id===cmd.doorId&&Math.hypot(d.x-Number(door.x),d.z-Number(door.z))<=2.3):null;
+    if(!door){setResult(false,"ドローンを扉の近くへ移動してください。");return true;}setShipDoorOpen(g,door,true,actor,stamp);setResult(true,"扉をハックして開けました。");markDirty();return true;
+  }
+  return false;
+}
+registerModRoleHook("ability",ability);window.__oct10CrewRoles={defs,roleCooldownMs};
+const style=document.createElement("style");style.textContent=`#ssCrewDrone{position:fixed;right:max(12px,env(safe-area-inset-right));top:70px;width:min(38vw,320px);aspect-ratio:4/3;z-index:90;border:2px solid #78efdc;border-radius:12px;background:#06101a;pointer-events:none;box-shadow:0 8px 30px #000b}#ssCrewDrone[hidden]{display:none}#ssCrewDroneLabel{position:fixed;right:22px;top:77px;z-index:91;color:#baffef;font:800 11px system-ui;pointer-events:none;text-shadow:0 1px 4px #000}#ssDronePad{position:fixed;right:18px;top:min(calc(70px + 29vw),320px);z-index:92;display:none;grid-template-columns:repeat(3,44px);gap:5px}#ssDronePad.active{display:grid}#ssDronePad button{height:42px;min-height:42px;padding:0;border:1px solid #77dccc;border-radius:9px;background:#0a2830ef;color:#fff;font:900 12px system-ui;touch-action:none}#ssDronePad [data-dir=up]{grid-column:2}#ssDronePad [data-dir=left]{grid-column:1;grid-row:2}#ssDronePad [data-dir=down]{grid-column:2;grid-row:2}#ssDronePad [data-dir=right]{grid-column:3;grid-row:2}#ssDroneReturn{grid-column:1/3}#ssDroneHack{grid-column:3}@media(max-height:500px){#ssCrewDrone{top:58px;width:min(34vw,240px)}#ssCrewDroneLabel{top:64px;right:18px;font-size:9px}#ssDronePad{top:62px;right:calc(min(34vw,240px) + 18px);grid-template-columns:repeat(3,36px);gap:3px}#ssDronePad button{height:34px;min-height:34px;font-size:10px}}`;document.head.append(style);
+const feed=document.createElement("canvas");feed.id="ssCrewDrone";feed.width=400;feed.height=300;feed.hidden=true;document.body.append(feed);
+const label=document.createElement("div");label.id="ssCrewDroneLabel";label.textContent="ユビキタス · 遠隔操作中";label.hidden=true;document.body.append(label);
+const pad=document.createElement("div");pad.id="ssDronePad";let padDir=null;
+for(const [dir,text,vector] of [["up","↑",[0,-1]],["left","←",[-1,0]],["down","↓",[0,1]],["right","→",[1,0]]]){
+ const button=document.createElement("button");button.type="button";button.dataset.dir=dir;button.textContent=text;button.setAttribute("aria-label","ドローン移動 "+dir);button.addEventListener("pointerdown",e=>{e.preventDefault();button.setPointerCapture(e.pointerId);padDir=vector;});for(const name of ["pointerup","pointercancel","lostpointercapture"])button.addEventListener(name,()=>{padDir=null;});pad.append(button);
+}
+const back=document.createElement("button");back.type="button";back.id="ssDroneReturn";back.textContent="帰還";back.onclick=()=>sendCommand("ability",{ability:"droneReturn"});pad.append(back);
+const hack=document.createElement("button");hack.type="button";hack.id="ssDroneHack";hack.textContent="開錠";hack.onclick=()=>{const d=self()?.drone,door=d?.active?shipDoorLayout(game).doors.filter(door=>Math.hypot(d.x-door.x,d.z-door.z)<=2.3).sort((a,b)=>Math.hypot(a.x-d.x,a.z-d.z)-Math.hypot(b.x-d.x,b.z-d.z))[0]:null;if(door)sendCommand("ability",{ability:"droneHack",doorId:door.id});};pad.append(hack);document.body.append(pad);
+let lastMoveAt=0;
+window.__ssCrewDroneInput=(dx,dz)=>{
+  const me=self(),d=me?.drone;if(me?.subrole!=="ubiquitous"||!d?.active||!me.alive||game.phase!=="play"){padDir=null;return;}
+  if(padDir){dx+=padDir[0];dz+=padDir[1];}const length=Math.hypot(dx,dz),stamp=performance.now();if(length<.1||stamp-lastMoveAt<160||commandQueue.some(item=>item.type==="ability"&&item.extra?.ability==="droneMove"))return;
+  lastMoveAt=stamp;const scale=.5/Math.max(1,length);sendCommand("ability",{ability:"droneMove",droneX:Number(d.x)+dx*scale,droneZ:Number(d.z)+dz*scale});
+};
+document.addEventListener("keydown",e=>{if(self()?.subrole==="ubiquitous"&&self()?.drone?.active&&e.code==="KeyF"&&!e.repeat&&!["INPUT","TEXTAREA"].includes(document.activeElement?.tagName)){e.preventDefault();e.stopImmediatePropagation();sendCommand("ability",{ability:"droneReturn"});}},true);
+let target=null,feedCamera=null;const pixels=new Uint8Array(400*300*4),context=feed.getContext("2d"),image=context.createImageData(400,300);
+function showFeed(){
+ const me=self(),d=me?.drone,active=me?.subrole==="ubiquitous"&&d?.active&&game.phase==="play"&&me.alive&&!me.disconnected&&!me.observer;
+ feed.hidden=label.hidden=!active;pad.classList.toggle("active",!!active);if(!active){padDir=null;if(target){target.dispose();target=null;feedCamera=null;}return;}
+ const saved=[],droneSaved=[];
+ try{
+  if(!target){target=new THREE.WebGLRenderTarget(400,300,{depthBuffer:true});feedCamera=new THREE.PerspectiveCamera(58,4/3,.08,22);}
+  const model=ROLE_PUBLIC_DRONES.get(uid)?.drone,origin=model?.position||{x:d.x,z:d.z};
+  for(const [id,avatar] of avatars){saved.push([avatar,avatar.visible]);const p=game.players?.[id],at=roleUpgradePose(game,id,players,botPositions);avatar.visible=!!p?.alive&&!p.observer&&!p.disconnected&&!p.ventId&&!(Number(p.phantomUntil)>now())&&!!at&&distance(origin,at)<=9&&!wallBetween(origin,at);}
+  for(const prop of ROLE_PUBLIC_DRONES.values()){droneSaved.push([prop.drone,prop.drone.visible]);prop.drone.visible=distance(origin,prop.drone.position)<=9&&!wallBetween(origin,prop.drone.position);}
+  feedCamera.position.set(origin.x,5.2,origin.z+5);feedCamera.lookAt(origin.x,.5,origin.z);feedCamera.updateMatrixWorld();
+  const previous={target:renderer.getRenderTarget(),viewport:renderer.getViewport(new THREE.Vector4()),scissor:renderer.getScissor(new THREE.Vector4()),test:renderer.getScissorTest(),auto:renderer.autoClear,fog:scene.fog,color:renderer.getClearColor(new THREE.Color()),alpha:renderer.getClearAlpha()};
+  try{scene.fog=null;renderer.autoClear=true;renderer.setClearColor(0x06101a,1);renderer.setRenderTarget(target);renderer.setViewport(0,0,400,300);renderer.setScissorTest(false);renderer.clear(true,true,true);renderer.render(scene,feedCamera);renderer.readRenderTargetPixels(target,0,0,400,300,pixels);for(let y=0;y<300;y++)image.data.set(pixels.subarray((299-y)*400*4,(300-y)*400*4),y*400*4);context.putImageData(image,0,0);}
+  finally{renderer.setRenderTarget(previous.target);renderer.setViewport(previous.viewport);renderer.setScissor(previous.scissor);renderer.setScissorTest(previous.test);renderer.autoClear=previous.auto;renderer.setClearColor(previous.color,previous.alpha);scene.fog=previous.fog;}
+  hack.disabled=!shipDoorLayout(game).doors.some(door=>Math.hypot(d.x-door.x,d.z-door.z)<=2.3);
+ }catch(error){console.warn("Drone feed render failed",error);}finally{for(const [avatar,visible] of saved)avatar.visible=visible;for(const [model,visible] of droneSaved)model.visible=visible;}
+}
+const interval=setInterval(showFeed,160);window.addEventListener("blur",()=>{padDir=null;});window.addEventListener("pagehide",()=>{clearInterval(interval);target?.dispose();});
 })();
-
 
 (()=>{const host=document.getElementById("ssTaskTerminalHost"),frame=document.getElementById("ssTaskTerminalFrame"),closeButton=document.getElementById("ssTaskTerminalClose");let run=null,serial=0,loadTimer=0;
 const ixFor=s=>{const id=String(s?.id||"").toLowerCase(),kind=String(s?.kind||"").toLowerCase(),key=(id+" "+String(s?.name||"").toLowerCase());if(kind==="card"||/\bcard\b|カード/.test(key))return 5;if(/storage|fuel|燃料|格納/.test(key))return 6;if(kind==="wires"||/wire|配線/.test(key))return 0;if(kind==="upload"||/upload|data|データ|転送/.test(key))return 1;if(kind==="numbers"||/number|code|番号|認証/.test(key))return 2;if(/med|medical|scan|医療|スキャン/.test(key))return 4;return /security|camera|sample|研究|サンプル|検査/.test(key)?4:3;};
