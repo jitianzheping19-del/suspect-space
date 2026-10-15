@@ -36,8 +36,9 @@
     .spinner{width:37px;height:37px;border:1px solid #8ce1e526;border-top-color:#b1f5f8;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
     .loader button{border:1px solid #8bc8dd55;background:#172b3d;padding:10px 18px;border-radius:9px}.flash{position:absolute;inset:0;background:#d7f6ff;opacity:0;pointer-events:none;z-index:2;mix-blend-mode:screen}
     .outcome{position:absolute;left:50%;top:50%;transform:translate(-50%,-38%);width:min(90%,900px);z-index:7;text-align:center;pointer-events:none;opacity:0;transition:opacity .8s ease,transform .8s ease;text-shadow:0 2px 10px #000,0 0 30px #000,0 6px 45px #000}
-    .outcome.show{opacity:1;transform:translate(-50%,-50%)}.outcome strong{display:block;white-space:pre-line;overflow-wrap:anywhere;font-size:clamp(19px,3.3vw,42px);font-weight:850;line-height:1.45;letter-spacing:.025em}.outcome span{display:block;margin-top:15px;font-size:clamp(17px,2.6vw,31px);font-weight:700;color:#ffd9d4}
+    .outcome.show{opacity:1;transform:translate(-50%,-50%)}.outcome strong{display:block;white-space:pre-line;overflow-wrap:anywhere;font-size:clamp(19px,3.3vw,42px);font-weight:850;line-height:1.45;letter-spacing:.025em}.outcome .disclosure-line{display:block}.outcome .disclosure-role.impostor{color:#ff4e5e}.outcome>#wolves{display:block;margin-top:15px;font-size:clamp(17px,2.6vw,31px);font-weight:800;color:#e04752}
     #balanceResult{max-width:118px;min-width:0;background:#152535;color:#d7eaf3;border:1px solid #7eb9d038;border-radius:8px;height:36px;font-size:10px;padding:0 5px}
+    .outcome>[hidden]{display:none!important}
     [data-embedded] .header,[data-embedded] .phase,[data-embedded] .playback{display:none!important}
     @media(max-width:680px){.header{top:max(17px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));gap:12px;flex-wrap:wrap}.brand{gap:9px}.emblem{width:29px;height:29px;font-size:19px}.eyebrow{font-size:7px;letter-spacing:.15em}.title{font-size:12px;letter-spacing:.04em}.tabs{gap:2px;padding:3px;border-radius:10px;max-width:100%;width:100%}.tab{font-size:10px;min-height:38px;padding:0 10px;flex:1}.tab span{display:none}.phase{left:18px;top:126px;font-size:10px}.phase small{font-size:8px}.playback{bottom:max(16px,env(safe-area-inset-bottom));width:calc(100% - 24px);padding:12px;border-radius:13px}.mode-note{font-size:9px;margin-left:1px}.mode-note b{font-size:10px}.controlrow{gap:6px}.iconbtn{height:38px;min-width:38px}.sound{width:52px}#play{width:76px;font-size:10px}}
     @media(max-width:680px){.controlrow{flex-wrap:wrap}#balanceResult{order:10;flex-basis:100%;width:100%;max-width:none;height:30px}}
@@ -58,6 +59,7 @@
       <button class="tab" role="tab" data-mode="beam" aria-selected="false"><span>04</span>波動砲</button>
       <button class="tab" role="tab" data-mode="missile" aria-selected="false"><span>05</span>ミサイル</button>
       <button class="tab" role="tab" data-mode="meteor" aria-selected="false"><span>06</span>隕石</button>
+      <button class="tab" role="tab" data-mode="ufo" aria-selected="false"><span>07</span>UFO</button>
     </nav>
   </header>
   <div class="phase"><small id="shot">01 / ROCKET</small><i></i><span id="phase">テーブルへ</span></div>
@@ -92,21 +94,22 @@ const smooth=(a,b,t)=>{const u=clamp((t-a)/(b-a));return u*u*(3-2*u);};
 const easeOut=t=>1-Math.pow(1-clamp(t),3);
 function random(seed){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let v=Math.imul(a^a>>>15,1|a);v^=v+Math.imul(v^v>>>7,61|v);return((v^v>>>14)>>>0)/4294967296;};}
 const rng=random(621);
-const TAU=Math.PI*2,TABLE_Y=1.42,BREAK_AT=3.15,LAUNCH_AT=4.45,EXPLODE_AT=7.85;
+const TAU=Math.PI*2,TABLE_Y=1.42,BREAK_AT=3.15,LAUNCH_AT=4.45,EXPLODE_AT=7.85,METEOR_START=2.25,METEOR_IMPACT=2.85,LASER_SHATTER_AT=5.32;
 const EMBEDDED=document.documentElement.hasAttribute('data-embedded'),BALANCE_DROP_AT=3.65;
 const MODES={
   rocket:{duration:14,title:'ロケット・花火',note:'拘束 → 打ち上げ → 追尾 → 花火',shot:'01 / ROCKET'},
   collapse:{duration:11.5,title:'テーブル崩落',note:'亀裂 → 物理崩壊 → 奈落へ',shot:'02 / COLLAPSE'},
   balance:{duration:12,title:'天秤・断罪',note:'土台以外を破壊 → 重い皿の鎖が切れる',shot:'03 / BALANCE'},
-  beam:{duration:9.5,title:'一点集中・波動砲',note:'横から一人分の細いビームで追放',shot:'04 / PRECISION BEAM'},
+  beam:{duration:11.5,title:'一点集中・波動砲',note:'着弾 → 全身が赤熱 → 粉々に砕ける',shot:'04 / PRECISION BEAM'},
   missile:{duration:10.5,title:'ミサイル爆破',note:'飛来 → 直撃 → 机ごと物理爆破',shot:'05 / MISSILE'},
-  meteor:{duration:10,title:'隕石・圧壊',note:'隕石が飛来 → テーブル上で押し潰される',shot:'06 / METEOR'}
+  meteor:{duration:10,title:'隕石・圧壊',note:'高速落下 → 天板を突き破る → 机にめり込む',shot:'06 / METEOR'},
+  ufo:{duration:14,title:'UFO・反重力',note:'飛来 → 反重力で吸い上げる → 宇宙へ',shot:'07 / ABDUCTION'}
 };
 let mode=Object.hasOwn(MODES,new URLSearchParams(location.search).get('mode'))?new URLSearchParams(location.search).get('mode'):'rocket';
 const breakAt=()=>mode==='balance'?.12:mode==='missile'?3.35:BREAK_AT;
 const destructive=()=>['collapse','balance','missile'].includes(mode);
 let balanceVotes=[4,2],balanceFalls=[true,false],balanceFallsActive=false;
-let configuredParticipants=null,configuredDisclosure=null,configuredWolves=1,configuredShowWolves=true,costumeBuilder=null;
+let configuredParticipants=null,configuredDisclosure=null,configuredDisclosureDetails=null,disclosureKey='',configuredWolves=1,configuredShowWolves=true,costumeBuilder=null;
 let seekingNow=false;
 let time=0,playing=true,ready=false,lastFrame=0,completed=false,soundOn=false,scrubbing=false,resumeAfterScrub=false;
 let physics=null,physicsStep=0,actorBody=null,secondActorBody=null,worldBuilds=0,frameCount=0;
@@ -116,6 +119,7 @@ const renderer=new THREE.WebGLRenderer({canvas:$('scene'),antialias:true,powerPr
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,innerWidth<800?1.5:1.8));
 renderer.setSize(innerWidth,innerHeight,false);
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled=true;
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
 const scene=new THREE.Scene();scene.background=new THREE.Color('#030711');scene.fog=new THREE.FogExp2('#06101d',.0045);
 const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.075,500);
@@ -388,6 +392,80 @@ const beamCoil=line(coilPoints,0x9beaff,.65,beamRoot);beamCoil.material.blending
 const chargeRing=mesh(new THREE.TorusGeometry(.45,.027,7,48),new THREE.MeshBasicMaterial({color:0x8beaff,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));chargeRing.rotation.y=Math.PI/2;chargeRing.position.set(-10,TABLE_Y+.99,0);
 const beamLamp=new THREE.PointLight(0x69dbff,0,17,2);beamLamp.position.set(0,TABLE_Y+1.1,0);scene.add(beamLamp);
 
+// Heat spreads across the actual actor, including the visor and equipped costume.
+// Materials are private to this actor and restored before changing animations.
+const heatRadius={value:-1},heatEnabled={value:0},heatTime={value:0},heatOrigin={value:new THREE.Vector3(0,TABLE_Y+1,0)};
+const actorMaterialBindings=[],actorEffectMaterials=new Set();
+const ufoClipPlane=new THREE.Plane(new THREE.Vector3(0,-1,0),6.2);
+function restoreActorMaterials(){
+  for(const binding of actorMaterialBindings)binding.mesh.material=binding.original;
+  for(const material of actorEffectMaterials)material.dispose();
+  actorMaterialBindings.length=0;actorEffectMaterials.clear();
+}
+function prepareActorMaterials(effect){
+  restoreActorMaterials();const copies=new Map();
+  actor.root.traverse(object=>{
+    if(!object.isMesh)return;const original=object.material;
+    const prepare=material=>{
+      if(copies.has(material))return copies.get(material);
+      const copy=material.clone();copies.set(material,copy);actorEffectMaterials.add(copy);
+      if(effect==='ufo'){copy.clippingPlanes=[ufoClipPlane];copy.clipShadows=true;}
+      else{
+        const compile=material.onBeforeCompile;
+        copy.onBeforeCompile=(shader,renderer)=>{
+          compile?.call(material,shader,renderer);
+          Object.assign(shader.uniforms,{ssHeatRadius:heatRadius,ssHeatEnabled:heatEnabled,ssHeatTime:heatTime,ssHeatOrigin:heatOrigin});
+          shader.vertexShader='varying vec3 ssHeatWorld;\n'+shader.vertexShader;
+          shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>','#include <project_vertex>\nssHeatWorld=(modelMatrix*vec4(transformed,1.)).xyz;');
+          shader.fragmentShader='varying vec3 ssHeatWorld;uniform float ssHeatRadius;uniform float ssHeatEnabled;uniform float ssHeatTime;uniform vec3 ssHeatOrigin;\n'+shader.fragmentShader;
+          shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat ssDistance=distance(ssHeatWorld,ssHeatOrigin);float ssHeated=(1.-smoothstep(ssHeatRadius-.12,ssHeatRadius+.1,ssDistance))*ssHeatEnabled;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.68,.008,.018),ssHeated*.98);');
+          if(copy.isMeshStandardMaterial)shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vec3(1.,.008,.012)*ssHeated*(.48+.12*sin(ssHeatTime*24.));');
+        };
+        copy.customProgramCacheKey=()=>material.customProgramCacheKey()+'-ss-heat-spread-v1';
+      }
+      return copy;
+    };
+    object.material=Array.isArray(original)?original.map(prepare):prepare(original);actorMaterialBindings.push({mesh:object,original});
+  });
+}
+const LASER_FRAGMENT_COUNT=740,laserFragmentSpecs=[];
+const laserFragments=new THREE.InstancedMesh(new THREE.TetrahedronGeometry(.075,0),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xa90914,emissiveIntensity:1.0,roughness:.65,metalness:.2}),LASER_FRAGMENT_COUNT);
+laserFragments.instanceMatrix.setUsage(THREE.DynamicDrawUsage);laserFragments.frustumCulled=false;laserFragments.castShadow=true;scene.add(laserFragments);
+const fragmentDummy=new THREE.Object3D();
+function prepareLaserFragments(){
+  laserFragmentSpecs.length=0;actor.root.position.set(0,TABLE_Y,0);actor.root.quaternion.identity();pose(actor,0,0,0);actor.root.updateMatrixWorld(true);
+  const inverse=actor.root.matrixWorld.clone().invert(),triangles=[],r=random(1409);let totalArea=0;
+  actor.root.traverse(object=>{
+    if(!object.isMesh||!object.visible)return;const geometry=object.geometry,position=geometry?.attributes.position;if(!position)return;
+    const transform=new THREE.Matrix4().multiplyMatrices(inverse,object.matrixWorld),indices=geometry.index;
+    const count=indices?indices.count:position.count;
+    for(let i=0;i<count;i+=3){
+      const vertices=[0,1,2].map(j=>new THREE.Vector3().fromBufferAttribute(position,indices?indices.getX(i+j):i+j).applyMatrix4(transform));
+      const area=new THREE.Triangle(...vertices).getArea();if(area<.000001)continue;totalArea+=area;triangles.push({vertices,area:totalArea});
+    }
+  });
+  if(!triangles.length)return;
+  for(let i=0;i<LASER_FRAGMENT_COUNT;i++){
+    const area=r()*totalArea;let lo=0,hi=triangles.length-1;while(lo<hi){const middle=(lo+hi)>>1;if(triangles[middle].area<area)lo=middle+1;else hi=middle;}
+    const [a,b,c]=triangles[lo].vertices,u=Math.sqrt(r()),v=r(),p=a.clone().multiplyScalar(1-u).addScaledVector(b,u*(1-v)).addScaledVector(c,u*v);
+    const radial=p.clone().sub(new THREE.Vector3(0,.95,0)).normalize();
+    laserFragmentSpecs.push({p,velocity:new THREE.Vector3(radial.x*(1.2+r()*2.1)+1.2,radial.y*(1.0+r()*2.2)+1,radial.z*(1.2+r()*2.4)),spin:new THREE.Vector3(r()*8,r()*8,r()*8),size:.35+r()*.9});
+    laserFragments.setColorAt(i,new THREE.Color().setHSL(.99+r()*.035,.95,.32+r()*.22));
+  }
+  laserFragments.instanceColor.needsUpdate=true;
+}
+function updateLaserFragments(t){
+  const age=t-LASER_SHATTER_AT;laserFragments.visible=age>=0&&age<2.1;
+  if(!laserFragments.visible)return;
+  for(let i=0;i<laserFragmentSpecs.length;i++){
+    const spec=laserFragmentSpecs[i],flight=(1-Math.exp(-age*.45))/.45;
+    fragmentDummy.position.copy(spec.p).addScaledVector(spec.velocity,flight);fragmentDummy.position.y+=TABLE_Y-age*age*1.9;
+    fragmentDummy.rotation.set(spec.spin.x*age,spec.spin.y*age,spec.spin.z*age);
+    fragmentDummy.scale.setScalar(spec.size*(1-smooth(.55,2.1,age)));fragmentDummy.updateMatrix();laserFragments.setMatrixAt(i,fragmentDummy.matrix);
+  }
+  laserFragments.instanceMatrix.needsUpdate=true;laserFragments.material.emissiveIntensity=1.5*(1-smooth(.2,1.65,age));
+}
+
 // Incoming guided missile, followed by an actual rigid-body table blast.
 const missileRoot=new THREE.Group();scene.add(missileRoot);
 const missileBody=mesh(new THREE.CylinderGeometry(.18,.22,1.78,24),enamel,missileRoot);
@@ -413,9 +491,58 @@ const meteorRoot=new THREE.Group();scene.add(meteorRoot);
 const meteorGeometry=new THREE.SphereGeometry(1,32,24),meteorRandom=random(901),meteorPositions=meteorGeometry.attributes.position;
 for(let i=0;i<meteorPositions.count;i++){const v=new THREE.Vector3().fromBufferAttribute(meteorPositions,i),f=1+.12*Math.sin(v.x*12+v.y*7)+.075*Math.cos(v.z*18-v.x*5);meteorPositions.setXYZ(i,v.x*f,v.y*f,v.z*f);}
 meteorGeometry.computeVertexNormals();
-const meteorRock=mesh(meteorGeometry,new THREE.MeshStandardMaterial({color:0x42342b,roughness:.92,metalness:.06,emissive:0x521e09,emissiveIntensity:.38}),meteorRoot);meteorRock.scale.set(1.48,1.25,1.36);
+const meteorRock=mesh(meteorGeometry,new THREE.MeshStandardMaterial({color:0x42342b,roughness:.92,metalness:.06,emissive:0x521e09,emissiveIntensity:.38}),meteorRoot);meteorRock.scale.set(1.9,1.62,1.78);
 for(let i=0;i<8;i++){const fissure=mesh(new THREE.TorusGeometry(.72+meteorRandom()*.25,.012,4,40),new THREE.MeshBasicMaterial({color:0xff7836,transparent:true,opacity:.3,blending:THREE.AdditiveBlending}),meteorRoot);fissure.rotation.set(meteorRandom()*Math.PI,meteorRandom()*Math.PI,meteorRandom()*Math.PI);fissure.scale.setScalar(1.3);}
-function meteorPosition(t){const u=clamp((t-1.1)/(3.55-1.1));return new THREE.Vector3(mix(-17,0,u),mix(17,TABLE_Y+.7,u*u),mix(-9,0,u));}
+function meteorPosition(t){const u=Math.pow(clamp((t-METEOR_START)/(METEOR_IMPACT-METEOR_START)),1.6);return new THREE.Vector3(mix(-19,0,u),mix(22,TABLE_Y+.62,u),mix(-11,0,u));}
+const meteorCrater=new THREE.Group();room.add(meteorCrater);
+const meteorRim=mesh(new THREE.CylinderGeometry(3.65,3.58,.25,96,1,true),mats.edge,meteorCrater);meteorRim.position.y=TABLE_Y-.125;
+const meteorAnnulus=mesh(new THREE.RingGeometry(1.96,3.65,96),tableTopMat,meteorCrater);meteorAnnulus.rotation.x=-Math.PI/2;meteorAnnulus.position.y=TABLE_Y+.003;
+ring(3.66,.033,mats.steel,meteorCrater,TABLE_Y-.025);ring(3.59,.014,mats.cyan,meteorCrater,TABLE_Y-.16);
+const craterInterior=mesh(new THREE.CylinderGeometry(1.98,1.12,1.3,32,1,true),new THREE.MeshStandardMaterial({color:0x10171a,roughness:.96,side:THREE.DoubleSide}),meteorCrater);craterInterior.position.y=TABLE_Y-.65;
+const craterDebris=[],craterRandom=random(803);
+for(let i=0;i<26;i++){
+  const a=i/26*TAU,spread=TAU/26*.76,r=1.91+craterRandom()*.12;
+  const lip=mesh(prism([[Math.cos(a-spread)*r,Math.sin(a-spread)*r],[Math.cos(a-spread)*2.31,Math.sin(a-spread)*2.31],[Math.cos(a+spread)*2.31,Math.sin(a+spread)*2.31],[Math.cos(a+spread)*r,Math.sin(a+spread)*r]],.16),[tableTopMat,mats.cut],meteorCrater);lip.position.y=TABLE_Y-.035;lip.rotation.set(Math.cos(a)*.055,0,-Math.sin(a)*.055);
+  if(i%2===0){const pts=[];for(let n=0;n<4;n++){const radius=2.14+n*.35,angle=a+(craterRandom()-.5)*.13;pts.push([Math.cos(angle)*radius,TABLE_Y+.011,Math.sin(angle)*radius]);}line(pts,0x0b1117,.9,meteorCrater);}
+  const chip=mesh(new THREE.BoxGeometry(.13+craterRandom()*.38,.08+craterRandom()*.12,.13+craterRandom()*.36),mats.cut);chip.userData={origin:new THREE.Vector3(Math.cos(a)*1.7,TABLE_Y,Math.sin(a)*1.7),velocity:new THREE.Vector3(Math.cos(a)*(2+craterRandom()*3),3+craterRandom()*3,Math.sin(a)*(2+craterRandom()*3)),spin:new THREE.Vector3(craterRandom()*7,craterRandom()*8,craterRandom()*7)};craterDebris.push(chip);
+}
+
+// A physical saucer enters through the roof. Its tractor field lifts the actor
+// into an opening in the hull; local clipping keeps the swallowed body inside.
+const ufoRoot=new THREE.Group();scene.add(ufoRoot);
+const ufoHull=new THREE.Group();ufoRoot.add(ufoHull);
+const ufoSilver=new THREE.MeshStandardMaterial({color:0x8ba6b7,metalness:.89,roughness:.24,envMapIntensity:.65});
+const ufoGraphite=new THREE.MeshStandardMaterial({color:0x172a3b,metalness:.8,roughness:.32,envMapIntensity:.5});
+const ufoGlow=new THREE.MeshStandardMaterial({color:0x90ffe6,emissive:0x34ffd4,emissiveIntensity:2.2,metalness:.25,roughness:.28});
+const ufoProfile=[new THREE.Vector2(.68,-.28),new THREE.Vector2(1.25,-.27),new THREE.Vector2(2.12,-.11),new THREE.Vector2(2.49,.07),new THREE.Vector2(2.44,.17),new THREE.Vector2(1.77,.32),new THREE.Vector2(1.02,.49),new THREE.Vector2(.73,.62)];
+mesh(new THREE.LatheGeometry(ufoProfile,80),ufoSilver,ufoHull);
+const lowerDisk=mesh(new THREE.CylinderGeometry(2.12,.76,.32,64,1,true),ufoGraphite,ufoHull);lowerDisk.position.y=-.24;
+ring(2.46,.043,ufoGlow,ufoHull,.12);ring(2.20,.045,mats.dark,ufoHull,.25);ring(1.01,.04,ufoSilver,ufoHull,.5);ring(.73,.065,ufoGlow,ufoHull,-.36);
+const ufoDome=mesh(new THREE.SphereGeometry(.9,40,24,0,TAU,0,Math.PI/2),new THREE.MeshPhysicalMaterial({color:0x739cc4,emissive:0x16316a,emissiveIntensity:.35,metalness:.6,roughness:.11,clearcoat:1,transparent:true,opacity:.82}),ufoHull);ufoDome.position.y=.49;ufoDome.scale.y=.73;
+const ufoCore=mesh(new THREE.SphereGeometry(.36,24,16),ufoGlow,ufoHull);ufoCore.position.y=.69;
+const ufoShutters=[-1,1].map(side=>{const p=box(.68,.09,1.28,ufoGraphite,ufoHull,side*.34,-.34,0);p.userData.side=side;return p;});
+const ufoBulbs=[];
+for(let i=0;i<16;i++){
+  const a=i/16*TAU;
+  const seam=line([[Math.sin(a)*1.12,.47,Math.cos(a)*1.12],[Math.sin(a)*1.75,.335,Math.cos(a)*1.75],[Math.sin(a)*2.30,.205,Math.cos(a)*2.30]],0x2d4659,.8,ufoHull);
+  const lamp=mesh(new THREE.SphereGeometry(.075,12,8),ufoGlow.clone(),ufoHull);lamp.position.set(Math.sin(a)*2.16,-.13,Math.cos(a)*2.16);lamp.scale.y=.52;ufoBulbs.push(lamp);
+  if(i%4===0){const inset=box(.26,.035,.12,mats.dark,ufoHull,Math.sin(a)*1.73,.343,Math.cos(a)*1.73);inset.rotation.y=a;}
+}
+const ufoField=new THREE.Group();scene.add(ufoField);
+const ufoFieldMaterial=new THREE.ShaderMaterial({uniforms:{time:{value:0},strength:{value:0}},transparent:true,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader:'varying vec2 vUv;uniform float time;uniform float strength;void main(){float band=pow(.5+.5*sin(vUv.y*65.-time*8.),16.);float edge=pow(.5+.5*cos(vUv.x*6.28318),8.);float taper=smoothstep(0.,.07,vUv.y)*(1.-smoothstep(.92,1.,vUv.y));float a=(.035+band*.12+edge*.045)*strength*taper;gl_FragColor=vec4(.22,.95,.76,a);}'});
+const ufoCone=mesh(new THREE.CylinderGeometry(.67,1.18,1,64,1,true),ufoFieldMaterial,ufoField);ufoCone.castShadow=false;ufoCone.receiveShadow=false;
+const ufoRings=[];
+for(let i=0;i<9;i++){const p=ring(1,.012,new THREE.MeshBasicMaterial({color:0x85ffe0,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}),ufoField);p.castShadow=false;ufoRings.push(p);}
+const ufoGround=ring(1.16,.024,new THREE.MeshBasicMaterial({color:0x85ffe0,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));ufoGround.position.y=TABLE_Y+.02;
+const ufoLamp=new THREE.SpotLight(0x78ffdf,0,15,.31,.68,1.4);ufoLamp.target.position.set(0,TABLE_Y,0);scene.add(ufoLamp,ufoLamp.target);
+function ufoPosition(t){
+  const approach=smooth(.3,1.85,t),descent=smooth(1.85,2.65,t),departure=clamp((t-8.05)/2.1);
+  if(t<1.85)return new THREE.Vector3(mix(13,0,approach),mix(15,9.8,approach)+Math.sin(approach*Math.PI)*1.8,mix(-10,0,approach));
+  if(t<8.05)return new THREE.Vector3(Math.sin(t*1.7)*.025*descent,mix(9.8,6.55,descent)+Math.sin(t*2.3)*.04*descent,0);
+  return new THREE.Vector3(departure*departure*17,6.55+departure*departure*72,-departure*departure*14);
+}
 
 // Analytic particles make pause, scrubbing and replay exact and inexpensive.
 const MAX_PARTICLES=7800,particles=[],particlePosition=new Float32Array(MAX_PARTICLES*3),particleColor=new Float32Array(MAX_PARTICLES*3),particleSize=new Float32Array(MAX_PARTICLES),particleAlpha=new Float32Array(MAX_PARTICLES);
@@ -455,17 +582,21 @@ function makeParticles(){
     }
     for(let i=0;i<260;i++){const a=i/260*TAU;add(EXPLODE_AT+.12,[0,explosionY,0],[Math.cos(a)*9.4,.4,Math.sin(a)*9.4],0x9bf4f1,2.3,.09,-.7,.28,true);}
   }else if(mode==='beam'){
-    for(let i=0;i<340;i++){
-      const birth=4.02+r()*.5;
-      add(birth,[(r()-.5)*.6,TABLE_Y+.15+r()*1.6,(r()-.5)*.6],[3+r()*5,r()*3-.3,(r()-.5)*2],i%3?0xffda75:0x95e3ff,.7+r()*1.6,.06+r()*.09,-.4,.5,true);
+    for(let i=0;i<420;i++){
+      const birth=LASER_SHATTER_AT+r()*.12;
+      add(birth,[(r()-.5)*.75,TABLE_Y+.1+r()*1.6,(r()-.5)*.65],[1+r()*4,r()*3-1,(r()-.5)*4],i%3?0xff373d:0xff9757,.6+r()*1.5,.025+r()*.055,-1.7,.45,true);
     }
+    for(let i=0;i<100;i++){const a=r()*TAU;add(4.15+r()*.97,[Math.cos(a)*.42,TABLE_Y+.3+r()*1.25,Math.sin(a)*.4],[Math.cos(a)*.7,r()*.9,Math.sin(a)*.7],0xff2738,.25+r()*.4,.025+r()*.035,-.2,.2,true);}
     for(let i=0;i<160;i++){
       const a=r()*TAU,rad=.4+r()*.8;
       add(2.1+r()*1.7,[-10, TABLE_Y+.99+Math.cos(a)*rad,Math.sin(a)*rad],[r()*.2,-Math.cos(a)*.35,-Math.sin(a)*.35],0x7cddff,.5+r()*.4,.04+r()*.04,0,0,true);
     }
   }else if(mode==='meteor'){
-    for(let birth=1.1;birth<3.55;birth+=.025){const p=meteorPosition(birth);add(birth,p.toArray(),[(r()-.5)*.2,.5+r(),(r()-.5)*.2],0xffa457,.45+r()*.5,.08+r()*.1,-.2,.2,true);}
-    for(let i=0;i<350;i++){const a=r()*TAU,speed=1+r()*6;add(3.55+r()*.2,[0,TABLE_Y+.4,0],[Math.cos(a)*speed,r()*4,Math.sin(a)*speed],i%3?0xa0a1a2:0xffad65,1+r()*2,.1+r()*.25,-2,.6,i%3===0,i%3!==0);}
+    for(let birth=METEOR_START;birth<METEOR_IMPACT;birth+=.007){const p=meteorPosition(birth);for(let j=0;j<4;j++)add(birth,p.clone().add(new THREE.Vector3((r()-.5)*1.8,(r()-.5)*1.2,(r()-.5)*1.7)).toArray(),[-2-r()*3,3+r()*3,-1-r()*2],j%2?0xffa457:0xffe1a0,.22+r()*.3,.1+r()*.16,-.2,.2,true);}
+    for(let i=0;i<650;i++){const a=r()*TAU,speed=2+r()*8;add(METEOR_IMPACT+r()*.15,[Math.cos(a)*.9,TABLE_Y+.22,Math.sin(a)*.9],[Math.cos(a)*speed,1+r()*6,Math.sin(a)*speed],i%3?0x7d7770:0xffa354,.75+r()*2,.15+r()*.4,-5,.55,i%3===0,i%3!==0);}
+  }else if(mode==='ufo'){
+    for(let birth=2.8;birth<7.45;birth+=.035){const a=r()*TAU,rad=.65+r()*.5;add(birth,[Math.cos(a)*rad,TABLE_Y+.03,Math.sin(a)*rad],[-Math.cos(a)*.1,.8+r()*1.2,-Math.sin(a)*.1],r()>.3?0x6bffdc:0xe1ffff,1.3+r()*.75,.025+r()*.035,.4,.1,true);}
+    for(let birth=8.1;birth<9.3;birth+=.02){const p=ufoPosition(birth);for(let j=0;j<3;j++)add(birth,[p.x+(r()-.5)*1.6,p.y-.35,p.z+(r()-.5)*1.6],[(r()-.5)*.5,-2-r()*2,(r()-.5)*.5],j?0x70ffe8:0xa8b8ff,.3+r()*.55,.035+r()*.04,0,.2,true);}
   }else if(mode==='missile'){
     for(let birth=1.15;birth<3.35;birth+=.025){
       const p=missilePosition(birth);
@@ -568,15 +699,17 @@ function sfx(kind){
   if(kind==='engine'){start=48;end=94;volume=.045;length=2.2;osc.type='sawtooth';}
   if(kind==='firework'){start=160;end=23;volume=.12;length=.9;}
   if(kind==='break'){start=95;end=25;volume=.14;length=1.1;}
+  if(kind==='tractor'){start=180;end=390;volume=.035;length=2.4;osc.type='sine';}
+  if(kind==='warp'){start=110;end=1500;volume=.065;length=.85;osc.type='triangle';}
   osc.frequency.setValueAtTime(start,now);osc.frequency.exponentialRampToValueAtTime(end,now+length);gain.gain.exponentialRampToValueAtTime(volume,now+.016);gain.gain.exponentialRampToValueAtTime(.0001,now+length);osc.start();osc.stop(now+length);
-  if(kind!=='clamp'){
+  if(!['clamp','tractor'].includes(kind)){
     const source=audioContext.createBufferSource(),filter=audioContext.createBiquadFilter(),ng=audioContext.createGain();source.buffer=noise(length);filter.type=kind==='engine'?'bandpass':'lowpass';filter.frequency.setValueAtTime(kind==='firework'?2800:kind==='break'?1900:440,now);
     source.connect(filter);filter.connect(ng);ng.connect(audioContext.destination);ng.gain.setValueAtTime(kind==='engine'?.035:.14,now);ng.gain.exponentialRampToValueAtTime(.0001,now+length);activeAudio.add(source);source.onended=()=>activeAudio.delete(source);source.start();source.stop(now+length);
   }
 }
 function updateAudio(previous,t){
   if(!playing||scrubbing)return;
-  const events=mode==='rocket'?[[2.43,'clamp'],[2.83,'clamp'],[3.65,'engine'],[4.6,'engine'],[EXPLODE_AT,'firework'],[8.48,'firework'],[9.07,'firework'],[9.75,'firework']]:mode==='balance'?[[.12,'break'],[3.53,'clamp']]:mode==='beam'?[[3.8,'engine'],[4.04,'clamp']]:mode==='meteor'?[[3.55,'break']]:mode==='missile'?[[1.3,'engine'],[3.35,'firework'],[3.36,'break']]:[[2.05,'clamp'],[2.82,'clamp'],[BREAK_AT,'break']];
+  const events=mode==='rocket'?[[2.43,'clamp'],[2.83,'clamp'],[3.65,'engine'],[4.6,'engine'],[EXPLODE_AT,'firework'],[8.48,'firework'],[9.07,'firework'],[9.75,'firework']]:mode==='balance'?[[.12,'break'],[3.53,'clamp']]:mode==='beam'?[[3.8,'engine'],[4.04,'clamp'],[LASER_SHATTER_AT,'break']]:mode==='meteor'?[[METEOR_START,'engine'],[METEOR_IMPACT,'break']]:mode==='ufo'?[[.6,'engine'],[2.8,'tractor'],[5.1,'tractor'],[7.5,'clamp'],[8.1,'warp']]:mode==='missile'?[[1.3,'engine'],[3.35,'firework'],[3.36,'break']]:[[2.05,'clamp'],[2.82,'clamp'],[BREAK_AT,'break']];
   for(const [at,type]of events){if(previous<=at&&t>at&&!firedSounds.has(at)){firedSounds.add(at);sfx(type);}}
 }
 
@@ -672,16 +805,19 @@ function updateBalance(t){
 
 function updateBeam(t){
   actor.root.quaternion.identity();actor.root.position.set(0,TABLE_Y,0);
-  const recoil=smooth(4.04,4.15,t)*(1-smooth(4.2,4.5,t)),vanish=smooth(4.13,4.58,t);
-  actor.root.rotation.z=-recoil*.34;actor.root.scale.setScalar(Math.max(.001,1-vanish));actor.root.visible=t<4.58;pose(actor,0,t*7,recoil*.3);
+  const recoil=smooth(4.04,4.15,t)*(1-smooth(4.3,4.65,t)),heat=smooth(4.08,5.13,t);
+  actor.root.rotation.z=-recoil*.14;actor.root.visible=t<LASER_SHATTER_AT;pose(actor,0,t*7,recoil*.3);
+  heatEnabled.value=t>=4.04?1:0;heatRadius.value=mix(-.12,1.95,heat);heatTime.value=t;
+  updateLaserFragments(t);
   const charge=smooth(2.1,3.85,t)*(1-smooth(4.0,4.3,t));chargeRing.visible=charge>0;chargeRing.material.opacity=charge*.8;chargeRing.scale.setScalar(.7+charge*.8);chargeRing.rotation.x=t*1.5;
-  const on=t>=4&&t<5.6,stretch=smooth(4,4.12,t),fade=1-smooth(4.95,5.6,t);
+  const on=t>=4&&t<6.0,stretch=smooth(4,4.12,t),fade=1-smooth(5.35,6.0,t);
   beamRoot.visible=on;beamRoot.position.set(-16+16*stretch,TABLE_Y+.99,0);beamRoot.scale.set(stretch,1,1);beamRoot.rotation.x=t*3;
-  beamShell.material.opacity=.18*fade;beamCore.material.opacity=.76*fade;beamWhite.material.opacity=.96*fade;beamCoil.material.opacity=.64*fade;
-  beamLamp.intensity=on?8*fade:charge*2;
+  beamShell.material.opacity=.14*fade;beamCore.material.opacity=.54*fade;beamWhite.material.opacity=.68*fade;beamCoil.material.opacity=.56*fade;
+  beamLamp.intensity=on?6*fade:charge*2;
+  burstLight.color.setHex(0xff2438);burstLight.position.set(0,TABLE_Y+1,0);burstLight.intensity=t>=LASER_SHATTER_AT?35*Math.exp(-(t-LASER_SHATTER_AT)*5):heat*1.5;
   $('flash').style.opacity=t>=4.045&&t<4.2?String((1-(t-4.045)/.155)*.08):'0';
-  const u=smooth(.3,3,t),out=smooth(5.8,8.7,t);frameCamera([mix(mix(8.2,4.9,u),7.5,out),mix(mix(6.6,4.3,u),5.3,out),mix(mix(11.2,8.2,u),10.5,out)],[0,TABLE_Y+.7,0],1.48);
-  return t<1.4?'テーブルに立つ':t<3.7?'側方から照準':t<4?'収束':t<5.6?'一点集中・波動砲':t<7.5?'消散':'余韻';
+  const u=smooth(.3,3,t),out=smooth(6.2,9,t);frameCamera([mix(mix(8.2,4.1,u),7.5,out),mix(mix(6.6,3.8,u),5.3,out),mix(mix(11.2,7.0,u),10.5,out)],[0,TABLE_Y+.7,0],1.48);
+  return t<1.4?'テーブルに立つ':t<3.7?'側方から照準':t<4.08?'着弾':t<5.13?'赤熱が全身へ広がる':t<LASER_SHATTER_AT?'全身が赤熱':t<7.3?'粉々に砕ける':'余韻';
 }
 function updateMissile(t){
   const broken=t>=3.35,age=t-3.35;
@@ -704,43 +840,78 @@ function updateMissile(t){
   return t<1.15?'テーブルへ':t<2.8?'ミサイル飛来':t<3.35?'直撃寸前':t<4.5?'机ごと爆破':t<7.5?'破片・煙':'余韻';
 }
 function updateMeteor(t){
-  const impact=t>=3.55,age=t-3.55;actor.root.quaternion.identity();actor.root.position.set(0,TABLE_Y,0);pose(actor,0,t*7,0);
-  const crush=smooth(3.55,3.84,t);actor.root.scale.set(1+crush*.6,1-crush*.88,1+crush*.35);actor.root.visible=t<4.45;
-  meteorRoot.visible=t>=1.1;
+  const impact=t>=METEOR_IMPACT,age=t-METEOR_IMPACT;actor.root.quaternion.identity();actor.root.position.set(0,TABLE_Y,0);pose(actor,0,t*7,0);
+  const crush=smooth(METEOR_IMPACT-.04,METEOR_IMPACT+.13,t);actor.root.scale.set(1+crush*.6,1-crush*.94,1+crush*.35);actor.root.visible=t<METEOR_IMPACT+.16;
+  meteorRoot.visible=t>=METEOR_START;meteorCrater.visible=impact;
   if(!impact){meteorRoot.position.copy(meteorPosition(t));meteorRoot.rotation.set(t*1.8,t*.9,t*.6);}
-  else{meteorRoot.position.set(Math.min(.4,age*.25),TABLE_Y+.65+Math.sin(Math.min(age/.35,1)*Math.PI)*.20,0);meteorRoot.rotation.set(6.4+Math.min(age,.7)*.24,3.2,1.8);}
+  else{const settle=smooth(0,.17,age);meteorRoot.position.set(.08*settle,mix(TABLE_Y+.62,TABLE_Y-.57,settle)+Math.sin(Math.min(age/.26,1)*Math.PI)*.035,0);meteorRoot.rotation.set(METEOR_IMPACT*1.8+settle*.11,METEOR_IMPACT*.9,METEOR_IMPACT*.6+settle*.07);}
   meteorRock.material.emissiveIntensity=impact?.38*Math.exp(-age*.6):.38;
-  burstLight.position.set(0,TABLE_Y+1.5,0);burstLight.intensity=impact?75*Math.exp(-age*4):0;
-  const retreat=smooth(3.55,5.2,t),shake=impact?Math.exp(-age*5)*.17:0;frameCamera([mix(8,10,retreat)+Math.sin(t*90)*shake,mix(6.4,7.3,retreat),mix(11,13.5,retreat)],[0,TABLE_Y+.9,0],1.45);
+  for(const chip of craterDebris){chip.visible=impact&&age<3.3;if(chip.visible){const data=chip.userData;chip.position.copy(data.origin).addScaledVector(data.velocity,age);chip.position.y=Math.max(.08,chip.position.y-7*age*age);const spin=Math.min(age,.85);chip.rotation.set(data.spin.x*spin,data.spin.y*spin,data.spin.z*spin);}}
+  burstLight.position.set(0,TABLE_Y+1.5,0);burstLight.intensity=impact?125*Math.exp(-age*5):0;
+  shock.visible=impact&&age<.7;shock.position.set(0,TABLE_Y+.02,0);shock.scale.setScalar(1.3+Math.max(0,age)*12);shock.material.opacity=impact?(1-smooth(0,.7,age))*.55:0;
+  const retreat=smooth(METEOR_IMPACT,METEOR_IMPACT+1.5,t),shake=impact?Math.exp(-age*6)*.27:0;frameCamera([mix(7.2,9.5,retreat)+Math.sin(t*91)*shake,mix(5.4,7.6,retreat)+Math.cos(t*97)*shake*.4,mix(9.6,12.6,retreat)],[0,TABLE_Y+.65,0],1.45);
   $('flash').style.opacity=impact&&age<.15?String((1-age/.15)*.13):'0';
-  return t<1.1?'テーブルへ':t<3.55?'隕石が接近':t<4.5?'隕石で圧壊':t<7?'粉塵・余熱':'余韻';
+  return t<METEOR_START?'テーブルへ':t<METEOR_IMPACT?'隕石が高速落下':t<METEOR_IMPACT+.4?'天板を突き破る':t<6?'机にめり込む・粉塵':'余韻';
+}
+function updateUfo(t){
+  ufoRoot.visible=t>.3;ufoRoot.position.copy(ufoPosition(t));
+  const hover=smooth(1.85,2.65,t)*(1-smooth(8.0,8.7,t));
+  ufoHull.rotation.set(Math.sin(t*1.4)*.035*hover,mix(-.45,.1,smooth(.3,2.5,t))+t*.13,Math.sin(t*1.1)*.026*hover);
+  const iris=smooth(2.55,3.05,t)*(1-smooth(7.3,7.85,t));
+  for(const shutter of ufoShutters)shutter.position.x=shutter.userData.side*(.34+iris*.69);
+  ufoBulbs.forEach((lamp,i)=>lamp.material.emissiveIntensity=1.2+1.4*(.5+.5*Math.sin(t*5-i*.65)));
+  const field=smooth(2.65,3.12,t)*(1-smooth(7.2,7.75,t)),top=ufoRoot.position.y-.37,height=Math.max(.1,top-TABLE_Y);
+  ufoField.visible=field>.001;ufoCone.position.y=TABLE_Y+height/2;ufoCone.scale.y=height;ufoFieldMaterial.uniforms.time.value=t;ufoFieldMaterial.uniforms.strength.value=field;
+  for(let i=0;i<ufoRings.length;i++){const u=((t*.27+i/ufoRings.length)%1+1)%1,ring=ufoRings[i];ring.position.y=TABLE_Y+height*u;ring.scale.setScalar(mix(1.17,.67,u));ring.material.opacity=Math.sin(u*Math.PI)*field*.33;}
+  ufoGround.visible=field>.001;ufoGround.scale.setScalar(1+Math.sin(t*5)*.035);ufoGround.material.opacity=field*.6;
+  ufoLamp.position.set(ufoRoot.position.x,top,0);ufoLamp.intensity=field*32;ufoClipPlane.constant=top+.02;
+  const rise=smooth(3.2,7.2,t),sway=Math.sin(rise*Math.PI)*.15;
+  actor.root.visible=t<7.24;actor.root.position.set(Math.sin(t*2)*sway,mix(TABLE_Y,top+.04,rise),Math.cos(t*1.7)*sway*.5);actor.root.rotation.set(Math.sin(t*1.3)*rise*.06,rise*(t-3.2)*.75,Math.sin(t*1.9)*rise*.08);pose(actor,0,t*2,rise*.65);
+  for(const blade of aperture){const open=smooth(.1,1.5,t),a=blade.userData.angle;blade.position.set(Math.cos(a)*3.9*open,0,Math.sin(a)*3.9*open);blade.rotation.y=open*.18;}
+  if(t<2.65){const u=smooth(.2,2.65,t);frameCamera([mix(10.5,6.8,u),mix(8.3,6.0,u),mix(14.5,10.5,u)],[0,mix(4.2,3.9,u),0],1.35);}
+  else if(t<8.05){const u=smooth(3,7.2,t);frameCamera([mix(6.8,5.7,u),mix(6,6.7,u),mix(10.5,9.1,u)],[0,mix(3.9,5.3,u),0],1.4);}
+  else{const p=ufoRoot.position,u=smooth(8.05,10.1,t);frameCamera([mix(5.7,14,u),Math.min(48,p.y)+5,mix(9.1,24,u)],[p.x*.7,Math.min(55,p.y)-.5,p.z*.6],1.35);}
+  return t<1.85?'UFO飛来':t<2.65?'円卓の上でホバリング':t<3.2?'反重力フィールド展開':t<7.24?'反重力で吸い上げる':t<8.05?'船内に収容':t<10.1?'宇宙へ連れ去る':'余韻';
 }
 function updateOutcome(t){
   let dead=false;
   if(mode==='rocket')dead=t>=EXPLODE_AT+.65;
   else if(mode==='collapse')dead=actor.root.position.y<-18;
   else if(mode==='balance')dead=[actor,secondActor].every((c,i)=>!balanceFalls[i]||c.root.position.y<-18);
-  else dead=t>=(mode==='beam'?5.0:mode==='meteor'?4.9:5.3);
+  else if(mode==='ufo')dead=t>=10.15;
+  else dead=t>=(mode==='beam'?7.45:mode==='meteor'?5.15:5.3);
   const labels=configuredDisclosure|| (mode==='balance'?[balanceFalls[0]?'レモンはインポスターだった':'',balanceFalls[1]?'ローズはクルーメイトだった':''].filter(Boolean):['レモンはインポスターだった']);
-  $('disclosure').textContent=labels.join('\n');$('wolves').textContent='残り人狼 '+Math.max(0,Number(configuredWolves)||0)+' 人';$('wolves').hidden=!configuredShowWolves;
+  const details=configuredDisclosureDetails||labels.map(text=>{const match=text.match(/^(.*)は(.+)だった$/);return match?{name:match[1],label:match[2],impostor:match[2]==='インポスター'}:{text};});
+  const key=JSON.stringify(details);
+  if(key!==disclosureKey){
+    disclosureKey=key;$('disclosure').replaceChildren();
+    for(const detail of details){const row=document.createElement('span');row.className='disclosure-line';
+      if(detail.text)row.textContent=detail.text;
+      else if(!detail.label||detail.revealMode==='none')row.textContent=String(detail.name||'プレイヤー')+'が追放された';
+      else{row.append(document.createTextNode(String(detail.name||'プレイヤー')+'は'));const role=document.createElement('span');role.className='disclosure-role'+(detail.impostor===true?' impostor':'');role.textContent=detail.label;row.append(role,document.createTextNode('だった'));}
+      $('disclosure').append(row);
+    }
+  }
+  $('wolves').textContent='残り人狼 '+Math.max(0,Number(configuredWolves)||0)+' 人';$('wolves').hidden=!configuredShowWolves;
   const el=$('outcome'),wasShown=el.classList.contains('show');el.style.transition='none';if(!dead){for(const a of el.getAnimations())a.cancel();el.classList.remove('show');el.style.opacity='0';}else{el.style.opacity='1';el.classList.add('show');if(!wasShown&&playing&&!seekingNow)el.animate([{opacity:0,transform:'translate(-50%,-38%)'},{opacity:1,transform:'translate(-50%,-50%)'}],{duration:800,easing:'ease-out'});}
 }
 function draw(t){
   const collapsed=destructive()&&t>=breakAt();
   actor.root.scale.setScalar(1);secondActor.root.scale.setScalar(1);
   secondActor.root.visible=mode==='balance';balanceRoot.visible=mode==='balance';panRoots.forEach(m=>m.visible=mode==='balance');chainMeshes.forEach(m=>m.visible=mode==='balance');cutGlints.forEach(m=>m.visible=false);
-  rocketAssembly.visible=false;beamRoot.visible=false;chargeRing.visible=false;missileRoot.visible=false;blastPuffs.visible=false;meteorRoot.visible=false;shock.visible=false;flashOrb.visible=false;
-  beamLamp.intensity=0;engineLight.intensity=0;burstLight.intensity=0;$('flash').style.opacity='0';
-  intactTable.visible=!collapsed;floorCap.visible=!collapsed;pedestal.visible=!collapsed||mode==='balance';centralTable.visible=mode==='balance'&&collapsed;shaftGroup.visible=destructive();
+  rocketAssembly.visible=false;beamRoot.visible=false;chargeRing.visible=false;missileRoot.visible=false;blastPuffs.visible=false;meteorRoot.visible=false;meteorCrater.visible=false;craterDebris.forEach(p=>p.visible=false);shock.visible=false;flashOrb.visible=false;laserFragments.visible=false;
+  ufoRoot.visible=false;ufoField.visible=false;ufoGround.visible=false;ufoLamp.intensity=0;heatEnabled.value=0;
+  beamLamp.intensity=0;engineLight.intensity=0;burstLight.intensity=0;burstLight.color.setHex(0xffdba4);$('flash').style.opacity='0';
+  intactTable.visible=!collapsed&&!(mode==='meteor'&&t>=METEOR_IMPACT);floorCap.visible=!collapsed;pedestal.visible=!collapsed||mode==='balance';centralTable.visible=mode==='balance'&&collapsed;shaftGroup.visible=destructive();
   shardMeshes.forEach((m,i)=>m.visible=collapsed&&!(mode==='balance'&&i<16));cracks.visible=mode==='collapse'&&!collapsed;
   cracks.visible=(mode==='collapse'||mode==='balance')&&!collapsed;tableLight.intensity=collapsed?3:4;
   const falling=(mode==='collapse'||mode==='balance')&&collapsed,fallStart=breakAt();
   scene.fog.density=falling?mix(.006,.043,smooth(fallStart+1.2,fallStart+7,t)):.0045;
   scene.fog.color.setHex(falling?0x050b13:0x06101d);
-  const phase=mode==='rocket'?updateRocket(t):mode==='collapse'?updateCollapse(t):mode==='balance'?updateBalance(t):mode==='beam'?updateBeam(t):mode==='meteor'?updateMeteor(t):updateMissile(t);
+  const phase=mode==='rocket'?updateRocket(t):mode==='collapse'?updateCollapse(t):mode==='balance'?updateBalance(t):mode==='beam'?updateBeam(t):mode==='meteor'?updateMeteor(t):mode==='ufo'?updateUfo(t):updateMissile(t);
   for(const s of spectators){
     // All spectators follow the launch with their heads and bodies; the camera has one shared track.
-    const tilt=mode==='rocket'?smooth(4.3,7.2,t)*.22:collapsed?.13:0;
+    const tilt=mode==='rocket'?smooth(4.3,7.2,t)*.22:mode==='ufo'?smooth(2.8,6.8,t)*.18:collapsed?.13:0;
     s.crew.torso.rotation.x=-tilt;s.crew.hands.forEach((h,i)=>{h.position.y=.88+(mode==='rocket'?smooth(4,4.7,t):smooth(3.1,3.4,t))*.1;});
   }
   updateParticles(t);updateOutcome(t);$('phase').textContent=phase;$('seek').value=String(t);$('seek').style.setProperty('--progress',(t/MODES[mode].duration*100).toFixed(2)+'%');
@@ -748,11 +919,14 @@ function draw(t){
 }
 function updatePlayButton(){$('play').textContent=playing?'❚❚ 停止':'▶ 再生';$('play').setAttribute('aria-label',playing?'一時停止':'再生');}
 function reset(nextMode=mode,autoplay=true){
+  restoreActorMaterials();
   mode=nextMode;time=0;completed=false;playing=autoplay;stopAudio();firedSounds.clear();disposePhysics();balanceFallsActive=false;
   actor.root.visible=true;actor.root.quaternion.identity();actor.torso.rotation.set(0,0,0);actor.root.scale.setScalar(1);shaftFill.intensity=42;
   secondActor.root.quaternion.identity();secondActor.torso.rotation.set(0,0,0);balanceRoot.quaternion.identity();balanceRoot.position.set(0,TABLE_Y,0);panRoots.forEach(p=>p.quaternion.identity());
   for(const blade of aperture){blade.position.set(0,0,0);blade.rotation.y=0;}
   for(const m of shardMeshes){m.quaternion.identity();}
+  if(mode==='beam'){prepareLaserFragments();prepareActorMaterials('beam');}
+  else if(mode==='ufo')prepareActorMaterials('ufo');
   makeParticles();refreshPanWeights();for(const button of document.querySelectorAll('[data-mode]'))button.setAttribute('aria-selected',String(button.dataset.mode===mode));
   $('shot').textContent=MODES[mode].shot;$('balanceResult').hidden=mode!=='balance';
   $('modeTitle').textContent=MODES[mode].title;$('modeNote').textContent=MODES[mode].note;$('seek').max=String(MODES[mode].duration);$('duration').textContent='0:'+Math.ceil(MODES[mode].duration);
@@ -787,11 +961,12 @@ function animate(stamp){
 }
 // Standalone animation API: no connection to game rules, rooms, accounts or votes.
 function configureAnimation(options={}){
+  restoreActorMaterials();
   if(Array.isArray(options.votes)){balanceVotes=options.votes.slice(0,2).map(n=>Math.max(0,Number(n)||0));balanceFalls=[balanceVotes[0]>=balanceVotes[1],balanceVotes[1]>=balanceVotes[0]];}
   if(Array.isArray(options.falls))balanceFalls=options.falls.slice(0,2).map(Boolean);
-  if(Array.isArray(options.disclosure))configuredDisclosure=options.disclosure.map(String);
-  if(options.remainingImpostors!==undefined)configuredWolves=Number(options.remainingImpostors)||0;
-  if(options.showImpostorCount!==undefined)configuredShowWolves=!!options.showImpostorCount;
+  configuredDisclosure=Array.isArray(options.disclosure)?options.disclosure.map(String):null;
+  configuredDisclosureDetails=Array.isArray(options.disclosureDetails)?options.disclosureDetails.map(d=>({name:String(d.name||'プレイヤー'),label:String(d.label||''),impostor:d.impostor===true,revealMode:d.revealMode})):null;
+  configuredWolves=Math.max(0,Number(options.remainingImpostors??1)||0);configuredShowWolves=options.showImpostorCount!==false;
   if(options.costumeSource&&!costumeBuilder)try{costumeBuilder=new Function('THREE','clamp',options.costumeSource+';return buildLightCostume;')(THREE,clamp);}catch{}
   const targets=options.targets||[];
   for(let i=0;i<Math.min(2,targets.length);i++){
@@ -814,11 +989,11 @@ function configureAnimation(options={}){
     }
   }
 }
-$('balanceResult').addEventListener('change',event=>{const v=event.target.value;balanceVotes=v==='both'?[4,4]:v==='left'?[4,2]:[2,4];balanceFalls=[v!=='right',v!=='left'];configuredDisclosure=null;reset('balance',true);});
+$('balanceResult').addEventListener('change',event=>{const v=event.target.value;balanceVotes=v==='both'?[4,4]:v==='left'?[4,2]:[2,4];balanceFalls=[v!=='right',v!=='left'];configuredDisclosure=null;configuredDisclosureDetails=null;reset('balance',true);});
 window.EjectionAnimations={
   play(type=mode,options={}){if(options.color!==undefined)actor.suit.color.set(options.color);if(options.secondColor!==undefined)secondActor.suit.color.set(options.secondColor);configureAnimation(options);reset(Object.hasOwn(MODES,type)?type:'rocket',true);if(Number(options.startAt)>0)seek(Number(options.startAt));},
   pause(){setPlaying(false);},resume(){setPlaying(true);},seek,reset(){reset(mode,false);},
-  getState(){return{ready,mode,time,duration:MODES[mode].duration,playing,completed,physics:!!physics,physicsStep,worldBuilds,fragments:shardMeshes.length,frameCount,actorPosition:actor.root.position.toArray(),secondActorPosition:secondActor.root.position.toArray(),cameraPosition:camera.position.toArray()};}
+  getState(){return{ready,mode,time,duration:MODES[mode].duration,playing,completed,physics:!!physics,physicsStep,worldBuilds,fragments:shardMeshes.length,frameCount,actorPosition:actor.root.position.toArray(),actorVisible:actor.root.visible,secondActorPosition:secondActor.root.position.toArray(),cameraPosition:camera.position.toArray(),heatRadius:heatRadius.value,laserFragmentsVisible:laserFragments.visible,laserFragments:laserFragmentSpecs.length,meteorPosition:meteorRoot.position.toArray(),meteorCraterVisible:meteorCrater.visible,ufoPosition:ufoRoot.position.toArray(),tractorVisible:ufoField.visible};}
 };
 window.addEventListener('message',event=>{if(event.source!==parent)return;const data=event.data;if(data?.type==='ss-ejection-play')window.EjectionAnimations.play(data.mode,data.options||{color:data.color});});
 try{
