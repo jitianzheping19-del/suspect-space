@@ -107,14 +107,15 @@
   <script type="module">
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
+    const embedded=window.__SS_KILL_EMBED__===true;
     const canvas=document.querySelector('#scene'),stage=document.querySelector('.stage');
-    const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
+    const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:embedded,powerPreference:'high-performance'});
     renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.setSize(stage.clientWidth,stage.clientHeight,false);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
     const scene=new THREE.Scene();scene.background=new THREE.Color('#071322');scene.fog=new THREE.Fog('#071322',15,31);
     const overlayScene=new THREE.Scene();
     const camera=new THREE.PerspectiveCamera(48,stage.clientWidth/stage.clientHeight,.1,80);camera.position.set(0,3.15,8.6);camera.lookAt(0,1.1,0);
     const overlayCamera=new THREE.OrthographicCamera(-4*stage.clientWidth/stage.clientHeight,4*stage.clientWidth/stage.clientHeight,4,-4,.1,60);overlayCamera.position.set(0,0,20);overlayCamera.lookAt(0,0,0);
-    renderer.autoClear=false;
+    renderer.autoClear=false;if(embedded)renderer.setClearColor(0,0);
     overlayScene.add(new THREE.HemisphereLight(0xe9faff,0x526271,2.4));const overlayKey=new THREE.DirectionalLight(0xffffff,3.4);overlayKey.position.set(-3,6,8);overlayScene.add(overlayKey);
     scene.add(new THREE.HemisphereLight(0xa8edff,0x172433,2.15));
     const key=new THREE.DirectionalLight(0xe4f7ff,3.1);key.position.set(-4,9,5);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-10;key.shadow.camera.right=10;key.shadow.camera.top=10;key.shadow.camera.bottom=-10;scene.add(key);
@@ -172,6 +173,7 @@
     const sparks=[];for(let i=0;i<30;i++){const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+(i%3)*.012,0),new THREE.MeshBasicMaterial({color:i%3===0?'#fff2de':i%3===1?'#ff4d68':'#ffb0bf',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));overlayScene.add(mesh);sparks.push({mesh,angle:i*2.3999632297,speed:.8+(i%7)*.17,up:.35+(i%5)*.13});}
     const shadow=new THREE.Mesh(new THREE.CircleGeometry(.75,36),new THREE.MeshBasicMaterial({color:'#02060a',transparent:true,opacity:.35,depthWrite:false}));shadow.position.set(.65,-1.17,.55);shadow.scale.set(1,.28,1);overlayScene.add(shadow);
 
+    let killRunId="",killVolume=.7;
     const duration=7,clock=new THREE.Clock();let current=0,playing=false,playStart=0,fromTime=0,lastTime=0;
     const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)};const mix=(a,b,t)=>a+(b-a)*t;const between=(t,a,b)=>smooth((t-a)/(b-a));
     const statePill=document.querySelector('#statePill'),caption=document.querySelector('#caption'),ghostNotice=document.querySelector('#ghostNotice'),timelineLabel=document.querySelector('#timelineLabel'),flash=document.querySelector('#flash'),scrubber=document.querySelector('#scrubber'),currentTime=document.querySelector('#currentTime'),playBtn=document.querySelector('#playBtn');
@@ -196,15 +198,30 @@
       if(current>=2.42&&lastTime<2.42){flash.classList.remove('hit');void flash.offsetWidth;flash.classList.add('hit');}
       lastTime=current;renderFrame();
     }
-    function renderFrame(){renderer.clear();renderer.render(scene,camera);renderer.clearDepth();renderer.render(overlayScene,overlayCamera);}
-    function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';}}else renderFrame();}
+    function renderFrame(){renderer.clear();if(!embedded)renderer.render(scene,camera);renderer.clearDepth();renderer.render(overlayScene,overlayCamera);}
+    function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';if(embedded&&killRunId){parent.postMessage({type:'ss-kill-done',id:killRunId},'*');killRunId='';}}}else renderFrame();}
     function play(){if(current>=duration)updateAt(0);playing=true;fromTime=current;playStart=performance.now();playBtn.textContent='Ⅱ 一時停止';}
     playBtn.addEventListener('click',()=>{if(playing){playing=false;playBtn.textContent='▶ 再生';}else play();});
     document.querySelector('#replayBtn').addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(0);play();});
     scrubber.addEventListener('input',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(scrubber.value));});
     document.querySelectorAll('.step').forEach(el=>el.addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(el.dataset.at));}));
-    const resize=()=>{const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();overlayCamera.left=-4*w/h;overlayCamera.right=4*w/h;overlayCamera.updateProjectionMatrix();renderFrame();};window.addEventListener('resize',resize);new ResizeObserver(resize).observe(stage);
-    updateAt(0);requestAnimationFrame(frame);
+    const resize=()=>{const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();const halfWidth=Math.max(3.1,4*w/h),halfHeight=halfWidth*h/w;overlayCamera.left=-halfWidth;overlayCamera.right=halfWidth;overlayCamera.top=halfHeight;overlayCamera.bottom=-halfHeight;overlayCamera.updateProjectionMatrix();renderFrame();};window.addEventListener('resize',resize);new ResizeObserver(resize).observe(stage);
+
+    function applyLiveCostume(actor,code){
+      const previous=actor.userData.costume;if(previous){previous.removeFromParent();previous.traverse(o=>{o.geometry?.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());});}
+      if(typeof buildLightCostume!=="function")return;
+      const outfit=buildLightCostume(THREE,code||"standard");outfit.userData.pet?.removeFromParent();actor.add(outfit);actor.userData.costume=outfit;
+    }
+    addEventListener("message",event=>{
+      if(!embedded||event.source!==parent||event.data?.type!=="ss-kill-start")return;
+      const data=event.data;killRunId=String(data.id||"");killVolume=Math.max(0,Math.min(1,Number(data.volume)||0));
+      killer.userData.suit.color.set(data.killerColor||"#ee5368");victim.userData.suit.color.set(data.victimColor||"#46c4e6");
+      applyLiveCostume(killer,data.killerCostume);applyLiveCostume(victim,data.victimCostume);
+      updateAt(0);resize();play();
+    });
+    window.SpaceSuspectVictimPreview={seek(value){playing=false;updateAt(value)},play,resize,getState:()=>({time:current,playing,embedded,killerVisible:killer.visible,victimVisible:victim.visible,killerColor:killer.userData.suit.color.getHexString(),victimColor:victim.userData.suit.color.getHexString()})};
+
+    resize();updateAt(0);requestAnimationFrame(frame);
   </script>
 </body>
 </html>
