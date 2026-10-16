@@ -18138,7 +18138,7 @@ window.addEventListener("keydown", event => {
       if(key)keys.delete(key);
     });
     window.addEventListener("keydown", event => {
-      if (modalVisible() || !isLobbyInteractionActive() || !$("setup").classList.contains("hidden") || $("controls").classList.contains("hidden") || isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (modalVisible() || !isLobbyInteractionActive() || !$("setup").classList.contains("hidden") || isTypingTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
       const frame = $("lobbyAttachedFrame");
       if (frame?.contentWindow&&!["KeyE","KeyF"].includes(event.code)) frame.contentWindow.postMessage({ type: "lobby-key", key: event.code, down: true }, "*");
     });
@@ -18569,7 +18569,7 @@ function renderUI() {
       show("lobbyChat", phase === "lobby" && lobbyChatOpen);
       show("lobbyChatToggleBtn",phase==="lobby");
       const seated=!!players[uid]?.seated,useMode=lobbyNearCustomize?"customize":(lobbyNearSeat||seated)?"seat":"";
-      show("lobbyUseBtn",phase==="lobby"&&!lobbyPanelOpen&&$("roundRoles").classList.contains("hidden")&&(!!lobbyKartAction||!!useMode||lobbyNearMonitor||lobbyNearUpdates));
+      show("lobbyUseBtn",false);
       $("lobbyUseBtn").disabled=["locked","busy"].includes(lobbyKartAction);
       const lobbyActionFull=lobbyKartAction?(lobbyKartAction==="spawn"?"車を出す":lobbyKartAction==="exit"?"降りる":lobbyKartAction==="enter"?"乗る":lobbyKartAction==="locked"?"スタート待機中":"乗降中…"):lobbyNearUpdates?"アプデ情報を見る [F]":lobbyNearMonitor?"役職モニターを見る":useMode==="customize"?"使用 [F]":seated?"立つ [F]":"座る [F]";
       const lobbyActionShort=lobbyKartAction?(lobbyKartAction==="spawn"?"車を出す":lobbyKartAction==="exit"?"降車":lobbyKartAction==="enter"?"乗る":lobbyKartAction==="locked"?"待機":"待機"):lobbyNearUpdates?"更新":lobbyNearMonitor?"監視":useMode==="customize"?"着替え":seated?"立つ":"座る";
@@ -18627,7 +18627,9 @@ function renderUI() {
       document.body.dataset.phase=phase;if(phase!=="ended")document.getElementById("victoryFx")?.remove();
       document.body.dataset.waitingLobby=String(waitingLobbyForRunningMatch);
       show("hud",phase!=="lobby");
-      show("controls", phase === "play" || phase === "lobby");
+      show("controls", phase === "play");
+      $("controls").inert=phase!=="play";
+      if(phase!=="play"&&(joystick.x||joystick.z||pointerId!==null))resetInput();
       show("roundRoleBtn",(phase==="play"&&countdownLeft<=0)||phase==="meeting");
       const bountyTarget=me?.subrole==="bountyHunter"?game.players?.[me.bountyTarget]:null;
       const bountyLocation=me?.bountyTarget?(players[me.bountyTarget]||bountyTarget):null;
@@ -18646,7 +18648,7 @@ function renderUI() {
       $("bountyArrow").style.transform=targetInView?"none":`rotate(${Math.atan2(bountyDx,bountyDz)*180/Math.PI}deg)`;
       if(phase!=="play"&&phase!=="meeting"&&!(phase==="lobby"&&lobbyPanelOpen)&&$("roundRoles").dataset.source!=="lobby")show("roundRoles",false);
       const lobbyMoving = phase === "lobby";
-      show("taskBtn", !lobbyMoving);
+      show("taskBtn", phase === "play");
       show("reportBtn", !lobbyMoving);
       show("mapBtn", !lobbyMoving);
       $("mapBtn").inert=false;$("mapBtn").removeAttribute("aria-hidden");
@@ -19272,10 +19274,8 @@ if (keys.has("a") || keys.has("arrowleft")) dx--;
 const length = Math.hypot(dx, dz);
       if (length > 1) { dx /= length; dz /= length; }
 
-      const jumpButton=$("jumpBtn"),showJump=!!code&&(
-        isLobbyInteractionActive()&&!!players[uid]?.online&&!players[uid]?.seated&&!players[uid]?.sitting ||
-        game.phase==="play"&&game.settings?.viewMode==="3d"&&!!me?.alive&&!me.disconnected&&!me.ventId
-      );
+      const jumpButton=$("jumpBtn"),showJump=!!code&&!isWaitingLobbyForRunningMatch()&&
+        game.phase==="play"&&game.settings?.viewMode==="3d"&&!!me?.alive&&!me.disconnected&&!me.ventId;
       if(jumpButton.classList.contains("hidden")===showJump)jumpButton.classList.toggle("hidden",!showJump);
       if(showJump){const disabled=!jumpAvailable();if(jumpButton.disabled!==disabled)jumpButton.disabled=disabled;}
       const controllingDrone=me?.subrole==="ubiquitous"&&me?.drone?.active;
@@ -22414,6 +22414,12 @@ body:has(#setup.portalUI:not(.hidden)) #ssxOrientationGuide{display:none!importa
 <style id="identity-voice-pause-visual">
 /* A forced identity pause keeps the usual quiet mic icon; no speaking pulse. */
 #voiceToggleBtn.identityVoicePause:disabled{opacity:1!important;filter:none!important;box-shadow:none!important;animation:none!important}
+</style>
+<style id="play-controls-phase-visibility">
+/* Gameplay controls stay hidden before joining, in lobbies, meetings and results. */
+body:not([data-phase="play"]) #controls,
+body:not([data-phase="play"]) #taskBtn,
+body:not([data-phase="play"]) #lobbyUseBtn{display:none!important;visibility:hidden!important;pointer-events:none!important}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
