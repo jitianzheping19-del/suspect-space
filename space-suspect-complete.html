@@ -2484,7 +2484,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
   <section id="firebaseOffline" class="hidden" role="alertdialog" aria-modal="true"><strong>オフラインです</strong><p>インターネット接続を確認して再読み込みしますか？</p><button id="firebaseReloadBtn" type="button">再読み込み</button></section>
   <section id="firebaseConnecting" class="hidden" aria-live="assertive"><div class="connectionSpinner" aria-hidden="true"><i class="connectionCrew"></i><i class="connectionLeg left"></i><i class="connectionLeg right"></i></div><strong>Firebaseに接続中…</strong></section>
   <aside id="uiRecoveryBanner" class="hidden" role="alert" aria-live="assertive"><span>画面更新エラー</span><span id="uiRecoveryMessage"></span><button id="uiRecoveryRetry" type="button">再試行</button></aside>
-<aside id="lobbyRoster" class="hidden"><h3>プレイヤー一覧</h3><div id="lobbyRosterList"></div></aside>
+<aside id="lobbyRoster" class="hidden"><h3><span>プレイヤー一覧</span><small id="lobbyRosterCount" aria-label="オンライン人数"></small></h3><div id="lobbyRosterList"></div></aside>
 <iframe id="lobbyAttachedFrame" class="hidden" title="統合済みThree.jsロビー" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
 <button id="readyBtn" class="hidden" type="button">準備OK</button>
   <div id="lobbyRoomCode" class="hidden"><span>部屋コード</span><strong id="lobbyRoomCodeValue"></strong></div><button id="lobbyShowRoles" type="button">役職一覧</button>
@@ -2673,7 +2673,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
       </div><p class="inputKeyMapStatus" data-core-input-map-status role="status">ボタンを押して新しいキーを選べます。</p><button type="button" data-core-input-reset>初期設定に戻す</button></fieldset>
       <p class="inputDeviceHelp" data-core-input-help aria-live="polite"></p>
     </div>
-    <section class="unifiedRoomSettings" aria-label="部屋"><h3>部屋</h3><div id="settingsRoomForecastMount"><section id="lobbyRolePreview" aria-live="polite"><strong>今回の役職</strong><div id="lobbyRolePreviewList">設定を読み込み中…</div></section></div><section id="settingsRoomPlayers" class="settingsRoomPlayers" aria-label="ルーム内プレイヤー" hidden><div class="settingsRoomPlayersHeading"><strong>プレイヤー</strong><span>ホストは追放、全員は受信音量と個人用ニックネームを設定できます</span></div><div id="settingsPlayerList" class="settingsPlayerList"></div></section><button type="button" id="settingsLeaveBtn" class="danger" hidden>ゲームを切断</button></section>
+    <section class="unifiedRoomSettings" aria-label="部屋"><h3>部屋</h3><div id="settingsRoomForecastMount"><section id="lobbyRolePreview" aria-live="polite"><strong>今回の役職</strong><div id="lobbyRolePreviewList">設定を読み込み中…</div></section></div><section id="settingsRoomPlayers" class="settingsRoomPlayers" aria-label="ルーム内プレイヤー" hidden><div class="settingsRoomPlayersHeading"><strong>プレイヤー</strong></div><div id="settingsPlayerList" class="settingsPlayerList"></div></section><button type="button" id="settingsLeaveBtn" class="danger" hidden>ゲームを切断</button></section>
     <section class="unifiedAccountSettings"><h3>アカウント</h3><div id="settingsAccountMount"></div><button id="logoutBtn" type="button" class="secondary" style="margin-top:10px">ログアウト</button></section>
   </div>
 </section>
@@ -6855,7 +6855,7 @@ function createRoleBehaviorControls(container){
     if(spec.enabledBy)input.disabled=!$(spec.enabledBy)?.checked;
   }
 }
-const NORMAL_SIGHT_RADIUS=9;
+const NORMAL_SIGHT_RADIUS=8;
 function hasHawkEyeVision(player,stamp=now()){return Number(player?.hawkUntil)>stamp||Number(player?.waveHawkUntil)>stamp;}
 function lighterSightRadius(player,settings=game.settings,stamp=now()){return NORMAL_SIGHT_RADIUS*(Number(player?.lighterUntil)>stamp?roleBehaviorValue(settings,"lighterVisionMultiplier"):1);}
 function upgradedRoleCooldownMs(role,settings){
@@ -8534,15 +8534,15 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         const hue=Number.isFinite(Number(player.hue))?Number(player.hue):.53;dot.style.background=new THREE.Color().setHSL(hue,.68,.52).getStyle();dot.style.color=dot.style.background;
         const nickname=nicknameFor(id),realName=player.name||"プレイヤー";name.className="settingsRoomPlayerName";name.textContent=nickname||realName;name.title=nickname?`本名: ${realName}`:realName;identity.append(dot,name);
         const badge=document.createElement("span");badge.className="settingsRoomPlayerBadge";badge.textContent=id===hostId?"ホスト":id===uid?"あなた":player.bot?"CPU":"参加中";identity.append(badge);actions.className="settingsRoomPlayerActions";
-        if(id!==uid&&!player.bot){const rename=document.createElement("button");rename.type="button";rename.className="settingsRoomNickname";rename.dataset.settingsNickname=id;rename.textContent=nickname?"名前変更":"ニックネーム";rename.setAttribute("aria-label",`${realName}のニックネームを変更`);actions.append(rename);}
-        if(isHost()&&id!==uid&&!player.bot){const kick=document.createElement("button");kick.type="button";kick.className="settingsRoomKick";kick.dataset.settingsKick=id;kick.textContent=game.expulsions?.[id]?.roomEpoch===Number(roomCreatedAt)?"追放処理中":"追放";kick.disabled=!connected||game.expulsions?.[id]?.roomEpoch===Number(roomCreatedAt);actions.append(kick);}
-        row.append(identity,actions);
+        const controls=document.createElement("div");controls.className="settingsRoomVoiceControls";
         if(id!==uid&&!player.bot){
-          const pref=voicePlayerPreference(id),controls=document.createElement("div"),volumeLabel=document.createElement("label"),volumeName=document.createElement("span"),slider=document.createElement("input"),output=document.createElement("output"),mute=document.createElement("button");
-          controls.className="settingsRoomVoiceControls";volumeLabel.className="settingsRoomVolume";volumeName.textContent="受信音量";slider.type="range";slider.min="0";slider.max="150";slider.step="5";slider.value=String(pref.volumePercent);slider.dataset.playerVolume=id;slider.setAttribute("aria-label",`${player.name||"プレイヤー"}の受信音量`);output.value=`${pref.volumePercent}%`;output.textContent=output.value;
-          mute.type="button";mute.className="settingsRoomMute";mute.dataset.settingsMute=id;mute.setAttribute("aria-pressed",String(pref.muted));mute.textContent=pref.muted?"ミュート中":"ミュート";volumeLabel.append(volumeName,slider,output);controls.append(volumeLabel,mute);row.append(controls);
-        }else{const hint=document.createElement("p");hint.className="settingsRoomPlayerHint";hint.textContent=player.bot?"CPUプレイヤーにボイス音声はありません。":"自分の音声はこの一覧では変更できません。";row.append(hint);}
-        list.append(row);
+          row.classList.add("hasRemoteAudio");identity.dataset.playerAction=id;identity.tabIndex=0;identity.setAttribute("role","button");identity.title=isHost()?"ニックネーム設定または追放":"ニックネームを設定";
+          const pref=voicePlayerPreference(id),volumeLabel=document.createElement("label"),slider=document.createElement("input"),output=document.createElement("output"),mute=document.createElement("button");
+          volumeLabel.className="settingsRoomVolume";slider.type="range";slider.min="0";slider.max="150";slider.step="5";slider.value=String(pref.volumePercent);slider.dataset.playerVolume=id;slider.setAttribute("aria-label",`${realName}の受信音量`);slider.title=`${realName}の受信音量 ${pref.volumePercent}%`;output.value=`${pref.volumePercent}%`;output.textContent=output.value;
+          mute.type="button";mute.className="settingsRoomMute";mute.dataset.settingsMute=id;mute.setAttribute("aria-pressed",String(pref.muted));mute.setAttribute("aria-label",pref.muted?`${realName}の音声ミュートを解除`:`${realName}をミュート`);mute.title=mute.getAttribute("aria-label");mute.textContent=pref.muted?"🔇":"🔊";
+          volumeLabel.append(slider,output);controls.append(volumeLabel);actions.append(mute);
+        }else row.classList.add("noRemoteAudio");
+        if(row.classList.contains("hasRemoteAudio"))row.append(controls,identity,actions);else row.append(identity);list.append(row);
       }
     }
     $("settingsPlayerList")?.addEventListener("input",event=>{
@@ -8554,12 +8554,11 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     $("settingsPlayerList")?.addEventListener("change",event=>{if(!event.target.matches?.("input[data-player-volume]"))return;const list=$("settingsPlayerList");list.dataset.adjusting="false";renderRoomPlayerSettings();});
     $("settingsPlayerList")?.addEventListener("pointercancel",()=>{const list=$("settingsPlayerList");list.dataset.adjusting="false";renderRoomPlayerSettings();});
     $("settingsPlayerList")?.addEventListener("click",event=>{
-      const rename=event.target.closest?.("button[data-settings-nickname]");
-      if(rename){event.preventDefault();event.stopPropagation();const id=rename.dataset.settingsNickname;openNicknameDialog(id,players?.[id]?.name||"プレイヤー");return;}
       const mute=event.target.closest?.("button[data-settings-mute]");
-      if(mute){const id=mute.dataset.settingsMute,next=!voicePlayerPreference(id).muted;setVoicePlayerPreference(id,{muted:next});mute.setAttribute("aria-pressed",String(next));mute.textContent=next?"ミュート中":"ミュート";return;}
-      const kick=event.target.closest?.("button[data-settings-kick]");if(kick){event.preventDefault();event.stopPropagation();void kickRoomPlayerFromSettings(kick.dataset.settingsKick);}
+      if(mute){const id=mute.dataset.settingsMute,next=!voicePlayerPreference(id).muted;setVoicePlayerPreference(id,{muted:next});mute.setAttribute("aria-pressed",String(next));mute.textContent=next?"🔇":"🔊";mute.setAttribute("aria-label",next?`${players?.[id]?.name||"プレイヤー"}の音声ミュートを解除`:`${players?.[id]?.name||"プレイヤー"}をミュート`);mute.title=mute.getAttribute("aria-label");return;}
+      const identity=event.target.closest?.("[data-player-action]");if(identity){const id=identity.dataset.playerAction,realName=players?.[id]?.name||"プレイヤー";if(isHost())openPlayerActionsDialog(id,realName);else openNicknameDialog(id,realName);}
     });
+    $("settingsPlayerList")?.addEventListener("keydown",event=>{const identity=event.target.closest?.("[data-player-action]");if(identity&&(event.key==="Enter"||event.key===" ")){event.preventDefault();const id=identity.dataset.playerAction,realName=players?.[id]?.name||"プレイヤー";if(isHost())openPlayerActionsDialog(id,realName);else openNicknameDialog(id,realName);}});
     window.addEventListener("spacesuspect:input-settings-open",renderRoomPlayerSettings);
     function stopVoiceActivityMeter(){
       if(voiceMeterFrame)cancelAnimationFrame(voiceMeterFrame);voiceMeterFrame=0;
@@ -11317,6 +11316,27 @@ async function kickRoomPlayerFromSettings(playerId,fallbackName=""){
     if(wrote)safeRenderUI();
     return wrote;
   }catch(error){if(currentSession===session)toast("追放を同期できませんでした。接続を確認してください。","command-error");console.warn("設定からの参加者追放に失敗しました",error);return false;}
+}
+
+function openPlayerActionsDialog(targetId,realName="プレイヤー"){
+  if(!isHost()||!code||!connected||targetId===uid||players?.[targetId]?.online!==true||players?.[targetId]?.bot)return false;
+  document.getElementById("playerActionDialog")?.remove();
+  const root=document.createElement("div");root.id="playerActionDialog";root.className="playerActionOverlay";root.setAttribute("role","dialog");root.setAttribute("aria-modal","true");root.setAttribute("aria-labelledby","playerActionTitle");
+  const card=document.createElement("section");card.className="playerActionCard";
+  const head=document.createElement("div");head.className="playerActionHead";
+  const title=document.createElement("strong");title.id="playerActionTitle";title.textContent=realName;
+  const closeButton=document.createElement("button");closeButton.type="button";closeButton.className="playerActionClose";closeButton.setAttribute("aria-label","閉じる");closeButton.textContent="×";head.append(title,closeButton);
+  const prompt=document.createElement("p");prompt.textContent="このプレイヤーに行う操作を選んでください。";
+  const nicknameButton=document.createElement("button");nicknameButton.type="button";nicknameButton.className="playerActionNickname";nicknameButton.textContent="ニックネームをつける";
+  const kickButton=document.createElement("button");kickButton.type="button";kickButton.className="playerActionKick";const pending=game.expulsions?.[targetId]?.roomEpoch===Number(roomCreatedAt);kickButton.textContent=pending?"追放処理中":"部屋から追放";kickButton.disabled=pending||!connected;
+  const cancelButton=document.createElement("button");cancelButton.type="button";cancelButton.className="playerActionCancel";cancelButton.textContent="閉じる";
+  card.append(head,prompt,nicknameButton,kickButton,cancelButton);root.append(card);document.body.append(root);
+  const close=()=>{root.remove();document.removeEventListener("keydown",onKey);};
+  const onKey=event=>{if(event.key==="Escape")close();};document.addEventListener("keydown",onKey);
+  root.addEventListener("click",event=>{if(event.target===root)close();});closeButton.addEventListener("click",close);cancelButton.addEventListener("click",close);
+  nicknameButton.addEventListener("click",()=>{close();openNicknameDialog(targetId,players?.[targetId]?.name||realName);});
+  kickButton.addEventListener("click",()=>{if(!isHost()||!connected)return;close();void kickRoomPlayerFromSettings(targetId,realName);});
+  nicknameButton.focus({preventScroll:true});return true;
 }
 
 function commandContextError(cmd,g){
@@ -18395,7 +18415,7 @@ function renderUI() {
       show("lobbyRoster",phase==="lobby"&&!lobbyPanelOpen);
       show("readyBtn",phase==="lobby"&&(waitingLobbyForRunningMatch||!isHost()));
       if(phase==="lobby"){
-        const list=$("lobbyRosterList");
+        const list=$("lobbyRosterList"),rosterCount=$("lobbyRosterCount");if(rosterCount)rosterCount.textContent=`${online.length}/20人`;
         const stamp=JSON.stringify(online.map(([id,p])=>{const mic=voiceDisplayState(id);return [id,p.name,p.hue,p.costume,p.ready,hostId,mic?.mic,mic?.speaking];}));
         if(list.dataset.stamp!==stamp){
           list.dataset.stamp=stamp;list.replaceChildren();
@@ -18404,33 +18424,7 @@ function renderUI() {
             dot.className="voteAvatar";dot.style.background=new THREE.Color().setHSL(p.hue,.7,.5).getStyle();addCostumeHeadIcon(dot,p.costume);
             setLobbyRosterName(name,id,(p.name||"プレイヤー")+(id===uid?" · あなた":""),!!p.ready);status.textContent=id===hostId?"ホスト":p.ready?"準備OK":"未準備";status.className=p.ready||id===hostId?"readyStatus":"";
             row.append(dot,name,status);
-            if(id!==uid){row.style.cursor="pointer";row.title="タップしてニックネームを付ける";row.onclick=()=>openNicknameDialog(id,p.name||"プレイヤー");}
-            // SSX_HOST_KICK_V1: only the actual room host has administrative authority.
-            if(isHost()&&id!==uid&&!p.bot){
-              row.classList.add("hostKickRow");row.tabIndex=0;row.setAttribute("role","button");
-              row.setAttribute("aria-label",`${p.name||"プレイヤー"}を部屋から追放`);
-              const kick=async()=>{
-                if(!isHost()||id===uid||!connected||players[id]?.online!==true)return;
-                const targetName=players[id]?.name||p.name||"プレイヤー";
-                const roomCode=code,roomEpoch=Number(roomCreatedAt)||0,currentSession=session;
-                if(!roomCode||!isHost()||currentSession!==session||id===uid)return;
-                try{
-                  const wrote=await writeRoomKick(
-                    async()=>{
-                      if(!isHost()||id===uid||!connected||players[id]?.online!==true||currentSession!==session||code!==roomCode)return false;
-                      const message=`${targetName}はホストにより部屋から追放されました。`;
-                      const event={id:token(),name:targetName,by:uid,roomEpoch,at:now(),reason:"管理者による追放",message};
-                      await update(ref(db,`rooms/${roomCode}/game/expulsions/${id}`),event);
-                      if(currentSession===session){game.expulsions={...(game.expulsions||{}),[id]:event};}
-                      return true;
-                    }
-                  );
-                  if(!wrote)return;
-                }catch(error){if(currentSession===session)toast("追放を同期できませんでした。接続を確認してください。","command-error");console.warn("参加者の追放に失敗しました",error);}
-              };
-              row.title="クリックして部屋から追放";row.onclick=kick;
-              row.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();kick();}};
-            }
+            if(id!==uid&&!p.bot){row.classList.add("hostPlayerActionRow");row.style.cursor="pointer";row.tabIndex=0;row.setAttribute("role","button");row.setAttribute("aria-label",isHost()?`${p.name||"プレイヤー"}の操作を選ぶ`:`${p.name||"プレイヤー"}にニックネームを付ける`);row.title=isHost()?"ニックネーム設定または追放":"ニックネームを設定";const activate=()=>isHost()?openPlayerActionsDialog(id,p.name||"プレイヤー"):openNicknameDialog(id,p.name||"プレイヤー");row.onclick=activate;row.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();activate();}};}
             list.append(row);
           }
         }
@@ -18607,7 +18601,7 @@ $("status").textContent = !connected
         : !hostOnline()
           ? "ホストが切断しました。復帰しない場合は退出してください。"
           : phase === "lobby"
-            ? `${online.length}/20人 · ホストはページを開いたままにしてください`
+            ? `${online.length}/20人`
             : `人狼 ${Object.values(game.players||{}).filter(player=>player?.role==="impostor"&&!player.observer).length}人 · 全体タスク ${tasks.done}/${tasks.total}` +
               (roleCanDoTasks(me,game.settings) ? ` · 自分 ${personalTasks}/${personalAssigned.length}` : "") +
               (Object.values(game.players||{}).some(player=>player.bot)
@@ -20834,6 +20828,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
   const audioSection=addSection('audio','音量',audio);
   const qualitySection=addSection('quality','画質',performance);
   const roomSection=addSection('room','部屋',roomSettings);
+  const roomPlayerSettings=card.querySelector("#settingsRoomPlayers");if(playerSection&&roomPlayerSettings)playerSection.append(roomPlayerSettings);
   const operationSection=addSection('operation','操作',operation);
   if(operationSection&&inputGrid)operationSection.append(inputGrid);
 
@@ -22054,6 +22049,79 @@ body[data-phase="meeting"] #voicePermissionPanel:not(.hidden){left:auto!importan
 #gmSettingsRoleDetailPanel .roleDetailFactionNav,#gmSettingsRoleDetailPanel .roleDetailValues{height:100%!important;min-height:0!important;max-height:none!important;overflow:auto!important;overscroll-behavior:contain}
 @media(max-width:900px){#gmSettingsRoleDetailPanel .roleDetailWorkbench{grid-template-rows:minmax(76px,26%) minmax(0,1fr)!important}}
 </style>
+
+<style id="mobile-player-roster-and-actions-v1">
+/* The roster uses the phone height efficiently while retaining a compact row. */
+#lobbyRoster h3{display:flex;align-items:center;justify-content:space-between;gap:6px}
+#lobbyRosterCount{flex:0 0 auto;color:#9bb6c8;font-size:9px;font-weight:750;letter-spacing:0;font-variant-numeric:tabular-nums}
+#status{max-width:110px;font-size:9px;line-height:1.2}
+.settingsRoomPlayersHeading span{display:none!important}
+.settingsRoomPlayer{grid-template-columns:clamp(68px,9vw,88px) minmax(0,1fr) 38px;gap:6px 8px}
+.settingsRoomPlayer.noRemoteAudio{grid-template-columns:minmax(0,1fr)}
+.settingsRoomPlayerIdentity{grid-column:2;grid-row:1;cursor:pointer;touch-action:manipulation}
+.settingsRoomPlayer.noRemoteAudio .settingsRoomPlayerIdentity{grid-column:1}
+.settingsRoomPlayerIdentity:focus-visible{outline:2px solid #8feedd;outline-offset:2px;border-radius:6px}
+.settingsRoomVoiceControls{grid-column:1;grid-row:1;display:block;min-width:0}
+.settingsRoomVolume{grid-template-columns:minmax(34px,1fr) 27px;gap:3px;min-width:0}
+.settingsRoomVolume input{min-width:0;width:100%;height:24px;margin:0}
+.settingsRoomVolume output{font-size:9px}
+.settingsRoomPlayerActions{grid-column:3;grid-row:1;justify-content:center}
+.settingsRoomMute{min-width:34px;width:34px;min-height:34px;height:34px;padding:0;border-radius:9px;font-size:15px}
+.settingsRoomNickname,.settingsRoomKick{display:none!important}
+.playerActionOverlay{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;padding:16px;background:#020712b8;backdrop-filter:blur(5px)}
+.playerActionCard{display:grid;gap:10px;width:min(370px,calc(100vw - 32px));padding:18px;border:1px solid #6b9ab1;border-radius:18px;background:linear-gradient(155deg,#18334a,#071523);color:#effaff;box-shadow:0 18px 55px #000c}
+.playerActionHead{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:17px}
+.playerActionHead strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.playerActionCard p{margin:0 0 2px;color:#aec9d7;font-size:12px}
+.playerActionCard button{min-height:46px;border:1px solid #52768c;border-radius:12px;background:#143047;color:#f1fbff;font-weight:850;touch-action:manipulation}
+.playerActionCard .playerActionNickname{border-color:#68c9cb;background:#12444a}
+.playerActionCard .playerActionKick{border-color:#f17a89;background:#491e2b;color:#fff2f4}
+.playerActionCard .playerActionKick:disabled{opacity:.55}
+.playerActionCard .playerActionCancel{min-height:40px;background:#202c38;color:#c9d8e1}
+.playerActionCard .playerActionClose{flex:0 0 36px;width:36px;min-height:36px;height:36px;padding:0;font-size:24px;line-height:1}
+@media(max-width:700px) and (pointer:coarse){
+  #lobbyRoster{left:max(8px,env(safe-area-inset-left))!important;right:auto!important;top:calc(max(8px,env(safe-area-inset-top)) + 108px)!important;bottom:max(12px,env(safe-area-inset-bottom))!important;width:min(48vw,240px)!important;height:auto!important;max-height:none!important;min-height:0!important;padding:6px!important;overflow:hidden!important}
+  body.voicePromptOpen #lobbyRoster{bottom:calc(178px + env(safe-area-inset-bottom))!important}
+  #lobbyRoster h3{flex:0 0 auto;margin:0 0 5px!important;font-size:10px!important;letter-spacing:0!important}
+  #lobbyRosterList{flex:1 1 0!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain}
+  #lobbyRosterList>div{grid-template-columns:18px minmax(0,1fr) auto!important;gap:3px!important;min-height:27px!important;margin:2px 0!important;padding:3px 4px!important;font-size:9px!important}
+  #lobbyRosterList .voteAvatar{width:17px!important;height:21px!important;flex-basis:17px!important}
+  #lobbyRosterList>div span{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:9px!important}
+  #lobbyRosterList>div small{font-size:7px!important;white-space:nowrap}
+  #lobbyRosterCount{font-size:8px!important}
+  #voiceStatusLabel{display:none!important}
+  #lobbyChatToggleBtn{position:fixed!important;left:auto!important;right:max(8px,env(safe-area-inset-right))!important;top:auto!important;bottom:max(8px,env(safe-area-inset-bottom))!important;z-index:260!important;width:48px!important;min-width:48px!important;height:44px!important;min-height:44px!important;padding:0!important;display:grid!important;place-items:center!important;font-size:0!important}
+  #lobbyChatToggleBtn::before{content:"💬";font-size:20px!important;line-height:1}
+  body[data-phase="lobby"] #jumpBtn:not(.hidden){position:fixed!important;left:auto!important;right:max(8px,env(safe-area-inset-right))!important;top:auto!important;bottom:calc(max(72px,env(safe-area-inset-bottom) + 64px))!important;transform:none!important}
+  body[data-phase="play"] #buttons>#jumpBtn:not(.hidden){transform:translateY(-7px)!important}
+  #status{max-width:72px!important;font-size:8px!important}
+  .settingsRoomPlayer.hasRemoteAudio{grid-template-columns:minmax(58px,22vw) minmax(0,1fr) 36px!important;gap:5px!important;padding:7px!important}
+  .settingsRoomPlayer.noRemoteAudio{grid-template-columns:minmax(0,1fr)!important}
+  .settingsRoomPlayerIdentity{gap:5px!important;min-height:36px}
+  .settingsRoomPlayerName{font-size:11px!important}
+  .settingsRoomPlayerBadge{padding:1px 4px!important;font-size:8px!important}
+  .settingsRoomVolume{grid-template-columns:minmax(34px,1fr) 25px!important;gap:2px!important}
+  .settingsRoomVolume input{min-width:0!important;height:24px!important}
+  .settingsRoomVolume output{font-size:8px!important}
+  .settingsRoomMute{width:34px!important;min-width:34px!important;height:36px!important;min-height:36px!important;font-size:14px!important}
+  .playerActionCard{padding:15px!important;gap:9px!important}
+}
+/* Expand the selected role explanation into the remaining modal height. */
+#roundRoles:not(.autoLaunchRoles)[data-source="game"]>.card,
+#roundRoles:not(.autoLaunchRoles)[data-source="lobby"]>.card{height:min(92dvh,980px)!important;max-height:92dvh!important;grid-template-rows:auto minmax(0,1fr)!important;overflow:hidden!important}
+#roundRoles:not(.autoLaunchRoles)[data-source="game"] #roundRoleList,
+#roundRoles:not(.autoLaunchRoles)[data-source="lobby"] #roundRoleList{height:100%!important;min-height:0!important;grid-template-rows:minmax(0,1fr)!important;overflow:hidden!important}
+#roundRoles:not(.autoLaunchRoles)[data-source="game"] #roundRoleList.hasRoleDetail,
+#roundRoles:not(.autoLaunchRoles)[data-source="lobby"] #roundRoleList.hasRoleDetail{grid-template-rows:minmax(120px,.55fr) minmax(0,1.45fr)!important;align-items:stretch!important}
+#roundRoles:not(.autoLaunchRoles) #roundRoleList.hasRoleDetail .roleDetailPane:not([hidden]){grid-column:1/-1!important;grid-row:2!important;align-self:stretch!important;width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;overflow:auto!important;overscroll-behavior:contain!important}
+@media(max-width:700px){
+  #roundRoles:not(.autoLaunchRoles)[data-source="game"]>.card,
+  #roundRoles:not(.autoLaunchRoles)[data-source="lobby"]>.card{height:92dvh!important;max-height:92dvh!important;padding:10px!important}
+  #roundRoles:not(.autoLaunchRoles)[data-source="game"] #roundRoleList.hasRoleDetail,
+  #roundRoles:not(.autoLaunchRoles)[data-source="lobby"] #roundRoleList.hasRoleDetail{grid-template-rows:minmax(112px,.45fr) minmax(0,1.55fr)!important;gap:6px!important}
+}
+</style>
+
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
 </html>
