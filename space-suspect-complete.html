@@ -5763,8 +5763,31 @@ function trackOwnVoteFlight(meeting,target,voterId,anonymous,voterHue){
   };
 }
 let pendingBotPose={},lastBotPoseSendAt=0;const BOT_POSE_SEND_MS=400;
-function flushBotPose(roomCode){const payload=pendingBotPose;pendingBotPose={};lastBotPoseSendAt=now();
-  update(ref(db,`rooms/${roomCode}/botPositions`),payload).catch(error=>console.warn("Botの位置同期に失敗しました",error));}
+let sentBotPoseRoom="",sentBotPoses={},botPoseWriteBusy=false;
+function flushBotPose(roomCode){
+  if(botPoseWriteBusy)return;
+  const poseKey=`${session}:${roomCode}:${game.round||0}`,poseSession=session;
+  const batch=pendingBotPose;pendingBotPose={};lastBotPoseSendAt=now();
+  if(sentBotPoseRoom!==poseKey){sentBotPoseRoom=poseKey;sentBotPoses={};}
+  const payload={},sent={};
+  for(const [id,pose] of Object.entries(batch)){
+    const previous=sentBotPoses[id]||{},next={x:pose.x,z:pose.z};
+    const patch=compactPosePatch(next,previous);
+    if(!Object.keys(patch).length)continue;
+    sent[id]={...previous,...patch};
+    for(const [key,value] of Object.entries(patch))payload[`${id}/${key}`]=value;
+    payload[`${id}/updatedAt`]=pose.updatedAt;
+  }
+  if(!Object.keys(payload).length)return;
+  botPoseWriteBusy=true;
+  update(ref(db,`rooms/${roomCode}/botPositions`),payload).then(()=>{
+    if(sentBotPoseRoom===poseKey)Object.assign(sentBotPoses,sent);
+  }).catch(error=>{
+    // Keep newer queued positions when retrying a failed write.
+    if(code===roomCode&&session===poseSession)pendingBotPose={...batch,...pendingBotPose};
+    console.warn("Botの位置同期に失敗しました",error);
+  }).finally(()=>{botPoseWriteBusy=false;});
+}
 function syncCostumeColorToggle(color){const b=document.getElementById("costumeColorToggle");if(b)b.style.background=color||readStored("space-suspect-color")||"#42c8f5";}
 document.addEventListener("click",event=>{const t=event.target.closest?.("#costumeColorToggle");if(!t)return;const pal=document.getElementById("costumeColorPalette");const open=pal.classList.toggle("collapsed")===false;t.setAttribute("aria-expanded",String(open));if(open)renderColorPalette("costumeColorPalette",["profileColorInput","colorInput","lobbyProfileColor"]);});
 let spectatorSmooth=null,spectatorSmoothAt=0;
@@ -17982,37 +18005,47 @@ async function handleLobbyKartMessage(data){
   }catch(error){toast('カート操作を同期できませんでした：'+errorText(error));}
 }
 
+// Keep the 10 Hz movement cadence and existing interpolation. Only transmit changed
+// fields; an idle heartbeat stays well inside ROOM_PRESENCE_GRACE_MS (60 seconds).
+const POSE_HEARTBEAT_MS=15000;
+function compactPosePatch(next,previous){
+  const patch={};
+  for(const [key,value] of Object.entries(next)){
+    const normalized=typeof value==="number"&&Number.isFinite(value)?Math.round(value*1000)/1000:value;
+    if(normalized!==previous?.[key])patch[key]=normalized;
+  }
+  return patch;
+}
 let publishBusy = false;
     setInterval(async () => {
       if (!code || !connected || publishBusy || !players[uid]) return;
       const moved = distance(position, lastSent) > .025;
       const lobbyMode=isLobbyInteractionActive();
-      const oldYaw=Number(players[uid]?.yaw)||0,yawChanged=lobbyMode&&Math.abs(Math.atan2(Math.sin(lobbyFacingYaw-oldYaw),Math.cos(lobbyFacingYaw-oldYaw)))>.04;
-      const walkingChanged=lobbyMode&&!!players[uid]?.walking!==lobbyWalking;
-      const heightChanged=lobbyMode&&Math.abs((Number(players[uid]?.lobbyY)||0)-lobbyElevation)>.035;
-      const kartChanged=!!players[uid]?.lobbyKart!==(lobbyMode&&lobbyKartRiding)||!!players[uid]?.lobbyCircuit!==(lobbyMode&&lobbyCircuitLocation)||!!players[uid]?.lobbyVehicle!==(lobbyMode&&lobbyVehicleSpawned)||(lobbyMode&&players[uid]?.circuitCourse!==circuitCourse);
-      if (!moved && !yawChanged && !walkingChanged && !heightChanged && !kartChanged && now() - lastSent.at < 3000) return;
-
-const roomCode = code;
-      const sent = { ...position, at: now() };
-      publishBusy = true;
+      const previous=lastSent.pose||{};
+      const yawDelta=Math.atan2(Math.sin(lobbyFacingYaw-(previous.yaw||0)),Math.cos(lobbyFacingYaw-(previous.yaw||0)));
+      const yawChanged=lobbyMode&&Math.abs(yawDelta)>.04;
+      const walkingChanged=lobbyMode&&previous.walking!==lobbyWalking;
+      const heightChanged=lobbyMode&&Math.abs((previous.lobbyY||0)-lobbyElevation)>.035;
+      const next={x:position.x,z:position.z,lobbyY:lobbyMode?lobbyElevation:0,
+        yaw:lobbyFacingYaw,walking:lobbyWalking,
+        lobbyKart:lobbyMode&&lobbyKartRiding,lobbyCircuit:lobbyMode&&lobbyCircuitLocation,
+        lobbyVehicle:lobbyMode&&lobbyVehicleSpawned,kartSession,circuitCourse};
+      const kartChanged=["lobbyKart","lobbyCircuit","lobbyVehicle","kartSession","circuitCourse"].some(key=>next[key]!==previous[key]);
+      if (!moved && !yawChanged && !walkingChanged && !heightChanged && !kartChanged && now()-lastSent.at<POSE_HEARTBEAT_MS) return;
+      const roomCode=code,playerId=uid,currentSession=session;
+      const patch=compactPosePatch(next,previous);
+      const sent={x:next.x,z:next.z,at:now(),pose:{...previous,...patch}};
+      publishBusy=true;
       try {
-        await update(ref(db, `rooms/${roomCode}/players/${uid}`), {
-          x: position.x,
-          z: position.z,
-          lobbyY:lobbyMode?lobbyElevation:0,
-          yaw:lobbyFacingYaw,
-          walking:lobbyWalking,
-          lobbyKart:lobbyMode&&lobbyKartRiding,lobbyCircuit:lobbyMode&&lobbyCircuitLocation,lobbyVehicle:lobbyMode&&lobbyVehicleSpawned,kartSession,circuitCourse,
-          updatedAt: serverTimestamp()
-        });
-        if (code === roomCode) {lastSent = {...sent,yaw:lobbyFacingYaw,walking:lobbyWalking};players[uid]={...(players[uid]||{}),x:position.x,z:position.z,lobbyY:lobbyMode?lobbyElevation:0,yaw:lobbyFacingYaw,walking:lobbyWalking,lobbyKart:lobbyMode&&lobbyKartRiding,lobbyCircuit:lobbyMode&&lobbyCircuitLocation,lobbyVehicle:lobbyMode&&lobbyVehicleSpawned,kartSession,circuitCourse};}
-      } catch (error) {
-        toast(errorText(error));
-      } finally {
-        publishBusy = false;
-      }
-    }, 100);
+        await update(ref(db,`rooms/${roomCode}/players/${playerId}`),{...patch,updatedAt:serverTimestamp()});
+        // Commit the captured pose, never a newer position reached while awaiting Firebase.
+        if(code===roomCode&&uid===playerId&&session===currentSession){
+          lastSent=sent;
+          players[playerId]={...(players[playerId]||{}),...patch};
+        }
+      } catch(error){toast(errorText(error));}
+      finally{publishBusy=false;}
+    },100);
 
 // ---------- UI ----------
     let waveHudMatchKey="",waveHudSeenDeaths=new Set(),waveHudTimers=new Map();
