@@ -39,3 +39,16 @@ Realtime Databaseのルールは database.rules.json にあります。GitHub Pa
 - 管理者は特定のFirebase Auth UIDに限定し、画面側とRealtime Databaseルール側の両方で確認します。UIDは秘密情報ではなく、権限はFirebase Authenticationで検証したUIDに結び付いています。ルールの変更はFirebaseへ別途公開する必要があります。
 - Firebase Web APIキーはブラウザー公開用です。Admin SDKの秘密鍵をHTMLやGitHubへ置かないでください。
 - FirebaseのルールはGitHubへの更新だけでは変わりません。現在Consoleに設定されている公開ルールはFirebase ConsoleまたはFirebase CLIから別途更新してください。
+
+## HTMLの軽量化と埋め込みデータの編集
+
+歩行・使用ボタン・視界・The Skeld電気室の調整、および未使用コードの削除とアセット圧縮の内容は [更新・削減一覧](OPTIMIZATION-2026-10-16.md) を参照してください。
+
+ゲームは単一HTMLで動作し、ビルドは不要です。埋め込みアニメーション等を編集する場合は、Node.jsの開発用ツールで展開できます。
+
+```sh
+node tools/embedded-assets.mjs unpack space-suspect-complete.html /tmp/space-suspect-assets
+node tools/embedded-assets.mjs pack space-suspect-complete.html /tmp/space-suspect-assets updated.html
+```
+
+互換用のgzip展開処理に使用したfflateのライセンスは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) に記載しています。
