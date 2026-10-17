@@ -14,6 +14,9 @@ export default defineConfig({
     dedupe: ["@skyway-sdk/room"],
   },
   build: {
-    rollupOptions: { input },
+    rollupOptions: {
+      input,
+      external: ["three"],
+    },
   },
 });
