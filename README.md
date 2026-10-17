@@ -1,15 +1,17 @@
 # SPACE SUSPECT
 
-ブラウザーで遊ぶオンライン人狼ゲームです。GitHub Pagesでは index.html を公開します。スマートフォンは横画面でのプレイを推奨します。
+ブラウザーで遊ぶオンライン人狼ゲームです。GitHub Pagesで公開し、スマートフォンは横画面でのプレイを推奨します。
 
 ## GitHub Pagesで公開する
 
-1. リポジトリの一番上にHTMLと関連ファイルを置きます。
-2. Settings → Pages を開きます。
-3. Deploy from a branch を選び、main ブランチと /(root) を指定して保存します。
+1. Settings → Pages → Build and deployment → Source を **GitHub Actions** にします。
+2. Settings → Secrets and variables → Actions に次の Repository secrets を登録します。
+   - `SKYWAY_APP_ID`
+   - `SKYWAY_SECRET_KEY`
+3. `main` ブランチへ更新をpushすると、`.github/workflows/pages.yml` がビルドしてGitHub Pagesへ公開します。
 4. Pagesに表示されたURLを開きます。
 
-ビルドやnpmのインストールは不要です。
+ビルドはGitHub Actions上で行うため、開発者のPCにNode.jsを入れる必要はありません。公式SkyWay AI Noise Cancellerの取得にもActions Secretsを使います。キーはHTMLや公開ファイルに書きません。
 
 ## Firebaseの設定
 
@@ -26,6 +28,7 @@ Realtime Databaseのルールは database.rules.json にあります。GitHub Pa
 | space-suspect-complete.html | 完成版HTML |
 | space-suspect-complete.docx | 完成版HTMLのWordコピー |
 | database.rules.json | Realtime Databaseルール |
+| `.github/workflows/pages.yml` | GitHub Actionsのビルド・Pages公開設定 |
 
 ## 確認状況
 
@@ -44,7 +47,7 @@ Realtime Databaseのルールは database.rules.json にあります。GitHub Pa
 
 歩行・使用ボタン・視界・The Skeld電気室の調整、および未使用コードの削除とアセット圧縮の内容は [更新・削減一覧](OPTIMIZATION-2026-10-16.md) を参照してください。
 
-ゲームは単一HTMLで動作し、ビルドは不要です。埋め込みアニメーション等を編集する場合は、Node.jsの開発用ツールで展開できます。
+ゲームのソースは単一HTMLですが、SkyWay AI Noise Cancellerのnpmライブラリを取り込むため、公開時にGitHub Actions上でViteビルドします。埋め込みアニメーション等を編集する場合は、Node.jsの開発用ツールで展開できます。
 
 ```sh
 node tools/embedded-assets.mjs unpack space-suspect-complete.html /tmp/space-suspect-assets

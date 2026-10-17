@@ -55,4 +55,10 @@
 - GitHub PagesからFirebase IDトークン付きでCloudflare Workerへ要求し、参加者ごとのSkyWay認証トークンを取得。
 - 近接距離、壁、ドア越しの音量、会議、幽霊、カメラ視聴、個別ミュートと音量調整の受信制御を維持。
 - Firebaseの座標更新とマイク状態表示は維持し、旧WebRTCの候補・SDP送信を停止。退出時に残った旧シグナリングデータは削除。
-- マイク入力はブラウザーのエコー抑制・ノイズ抑制を使用。SkyWay公式AI Noise Cancellerは別途クライアントライブラリのビルド組み込みが必要で、トークンの認可設定だけでは音声処理されない。
+## SkyWay公式AIノイズキャンセリング
+
+- マイク音声をSkyWay AI Noise Cancellerへ通し、処理済み音声を公開する構成を追加。
+- AI処理が利用できない場合は元のマイク音声へフォールバックし、通話自体を止めない。
+- ブラウザ標準の`noiseSuppression`との二重処理を避ける設定に変更。
+- GitHub ActionsでSkyWayの認証情報を使ってライブラリを取得し、ViteでGitHub Pages向けにビルド・公開する設定を追加。
+- App IDとSecret KeyはActions Secretsからビルド時にのみ利用し、HTMLやリポジトリへ保存しない。

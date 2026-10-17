@@ -8407,9 +8407,10 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     // SkyWay SFU carries audio; Firebase keeps only mic presence and uses the
     // existing roster positions for proximity, walls, camera, and ghost gates.
     let voiceEnabledByRoom=false,voiceJoined=false,voiceMuted=true,voicePromptOpen=false,voiceStream=null,voiceContext=null,voiceSessionId="",voicePresenceUnsub=[],voiceDisplayUnsub=[],voiceDisplayRoom="",voicePeers=new Map(),voiceRemoteStates=new Map(),voicePositionOverride=null;
-    let skywaySdkPromise=null,skywayContext=null,skywayRoom=null,skywayMember=null,skywayLocalAudio=null,skywayRoomName="";
+    let skywaySdkPromise=null,skywayNoiseCancellerModulePromise=null,skywayContext=null,skywayRoom=null,skywayMember=null,skywayLocalAudio=null,skywayInputAudio=null,skywayAudioPublication=null,skywayNoiseCanceller=null,skywayRoomName="";
     const SKYWAY_TOKEN_ENDPOINT="https://skyway-toooken.jitianzheping19.workers.dev/api/token";
-    async function loadSkyWaySdk(){if(!skywaySdkPromise)skywaySdkPromise=import("https://esm.sh/@skyway-sdk/room@2.5.1?bundle");return skywaySdkPromise;}
+    async function loadSkyWaySdk(){if(!skywaySdkPromise)skywaySdkPromise=import("@skyway-sdk/room").catch(error=>{skywaySdkPromise=null;throw error;});return skywaySdkPromise;}
+    async function loadSkyWayNoiseCanceller(){if(!skywayNoiseCancellerModulePromise)skywayNoiseCancellerModulePromise=import("skyway-ai-noise-canceller").catch(error=>{skywayNoiseCancellerModulePromise=null;throw error;});return skywayNoiseCancellerModulePromise;}
     async function requestSkyWayToken(roomName,memberName){
       const user=auth?.currentUser;if(!user)throw new Error("Firebaseログインを確認できません。ログインし直してから通話を開始してください。");
       const idToken=await user.getIdToken();
@@ -8790,8 +8791,9 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       });voicePresenceWrite=write;return write;
     }
     async function stopVoiceChat({removePresence=true,removeSignals=true,closeContext=true}={}){
-      const oldCode=code,oldUid=uid,oldMember=skywayMember,oldRoom=skywayRoom,oldSkywayContext=skywayContext;voiceJoined=false;voiceMuted=true;voicePromptOpen=false;stopVoiceSpatialTimer();stopVoiceActivityMeter();closeAllVoicePeers();voicePresenceSignature="";
-      skywayMember=null;skywayRoom=null;skywayContext=null;skywayLocalAudio=null;skywayRoomName="";
+      const oldCode=code,oldUid=uid,oldMember=skywayMember,oldRoom=skywayRoom,oldSkywayContext=skywayContext,oldNoiseCanceller=skywayNoiseCanceller;voiceJoined=false;voiceMuted=true;voicePromptOpen=false;stopVoiceSpatialTimer();stopVoiceActivityMeter();closeAllVoicePeers();voicePresenceSignature="";
+      skywayMember=null;skywayRoom=null;skywayContext=null;skywayLocalAudio=null;skywayInputAudio=null;skywayAudioPublication=null;skywayNoiseCanceller=null;skywayRoomName="";
+      if(oldNoiseCanceller)try{await oldNoiseCanceller.dispose();}catch(error){console.debug("SkyWayノイズキャンセラーを解放しました",error);}
       for(const track of voiceStream?.getAudioTracks()||[])track.enabled=false;
       for(const unsubscribe of voicePresenceUnsub)try{unsubscribe();}catch{}voicePresenceUnsub=[];
       if(removePresence&&oldCode&&oldUid)await remove(ref(db,`rooms/${oldCode}/voicePresence/${oldUid}`)).catch(()=>{});
@@ -8813,8 +8815,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         $("voicePermissionAllow").disabled=true;message.textContent="ブラウザのマイク許可を確認しています…";
         // Call getUserMedia synchronously within the click activation, before any await.
         const voiceCaps=navigator.mediaDevices.getSupportedConstraints?.()||{};
-        const voiceAudio={echoCancellation:{ideal:true},noiseSuppression:{ideal:true},autoGainControl:{ideal:true},channelCount:{ideal:1}};
-        if(voiceCaps.voiceIsolation)voiceAudio.voiceIsolation={ideal:true};
+        const voiceAudio={echoCancellation:{ideal:true},noiseSuppression:false,autoGainControl:{ideal:true},channelCount:{ideal:1}};
         const mediaRequest=navigator.mediaDevices.getUserMedia({audio:voiceAudio,video:false});
         const AudioContextClass=window.AudioContext||window.webkitAudioContext;
         const requestedRoom=code,requestedSession=session;
@@ -8830,8 +8831,37 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         skywayContext=await sdk.SkyWayContext.Create(authToken);
         skywayRoom=await sdk.SkyWayRoom.FindOrCreate(skywayContext,{type:"sfu",name:requestedRoom});skywayRoomName=requestedRoom;
         skywayMember=await skywayRoom.join({id:uid,name:String(requestedName).slice(0,24)});
-        skywayLocalAudio=new sdk.LocalAudioStream(audioTrack);
-        await skywayMember.publish(skywayLocalAudio);
+        const rawAudio=new sdk.LocalAudioStream(audioTrack);skywayInputAudio=rawAudio;
+        let noiseCanceller=null,noiseReadyTimeout=0,noiseReadySettled=false;
+        try{
+          const {SkyWayNoiseCanceller}=await loadSkyWayNoiseCanceller();
+          noiseCanceller=new SkyWayNoiseCanceller(skywayContext);skywayNoiseCanceller=noiseCanceller;
+          let resolveNoiseReady,rejectNoiseReady;
+          const noiseReady=new Promise((resolve,reject)=>{resolveNoiseReady=resolve;rejectNoiseReady=reject;});
+          noiseReadyTimeout=setTimeout(()=>{if(noiseReadySettled)return;noiseReadySettled=true;rejectNoiseReady(new Error("SkyWay AIノイキャンの初期化がタイムアウトしました。"));},20000);
+          noiseCanceller.onReady(async()=>{
+            if(noiseReadySettled)return;
+            try{const processed=await noiseCanceller.connect(rawAudio);if(noiseReadySettled)return;noiseReadySettled=true;clearTimeout(noiseReadyTimeout);resolveNoiseReady(processed);}
+            catch(error){if(noiseReadySettled)return;noiseReadySettled=true;clearTimeout(noiseReadyTimeout);rejectNoiseReady(error);}
+          });
+          noiseCanceller.onFatalError(event=>{
+            const error=event?.detail||new Error("SkyWay AIノイキャンで復旧できないエラーが発生しました。");
+            console.warn("SkyWay AIノイキャンを停止します",error);
+            if(!noiseReadySettled){noiseReadySettled=true;clearTimeout(noiseReadyTimeout);rejectNoiseReady(error);return;}
+            const publication=skywayNoiseCanceller===noiseCanceller?skywayAudioPublication:null;
+            if(publication)try{const fallback=publication.replaceStream(rawAudio,{releaseOldStream:false});if(fallback?.catch)void fallback.catch(fallbackError=>console.warn("元のマイク音声への切り替えに失敗しました",fallbackError));}catch(fallbackError){console.warn("元のマイク音声への切り替えに失敗しました",fallbackError);}
+            if(skywayNoiseCanceller===noiseCanceller){skywayLocalAudio=rawAudio;skywayNoiseCanceller=null;}
+            try{const disposal=noiseCanceller.dispose();if(disposal?.catch)void disposal.catch(()=>{});}catch{}
+          });
+          noiseCanceller.init();skywayLocalAudio=await noiseReady;
+        }catch(error){
+          if(noiseReadyTimeout)clearTimeout(noiseReadyTimeout);
+          console.warn("SkyWay AIノイキャンを初期化できないため、通常のマイク音声で接続します",error);
+          if(noiseCanceller&&skywayNoiseCanceller===noiseCanceller){try{await noiseCanceller.dispose();}catch{}skywayNoiseCanceller=null;}
+          skywayLocalAudio=rawAudio;
+        }
+        if(code!==requestedRoom||session!==requestedSession||!voiceRoomIsEnabled()){await stopVoiceChat();return;}
+        skywayAudioPublication=await skywayMember.publish(skywayLocalAudio);
         skywayRoom.onStreamPublished.add(({publication})=>{void subscribeSkyWayPublication(publication);});
         skywayRoom.onStreamUnpublished.add(({publication})=>handleSkyWayPublicationRemoved(publication));
         skywayRoom.onMemberLeft.add(({member})=>{closeVoicePeer(String(member?.id||""));});

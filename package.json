@@ -1,0 +1,12 @@
+{
+  "name": "space-suspect-pages",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@skyway-sdk/room": "2.5.1",
+    "vite": "6.4.1"
+  }
+}

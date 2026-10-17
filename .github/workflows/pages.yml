@@ -1,0 +1,68 @@
+name: Build and deploy Space Suspect
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js for the build runner
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install base build dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install tools for the SkyWay AI package installer
+        run: sudo apt-get update && sudo apt-get install -y jq uuid-runtime
+
+      - name: Download the licensed SkyWay AI Noise Canceller package
+        env:
+          SKYWAY_APP_ID: ${{ secrets.SKYWAY_APP_ID }}
+          SKYWAY_SECRET_KEY: ${{ secrets.SKYWAY_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SKYWAY_APP_ID" || -z "$SKYWAY_SECRET_KEY" ]]; then
+            echo "Add SKYWAY_APP_ID and SKYWAY_SECRET_KEY in repository Actions secrets."
+            exit 1
+          fi
+          curl -fsSL https://raw.githubusercontent.com/skyway/ai-noise-canceller/refs/heads/main/tools/js/install.sh -o /tmp/install-skyway-ai-noise-canceller.sh
+          bash /tmp/install-skyway-ai-noise-canceller.sh
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Keep project documents available on Pages
+        run: cp -f ./*.docx ./CHANGELOG-*.md dist/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
