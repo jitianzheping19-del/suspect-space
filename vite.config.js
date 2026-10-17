@@ -14,6 +14,7 @@ export default defineConfig({
     dedupe: ["@skyway-sdk/room"],
   },
   build: {
+    target: "esnext",
     rollupOptions: {
       input,
       external: [/^three(?:\/.*)?$/],
