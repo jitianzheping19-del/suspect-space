@@ -2651,7 +2651,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
         <small id="loginHint" class="ssx-visually-hidden">初めての方はアカウントを作成してください。</small>
         <button id="createAccountBtn" type="button" class="secondary">新しいアカウントを作成</button>
         <button id="loginBackBtn" type="button" class="hidden secondary">ログインへ戻る</button>
-            <small id="createWarn" class="hidden">使用中のPINは登録できません。</small></div>
+            <small id="createWarn" class="hidden">使用中のPINは登録できません。</small><small id="loginInlineError" class="hidden" role="alert" aria-live="polite"></small></div>
       </form>
       <button id="profileOpenBtn" class="hidden">⚙ 設定</button>
       <nav id="titleMenu" aria-label="メインメニュー">
@@ -5969,6 +5969,7 @@ function setLoginMode(mode){
   if(pinLabel)pinLabel.textContent=create?"4桁PINを決める":"4桁PIN";
   if(warn)warn.classList.toggle("hidden",!create);
   if(hint)hint.classList.toggle("hidden",create);
+  const inlineError=$("loginInlineError");if(inlineError){inlineError.textContent="";inlineError.classList.add("hidden");}
   $("loginBtn").textContent=create?"アカウントを作成":"ログイン";
   $("createAccountBtn")?.classList.toggle("hidden",loginMode!=="login");
   $("loginBackBtn")?.classList.toggle("hidden",loginMode==="login");
@@ -9103,6 +9104,19 @@ function showRoleReveal(player) {
       show("roleReveal",launchWait<=0);
       clearTimeout(roleRevealTimer);
       roleRevealTimer=setTimeout(()=>{
+        // Countdown roles end directly into the role card; never expose the map between them.
+        const launchRoles=$("roundRoles");
+        if(launchRoles?.classList.contains("autoLaunchRoles")){
+          const launchKey=launchRoles.dataset.autoLaunchKey||"";
+          if(launchKey)launchRoles.dataset.autoDismissedKey=launchKey;
+          launchRoles.classList.remove("autoLaunchRoles");
+          launchRoles.dataset.source="";
+          show("roundRoles",false);
+        }
+        $("gameCountdown").classList.remove("withAutoLaunchRoles");
+        show("gameCountdown",false);
+        document.body.dataset.gameCountdown="false";
+        document.body.dataset.controlsCountdown="false";
         $("roleRevealTitle").textContent=roleName;
         $("roleIcon").textContent=look.icon;
         $("roleTeam").textContent=faction;
@@ -9116,7 +9130,7 @@ function showRoleReveal(player) {
         show("roleReveal",true);
         $("roleRevealTitle").style.animation="none";void $("roleRevealTitle").offsetWidth;$("roleRevealTitle").style.animation="";
          roleRevealTimer=setTimeout(()=>show("roleReveal",false),5000);
-      },launchWait+1900);
+      },launchWait);
     }
 
 /* ROLE_ABILITY_PRESENTATION_V1 */
@@ -9608,8 +9622,10 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         show("nameGate",true);
         const detail=errorText(error);
         const firebaseSetupError=/apiKey|databaseURL|authDomain|projectId|permission-denied|operation-not-allowed|network-request-failed/i.test(detail+" "+(error?.code||""));
-        $("setupMessage").dataset.tone="error";
-        $("setupMessage").textContent=detail+(firebaseSetupError?"\nFirebase設定・データベースルール・承認済みドメインを確認してください。":"");
+        const loginError=$("loginInlineError");
+        if(loginError){loginError.textContent=detail+(firebaseSetupError?" Firebase設定・データベースルール・承認済みドメインを確認してください。":"");loginError.classList.remove("hidden");}
+        $("setupMessage").dataset.tone="hint";
+        $("setupMessage").textContent="";
       } finally {
         $("loginBtn").disabled = false;$("nameGate").dataset.busy="false";
         for(const id of ["createAccountBtn","loginBackBtn"])if($(id))$(id).disabled=false;
@@ -9683,7 +9699,7 @@ function submitPinLogin(){
   if(pinSubmissionPending)return false;
   const typedName=$("loginNameInput").value.trim().slice(0,16),pin=$("loginPinInput")?.value||"";
   if(!/^\d{4}$/.test(pin))return false;
-  if(loginMode==="create"&&!typedName){$("setupMessage").dataset.tone="error";$("setupMessage").textContent="名前を入力してから4桁PINを入力してください。";$("loginNameInput")?.focus();return false;}
+  if(loginMode==="create"&&!typedName){const inlineError=$("loginInlineError");if(inlineError){inlineError.textContent="名前を入力してから4桁PINを入力してください。";inlineError.classList.remove("hidden");}$("loginNameInput")?.focus();return false;}
   pinSubmissionPending=true;
   document.querySelectorAll("#pinPad .pinKey").forEach(button=>{button.disabled=true;});
   if(loginMode==="create"){
@@ -22947,7 +22963,50 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
 #emergencyTask button:focus-visible{outline:2px solid #a2eaf2!important;outline-offset:2px}
 @media(max-height:500px){#emergencyTask{padding:5px max(7px,env(safe-area-inset-right)) 5px max(7px,env(safe-area-inset-left))!important}#emergencyTask>.card{height:calc(100dvh - 10px)!important;max-height:calc(100dvh - 10px)!important;padding:7px 9px!important;gap:4px!important;border-radius:12px!important}#emergencyTitle{font-size:15px!important}#emergencyCountdown{min-width:52px;padding:4px 7px;font-size:16px}#emergencyStatus{font-size:10px!important}#emergencyCloseBtn{min-height:33px!important;min-width:68px!important;padding:5px 10px!important;font-size:12px!important}#emergencyHint{font-size:10px}#emergencyMachineStage{border-radius:8px}}
 @media(max-width:500px) and (orientation:portrait){#emergencyTask>.card{height:min(680px,calc(100dvh - 24px))!important;padding:9px!important;gap:7px!important}#emergencyTitle{font-size:16px!important}#emergencyHint{font-size:10px}#emergencyStatus{font-size:11px!important}#emergencyCountdown{font-size:16px;min-width:52px}}
-
+</style>
+<style id="oct17-launch-role-full-height-and-ipad-button-spacing">
+/* During the launch countdown, let the role columns use the whole screen height. */
+#roundRoles.autoLaunchRoles[data-source="game"]{
+  position:fixed!important;inset:0!important;display:flex!important;align-items:stretch!important;justify-content:center!important;
+  box-sizing:border-box!important;padding:max(6px,env(safe-area-inset-top)) 8px max(6px,env(safe-area-inset-bottom))!important;
+  overflow:hidden!important;
+}
+#roundRoles.autoLaunchRoles.roundRolesFitsContent[data-source="game"]>.card{
+  box-sizing:border-box!important;display:flex!important;flex-direction:column!important;flex:1 1 auto!important;
+  width:min(1180px,100%)!important;max-width:1180px!important;height:100%!important;min-height:0!important;
+  max-height:none!important;margin:0 auto!important;padding:72px clamp(8px,1.6vw,18px) 8px!important;
+  overflow:hidden!important;gap:7px!important;transform:none!important;
+}
+#roundRoles.autoLaunchRoles[data-source="game"]>.card>.row{flex:0 0 auto!important;margin:0!important}
+#roundRoles.autoLaunchRoles[data-source="game"] #roundRoleList{
+  box-sizing:border-box!important;display:grid!important;flex:1 1 0!important;width:100%!important;height:auto!important;
+  min-width:0!important;min-height:0!important;max-height:none!important;overflow:hidden!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:minmax(0,1fr)!important;
+  align-items:stretch!important;gap:clamp(4px,1vw,10px)!important;
+}
+#roundRoles.autoLaunchRoles[data-source="game"] #roundRoleList.hasRoleDetail{grid-template-rows:minmax(0,1fr) minmax(0,30dvh)!important}
+#roundRoles.autoLaunchRoles[data-source="game"] #roundRoleList>.roleFactionColumn{
+  display:flex!important;flex-direction:column!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+}
+#roundRoles.autoLaunchRoles[data-source="game"] #roundRoleList .roleFactionCards{
+  flex:1 1 0!important;height:auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important;
+  align-content:start!important;grid-auto-rows:max-content!important;row-gap:clamp(6px,.9dvh,12px)!important;
+}
+#roundRoles.autoLaunchRoles[data-source="game"] #roundRoleList.hasRoleDetail .roleDetailPane:not([hidden]){
+  grid-column:1/-1!important;grid-row:2!important;min-height:0!important;max-height:none!important;overflow:auto!important;
+}
+@media(max-width:600px) and (orientation:portrait){
+  #roundRoles.autoLaunchRoles.roundRolesFitsContent[data-source="game"]>.card{padding-top:68px!important}
+}
+/* On iPad, lift only the upper action row so it clears the ability row. */
+@media(min-width:768px) and (max-width:1366px) and (min-height:600px) and (pointer:coarse){
+  body[data-phase="play"] #buttons>#jumpBtn:not(.hidden),
+  body[data-phase="play"] #buttons>#killBtn:not(.hidden),
+  body[data-phase="play"] #buttons>#sabotageBtn:not(.hidden){transform:translateY(-8px)!important}
+}
+/* Keep login errors in the form instead of below the login screen. */
+#setup.portalUI.nameGateActive #setupMessage{display:none!important}
+#setup.portalUI #loginInlineError:not(.hidden){display:block!important;box-sizing:border-box;width:100%;margin:0;padding:8px 10px;border:1px solid #d9877c55;border-radius:9px;background:#47232c66;color:#ffd0c9;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
