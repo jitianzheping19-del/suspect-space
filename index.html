@@ -7543,8 +7543,8 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       const overWolf=impostorRoleSlots>impostorSlots;
       const overCrew=crewRoleSlots+neutralRoleSlots>Math.max(0,totalSlots-impostorSlots);
       const reasons=[];
-      if(overWolf)reasons.push(`人狼役職 ${impostorRoleSlots}人／人狼 ${impostorSlots}人：ランダム抽選`);
-      if(overCrew)reasons.push(`市民・第3陣営の役職が残り枠 ${Math.max(0,totalSlots-impostorSlots)}人を超えています：ランダム抽選`);
+      if(overWolf)reasons.push(`人狼役職の設定が上限（${impostorSlots}人）を超えています`);
+      if(overCrew)reasons.push(`市民・第3陣営の設定が残り枠（${Math.max(0,totalSlots-impostorSlots)}人）を超えています`);
       warning.textContent=reasons.length?reasons.join("。"):"";
       warning.classList.toggle("hidden",reasons.length===0);
     }
@@ -7697,10 +7697,6 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       const factionOrder=["crew","impostor","neutral"];
       const factionNames={crew:"市民陣営",impostor:"人狼陣営",neutral:"第三陣営"};
       const factionOf=id=>{const side=ROLE_OPTIONS.find(role=>role.id===id)?.side;return id==="impostor"||["madmate","blackCat"].includes(id)||side==="impostor"?"impostor":id==="jackal"||side==="neutral"?"neutral":"crew";};
-      const requested={crew:0,impostor:0,neutral:0};
-      for(const role of enabled){if(role.id==="lovers"||isSubRoleId(role.id))continue;requested[factionOf(role.id)]+=counts[role.id]||0;}
-      const randomNonImpostors=ROLE_OPTIONS.filter(role=>role.side==="neutral"||["crew","angel"].includes(role.side)||role.id==="madmate").reduce((sum,role)=>sum+counts[role.id],0);
-      const randomFaction={crew:randomNonImpostors>Math.max(0,slots-impostors),impostor:requested.impostor>impostors,neutral:randomNonImpostors>Math.max(0,slots-impostors)};
       const summary=document.createElement("div");summary.className="rolePreviewTotals";summary.textContent=`市民 ${totals.crew}人 · 人狼 ${totals.impostor}人 · 第三陣営 ${totals.neutral}人`;list.append(summary);
       for(const faction of factionOrder){
         const roles=enabled.filter(role=>!isSubRoleId(role.id)&&factionOf(role.id)===faction);
@@ -7711,7 +7707,6 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
         const heading=document.createElement("h4");heading.textContent=factionNames[faction];
         const badge=document.createElement("span");badge.className="rolePreviewFactionCount";badge.textContent=`${faction==="neutral"?totals.neutral:faction==="crew"?totals.crew:totals.impostor}人`;
         const head=document.createElement("div");head.className="rolePreviewGroupHeading";head.append(heading,badge);group.append(head);
-        if(randomFaction[faction]){const lottery=document.createElement("p");lottery.className="roleLotteryNotice";lottery.textContent="役職枠が超過：ランダム抽選";group.append(lottery);}
         const cards=document.createElement("div");cards.className="rolePreviewCards";
         if(faction==="crew"&&baseCount){const card=document.createElement("article");card.className="rolePreviewCard";card.innerHTML=`<strong>クルーメイト（役なし）</strong><span>${baseCount}人</span>`;cards.append(card);}
         if(faction==="impostor"&&baseCount){const card=document.createElement("article");card.className="rolePreviewCard";card.innerHTML=`<strong>インポスター（標準）</strong><span>${baseCount}人</span>`;cards.append(card);}
@@ -9225,7 +9220,6 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
       const factionNames={crew:"市民陣営",impostor:"人狼陣営",neutral:"第三陣営"};
       const factionOf=id=>{const side=ROLE_OPTIONS.find(role=>role.id===id)?.side;return id==="impostor"||["madmate","blackCat"].includes(id)||side==="impostor"?"impostor":id==="jackal"||side==="neutral"?"neutral":"crew";};
       const factionCounts={crew:0,impostor:0,neutral:0},roleFactionCounts=new Map();
-      const lotteryFactions={crew:false,impostor:false,neutral:false};
       if(lobby){
         for(const role of ROLE_OPTIONS)counts.set(role.id,clamp(Number(settingsOverride?.roles?.[role.id])||0,0,10));
         const humans=Object.values(players||{}).filter(p=>p.online&&!p.bot).length;
@@ -9234,12 +9228,6 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
         const impostorSlots=Math.max(1,Math.trunc(Number(settingsOverride?.impostorCount||$("impostorCount")?.value)||1));
         const selectedNeutral=ROLE_OPTIONS.filter(role=>role.side==="neutral"&&role.id!=="lovers").reduce((sum,role)=>sum+(counts.get(role.id)||0),0);
         const madmates=counts.get("madmate")||0,blackCats=counts.get("blackCat")||0;
-        const impostorRequested=ROLE_OPTIONS.filter(role=>role.side==="impostor"&&role.id!=="madmate"&&!isSubRoleId(role.id)).reduce((sum,role)=>sum+(counts.get(role.id)||0),0);
-        const nonImpostorRequested=ROLE_OPTIONS.filter(role=>role.side==="neutral"||["crew","angel"].includes(role.side)||role.id==="madmate").reduce((sum,role)=>sum+(counts.get(role.id)||0),0);
-        const nonImpostorOver=nonImpostorRequested>Math.max(0,slots-impostorSlots);
-        lotteryFactions.crew=nonImpostorOver;
-        lotteryFactions.impostor=impostorRequested>impostorSlots;
-        lotteryFactions.neutral=nonImpostorOver;
         const impostorSpecials=ROLE_OPTIONS.filter(role=>role.side==="impostor"&&role.id!=="madmate"&&!isSubRoleId(role.id)).reduce((sum,role)=>sum+(counts.get(role.id)||0),0);
         const crewSpecials=ROLE_OPTIONS.filter(role=>["crew","angel","both"].includes(role.side)&&!isSubRoleId(role.id)&&!["madmate","blackCat"].includes(role.id)).reduce((sum,role)=>sum+(counts.get(role.id)||0),0);
         factionCounts.impostor=impostorSlots+madmates+blackCats;
@@ -9292,8 +9280,7 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
         const button=document.createElement("button");button.type="button";button.className="roleChoiceButton";button.dataset.roleId=id;
         const title=document.createElement("span");title.className="roleChoiceTitle";title.textContent=labelOverride||info[0]||id;
         const badge=document.createElement("span");badge.className="roleChoiceBadge";const value=valueOverride??(counts.get(id)||0);
-        const lottery=lobby&&id!=="lovers"&&lotteryFactions[factionOf(id)];
-        badge.textContent=lottery?"ランダム抽選":id==="lovers"?`${value}組`:`${value}人`;
+        badge.textContent=id==="lovers"?`${value}組`:`${value}人`;
       button.append(createRoleIcon(id),title,badge);button.addEventListener("click",()=>showRole(id,button,value));container.append(button);if(!firstCard)firstCard=button;
       }
       for(const faction of columnData){
@@ -18360,6 +18347,19 @@ function startVoteEjection3D(players,resultId){
           polygon.setAttribute("stroke-width",ROOMS.includes(region)?".16":".1");
           svg.appendChild(polygon);
         }
+        // 通常マップだけ各部屋の中に名前を表示する。妨害マップは別のSVGなので影響しない。
+        const roomLabels=document.createElementNS(ns,"g");roomLabels.dataset.mapRoomLabels="true";roomLabels.setAttribute("aria-hidden","true");
+        for(const room of ROOMS){
+          const label=String(room.label||room.name||room.id||"").trim();if(!label)continue;
+          const text=document.createElementNS(ns,"text");
+          text.setAttribute("x",String(room.x));text.setAttribute("y",String(room.z));
+          text.setAttribute("text-anchor","middle");text.setAttribute("dominant-baseline","central");
+          text.setAttribute("font-size",String(Math.max(.55,Math.min(1.12,Number(room.w||4)/(Math.max(4,[...label].length)*.68)))));
+          text.setAttribute("font-weight","800");text.setAttribute("fill","#f4fbff");
+          text.setAttribute("stroke","#081522");text.setAttribute("stroke-width",".22");text.setAttribute("paint-order","stroke");
+          text.setAttribute("stroke-linejoin","round");text.textContent=label;roomLabels.appendChild(text);
+        }
+        svg.appendChild(roomLabels);
         for(const wall of WALLS){
           const line=document.createElementNS(ns,"line");
           for(const [key,value] of Object.entries({x1:wall.ax,y1:wall.az,x2:wall.bx,y2:wall.bz,stroke:"#d8e9f2","stroke-width":.17}))line.setAttribute(key,value);
@@ -20826,8 +20826,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
     let balanceStamp = "";
     new Set;
     const insertMarkup = () => {
-        const rolePreview = byId("lobbyRolePreview");
-        if (rolePreview && !byId("ssxLobbyBrief")) rolePreview.insertAdjacentHTML("afterend", `\n      <section id="ssxLobbyBrief" aria-label="現在のルールとマップ設定">\n        <div class="ssx-brief-heading"><strong>今回の航海</strong><span id="ssxBalanceBadge"></span></div>\n        <div id="ssxRuleSummary"></div>\n        <p id="ssxMapLore"></p>\n        <div id="ssxBalanceMeter" aria-live="polite"></div>\n      </section>`);
+        byId("ssxLobbyBrief")?.remove();
         const gmSettings = byId("gmSettings");
         if (gmSettings && !byId("ssxResetRoomSettings")) gmSettings.insertAdjacentHTML("beforeend", `\n      <div id="ssxResetBlock"><button id="ssxResetRoomSettings" type="button">部屋設定を初期値に戻す</button><small id="ssxResetStatus" role="status"></small></div>`);
         const hud = byId("hud");
@@ -20924,7 +20923,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
         const stamp = [ total, baseImpostors, roles.crew, roles.impostor, roles.neutral, roles.madmate, plainCrew, plainImpostors, overflow ].join(":");
         if (node.dataset.stamp === stamp) return;
         node.dataset.stamp = stamp;
-        node.textContent = `構成確認：通常クルー枠 ${plainCrew}人、能力付きクルー設定 ${roles.crew}人、人狼枠 ${baseImpostors}人（通常 ${plainImpostors}・役職設定 ${Math.min(baseImpostors, roles.impostor)}）、協力者 ${roles.madmate}人、独立役職 ${roles.neutral}人。予定 ${total}人。` + (overflow ? "基本の人狼枠と参加人数を確認してください。" : "役職設定が枠を超える陣営は、設定役職からランダム抽選します。");
+        node.textContent = `構成確認：通常クルー枠 ${plainCrew}人、能力付きクルー設定 ${roles.crew}人、人狼枠 ${baseImpostors}人（通常 ${plainImpostors}・役職設定 ${Math.min(baseImpostors, roles.impostor)}）、協力者 ${roles.madmate}人、独立役職 ${roles.neutral}人。予定 ${total}人。` + (overflow ? "基本の人狼枠と参加人数を確認してください。" : "役職設定は部屋設定で確認できます。");
         const badge = byId("ssxBalanceBadge");
         if (badge) {
             badge.dataset.level = overflow ? "review" : "ok";
@@ -23007,6 +23006,36 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
 /* Keep login errors in the form instead of below the login screen. */
 #setup.portalUI.nameGateActive #setupMessage{display:none!important}
 #setup.portalUI #loginInlineError:not(.hidden){display:block!important;box-sizing:border-box;width:100%;margin:0;padding:8px 10px;border:1px solid #d9877c55;border-radius:9px;background:#47232c66;color:#ffd0c9;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+</style>
+<style id="ssx-settings-map-ghost-cleanup-v1">
+/* Keep the setting tab as the label; avoid repeating it above its contents. */
+#inputSettingsDialog [data-settings-section="player"] h3,
+#inputSettingsDialog .unifiedRoomSettings>h3,
+#gmSettingsRoomPanel>h3{display:none!important}
+/* Room settings already contain the current role preview; remove the extra voyage card and its lobby shortcut. */
+#ssxLobbyBrief,#lobbyShowRoles,body[data-phase="lobby"] #lobbyShowRoles{display:none!important}
+
+/* Normal map labels live in its SVG only. The sabotage map uses a separate, unlabeled SVG. */
+#mapWorld svg [data-map-room-labels] text{pointer-events:none;user-select:none}
+
+/* Spectator cards sit on the bottom edge, beside the movement stick, on touch screens. */
+@media (pointer:coarse) and (min-width:701px) and (max-width:1366px) and (min-height:600px){
+  #ghostHud{left:calc(max(8px,env(safe-area-inset-left)) + min(var(--stick-size,150px),18vw,148px) + 10px)!important;right:max(8px,env(safe-area-inset-right))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;top:auto!important;transform:none!important;width:auto!important;max-width:none!important;grid-template-columns:36px minmax(0,1fr) 36px!important;gap:5px!important;padding:5px 7px!important}
+  #ghostHud .ghostArrow{flex-basis:36px!important;width:36px!important;min-width:36px!important;height:38px!important;font-size:17px!important}
+  #ghostHudList{min-height:0!important;max-height:68px!important;gap:5px!important}
+  #ghostHudList .ghostTarget{flex-basis:62px!important;min-width:62px!important;max-width:76px!important;padding:4px!important;font-size:10px!important}
+  #ghostHudList .ghostTargetIcon{width:25px!important;height:28px!important}
+}
+@media (pointer:coarse) and (max-width:700px){
+  #ghostHud{left:calc(max(6px,env(safe-area-inset-left)) + min(var(--stick-size,150px),31vw,118px) + 8px)!important;right:max(6px,env(safe-area-inset-right))!important;bottom:max(6px,env(safe-area-inset-bottom))!important;top:auto!important;transform:none!important;width:auto!important;max-width:none!important;grid-template-columns:25px minmax(0,1fr) 25px!important;gap:3px!important;padding:4px!important;border-radius:10px!important}
+  #ghostHud .ghostArrow{flex-basis:25px!important;width:25px!important;min-width:25px!important;height:30px!important;padding:0!important;font-size:13px!important;border-radius:8px!important}
+  #ghostHudList{min-height:0!important;max-height:54px!important;gap:3px!important}
+  #ghostHudList .ghostTarget{flex-basis:52px!important;min-width:52px!important;max-width:58px!important;gap:2px!important;padding:3px!important;font-size:8px!important}
+  #ghostHudList .ghostTargetIcon{width:21px!important;height:24px!important}
+  #ghostHudList .ghostTargetIcon:after{left:3px!important;top:5px!important;width:12px!important;height:6px!important}
+  #ghostHudList .ghostTargetRole{font-size:7px!important}
+  body:has(#controls[data-left-handed="true"]) #ghostHud{left:max(6px,env(safe-area-inset-left))!important;right:calc(max(6px,env(safe-area-inset-right)) + min(var(--stick-size,150px),31vw,118px) + 8px)!important}
+}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
