@@ -8418,10 +8418,8 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       const idToken=await user.getIdToken();
       const response=await fetch(SKYWAY_TOKEN_ENDPOINT,{method:"POST",mode:"cors",cache:"no-store",headers:{"Authorization":`Bearer ${idToken}`,"Content-Type":"application/json"},body:JSON.stringify({roomId:String(roomName),memberName:String(memberName||"プレイヤー").slice(0,24)})});
       let data={};try{data=await response.json();}catch{}
-      if(!response.ok||typeof data.token!=="string"){
-        const reason=response.status===401?"Firebaseログインを確認できません。いったんログアウトして再ログインしてください。":response.status===403?"SkyWay WorkerのOrigin設定を確認してください。":response.status===500?"SkyWay WorkerのSecrets設定を確認してください。":String(data.error||`SkyWayトークンの取得に失敗しました（${response.status}）`);
-        throw new Error(reason);
-      }
+      if(!response.ok)throw new Error(`Worker HTTP ${response.status}: ${String(data.error||"詳細なし").slice(0,240)}`);
+      if(typeof data.token!=="string")throw new Error(`Worker HTTP ${response.status}: tokenが応答にありません`);
       return data.token;
     }
     let voiceMeterSource=null,voiceAnalyser=null,voiceMeterFrame=0,voiceSpeaking=false,voicePresenceSignature="";
@@ -8817,6 +8815,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       const message=$("voicePermissionMessage"),settings=$("voicePermissionSettings");settings.classList.add("hidden");
       if(!window.isSecureContext){message.textContent="マイクにはHTTPSまたはlocalhostが必要です。安全な接続でこのページを開いてください。";refreshVoiceUI();return;}
       if(!navigator.mediaDevices?.getUserMedia){message.textContent="このページではマイク機能を利用できません。トップレベルのHTTPSページで開くか、運営者に埋め込みページのマイク許可（Permissions Policy）を確認してもらってください。";refreshVoiceUI();return;}
+      let voiceStage="マイクの許可";
       try{
         $("voicePermissionAllow").disabled=true;message.textContent="ブラウザのマイク許可を確認しています…";
         // Call getUserMedia synchronously within the click activation, before any await.
@@ -8832,10 +8831,16 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         const audioTrack=voiceStream.getAudioTracks()[0];if(!audioTrack)throw new Error("マイクの音声トラックを取得できませんでした。");
         const requestedName=nicknameFor(uid)||players?.[uid]?.name||auth?.currentUser?.displayName||"プレイヤー";
         message.textContent="SkyWayへ接続しています…";
-        const authToken=await requestSkyWayToken(requestedRoom,requestedName),sdk=await loadSkyWaySdk();
+        voiceStage="Workerトークン取得";
+        const authToken=await requestSkyWayToken(requestedRoom,requestedName);
+        voiceStage="SkyWay SDK読み込み";
+        const sdk=await loadSkyWaySdk();
         if(code!==requestedRoom||session!==requestedSession||!voiceRoomIsEnabled()){for(const track of voiceStream?.getTracks()||[])track.stop();await stopVoiceChat();return;}
+        voiceStage="SkyWayトークン検証・接続作成";
         skywayContext=await sdk.SkyWayContext.Create(authToken);
+        voiceStage="SFUルーム検索・作成";
         skywayRoom=await sdk.SkyWayRoom.FindOrCreate(skywayContext,{type:"sfu",name:requestedRoom});skywayRoomName=requestedRoom;
+        voiceStage="ルーム入室";
         skywayMember=await skywayRoom.join({name:String(requestedName).slice(0,24),metadata:String(uid)});
         const rawAudio=new sdk.LocalAudioStream(audioTrack);skywayInputAudio=rawAudio;
         let noiseCanceller=null,noiseReadyTimeout=0,noiseReadySettled=false;
@@ -8867,6 +8872,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
           skywayLocalAudio=rawAudio;
         }
         if(code!==requestedRoom||session!==requestedSession||!voiceRoomIsEnabled()){await stopVoiceChat();return;}
+        voiceStage="マイク音声の公開";
         skywayAudioPublication=await skywayMember.publish(skywayLocalAudio);
         skywayRoom.onStreamPublished.add(({publication})=>{void subscribeSkyWayPublication(publication);});
         skywayRoom.onStreamUnpublished.add(({publication})=>handleSkyWayPublicationRemoved(publication));
@@ -8878,6 +8884,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         });
         voiceJoined=true;voiceMuted=false;voiceSessionId=token();voicePresenceSignature="";syncVoiceMutePolicy();startVoiceSpatialTimer();startVoiceActivityMeter();
         const ownPresence=ref(db,`rooms/${code}/voicePresence/${uid}`);
+        voiceStage="Firebase通話状態の保存";
         await onDisconnect(ownPresence).remove();await publishVoicePresence();
         voicePresenceUnsub=[];
         const voiceRoomAtJoin=code,voiceSessionAtJoin=voiceSessionId;let voiceSawDisconnect=false;
@@ -8896,7 +8903,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         else if(name==="NotFoundError"||name==="DevicesNotFoundError"){message.textContent="利用できるマイクが見つかりません。マイクの接続とOS・ブラウザでの認識を確認してください。";}
         else if(name==="NotReadableError"||name==="TrackStartError"){message.textContent="マイクを開けません。ほかのアプリが使用中でないか確認して、もう一度お試しください。";}
         else if(name==="SecurityError"||name==="AbortError"){message.textContent="ブラウザまたは埋め込み元の設定でマイクがブロックされています。HTTPS、サイト設定、iframeのマイク許可を確認してください。";}
-        else{message.textContent=errorText(error)||"マイクを開始できませんでした。ブラウザのサイト設定とマイク接続を確認してください。";}
+        else{message.textContent=`${voiceStage}: ${errorText(error)||"詳細不明のエラー"}`;}
         console.warn("近アモを開始できません",error);refreshVoiceUI();}
       finally{$("voicePermissionAllow").disabled=false;}
     }
