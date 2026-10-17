@@ -16,7 +16,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input,
-      external: ["three"],
+      external: [/^three(?:\/.*)?$/],
     },
   },
 });
