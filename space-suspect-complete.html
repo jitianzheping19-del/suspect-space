@@ -6802,7 +6802,7 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       teleporter:["テレポーター","インポスター陣営。発動待機後、ランダムな対象地点へテレポート可能な生存者を集合させます。最初の使用には8秒の待ち時間があります。ベント・梯子・移動床の利用者は対象外です。"],
       revenant:["レヴェナント","死亡後にタスクを行えるゴースト役職です。レヴェナントのタスクはクルーのタスク勝利に加算されません。"],
       penguin:["ペンギン","インポスター陣営。対象をつかんでドラッグし、タイマー満了時にキルします。会議中にタイマーが満了した場合の処理と、通常キルの可否を設定できます。"],samurai:["侍","インポスター陣営。必殺技は1試合に1回、初期範囲5mの円形範囲にいる複数のクルーを斬ります。壁の向こうは対象外で、部屋設定から範囲を調整できます。"],
-      suicideBomber:["自爆魔","インポスター陣営。自爆して範囲内の対象を巻き込みます。"],slugger:["スラッガー","インポスター陣営。チャージ攻撃を行います。"],rocket:["ロケット","インポスター陣営。対象を捕獲し、ロケットで打ち上げます。"],
+      suicideBomber:["自爆魔","インポスター陣営。自爆して範囲内の対象を巻き込みます。"],slugger:["スラッガー","インポスター陣営。チャージ後、自分を中心とした設定範囲を攻撃します。複数の対象に同時に命中します。"],rocket:["ロケット","インポスター陣営。対象を捕獲し、ロケットで打ち上げます。"],
       necromancer:["ネクロマンサー","インポスター陣営。近くの死体から、元の役職とタスクを保ってプレイヤーを復活させます。"],
       waveCannonJackal:["波動砲ジャッカル","ジャッカル陣営。壁を貫通する波動砲を発射します。"],
       santa:["サンタ","市民役職を近くの人にランダムに贈ります。クルー以外に贈ると自滅します。クールダウンは30秒固定です。"],chief:["村長","近くの市民をシェリフに任命します。人狼・第三陣営を任命すると村長が自滅します。この仕様は固定です。クールダウンは役職詳細で設定できます。"],jumpDancer:["ジャンプダンサー","自分と周囲の生存者が、光のリングと音符の演出とともに一斉にジャンプします。ベント・はしご・昇降機中の人には作用しません。"],lighter:["ライター","一定時間、停電中も視界を広げます。点灯時間・視界倍率・クールダウンを役職詳細で設定できます。"],ubiquitous:["ユビキタス","公開ドローンを遠隔操作します。機体と操作中の本人は周囲の全員に見えます。待機時・帰還時も機体が動きます。通過者をマップへ記録する機能はありません。"]
@@ -7373,10 +7373,10 @@ function modCombatTick(ctx){
     const charge=p?.sluggerCharge;if(!charge)continue;
     if(g.phase!=="play"||!modCombatAlive(p)||(players?.[by]?.online!==true&&!p.bot)){delete p.sluggerCharge;changed=true;continue;}
     if(now<Number(charge.fireAt))continue;
-    const angle=Number(charge.yaw)||0,dx=Math.sin(angle),dz=Math.cos(angle),radius=modCombatClamp(g.settings?.sluggerRange??5,5,10),half=1.55,candidates=[];
-    for(const [id,v] of Object.entries(g.players||{})){if(id===by||!modCombatAlive(v))continue;const pose=modCombatPose(id,ctx);if(!pose)continue;const ox=pose.x-charge.x,oz=pose.z-charge.z,along=ox*dx+oz*dz,side=Math.abs(ox*dz-oz*dx);if(along>=.5&&along<=radius&&side<=half&&!wallBetween(charge,pose))candidates.push({id,pose,d:Math.hypot(ox,oz),along});}
-    candidates.sort((a,b)=>a.d-b.d);const hits=[],multi=g.settings?.sluggerMultiHitEnabled!==false,max=multi?modCombatClamp(g.settings?.sluggerMaxHits??3,1,5):1;for(const q of candidates){if(hits.length>=max)break;if(modCombatKill(g,q.id,by,"slugger",q.pose))hits.push({id:q.id,x:q.pose.x,z:q.pose.z,along:q.along});}
-    emitModRoleEvent(g,"sluggerSwing",by,{chargeId:charge.id,x:charge.x,z:charge.z,yaw:angle,range:radius,halfWidth:half,targets:hits,at:now});delete p.sluggerCharge;changed=true;
+    const center=modCombatPose(by,ctx)||{x:Number(charge.x)||0,z:Number(charge.z)||0},yaw=Number(charge.yaw)||0,radius=modCombatClamp(g.settings?.sluggerRange??5,5,10),candidates=[];
+    for(const [id,v] of Object.entries(g.players||{})){if(id===by||!modCombatAlive(v))continue;const pose=modCombatPose(id,ctx);if(!pose)continue;const d=Math.hypot(pose.x-center.x,pose.z-center.z);if(d<=radius&&!wallBetween(center,pose))candidates.push({id,pose,d});}
+    candidates.sort((a,b)=>a.d-b.d);const hits=[],multi=g.settings?.sluggerMultiHitEnabled!==false,max=multi?modCombatClamp(g.settings?.sluggerMaxHits??3,1,5):1;for(const q of candidates){if(hits.length>=max)break;if(modCombatKill(g,q.id,by,"slugger",q.pose))hits.push({id:q.id,x:q.pose.x,z:q.pose.z,distance:q.d});}
+    emitModRoleEvent(g,"sluggerSwing",by,{chargeId:charge.id,x:center.x,z:center.z,yaw,range:radius,targets:hits,at:now});delete p.sluggerCharge;changed=true;
   }
   if(changed)markDirty();
 }
@@ -7398,8 +7398,15 @@ function modCombatEffect({THREE,scene,event,ownerId,stamp}){
   const dispose=()=>{if(disposed)return;disposed=true;scene.remove(root);for(const g of geos)g.dispose?.();for(const m of mats)m.dispose?.();};
   const type=event.type,start=Number(event.startedAt||event.at)||stamp;
   const viewer=game.players?.[ownerId],isActor=ownerId===event.by,isTarget=ownerId===event.target||(event.targets||[]).some(t=>t?.id===ownerId),isGhost=viewer?.alive===false||viewer?.observer===true;
+  const effectActorPose=()=>{
+    const avatar=typeof avatars!=="undefined"?avatars.get?.(event.by):null,world=avatar?.position;
+    if(world&&Number.isFinite(Number(world.x))&&Number.isFinite(Number(world.z)))return{x:Number(world.x),z:Number(world.z)};
+    const state=game.players?.[event.by],profiles=typeof players!=="undefined"?players:null,bots=typeof botPositions!=="undefined"?botPositions:null;
+    const pose=state?.bot?(bots?.[event.by]||profiles?.[event.by]||state):profiles?.[event.by];
+    return pose&&Number.isFinite(Number(pose.x))&&Number.isFinite(Number(pose.z))?{x:Number(pose.x),z:Number(pose.z)}:null;
+  };
   const canObserve=()=>{
-    const p=position,loc={x:Number(event.x)||0,z:Number(event.z)||0},me=game.players?.[ownerId];
+    const p=position,loc=(type==="sluggerCharge"&&effectActorPose())||{x:Number(event.x)||0,z:Number(event.z)||0},me=game.players?.[ownerId];
     const near=!!p&&distance(p,loc)<=12&&!wallBetween(p,loc),spectator=me?.alive===false||me?.observer===true;
     // Actor and named victim receive their own sequence; living bystanders need
     // local line of sight, while ghosts and observers retain full-map viewing.
@@ -7436,20 +7443,34 @@ function modCombatEffect({THREE,scene,event,ownerId,stamp}){
     const debris=[];for(let i=0;i<24;i++)debris.push({o:add(new THREE.TetrahedronGeometry(.065+(i%3)*.02,0),i%4?orange:smoke),a:i*Math.PI/12,r:.7+(i%5)*.3});
     animate=()=>{const age=Math.max(0,stamp-start),f=modCombatClamp(age/200,0,1),b=modCombatClamp((age-200)/540,0,1),motion=typeof reducedMotionQuery!=="undefined"&&reducedMotionQuery.matches?0:1;ring.scale.setScalar(1-.2*f);ring.material.opacity=.72*(1-f*.5);core.scale.setScalar(.4+.7*f);blast.visible=age>=200;blast.scale.setScalar(.2+b*r*1.5*motion);blast.material.opacity=.85*(1-b);column.scale.y=Math.max(.05,b*2.8*motion);column.position.y=.1+column.scale.y*.52;column.material.opacity=.85*(1-b);shockWaves.forEach((wave,i)=>{const q=modCombatClamp((age-200-i*90)/540,0,1);wave.scale.setScalar(.25+q*r*1.35*motion);wave.material.opacity=.9*(1-q);});for(const q of debris){q.o.position.set(x+Math.cos(q.a)*q.r*b*motion,.18+1.4*b*motion,z+Math.sin(q.a)*q.r*b*motion);q.o.material.opacity=.8*(1-b);}};
   }else if(type==="sluggerCharge"){
-    life=Math.max(550,(Number(event.fireAt)||start+2000)-start+350);const violet=mat(0xc783ff,.82),white=mat(0xf7efff,.92),range=modCombatClamp(event.range??5,5,10),halfWidth=modCombatClamp(event.halfWidth??1.55,.5,3),x=Number(event.x)||0,z=Number(event.z)||0,yaw=Number(event.yaw)||0,fan=new THREE.Group();root.add(fan);fan.position.set(x,.85,z);fan.rotation.y=yaw;const previewShape=new THREE.Shape();previewShape.moveTo(-halfWidth,.5);previewShape.lineTo(halfWidth,.5);previewShape.lineTo(halfWidth,range);previewShape.lineTo(-halfWidth,range);previewShape.closePath();const preview=add(new THREE.ShapeGeometry(previewShape),mat(0xc783ff,.22));preview.position.set(x,.075,z);preview.rotation.set(Math.PI/2,yaw,0);preview.visible=false;
-    const shape=new THREE.Shape();shape.moveTo(0,0);shape.lineTo(-.62,.08);shape.quadraticCurveTo(-.48,.8,0,1.05);shape.quadraticCurveTo(.48,.8,.62,.08);shape.closePath();const face=add(new THREE.ShapeGeometry(shape,20),violet);face.position.set(0,.72,.7);fan.add(face);
-    for(let i=-3;i<=3;i++){const slat=add(new THREE.BoxGeometry(.035,.62,.04),white);slat.position.set(i*.14,1.05,.72);fan.add(slat);}
-    const bat=add(new THREE.CylinderGeometry(.045,.07,1.45,9),white);bat.rotation.x=Math.PI/2;bat.position.set(.72,1.22,.2);fan.add(bat);
-    const ring=add(new THREE.TorusGeometry(.72,.035,4,32),violet);ring.rotation.x=Math.PI/2;ring.position.set(Number(event.x)||0,.06,Number(event.z)||0);
-    const pulse=add(new THREE.TorusGeometry(.5,.024,4,32),white);pulse.rotation.x=Math.PI/2;pulse.position.set(Number(event.x)||0,.075,Number(event.z)||0);
-    animate=()=>{const active=game.players?.[event.by]?.sluggerCharge?.id===event.chargeId,t=modCombatClamp((stamp-start)/life,0,1),charge=modCombatClamp((stamp-start)/Math.max(1,(Number(event.fireAt)||start+1000)-start),0,1),reduced=typeof reducedMotionQuery!=="undefined"&&reducedMotionQuery.matches,beat=reduced?1:.84+.16*Math.sin((stamp-start)*.018);preview.visible=active;preview.material.opacity=active?.22*(1-charge*.25):.22*(1-t);fan.visible=active;fan.scale.setScalar(active?(reduced?.78+charge*.32:(.78+charge*.32)*beat):1);fan.rotation.y=(Number(event.yaw)||0)+(active?(reduced?0:.12*Math.sin((stamp-start)*.009)):0);bat.rotation.x=Math.PI/2+(active?-.72+charge*1.38:0);ring.scale.setScalar(active?(reduced?.85+charge*.45:.78+charge*.45+Math.sin((stamp-start)*.014)*.08):1);pulse.scale.setScalar(active?1.1+((stamp-start)/300%1)*1.9:1);ring.material.opacity=active?.72+charge*.25:.65*(1-t);pulse.material.opacity=active?.75*(1-((stamp-start)/300%1)):.0;face.material.opacity=active?.78+charge*.18:.94*(1-t);white.opacity=active?.72+charge*.28:.98*(1-t);};
+    life=Math.max(550,(Number(event.fireAt)||start+2000)-start+350);
+    const violet=mat(0xc783ff,.82),white=mat(0xf7efff,.92),range=modCombatClamp(event.range??5,5,10),x=Number(event.x)||0,z=Number(event.z)||0,yaw=Number(event.yaw)||0;
+    root.position.set(x,0,z);
+    const field=add(new THREE.CircleGeometry(1,72),mat(0xc783ff,.18));field.rotation.x=-Math.PI/2;field.position.y=.055;field.scale.setScalar(range);
+    const boundary=add(new THREE.TorusGeometry(range,.045,5,72),violet);boundary.rotation.x=Math.PI/2;boundary.position.y=.075;
+    const pulse=add(new THREE.TorusGeometry(1,.035,5,56),white);pulse.rotation.x=Math.PI/2;pulse.position.y=.09;
+    const fan=new THREE.Group();fan.position.set(0,.8,0);fan.rotation.y=yaw;root.add(fan);
+    const shape=new THREE.Shape();shape.moveTo(0,0);shape.lineTo(-.62,.08);shape.quadraticCurveTo(-.48,.8,0,1.05);shape.quadraticCurveTo(.48,.8,.62,.08);shape.closePath();const face=add(new THREE.ShapeGeometry(shape,20),violet);face.position.set(0,.05,.7);fan.add(face);
+    for(let i=-3;i<=3;i++){const slat=add(new THREE.BoxGeometry(.035,.62,.04),white);slat.position.set(i*.14,.38,.72);fan.add(slat);}
+    const bat=add(new THREE.CylinderGeometry(.045,.07,1.45,9),white);bat.rotation.x=Math.PI/2;bat.position.set(.72,.42,.2);fan.add(bat);
+    animate=()=>{
+      const active=game.players?.[event.by]?.sluggerCharge?.id===event.chargeId,t=modCombatClamp((stamp-start)/life,0,1),charge=modCombatClamp((stamp-start)/Math.max(1,(Number(event.fireAt)||start+1000)-start),0,1),phase=((stamp-start)%780)/780,reduced=typeof reducedMotionQuery!=="undefined"&&reducedMotionQuery.matches,beat=reduced?1:.84+.16*Math.sin((stamp-start)*.018),actor=effectActorPose(),actorAvatar=typeof avatars!=="undefined"?avatars.get?.(event.by):null;
+      if(actor)root.position.set(actor.x,0,actor.z);
+      const facing=Number(actorAvatar?.rotation?.y);fan.rotation.y=(Number.isFinite(facing)?facing:yaw)+(active&&!reduced?.1*Math.sin((stamp-start)*.009):0);
+      field.material.opacity=active?.1+charge*.08:.18*(1-t);boundary.material.opacity=active?.5+charge*.35:.6*(1-t);
+      pulse.scale.setScalar(active?.12+phase*range:1);pulse.material.opacity=active?.8*(1-phase*.62):0;
+      fan.visible=active;fan.scale.setScalar(active?(reduced?.78+charge*.32:(.78+charge*.32)*beat):1);bat.rotation.x=Math.PI/2+(active?-.72+charge*1.38:0);
+      face.material.opacity=active?.78+charge*.18:.94*(1-t);white.opacity=active?.72+charge*.28:.98*(1-t);
+    };
   }else if(type==="sluggerSwing"){
-    life=680;const violet=mat(0xffd84a,.86),white=mat(0xfff5c8,.98),x=Number(event.x)||0,z=Number(event.z)||0,yaw=Number(event.yaw)||0,c=new THREE.Vector3(x,.85,z);
-    const slash=add(new THREE.TorusGeometry(1.2,.16,7,48,Math.PI*.9),white),arc=add(new THREE.TorusGeometry(2,.05,5,56,Math.PI*.84),violet);for(const o of [slash,arc]){o.position.copy(c);o.rotation.set(Math.PI/2,yaw,0);}const batRig=new THREE.Group();batRig.position.set(x,.86,z);batRig.rotation.y=yaw;root.add(batRig);const bat=add(new THREE.CylinderGeometry(.055,.13,1.85,14),white);bat.position.set(0,0,0);bat.rotation.z=Math.PI/2;batRig.add(bat);const batKnob=add(new THREE.SphereGeometry(.11,12,8),violet);batKnob.position.set(-.94,0,0);batRig.add(batKnob);
-    const range=modCombatClamp(event.range??5,5,10),halfWidth=modCombatClamp(event.halfWidth??1.55,.5,3),attackShape=new THREE.Shape();attackShape.moveTo(-halfWidth,.5);attackShape.lineTo(halfWidth,.5);attackShape.lineTo(halfWidth,range);attackShape.lineTo(-halfWidth,range);attackShape.closePath();const attack=add(new THREE.ShapeGeometry(attackShape),mat(0xffdc7d,.38));attack.position.set(x,.09,z);attack.rotation.set(Math.PI/2,yaw,0);attack.scale.y=.001;
-    const edgeGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-halfWidth,.11,.5),new THREE.Vector3(-halfWidth,.11,range),new THREE.Vector3(halfWidth,.11,.5),new THREE.Vector3(halfWidth,.11,range)]),edges=new THREE.LineSegments(edgeGeo,white);geos.push(edgeGeo);root.add(edges);edges.position.set(x,0,z);edges.rotation.y=yaw;edges.visible=false;
-    const streak=[];for(const t of event.targets||[]){const o=add(new THREE.CylinderGeometry(.08,.045,1.8,8),violet),ringHit=add(new THREE.TorusGeometry(.42,.045,5,28),white);o.position.set(t.x,.5,t.z);ringHit.rotation.x=Math.PI/2;ringHit.position.set(t.x,.08,t.z);streak.push({o,ring:ringHit,x:t.x,z:t.z});}
-    animate=()=>{const f=modCombatClamp((stamp-start)/life,0,1),sweep=Math.min(1,f/.42),impact=Math.max(0,(f-.22)/.78);batRig.rotation.y=yaw+(f<.48?-.72+f*2.8:.62-(f-.48)*2.1);bat.rotation.z=Math.PI/2+(f<.48?-.5+f:0);attack.scale.y=Math.max(.001,sweep);attack.material.opacity=.42*(1-f);slash.position.set(x,.86,z);slash.rotation.y=yaw-f*.9;slash.scale.setScalar(.6+sweep*1.5);slash.material.opacity=.98*(1-f);arc.position.set(x,.14,z);arc.rotation.y=yaw;arc.scale.set(.6+sweep*1.45,.6+sweep*1.45,1);arc.material.opacity=.94*(1-f);edges.visible=f<.35;edges.material.opacity=.95*(1-f);for(const q of streak){q.o.position.y=.5+1.7*impact;q.o.material.opacity=.95*(1-impact);q.ring.scale.setScalar(.5+impact*2);q.ring.material.opacity=.95*(1-impact);}};
+    life=680;const violet=mat(0xffd84a,.86),white=mat(0xfff5c8,.98),x=Number(event.x)||0,z=Number(event.z)||0,yaw=Number(event.yaw)||0,range=modCombatClamp(event.range??5,5,10);root.position.set(x,0,z);
+    const field=add(new THREE.CircleGeometry(1,80),mat(0xffdc7d,.5));field.rotation.x=-Math.PI/2;field.position.y=.065;field.scale.setScalar(.01);
+    const shock=add(new THREE.TorusGeometry(1,.085,7,72),white);shock.rotation.x=Math.PI/2;shock.position.y=.09;shock.scale.setScalar(.08);
+    const outer=add(new THREE.TorusGeometry(1,.035,5,72),violet);outer.rotation.x=Math.PI/2;outer.position.y=.08;outer.scale.setScalar(.08);
+    const core=add(new THREE.SphereGeometry(.38,16,12),violet);core.position.set(0,.96,0);
+    const batRig=new THREE.Group();batRig.position.set(0,.88,0);batRig.rotation.y=yaw;root.add(batRig);const bat=add(new THREE.CylinderGeometry(.055,.13,1.85,14),white);bat.rotation.z=Math.PI/2;batRig.add(bat);const batKnob=add(new THREE.SphereGeometry(.11,12,8),violet);batKnob.position.set(-.94,0,0);batRig.add(batKnob);
+    const streak=[];for(const target of event.targets||[]){const dx=Number(target.x)-x,dz=Number(target.z)-z,o=add(new THREE.CylinderGeometry(.08,.045,1.8,8),violet),ringHit=add(new THREE.TorusGeometry(.42,.045,5,28),white);o.position.set(dx,.5,dz);ringHit.rotation.x=Math.PI/2;ringHit.position.set(dx,.08,dz);streak.push({o,ring:ringHit});}
+    animate=()=>{const f=modCombatClamp((stamp-start)/life,0,1),expand=1-Math.pow(1-f,2),impact=modCombatClamp((f-.18)/.82,0,1),reduced=typeof reducedMotionQuery!=="undefined"&&reducedMotionQuery.matches,motion=reduced?0:1;field.scale.setScalar(.06+range*expand);field.material.opacity=.48*(1-f);shock.scale.setScalar(.08+range*expand);shock.material.opacity=.98*(1-f);outer.scale.setScalar(.08+range*Math.max(0,(f-.08)/.92));outer.material.opacity=.78*(1-f);core.scale.setScalar(.35+1.2*Math.max(0,1-f*2));batRig.rotation.y=yaw+(f<.52?-.72+f*2.8:.62-(f-.52)*2.1);bat.rotation.z=Math.PI/2+(f<.48?-.5+f:0);for(const q of streak){q.o.position.y=.5+1.7*impact;q.o.material.opacity=.95*(1-impact);q.ring.scale.setScalar(.5+impact*2);q.ring.material.opacity=.95*(1-impact);}};
   }
   const ends=Math.max(Number(event.endsAt)||0,start+life);
   return {update(t){if(disposed)return false;stamp=t;if(t>ends+150){done=true;root.visible=false;return false;}if(!done){root.visible=canObserve();if(root.visible)animate();}return true;},dispose};
@@ -8989,9 +9010,9 @@ function showRoleReveal(player) {
       $("roleRevealText").textContent=impostor?impostorAllyText+(impostorAllies.length?"\n協力してクルーを倒しましょう。":"\n協力者がいるか確認しましょう。"):player.subrole==="madmate"?"あなたは人狼陣営の協力者です。\n味方のインポスター\n"+madmateAllies.map(ally=>ally.name||"プレイヤー").join("\n"):player.subrole==="blackCat"?canSeeImpostors?"あなたは人狼陣営の協力者です。\n味方のインポスター\n"+impostorAllies.map(([,ally])=>ally.name||"プレイヤー").join("\n"):"あなたは人狼陣営の協力者です。\n設定されたタスクを完了するとインポスターを認識します。":player.subrole==="jester"?"会議で追放されると勝利します。":neutral?"独自の勝利条件を目指してください。":"陣営を確認しています…";
       if(!impostor&&!madmate&&player.subrole!=="blackCat"&&player.subrole!=="jester"&&!neutral){$("roleRevealText").textContent="あなたは市民陣営です。役職は次の画面で発表します。";}
       if(player.lover){const partner=Object.values(game.players||{}).find(other=>other!==player&&other.loverPairId===player.loverPairId);$("roleRevealText").textContent+="\n恋人："+(partner?.name||"ペアの相手")+"\n2人で生き残ると勝利します。";}
-      show("roleReveal", true);
-      clearTimeout(roleRevealTimer);
       const launchWait=game.countdownKind==="launch"?Math.max(0,(game.countdownEndsAt||0)-now()):0;
+      show("roleReveal",launchWait<=0);
+      clearTimeout(roleRevealTimer);
       roleRevealTimer=setTimeout(()=>{
         $("roleRevealTitle").textContent=roleName;
         $("roleIcon").textContent=look.icon;
@@ -9003,6 +9024,7 @@ function showRoleReveal(player) {
           :madmate?player.subrole==="blackCat"?(viewerKnowsImpostors(player)?"あなたは人狼陣営の協力者です。\n味方のインポスター\n"+impostorAllies.map(([,ally])=>ally.name||"プレイヤー").join("\n"):"あなたは人狼陣営の協力者です。\n設定されたタスクを完了するとインポスターを認識します。"):"あなたは人狼陣営の協力者です。\n人狼はあなたの正体を知りません。\n"+impostorAllies.map(([,ally])=>ally.name||"プレイヤー").join("\n")
           :"役職能力とタスクを使ってインポスターを探しましょう。";
         if(player.lover){const partner=Object.values(game.players||{}).find(other=>other!==player&&other.loverPairId===player.loverPairId);$("roleRevealText").textContent+="\n恋人："+(partner?.name||"ペアの相手")+"\n2人で生き残ると勝利します。";}
+        show("roleReveal",true);
         $("roleRevealTitle").style.animation="none";void $("roleRevealTitle").offsetWidth;$("roleRevealTitle").style.animation="";
          roleRevealTimer=setTimeout(()=>show("roleReveal",false),5000);
       },launchWait+1900);
@@ -9048,7 +9070,7 @@ function createRoleAbilityPresentation(id,{fromInputs=false,settings={}}={}){
   picture=`${suit(39,64,'#f0768c')}<path d="M65 64h190" stroke="#608798" stroke-dasharray="3 5"/>${dots}${suit(279,64,'#6fc6e3')}`;description=`${ammo}発を連射。弾の半径${radius.toFixed(2)}m、${value('triggerHappyHits',3)}発命中でキル。味方への命中：${value('triggerHappyFriendlyFire',true)?'あり':'なし'}。`;
  }else if(['samurai','slugger','suicideBomber'].includes(id)){
   const range=Number(id==='samurai'?value('samuraiRange',5):id==='slugger'?value('sluggerRange',5):value('suicideBomberRadius',4)),r=15+range*3.3;
-  picture=`<circle cx="102" cy="64" r="${r}" fill="#f99c7c18" stroke="#ffbd94" stroke-width="2"/><path d="M102 64h${r}" stroke="#ffbd94"/>${suit(102,64,'#ef8795')}${suit(244,64,'#71c8df')}<text x="204" y="111">範囲 ${range}m</text>`;description=id==='slugger'?`前方${range}mの範囲に攻撃します。`: `自分を中心に${range}mの範囲に効果があります。`;
+  picture=`<circle cx="102" cy="64" r="${r}" fill="#f99c7c18" stroke="#ffbd94" stroke-width="2"/>${suit(102,64,'#ef8795')}${suit(244,64,'#71c8df')}<text x="204" y="111">範囲 ${range}m</text>`;description=id==='slugger'?`自分を中心に半径${range}mの範囲攻撃です。`: `自分を中心に${range}mの範囲に効果があります。`;
  }else if(id==='arsonist'){
   const duration=Number(value('arsonistDouseSeconds',3)),width=duration/15*132;
   picture=`${suit(51,64,'#efb376')}${suit(268,64,'#83c3dc')}<path d="M85 58h144" stroke="#eab763" stroke-dasharray="5 5"/><rect x="94" y="81" width="132" height="7" rx="3" fill="#233f4a"/><rect x="94" y="81" width="${width}" height="7" rx="3" fill="#eab763"/>${icon}`;description=`相手の近くで${duration}秒間、着火剤を塗ります。ベント：${value('arsonistCanVent',false)?'使用可':'使用不可'}。`;
@@ -12531,7 +12553,7 @@ function ssxControlNearestTarget(role){
   else if(role==="santa"||role==="chief")eligible=rows.filter(x=>x.p.alive&&!x.p.observer&&!x.p.disconnected&&!x.p.ventId&&x.d<3.2&&!wallBetween(here,x.loc));
   else if(role==="samurai"){const radius=clamp(Number(game.settings?.samuraiRange??5),1,10);eligible=rows.filter(x=>x.p.alive&&x.p.role==="crew"&&x.d<=radius&&!wallBetween(here,x.loc));}
   else if(role==="suicideBomber"){const radius=clamp(Number(game.settings?.suicideBomberRadius??4),1,12),crewOnly=game.settings?.suicideBomberCrewOnly!==false;eligible=rows.filter(x=>x.p.alive&&(!crewOnly||x.p.role==="crew")&&x.d<=radius&&!wallBetween(here,x.loc));}
-  else if(role==="slugger"){const radius=clamp(Number(game.settings?.sluggerRange??5),5,10);eligible=rows.filter(x=>x.p.alive&&x.d>=.5&&x.d<=radius&&!wallBetween(here,x.loc));}
+  else if(role==="slugger"){const radius=clamp(Number(game.settings?.sluggerRange??5),5,10);eligible=rows.filter(x=>x.p.alive&&x.d<=radius&&!wallBetween(here,x.loc));}
   eligible.sort((a,b)=>a.d-b.d);return eligible[0]||null;
 }
 function ssxControlTargetButton(list,id,p,prefix){
@@ -12582,13 +12604,14 @@ function ssxControlUpdate(phase,me,ready){
     else{if(!all&&!nearby)$("abilityBtn").disabled=true;if(Number(me.abilityReadyAt||0)<=now())$("abilityCaption").textContent=all?"点火":"塗布";}
   }
   if(me?.subrole==="matryoshka"&&!ssxMatryCanUse||me?.subrole==="triggerHappy"&&!ssxHappyCanUse||me?.subrole==="mirage"&&me.alive===false&&!ssxMirageCanUse)$("abilityBtn").disabled=true;
-  const proximityRole=["rocket","necromancer","revenant","penguin","samurai","suicideBomber","slugger","santa","chief"].includes(me?.subrole),target=proximityRole?ssxControlNearestTarget(me.subrole):null;
+  const proximityRole=["rocket","necromancer","revenant","penguin","samurai","suicideBomber","santa","chief"].includes(me?.subrole),target=proximityRole?ssxControlNearestTarget(me.subrole):null;
   if(proximityRole){
     const heldPenguin=me?.subrole==="penguin"&&!!me.penguinTargetId;
     const targetMissing=!target&&!heldPenguin;
-    const roleBlocked=me?.subrole==="samurai"&&me.samuraiUsed===true||me?.subrole==="slugger"&&!!me.sluggerCharge;
+    const roleBlocked=me?.subrole==="samurai"&&me.samuraiUsed===true;
     $("abilityBtn").disabled=$("abilityBtn").disabled||targetMissing||roleBlocked;
   }
+  if(me?.subrole==="slugger"&&me.sluggerCharge)$("abilityBtn").disabled=true;
   const spent=me?.subrole==="samurai"&&me.samuraiUsed===true,button=$("abilityBtn");button.dataset.exhausted=String(spent);
   let mark=button.querySelector(".abilityExhaustedMark");if(!mark){mark=document.createElement("span");mark.className="abilityExhaustedMark";mark.textContent="×";mark.setAttribute("aria-hidden","true");button.append(mark);}mark.hidden=!spent;
   if(spent)button.setAttribute("aria-description","斬撃は使用済みです");else button.removeAttribute("aria-description");
@@ -12680,7 +12703,7 @@ function useRoleAbility(){
   if(me.subrole==="hawk"||me.subrole==="niceHawk"){sendCommand("ability",{ability:"hawk"});return;}
   if(me.subrole==="waveCannon"){sendCommand("ability",{ability:"waveCannon",yaw:Number(avatars.get(uid)?.rotation.y)||0});return;}
   if(["rocket","necromancer","revenant","waveCannonJackal","jackalWaveCannon"].includes(me.subrole))return;
-  if(me.subrole==="slugger"){const target=ssxControlNearestTarget("slugger");if(!target)return;const yaw=Math.atan2(Number(target.loc.x)-position.x,Number(target.loc.z)-position.z);sendCommand("ability",{ability:"slugger",yaw});return;}if(["samurai","suicideBomber"].includes(me.subrole)){sendCommand("ability",{ability:me.subrole,yaw:Number(avatars.get(uid)?.rotation.y)||0});return;}
+  if(me.subrole==="slugger"){sendCommand("ability",{ability:"slugger",yaw:Number(avatars.get(uid)?.rotation.y)||0});return;}if(["samurai","suicideBomber"].includes(me.subrole)){sendCommand("ability",{ability:me.subrole,yaw:Number(avatars.get(uid)?.rotation.y)||0});return;}
   if(me.subrole==="penguin"){
     if(me.penguinTargetId){sendCommand("ability",{ability:"penguinFinish",target:me.penguinTargetId});return;}
     const target=ssxControlNearestTarget("penguin");if(target)sendCommand("ability",{ability:"penguin",target:target.id});return;
@@ -22662,6 +22685,12 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
  #gmSettings .gmSettingsNav .gmSettingsTab{font-size:14px!important}
  #gmSettingsRoomPanel>h3{font-size:16px!important}
  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingName{font-size:13px!important;line-height:1.35!important}
+}
+</style>
+<style id="sabotage-slugger-countdown-refinement">
+@media (min-width:700px) and (pointer:fine), (min-width:700px) and (min-height:700px) and (pointer:coarse){
+ #sabotageMapPins button[data-sabotage-action]{width:clamp(54px,5.2vw,64px)!important;height:clamp(54px,5.2vw,64px)!important;min-width:54px!important;min-height:54px!important;padding:2px!important;font-size:clamp(18px,2.2vw,22px)!important;line-height:1!important}
+ #sabotageMapPins .sabotageCooldownLabel{font-size:11px!important;bottom:-15px!important;padding:2px 5px!important}
 }
 </style>
 </body>
