@@ -23037,6 +23037,54 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
   body:has(#controls[data-left-handed="true"]) #ghostHud{left:max(6px,env(safe-area-inset-left))!important;right:calc(max(6px,env(safe-area-inset-right)) + min(var(--stick-size,150px),31vw,118px) + 8px)!important}
 }
 </style>
+<style id="ssx-phone-ui-spacing-and-width-v1">
+/* Phone-only refinements. Tablet and desktop layouts are intentionally untouched. */
+@media (max-width:700px) and (pointer:coarse), (max-width:1000px) and (max-height:500px) and (orientation:landscape) and (pointer:coarse){
+  /* Give both settings dialogs nearly the full phone width and reclaim nav width. */
+  #lobby{padding:4px!important}
+  #lobby>.card{width:calc(100vw - max(8px,env(safe-area-inset-left)) - max(8px,env(safe-area-inset-right)))!important;max-width:none!important;margin:0 auto!important;padding:6px!important}
+  #gmSettings .gmSettingsShell{grid-template-columns:64px minmax(0,1fr)!important;gap:4px!important}
+  #gmSettings .gmSettingsNav{gap:4px!important}
+  #gmSettings .gmSettingsTab{grid-template-columns:1fr!important;justify-items:center!important;gap:2px!important;min-height:43px!important;padding:4px 2px!important}
+  #gmSettings .gmSettingsTab>span:last-child{font-size:8px!important;line-height:1.1!important;white-space:nowrap!important;letter-spacing:-.035em}
+  #gmSettings .gmSettingsContent{padding:4px!important}
+  #gmSettingsRoleCountPanel #roleSettingsList{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:3px!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleFactionColumn{padding:3px 2px!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleFactionColumn h3{gap:2px!important;padding:4px 2px!important;font-size:9px!important;line-height:1.1!important;white-space:nowrap!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleFactionTotal{font-size:8px!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingRow,
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor{grid-template-columns:minmax(0,1fr) 22px 26px 22px!important;gap:2px!important;min-height:30px!important;padding:2px!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingName{min-width:0!important;padding:0!important;font-size:8px!important;line-height:1.1!important;overflow-wrap:anywhere!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingName>.roleSettingCount{margin-left:2px!important;padding:0 2px!important;font-size:7px!important;line-height:1.1!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingRow .roleCountStep{width:22px!important;min-width:22px!important;height:27px!important;min-height:27px!important;font-size:13px!important;line-height:1!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingRow input[type=number]{width:26px!important;min-width:26px!important;min-height:27px!important;height:27px!important;padding:1px!important;font-size:11px!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor .roleCountStep:nth-of-type(1){grid-column:2!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor input[type=number]{grid-column:3!important}
+  #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor .roleCountStep:nth-of-type(2){grid-column:4!important}
+
+  #inputSettingsDialog>.inputSettingsDialogCard{width:calc(100vw - max(8px,env(safe-area-inset-left)) - max(8px,env(safe-area-inset-right)))!important;max-width:none!important;padding:5px!important}
+  #inputSettingsDialog .inputSettingsShell{grid-template-columns:64px minmax(0,1fr)!important;gap:4px!important}
+  #inputSettingsDialog #inputSettingsNav{gap:3px!important}
+  #inputSettingsDialog #inputSettingsNav button{min-height:36px!important;padding:4px 2px!important;text-align:center!important;font-size:9px!important;line-height:1.1!important}
+  #inputSettingsDialog .inputSettingsContent{padding:5px!important}
+  #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceGrid{gap:4px!important;padding:4px 0 0!important}
+  #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceGrid>label:not(.inputPreferenceCheck){gap:2px 5px!important;margin:0!important;padding:4px 6px!important;font-size:11px!important;line-height:1.2!important}
+  #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceGrid>label input[type=range]{height:23px!important;min-height:23px!important;margin:0!important}
+  #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceCheck{min-height:32px!important;gap:6px!important;font-size:11px!important}
+  #inputSettingsDialog [data-settings-section="operation"] .inputKeyMap{margin:2px 0!important;padding:5px!important}
+  #inputSettingsDialog [data-settings-section="operation"] .inputKeyMapButtons{gap:4px!important}
+  #inputSettingsDialog [data-settings-section="operation"] .inputKeyMapButtons button{min-width:56px!important;min-height:34px!important;padding:4px!important}
+
+  /* Compact roster on the left; a docked chat panel stays on the right. */
+  #lobbyRoster{width:min(38vw,210px)!important;max-width:38vw!important}
+  #lobbyChat{left:auto!important;right:max(6px,env(safe-area-inset-right))!important;top:auto!important;bottom:calc(122px + env(safe-area-inset-bottom))!important;width:min(58vw,300px)!important;max-width:300px!important;height:min(34dvh,260px)!important;max-height:min(34dvh,260px)!important;z-index:24!important}
+  #lobbyChatToggleBtn{right:max(8px,env(safe-area-inset-right))!important;bottom:calc(72px + env(safe-area-inset-bottom))!important;top:auto!important;z-index:145!important}
+
+  /* Keep lobby actions on one baseline: jump at the lower-right, use immediately left. */
+  body[data-phase="lobby"] #buttons>#jumpBtn:not(.hidden){position:fixed!important;left:auto!important;right:max(8px,env(safe-area-inset-right))!important;top:auto!important;bottom:max(8px,env(safe-area-inset-bottom))!important;transform:none!important;width:72px!important;min-width:72px!important;max-width:72px!important;height:54px!important;min-height:54px!important;max-height:54px!important;padding:4px!important;font-size:12px!important;z-index:46!important}
+  body[data-phase="lobby"] #lobbyUseBtn:not(.hidden){right:calc(max(8px,env(safe-area-inset-right)) + 80px)!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:min(100px,29vw)!important;min-width:min(100px,29vw)!important;max-width:min(100px,29vw)!important;height:54px!important;min-height:54px!important;max-height:54px!important;padding:4px!important;font-size:12px!important;z-index:45!important}
+}
+</style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
 </html>
