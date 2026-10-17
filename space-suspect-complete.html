@@ -8404,9 +8404,23 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       });
       return true;
     }
-    // WebRTC proximity voice uses a room-local signaling tree. Game position
-    // synchronization remains on the existing ~100 ms roster updates.
+    // SkyWay SFU carries audio; Firebase keeps only mic presence and uses the
+    // existing roster positions for proximity, walls, camera, and ghost gates.
     let voiceEnabledByRoom=false,voiceJoined=false,voiceMuted=true,voicePromptOpen=false,voiceStream=null,voiceContext=null,voiceSessionId="",voicePresenceUnsub=[],voiceDisplayUnsub=[],voiceDisplayRoom="",voicePeers=new Map(),voiceRemoteStates=new Map(),voicePositionOverride=null;
+    let skywaySdkPromise=null,skywayContext=null,skywayRoom=null,skywayMember=null,skywayLocalAudio=null,skywayRoomName="";
+    const SKYWAY_TOKEN_ENDPOINT="https://skyway-toooken.jitianzheping19.workers.dev/api/token";
+    async function loadSkyWaySdk(){if(!skywaySdkPromise)skywaySdkPromise=import("https://esm.sh/@skyway-sdk/room@2.5.1?bundle");return skywaySdkPromise;}
+    async function requestSkyWayToken(roomName,memberName){
+      const user=auth?.currentUser;if(!user)throw new Error("Firebaseログインを確認できません。ログインし直してから通話を開始してください。");
+      const idToken=await user.getIdToken();
+      const response=await fetch(SKYWAY_TOKEN_ENDPOINT,{method:"POST",mode:"cors",cache:"no-store",headers:{"Authorization":`Bearer ${idToken}`,"Content-Type":"application/json"},body:JSON.stringify({roomId:String(roomName),memberName:String(memberName||"プレイヤー").slice(0,24)})});
+      let data={};try{data=await response.json();}catch{}
+      if(!response.ok||typeof data.token!=="string"){
+        const reason=response.status===401?"Firebaseログインを確認できません。いったんログアウトして再ログインしてください。":response.status===403?"SkyWay WorkerのOrigin設定を確認してください。":response.status===500?"SkyWay WorkerのSecrets設定を確認してください。":String(data.error||`SkyWayトークンの取得に失敗しました（${response.status}）`);
+        throw new Error(reason);
+      }
+      return data.token;
+    }
     let voiceMeterSource=null,voiceAnalyser=null,voiceMeterFrame=0,voiceSpeaking=false,voicePresenceSignature="";
     let voicePrefsOwner="",voicePlayerPrefs={},voicePrefsSaveTimer=0;
     function syncVoicePlayerPrefs(){
@@ -8513,8 +8527,6 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       const player=game.players?.[playerId]||players?.[playerId];
       return player?.alive===false||player?.observer===true;
     };
-    const voicePairKey=(peerId,peerSession)=>[`${uid}_${voiceSessionId}`,`${peerId}_${peerSession}`].sort().join("__");
-
     // Local view state only; chat display controls never write room data.
     const chatViewState={meeting:{unread:0,away:false,initialized:false,key:"",seen:new Set(),displayedRows:null,hiddenCount:0},lobby:{unread:0,away:false,displayedRows:null,hiddenCount:0}};
     const CHAT_VISIBLE_LIMIT=60,CHAT_GROUP_WINDOW_MS=12000;
@@ -8613,14 +8625,13 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       button.title=button.getAttribute("aria-label");
       if(!window.isSecureContext){$("voicePermissionMessage").textContent="マイクにはHTTPSまたはlocalhostが必要です。安全な接続でこのページを開いてください。";$("voicePermissionSettings").classList.add("hidden");}
     }
-    function closeVoicePeer(peerId,removeBranch=false){
+    function closeVoicePeer(peerId){
       const peer=voicePeers.get(peerId);if(!peer)return;
-      voicePeers.delete(peerId);peer.closed=true;for(const unsubscribe of peer.unsubs||[])try{unsubscribe();}catch{}
-      clearTimeout(peer.disconnectTimer);try{peer.pc.onicecandidate=null;peer.pc.ontrack=null;peer.pc.close();}catch{}
+      voicePeers.delete(peerId);peer.closed=true;
       try{peer.source?.disconnect();peer.panner?.disconnect();peer.gain?.disconnect();}catch{}
-      if(removeBranch&&code&&uid&&peer.path)void remove(ref(db,peer.path)).catch(()=>{});
+      if(peer.subscription&&skywayMember)void skywayMember.unsubscribe(peer.subscription).catch(error=>console.debug("SkyWay購読の終了を確認しました",error));
     }
-    function closeAllVoicePeers(removeBranches=false){for(const id of [...voicePeers.keys()])closeVoicePeer(id,removeBranches);}
+    function closeAllVoicePeers(){for(const id of [...voicePeers.keys()])closeVoicePeer(id);}
     function updateVoiceSpatialAudio(){
       if(!voiceContext)return;const t=voiceContext.currentTime,listener=voiceContext.listener;
       const override=voicePositionOverride,cameraMonitoring=game?.phase==="play"&&!!document.getElementById("ssSecurityModal")?.classList.contains("open"),cameraVoiceView=cameraMonitoring?window.__ssCameraVoiceView:null;
@@ -8730,37 +8741,41 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     window.setVoicePosition=(x,y)=>{const px=Number(x),pz=Number(y);if(Number.isFinite(px)&&Number.isFinite(pz)){voicePositionOverride={x:px,z:pz};updateVoiceSpatialAudio();}};
     function onRemoteVoicePresence(peerId,value){
       if(!peerId||peerId===uid)return;
-      if(!value||value.joined!==true||!value.session){voiceRemoteStates.delete(peerId);closeVoicePeer(peerId,true);updateVoiceReceiveGates();safeRenderUI();return;}
+      if(!value||value.joined!==true||!value.session){voiceRemoteStates.delete(peerId);closeVoicePeer(peerId);updateVoiceReceiveGates();safeRenderUI();return;}
       voiceRemoteStates.set(peerId,value);syncVoicePeers();updateVoiceReceiveGates();safeRenderUI();
     }
-    function attachVoiceSignalListeners(peerId,peer){
-      const signalRef=ref(db,peer.signalPath);
-      const addUnsub=unsub=>peer.unsubs.push(unsub);
-      if(peer.isCaller){
-        addUnsub(onValue(ref(db,`${peer.signalPath}/answer`),async snap=>{const value=snap.val();if(!value||peer.closed)return;try{if(!peer.pc.currentRemoteDescription)await peer.pc.setRemoteDescription(new RTCSessionDescription(value));for(const candidate of peer.pendingCandidates.splice(0))await peer.pc.addIceCandidate(candidate);}catch(error){console.warn("Voice answer failed",error);}}));
-        addUnsub(onChildAdded(ref(db,`${peer.signalPath}/answerCandidates`),async snap=>{if(!snap.val()||peer.closed)return;const candidate=new RTCIceCandidate(snap.val());if(peer.pc.remoteDescription)try{await peer.pc.addIceCandidate(candidate);}catch{}else peer.pendingCandidates.push(candidate);}));
-      }else{
-        addUnsub(onValue(ref(db,`${peer.signalPath}/offer`),async snap=>{const value=snap.val();if(!value||peer.closed||peer.answering)return;peer.answering=true;try{await peer.pc.setRemoteDescription(new RTCSessionDescription(value));for(const candidate of peer.pendingCandidates.splice(0))await peer.pc.addIceCandidate(candidate);const answer=await peer.pc.createAnswer();await peer.pc.setLocalDescription(answer);await set(ref(db,`${peer.signalPath}/answer`),{type:answer.type,sdp:answer.sdp,at:now()});}catch(error){console.warn("Voice offer failed",error);closeVoicePeer(peerId,true);}}));
-        addUnsub(onChildAdded(ref(db,`${peer.signalPath}/offerCandidates`),async snap=>{if(!snap.val()||peer.closed)return;const candidate=new RTCIceCandidate(snap.val());if(peer.pc.remoteDescription)try{await peer.pc.addIceCandidate(candidate);}catch{}else peer.pendingCandidates.push(candidate);}));
-      }
+    async function subscribeSkyWayPublication(publication){
+      const peerId=String(publication?.publisher?.id||"");
+      if(!peerId||peerId===uid||publication.contentType!=="audio"||!skywayMember||!voiceJoined)return;
+      if(players?.[peerId]?.online!==true||voiceRemoteStates.get(peerId)?.joined!==true)return;
+      const current=voicePeers.get(peerId);if(current?.publication?.id===publication.id)return;
+      if(current)closeVoicePeer(peerId);
+      const localMember=skywayMember;
+      const peer={peerId,publication,closed:false,subscription:null,source:null,panner:null,gain:null};voicePeers.set(peerId,peer);
+      try{
+        const {stream,subscription}=await localMember.subscribe(publication.id);
+        if(peer.closed||voicePeers.get(peerId)!==peer||!voiceJoined){await localMember.unsubscribe(subscription).catch(()=>{});return;}
+        peer.subscription=subscription;
+        const source=voiceContext.createMediaStreamSource(new MediaStream([stream.track])),panner=voiceContext.createPanner(),gain=voiceContext.createGain();
+        panner.panningModel="HRTF";panner.distanceModel="inverse";panner.refDistance=2.5;panner.maxDistance=7.5;panner.rolloffFactor=1.15;gain.gain.value=0;
+        source.connect(panner).connect(gain).connect(getVoiceAudioBus());peer.source=source;peer.panner=panner;peer.gain=gain;
+        updateVoiceSpatialAudio();updateVoiceReceiveGates();
+      }catch(error){console.warn("SkyWay音声の購読に失敗しました",error);if(voicePeers.get(peerId)===peer)voicePeers.delete(peerId);peer.closed=true;}
     }
-    async function createVoicePeer(peerId,remote){
-      if(voicePeers.has(peerId)||!voiceJoined||!voiceRoomIsEnabled()||!voiceStream||!remote?.session)return;
-      const localKey=`${uid}_${voiceSessionId}`,remoteKey=`${peerId}_${remote.session}`,isCaller=localKey.localeCompare(remoteKey)<0,pairKey=voicePairKey(peerId,remote.session);
-      const signalPath=isCaller?`rooms/${code}/voiceSignals/${uid}/${peerId}/${pairKey}`:`rooms/${code}/voiceSignals/${peerId}/${uid}/${pairKey}`;
-      const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
-      const peer={pc,signalPath,path:signalPath,isCaller,remoteSession:remote.session,unsubs:[],pendingCandidates:[],closed:false,answering:false};voicePeers.set(peerId,peer);
-      for(const track of voiceStream.getAudioTracks())pc.addTrack(track,voiceStream);
-      pc.ontrack=event=>{if(peer.closed)return;const source=voiceContext.createMediaStreamSource(event.streams[0]||new MediaStream([event.track])),panner=voiceContext.createPanner(),gain=voiceContext.createGain();panner.panningModel="HRTF";panner.distanceModel="inverse";panner.refDistance=2.5;panner.maxDistance=7.5;panner.rolloffFactor=1.15;gain.gain.value=0;source.connect(panner).connect(gain).connect(getVoiceAudioBus());peer.source=source;peer.panner=panner;peer.gain=gain;updateVoiceSpatialAudio();updateVoiceReceiveGates();};
-      pc.onicecandidate=event=>{if(event.candidate&&!peer.closed){const lane=isCaller?"offerCandidates":"answerCandidates";const candidatePath=`${signalPath}/${lane}/${token()}`;void set(ref(db,candidatePath),event.candidate.toJSON()).catch(error=>console.warn("Voice ICE publish failed",error));}};
-      pc.onconnectionstatechange=()=>{if(pc.connectionState==="connected")clearTimeout(peer.disconnectTimer);else if(pc.connectionState==="failed"){closeVoicePeer(peerId,true);setTimeout(syncVoicePeers,1800);}else if(pc.connectionState==="closed")closeVoicePeer(peerId,true);else if(pc.connectionState==="disconnected"){clearTimeout(peer.disconnectTimer);peer.disconnectTimer=setTimeout(()=>{if(pc.connectionState==="disconnected"){closeVoicePeer(peerId,true);setTimeout(syncVoicePeers,1200);}},4000);}};
-      attachVoiceSignalListeners(peerId,peer);
-      if(isCaller){try{await set(ref(db,`${signalPath}/offer`),null);const offer=await pc.createOffer();await pc.setLocalDescription(offer);await set(ref(db,`${signalPath}/offer`),{type:offer.type,sdp:offer.sdp,at:now()});}catch(error){console.warn("Voice offer publish failed",error);closeVoicePeer(peerId,true);}}
+    function handleSkyWayPublicationRemoved(publication){
+      const peerId=String(publication?.publisher?.id||"");const peer=voicePeers.get(peerId);
+      if(peer&&peer.publication?.id===publication.id)closeVoicePeer(peerId);
     }
     function syncVoicePeers(){
-      if(!voiceJoined||!voiceRoomIsEnabled())return;
-      for(const [peerId,remote] of voiceRemoteStates){if(voicePeers.has(peerId)&&voicePeers.get(peerId).remoteSession!==remote.session)closeVoicePeer(peerId,true);if(remote.joined===true&&players?.[peerId]?.online===true)void createVoicePeer(peerId,remote).catch(error=>console.warn("音声接続に失敗しました",error));}
-      for(const peerId of [...voicePeers.keys()])if(voiceRemoteStates.get(peerId)?.joined!==true||players?.[peerId]?.online!==true)closeVoicePeer(peerId,true);
+      if(!voiceJoined||!voiceRoomIsEnabled()||!skywayRoom||!skywayMember)return;
+      const publications=new Map();
+      for(const publication of skywayRoom.publications||[]){
+        const peerId=String(publication?.publisher?.id||"");
+        if(!peerId||peerId===uid||publication.contentType!=="audio")continue;
+        if(players?.[peerId]?.online===true&&voiceRemoteStates.get(peerId)?.joined===true)publications.set(peerId,publication);
+      }
+      for(const peerId of [...voicePeers.keys()])if(!publications.has(peerId)||voicePeers.get(peerId)?.publication?.id!==publications.get(peerId)?.id)closeVoicePeer(peerId);
+      for(const publication of publications.values())void subscribeSkyWayPublication(publication);
       updateVoiceReceiveGates();
     }
     async function publishVoicePresence(force=false){
@@ -8775,11 +8790,15 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       });voicePresenceWrite=write;return write;
     }
     async function stopVoiceChat({removePresence=true,removeSignals=true,closeContext=true}={}){
-      const oldCode=code,oldUid=uid;voiceJoined=false;voiceMuted=true;voicePromptOpen=false;stopVoiceSpatialTimer();stopVoiceActivityMeter();closeAllVoicePeers(removeSignals);voicePresenceSignature="";
+      const oldCode=code,oldUid=uid,oldMember=skywayMember,oldRoom=skywayRoom,oldSkywayContext=skywayContext;voiceJoined=false;voiceMuted=true;voicePromptOpen=false;stopVoiceSpatialTimer();stopVoiceActivityMeter();closeAllVoicePeers();voicePresenceSignature="";
+      skywayMember=null;skywayRoom=null;skywayContext=null;skywayLocalAudio=null;skywayRoomName="";
       for(const track of voiceStream?.getAudioTracks()||[])track.enabled=false;
       for(const unsubscribe of voicePresenceUnsub)try{unsubscribe();}catch{}voicePresenceUnsub=[];
       if(removePresence&&oldCode&&oldUid)await remove(ref(db,`rooms/${oldCode}/voicePresence/${oldUid}`)).catch(()=>{});
       if(removeSignals&&oldCode&&oldUid)await remove(ref(db,`rooms/${oldCode}/voiceSignals/${oldUid}`)).catch(()=>{});
+      if(oldMember)await oldMember.leave().catch(error=>console.debug("SkyWayから退出しました",error));
+      if(oldRoom)await oldRoom.dispose().catch(error=>console.debug("SkyWayルームを解放しました",error));
+      if(oldSkywayContext)oldSkywayContext.dispose();
       if(voiceStream){for(const track of voiceStream.getTracks())track.stop();voiceStream=null;}
       if(closeContext&&voiceContext){await voiceContext.close().catch(()=>{});voiceContext=null;}
       voiceSessionId="";refreshVoiceUI();
@@ -8802,19 +8821,37 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         const audioResume=AudioContextClass?(voiceContext=new AudioContextClass(),voiceContext.resume().catch(()=>{})):Promise.resolve();
         const stream=await mediaRequest;
         if(code!==requestedRoom||session!==requestedSession||!voiceRoomIsEnabled()){for(const track of stream.getTracks())track.stop();await stopVoiceChat();return;}
-        voiceStream=stream;await audioResume;
-        voiceJoined=true;voiceMuted=false;voiceSessionId=token();voicePresenceSignature="";startVoiceSpatialTimer();startVoiceActivityMeter();
-        const ownPresence=ref(db,`rooms/${code}/voicePresence/${uid}`),ownSignals=ref(db,`rooms/${code}/voiceSignals/${uid}`);
-        await onDisconnect(ownPresence).remove();await onDisconnect(ownSignals).remove();await publishVoicePresence();
+        voiceStream=stream;for(const track of voiceStream.getAudioTracks())track.enabled=false;await audioResume;
+        const audioTrack=voiceStream.getAudioTracks()[0];if(!audioTrack)throw new Error("マイクの音声トラックを取得できませんでした。");
+        const requestedName=nicknameFor(uid)||players?.[uid]?.name||auth?.currentUser?.displayName||"プレイヤー";
+        message.textContent="SkyWayへ接続しています…";
+        const authToken=await requestSkyWayToken(requestedRoom,requestedName),sdk=await loadSkyWaySdk();
+        if(code!==requestedRoom||session!==requestedSession||!voiceRoomIsEnabled()){for(const track of voiceStream?.getTracks()||[])track.stop();await stopVoiceChat();return;}
+        skywayContext=await sdk.SkyWayContext.Create(authToken);
+        skywayRoom=await sdk.SkyWayRoom.FindOrCreate(skywayContext,{type:"sfu",name:requestedRoom});skywayRoomName=requestedRoom;
+        skywayMember=await skywayRoom.join({id:uid,name:String(requestedName).slice(0,24)});
+        skywayLocalAudio=new sdk.LocalAudioStream(audioTrack);
+        await skywayMember.publish(skywayLocalAudio);
+        skywayRoom.onStreamPublished.add(({publication})=>{void subscribeSkyWayPublication(publication);});
+        skywayRoom.onStreamUnpublished.add(({publication})=>handleSkyWayPublicationRemoved(publication));
+        skywayRoom.onMemberLeft.add(({member})=>{closeVoicePeer(String(member?.id||""));});
+        skywayContext.onTokenUpdateReminder.add(()=>{
+          const activeContext=skywayContext,activeRoom=skywayRoomName,activeName=String(requestedName).slice(0,24);
+          if(!activeContext||!activeRoom||!voiceJoined)return;
+          void requestSkyWayToken(activeRoom,activeName).then(nextToken=>{if(skywayContext===activeContext)return activeContext.updateAuthToken(nextToken);}).catch(error=>console.warn("SkyWayトークンの更新に失敗しました",error));
+        });
+        voiceJoined=true;voiceMuted=false;voiceSessionId=token();voicePresenceSignature="";syncVoiceMutePolicy();startVoiceSpatialTimer();startVoiceActivityMeter();
+        const ownPresence=ref(db,`rooms/${code}/voicePresence/${uid}`);
+        await onDisconnect(ownPresence).remove();await publishVoicePresence();
         voicePresenceUnsub=[];
         const voiceRoomAtJoin=code,voiceSessionAtJoin=voiceSessionId;let voiceSawDisconnect=false;
         voicePresenceUnsub.push(onValue(ref(db,".info/connected"),snap=>{
           if(snap.val()!==true){voiceSawDisconnect=true;for(const track of voiceStream?.getAudioTracks()||[])track.enabled=false;for(const peer of voicePeers.values())if(peer.gain)peer.gain.gain.value=0;return;}
           if(!voiceSawDisconnect||!voiceJoined||code!==voiceRoomAtJoin||voiceSessionId!==voiceSessionAtJoin)return;
           voiceSawDisconnect=false;
-          void (async()=>{await onDisconnect(ownPresence).remove();await onDisconnect(ownSignals).remove();voicePresenceSignature="";await publishVoicePresence(true);voiceRemoteStates.clear();syncVoicePeers();})().catch(error=>console.warn("近アモ再接続に失敗しました",error));
+          void (async()=>{await onDisconnect(ownPresence).remove();voicePresenceSignature="";syncVoiceMutePolicy();await publishVoicePresence(true);syncVoicePeers();})().catch(error=>console.warn("通話状態の再接続に失敗しました",error));
         }));
-        voicePeers.clear();voicePromptOpen=false;message.textContent="";refreshVoiceUI();syncVoicePeers();updateVoiceSpatialAudio();
+        voicePromptOpen=false;message.textContent="";refreshVoiceUI();syncVoicePeers();updateVoiceSpatialAudio();
       }catch(error){await stopVoiceChat({removePresence:true,removeSignals:true,closeContext:true});voicePromptOpen=true;
         const name=error?.name||"";
         if(name==="NotAllowedError"||name==="PermissionDeniedError"){
