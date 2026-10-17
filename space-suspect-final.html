@@ -2799,7 +2799,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label data-role-setting="penguin">ドラッグ時間 <input id="penguinDragSeconds" type="range" min="2" max="12" step="1" value="5"><output>5秒</output></label><label data-role-setting="penguin">クールダウン <input id="penguinCooldownSeconds" type="range" min="10" max="90" step="5" value="30"><output>30秒</output></label><label data-role-setting="penguin">会議中にタイマー満了でキル <input id="penguinKillOnMeeting" type="checkbox" checked></label><label data-role-setting="penguin">捕獲中以外の通常キルを許可 <input id="penguinCanKillNormally" type="checkbox" checked></label>
           <label data-role-setting="samurai">斬撃範囲 <input id="samuraiRange" type="range" min="1" max="10" step="0.2" value="5"><output>5m</output></label><label data-role-setting="samurai">ベント使用可 <input id="samuraiCanVent" type="checkbox"></label><label data-role-setting="samurai">サボタージュ使用可 <input id="samuraiCanSabotage" type="checkbox"></label><label data-role-setting="samurai">必殺技クールダウン <input id="samuraiCooldownSeconds" type="range" min="10" max="90" step="5" value="40"><output>40秒</output></label>
           <label data-role-setting="suicideBomber">自爆範囲 <input id="suicideBomberRadius" type="range" min="2" max="8" step="0.5" value="4"><output>4m</output></label><label data-role-setting="suicideBomber">クールダウン <input id="suicideBomberCooldownSeconds" type="range" min="10" max="90" step="5" value="35"><output>35秒</output></label><label data-role-setting="suicideBomber">クルーのみ巻き込む <input id="suicideBomberCrewOnly" type="checkbox"></label>
-          <label data-role-setting="slugger">攻撃範囲 <input id="sluggerRange" type="range" min="5" max="10" step="1" value="5"><output>5m</output></label><label data-role-setting="slugger">チャージ時間 <input id="sluggerChargeSeconds" type="range" min="0.5" max="5" step="0.5" value="1"><output>1秒</output></label><label data-role-setting="slugger">クールダウン <input id="sluggerCooldownSeconds" type="range" min="10" max="120" step="5" value="45"><output>45秒</output></label><label data-role-setting="slugger">最大ヒット数 <input id="sluggerMaxHits" type="range" min="1" max="5" step="1" value="3"><output>3回</output></label><label data-role-setting="slugger">複数ヒット可 <input id="sluggerMultiHitEnabled" type="checkbox"></label><label data-role-setting="slugger">チャージ中も通常キル可 <input id="sluggerAllowKillDuringCharge" type="checkbox"></label>
+          <label data-role-setting="slugger">攻撃範囲 <input id="sluggerRange" type="range" min="5" max="10" step="1" value="5"><output>5m</output></label><label data-role-setting="slugger">チャージ時間 <input id="sluggerChargeSeconds" type="range" min="0.5" max="5" step="0.5" value="1"><output>1秒</output></label><label data-role-setting="slugger">クールダウン <input id="sluggerCooldownSeconds" type="range" min="10" max="120" step="5" value="45"><output>45秒</output></label><label data-role-setting="slugger">最大ヒット数 <input id="sluggerMaxHits" type="range" min="1" max="5" step="1" value="3"><output>3回</output></label><label data-role-setting="slugger">複数ヒット可 <input id="sluggerMultiHitEnabled" type="checkbox" checked></label><label data-role-setting="slugger">チャージ中も通常キル可 <input id="sluggerAllowKillDuringCharge" type="checkbox"></label>
           <label data-role-setting="rocket">初回捕獲クールダウン <input id="rocketInitialCaptureCooldownSeconds" type="range" min="5" max="60" step="5" value="25"><output>25秒</output></label><label data-role-setting="rocket">追加捕獲クールダウン <input id="rocketAdditionalCaptureCooldownSeconds" type="range" min="3" max="30" step="1" value="8"><output>8秒</output></label><label data-role-setting="rocket">会議後に捕獲を発動 <input id="rocketLaunchAfterMeeting" type="checkbox"></label>
           <label data-role-setting="necromancer">クールダウン <input id="necromancerCooldownSeconds" type="range" min="10" max="120" step="5" value="30"><output>30秒</output></label><label data-role-setting="necromancer">復活できる人数 <input id="necromancerMaxRevenants" type="range" min="1" max="5" step="1" value="2"><output>2人</output></label><label data-role-setting="necromancer">呪いに必要なタスク <input id="necromancerRequiredTasks" type="range" min="1" max="6" step="1" value="2"><output>2個</output></label><label data-role-setting="necromancer">呪い時間 <input id="necromancerCurseSeconds" type="range" min="5" max="60" step="1" value="18"><output>18秒</output></label><label data-role-setting="necromancer">呪い中の視界倍率 <input id="necromancerCurseVisionMultiplier" type="range" min="0.1" max="1" step="0.05" value="0.35"><output>0.35倍</output></label><label data-role-setting="necromancer">呪い中は通報禁止 <input id="necromancerCurseBlocksReport" type="checkbox" checked></label>
           <label data-role-setting="waveCannon,waveCannonJackal">波動砲ため時間 <input id="waveCannonChargeSeconds" type="range" min="1" max="6" step="0.5" value="2"><output>2秒</output></label>
@@ -7375,7 +7375,7 @@ function modCombatTick(ctx){
     if(now<Number(charge.fireAt))continue;
     const angle=Number(charge.yaw)||0,dx=Math.sin(angle),dz=Math.cos(angle),radius=modCombatClamp(g.settings?.sluggerRange??5,5,10),half=1.55,candidates=[];
     for(const [id,v] of Object.entries(g.players||{})){if(id===by||!modCombatAlive(v))continue;const pose=modCombatPose(id,ctx);if(!pose)continue;const ox=pose.x-charge.x,oz=pose.z-charge.z,along=ox*dx+oz*dz,side=Math.abs(ox*dz-oz*dx);if(along>=.5&&along<=radius&&side<=half&&!wallBetween(charge,pose))candidates.push({id,pose,d:Math.hypot(ox,oz),along});}
-    candidates.sort((a,b)=>a.d-b.d);const hits=[],multi=g.settings?.sluggerMultiHitEnabled===true,max=multi?modCombatClamp(g.settings?.sluggerMaxHits??3,1,5):1;for(const q of candidates){if(hits.length>=max)break;if(modCombatKill(g,q.id,by,"slugger",q.pose))hits.push({id:q.id,x:q.pose.x,z:q.pose.z,along:q.along});}
+    candidates.sort((a,b)=>a.d-b.d);const hits=[],multi=g.settings?.sluggerMultiHitEnabled!==false,max=multi?modCombatClamp(g.settings?.sluggerMaxHits??3,1,5):1;for(const q of candidates){if(hits.length>=max)break;if(modCombatKill(g,q.id,by,"slugger",q.pose))hits.push({id:q.id,x:q.pose.x,z:q.pose.z,along:q.along});}
     emitModRoleEvent(g,"sluggerSwing",by,{chargeId:charge.id,x:charge.x,z:charge.z,yaw:angle,range:radius,halfWidth:half,targets:hits,at:now});delete p.sluggerCharge;changed=true;
   }
   if(changed)markDirty();
@@ -7522,7 +7522,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       const baseDown=document.createElement("button");baseDown.type="button";baseDown.className="roleCountStep";baseDown.textContent="−";baseDown.setAttribute("aria-label","人狼陣営の合計人数を1人減らす");
       const baseCount=document.createElement("input");baseCount.type="number";baseCount.min="1";baseCount.step="1";baseCount.value=String(Math.max(1,Number($("impostorCount")?.value)||1));baseCount.dataset.baseImpostorCount="true";baseCount.setAttribute("aria-label","人狼陣営の合計人数");
       const baseUp=document.createElement("button");baseUp.type="button";baseUp.className="roleCountStep";baseUp.textContent="＋";baseUp.setAttribute("aria-label","人狼陣営の合計人数を1人増やす");
-      const baseOut=document.createElement("output");baseOut.className="roleSettingCount";baseOut.textContent=`${baseCount.value}人`;baseRow.append(baseName,baseDown,baseCount,baseUp,baseOut);columns.impostor.append(baseRow);
+      const baseOut=document.createElement("output");baseOut.className="roleSettingCount";baseOut.textContent=`${baseCount.value}人`;baseName.append(baseOut);baseRow.append(baseName,baseDown,baseCount,baseUp);columns.impostor.append(baseRow);
       const syncBase=()=>{const value=Math.max(1,Math.trunc(Number(baseCount.value)||1));baseCount.value=String(value);$("impostorCount").value=String(value);baseRow.dataset.count=String(value);baseOut.textContent=`${value}人`;updateRoleCategoryCounts();queueLobbySettingsSave();};
       baseCount.addEventListener("input",syncBase);baseCount.addEventListener("change",syncBase);
       const stepBase=delta=>{const panel=$("gmSettings").querySelector(".gmSettingsContent"),list=$("roleSettingsList"),panelTop=panel?.scrollTop||0,listTop=list?.scrollTop||0;baseCount.value=String(Math.max(1,(Number(baseCount.value)||1)+delta));syncBase();baseCount.blur();requestAnimationFrame(()=>{if(panel)panel.scrollTop=panelTop;if(list)list.scrollTop=listTop;});};
@@ -7541,7 +7541,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
         for(const button of [down,up])button.addEventListener("pointerdown",event=>event.preventDefault());
         count.addEventListener("input",sync);down.addEventListener("click",event=>stepCount(-1,event));up.addEventListener("click",event=>stepCount(1,event));
         enabled.addEventListener("change",()=>{if(!enabled.checked)count.value="0";else if(Number(count.value)===0)count.value="1";sync();});
-        row.append(name,enabled,down,count,up,countLabel);(["mini","mirage"].includes(option.id)?subRoles:columns[row.dataset.roleCategory]).append(row);
+        name.append(countLabel);row.append(name,enabled,down,count,up);(["mini","mirage"].includes(option.id)?subRoles:columns[row.dataset.roleCategory]).append(row);
       }
        columns.neutral.append(subRoles);
       document.querySelectorAll("[data-role-tab]").forEach(button=>button.addEventListener("click",()=>setRoleCategory(button.dataset.roleTab)));
@@ -11063,7 +11063,7 @@ hostBusy = true;
           const selectedIds=new Set(selectedEast.map(task=>task.id));
           const optionalTaskIds=[...selectedEast,...shuffled(optionalPool.filter(task=>!selectedIds.has(task.id))).slice(0,Math.max(0,optionalCount-selectedEast.length))].map(task=>task.id);
           const assignedTasks = [...requiredTaskIds, ...optionalTaskIds];
-          const spawn=findOpenSpawn(ids.indexOf(id),reservedSpawns);
+          const spawn=waveModeSelected==="normal"?findCafeteriaSpawn(ids.indexOf(id),reservedSpawns):findOpenSpawn(ids.indexOf(id),reservedSpawns);
           reservedSpawns.push(spawn);
           const crewRoles = ["engineer", "scientist", "tracker", "noisemaker", "detective", "sheriff", "crewmate"];
           const imposterRoles = ["shapeshifter", "phantom", "viper"];
@@ -11144,6 +11144,8 @@ hostBusy = true;
         saveLastMatchSettings(matchSettingsSnapshot);
         await update(ref(db,`rooms/${code}/game/lobbySettings`),lobbySettingsPayload(matchSettingsSnapshot));
         game.lobbySettings={...(game.lobbySettings||{}),...lobbySettingsPayload(matchSettingsSnapshot)};
+        const initialBotPoses=Object.fromEntries(Object.entries(roster).filter(([,player])=>player.bot).map(([id,player])=>[id,{x:player.x,z:player.z}]));
+        await set(ref(db,`rooms/${code}/botPositions`),initialBotPoses);botPositions=initialBotPoses;pendingBotPose={};sentBotPoses={};sentBotPoseRoom="";
         await set(ref(db, `rooms/${code}/game`), {
           phase: "play",
           round: nextRound,
@@ -14287,9 +14289,11 @@ if (!players[id]?.online) {
                   if(roleReadyField)player[roleReadyField]=Math.max(Number(player[roleReadyField])||0,Number(player.abilityReadyAt)||0,readyAt);
                 }
               }
+              const reservedReturnSpawns=[];
               for(const [index,player] of Object.values(g.players).entries()){
-                const spawn=SPAWN_POINTS[index%SPAWN_POINTS.length];
+                const spawn=player.bot?findCafeteriaSpawn(index,reservedReturnSpawns):SPAWN_POINTS[index%SPAWN_POINTS.length];reservedReturnSpawns.push(spawn);
                 player.x=spawn.x;player.z=spawn.z;player.ventRevision=(player.ventRevision||0)+1;
+                if(player.bot){const botId=Object.keys(g.players)[index],pose={x:spawn.x,z:spawn.z};botPositions[botId]=pose;pendingBotPose[botId]=pose;}
               }
             }
           }
@@ -17160,6 +17164,14 @@ function findOpenSpawn(index, reserved = []) {
   return firstSafe||{x:preferred?.x??CENTER.x,z:preferred?.z??CENTER.z};
 }
 
+function findCafeteriaSpawn(index,reserved=[]){
+  const room=ROOMS.find(room=>/^(caf|cafeteria|kitchen)$/.test(String(room.id))||/カフェテリア|食堂/.test(String(room.label||room.name||"")));
+  if(!room)return findSafeTeleportOffset(CENTER,index,reserved);
+  const candidates=[],w=Math.max(3,Number(room.w)||10),d=Math.max(3,Number(room.d)||10);
+  for(let ring=0;ring<10;ring++){const radius=.5+ring*.42,count=Math.max(8,Math.ceil(radius*8));for(let step=0;step<count;step++){const angle=step/count*Math.PI*2+index*.73;candidates.push({x:room.x+Math.cos(angle)*radius,z:room.z+Math.sin(angle)*radius});}}
+  const point=candidates.find(point=>Math.abs(point.x-room.x)<w/2-.4&&Math.abs(point.z-room.z)<d/2-.4&&!collision(point.x,point.z)&&reserved.every(other=>Math.hypot(point.x-other.x,point.z-other.z)>=.82));
+  return point||findSafeTeleportOffset(room,index,reserved);
+}
 function findSafeTeleportOffset(anchor,index,reserved=[]){
   if(!anchor||!Number.isFinite(Number(anchor.x))||!Number.isFinite(Number(anchor.z)))return findOpenSpawn(index,reserved);
   const ax=Number(anchor.x),az=Number(anchor.z),offsets=[];for(let ring=1;ring<=8;ring++){const radius=ring*.34,count=Math.max(8,Math.ceil(2*Math.PI*radius/.34));for(let i=0;i<count;i++){const angle=i/count*Math.PI*2+index*.73;offsets.push({x:ax+Math.cos(angle)*radius,z:az+Math.sin(angle)*radius});}}
@@ -17448,8 +17460,8 @@ function beginVentTraversal(avatar,state,entering,stamp=performance.now()){
 function sampleVentTraversal(transition,stamp,isVented){
   if(!transition)return{progress:1,ease:1,offsetY:0,scaleY:1,visible:!isVented};
   const progress=clamp((stamp-transition.startedAt)/transition.duration,0,1),smooth=t=>t*t*(3-2*t);
-  const lowering=transition.entering?smooth(clamp((progress-.25)/.75,0,1)):1-smooth(progress);
-  return{progress,ease:smooth(clamp(progress/.55,0,1)),offsetY:-1.85*lowering+Math.sin(Math.PI*progress)*.16,scaleY:1-.18*lowering,visible:!transition.entering||progress<1};
+  const lowering=transition.entering?smooth(clamp((progress-.45)/.55,0,1)):1-smooth(progress);
+  return{progress,ease:smooth(clamp(progress/.45,0,1)),offsetY:-2.6*lowering,scaleY:1-.08*lowering,visible:!transition.entering||progress<1};
 }
     function followCamera() {
       const waitingLobby=isWaitingLobbyForRunningMatch();
@@ -22638,6 +22650,19 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
  #lobbyChatMessages .lobbyChatText{font-size:13px!important;line-height:1.35!important}#lobbyChatMessages .lobbyChatText>strong{font-size:11px!important}#lobbyChatMessages .lobbyChatTime{font-size:9px!important}
 }
 @media(pointer:coarse) and (max-width:1000px){#roundRoles.roundRolesFitsContent[data-source]:has(#roundRoleList[data-role-layout])>.card{width:min(720px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important}#controls #buttons #taskBtn{width:min(100%,54px)!important}#roundRoles[data-source] .roleFactionHeading{font-size:10px!important}#roundRoles[data-source] .roleChoiceButton{padding:5px!important;font-size:11px!important}}
+</style>
+<style id="vent-bot-settings-refinement">
+#gmSettingsRoleCountPanel #roleSettingsList .roleSettingName>.roleSettingCount{display:inline-flex!important;align-items:center;min-width:0!important;margin-left:5px!important;padding:1px 4px!important;border:1px solid #74cdb84d;border-radius:5px;color:#a8f3d8!important;font-size:10px!important;line-height:1.2!important;white-space:nowrap!important;vertical-align:middle}
+#controls #buttons #taskBtn{width:100%!important;max-width:none!important;min-width:0!important;justify-self:stretch!important}
+#lobbyUseBtn{width:116px!important;min-width:116px!important;max-width:116px!important}
+@media(min-width:1001px),(pointer:fine){
+ #gmSettings #gmSettingsRoomPanel .gmSettingsFieldGrid>label,#gmSettings #gmSettingsRoomPanel .gmBotRow{font-size:14px!important;line-height:1.35!important}
+ #gmSettings #gmSettingsRoomPanel select,#gmSettings #gmSettingsRoomPanel output{font-size:13px!important;min-width:0!important;max-width:100%!important}
+ #gmSettings #gmSettingsRoomPanel #botToggleControl{font-size:14px!important}
+ #gmSettings .gmSettingsNav .gmSettingsTab{font-size:14px!important}
+ #gmSettingsRoomPanel>h3{font-size:16px!important}
+ #gmSettingsRoleCountPanel #roleSettingsList .roleSettingName{font-size:13px!important;line-height:1.35!important}
+}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
