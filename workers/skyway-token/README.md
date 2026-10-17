@@ -14,7 +14,7 @@ npx wrangler deploy
 
 Do not put either secret in this repository or the game HTML. `FIREBASE_PROJECT_ID` is a public identifier in `wrangler.jsonc`.
 
-The endpoint will be `https://skyway-token.<your-workers.dev-subdomain>.workers.dev/api/token`.
+The endpoint is `https://skyway-toooken.jitianzheping19.workers.dev/api/token`.
 
 ## Request
 

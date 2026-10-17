@@ -190,8 +190,15 @@ export default {
             id: "*",
             name: roomName,
             methods: ["create", "close", "updateMetadata"],
+            sfu: {
+              enabled: true,
+              maxSubscribersLimit: 20,
+            },
             member: {
-              id: firebaseClaims.sub,
+              // SkyWay member IDs must be UUID v4 values or "*". The game
+              // lets the SDK generate the member ID and stores the Firebase
+              // UID in member metadata, so the token must match any member ID.
+              id: "*",
               name: memberName,
               methods: ["publish", "subscribe", "updateMetadata"],
             },
