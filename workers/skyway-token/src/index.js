@@ -197,9 +197,10 @@ export default {
             member: {
               // SkyWay member IDs must be UUID v4 values or "*". The game
               // lets the SDK generate the member ID and stores the Firebase
-              // UID in member metadata, so the token must match any member ID.
+              // UID in member metadata. The game omits SkyWay's optional name
+              // because player nicknames may contain characters its API rejects.
               id: "*",
-              name: memberName,
+              name: "*",
               methods: ["publish", "subscribe", "updateMetadata"],
             },
           },

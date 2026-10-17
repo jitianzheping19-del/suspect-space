@@ -8841,7 +8841,10 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         voiceStage="SFUルーム検索・作成";
         skywayRoom=await sdk.SkyWayRoom.FindOrCreate(skywayContext,{type:"sfu",name:requestedRoom});skywayRoomName=requestedRoom;
         voiceStage="ルーム入室";
-        skywayMember=await skywayRoom.join({name:String(requestedName).slice(0,24),metadata:String(uid)});
+        // Keep player names (including Japanese nicknames) in Firebase/UI only.
+        // SkyWay member identity is mapped through metadata, so don't send a
+        // user-facing name through the SDK's stricter API string validation.
+        skywayMember=await skywayRoom.join({metadata:String(uid)});
         const rawAudio=new sdk.LocalAudioStream(audioTrack);skywayInputAudio=rawAudio;
         let noiseCanceller=null,noiseReadyTimeout=0,noiseReadySettled=false;
         try{
