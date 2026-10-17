@@ -3033,13 +3033,13 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
     </div>
 </section>
 
-<section id="emergencyTask" class="overlay hidden" aria-modal="true">
+<section id="emergencyTask" class="overlay hidden" aria-modal="true" role="dialog" aria-labelledby="emergencyTitle" data-machine3d="true">
   <div class="card">
-    <div class="row reactorHeader">
-      <h2 id="emergencyTitle">緊急修理</h2>
-      <button id="emergencyCloseBtn">閉じる</button>
-    </div>
-    <p id="emergencyStatus"></p>
+    <div class="emergencyHead"><h2 id="emergencyTitle">緊急修理</h2><time id="emergencyCountdown" aria-label="修理の残り時間">--s</time></div>
+    <div id="emergencyTimeTrack" aria-hidden="true"><i id="emergencyTimeFill"></i></div>
+    <p id="emergencyStatus" role="status" aria-live="polite"></p>
+    <div id="emergencyMachineStage"></div>
+    <div class="emergencyLegacyControls">
     <div id="emergencyOxygen" class="hidden">
       <p>端末に表示された番号を入力してください：<strong id="emergencyCode"></strong></p>
       <input id="emergencyCodeInput" inputmode="numeric" maxlength="6" autocomplete="off" readonly placeholder="6桁のコード" aria-label="酸素解除コード">
@@ -3047,7 +3047,8 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
     </div>
     <div id="emergencyLights" class="hidden"><p>6部屋の照明スイッチをすべて点灯させてください。消灯中の部屋は現地のスイッチで復旧します。</p><div id="emergencyLightSwitches" class="emergencyLightSwitches" aria-live="polite"></div><strong id="emergencyPowerState">点灯 0/6</strong></div>
     <div id="emergencyComms" class="hidden"><p>円グラフの割合を目標に合わせてください。</p><div id="emergencyDialGraph"><div></div></div><label>調整 <input id="emergencyDialInput" type="range" min="0" max="100" value="0"><output id="emergencyDialTarget">目標 --%</output></label></div>
-    <button id="emergencySubmitBtn" class="primary">解除する</button>
+    </div>
+    <div class="emergencyFooter"><button id="emergencyCloseBtn" type="button">閉じる</button><span id="emergencyHint"></span><button id="emergencySubmitBtn" class="primary" type="button">解除する</button></div>
   </div>
 </section>
 
@@ -8278,6 +8279,7 @@ if(typeof module!=='undefined')module.exports=KartRaceProtocol;
     let taskProgressTimer = null;
     let cardTask = null;
   let emergencyPanelOpen = null;
+  let emergencyMachine3D=null,emergencyUIInterval=0,emergencyCloseTimer=0;
   let emergencyDialTarget=65;
     let deathPauseUntil = 0;
     let reactorTimerIds = [];
@@ -11587,54 +11589,95 @@ function nearestEmergencyPanel(){
     distance(position,panel)<3.8)
     .sort((a,b)=>distance(position,a)-distance(position,b))[0]||null;
 }
+function emergencyTaskMachineState(){
+  const open=emergencyPanelOpen,sabotage=game.sabotage;
+  if(!open||!sabotage||sabotage.id!==open.sabotageId)return null;
+  const panel=EMERGENCY_PANELS.find(p=>p.id===open.panelId);if(!panel)return null;
+  const stamp=now(),hand=sabotage.hands?.[panel.id],ownActive=!!hand&&hand.actor===uid&&stamp-hand.at<8000;
+  const pending=sabotage.type==="reactor"?(ownActive||!!open.sentAt&&stamp-open.sentAt<1500):!!open.sentAt;
+  const circuits=EMERGENCY_PANELS.filter(p=>p.room==="lights").map(p=>({id:p.id,name:p.name.replace("の照明スイッチ",""),on:!!sabotage.switches?.[p.id]}));
+  const input=$("emergencyCodeInput").value,value=Number($("emergencyDialInput").value)||0;
+  const total=sabotage.type==="oxygen"?6:sabotage.type==="lights"?circuits.length:1;
+  const done=sabotage.type==="oxygen"?input.length:sabotage.type==="lights"?circuits.filter(p=>p.on).length:sabotage.type==="comms"?(Math.abs(value-emergencyDialTarget)<=3?1:0):ownActive?1:0;
+  return{mode:"emergency-"+sabotage.type,accepting:!pending,done,total,code:String(sabotage.code||""),input,value,target:emergencyDialTarget,circuits,localOn:!!sabotage.switches?.[panel.id],ownActive,pending,scanAge:Math.max(0,stamp-(open.sentAt||hand?.at||stamp)),partnerActive:Object.entries(sabotage.hands||{}).some(([id,h])=>id!==panel.id&&h.actor!==uid&&stamp-h.at<8000),error:open.feedbackType==="error"};
+}
+function setEmergencyFeedback(message,type="info"){
+  if(!emergencyPanelOpen)return;emergencyPanelOpen.feedbackType=type;
+  const status=$("emergencyStatus");if(status.textContent!==message)status.textContent=message;if(status.dataset.feedback!==type)status.dataset.feedback=type;
+}
+function applyEmergencyKey(index){
+  if(!emergencyPanelOpen||game.sabotage?.type!=="oxygen"||emergencyPanelOpen.sentAt)return;
+  const input=$("emergencyCodeInput");
+  if(index>=0&&index<=9&&input.value.length<6)input.value+=String(index);
+  else if(index===10)input.value="";
+  else if(index===11)input.value=input.value.slice(0,-1);
+  else if(index===12){submitEmergencyTask();return;}
+  input.dispatchEvent(new Event("input",{bubbles:true}));
+  setEmergencyFeedback("表示コードと同じ6桁を入力して送信してください。");
+}
+function updateEmergencyTaskUI(){
+  if(!emergencyPanelOpen)return;
+  const sabotage=game.sabotage;
+  if(!sabotage||sabotage.id!==emergencyPanelOpen.sabotageId||sabotage.endsAt<=now()||game.phase!=="play"||!self()?.alive){closeEmergencyTask();return;}
+  const remaining=Math.max(0,sabotage.endsAt-now()),duration=Math.max(1,Number(sabotage.duration)||sabotage.endsAt-sabotage.startedAt||remaining);
+  $("emergencyCountdown").textContent=Math.ceil(remaining/1000)+"s";
+  $("emergencyTask").dataset.danger=String(remaining<=10000);
+  $("emergencyTimeFill").style.width=clamp(remaining/duration*100,0,100)+"%";
+  const state=emergencyTaskMachineState();$("emergencySubmitBtn").disabled=!state?.accepting;
+  if(sabotage.type==="reactor"&&emergencyPanelOpen.feedbackType!=="error"){
+    if(state?.pending)setEmergencyFeedback(state.scanAge<950?"生体認証中…":"認証済み。もう一方の端末を待っています。","ok");
+    else if(emergencyPanelOpen.sentAt)setEmergencyFeedback("もう一度スキャンして、別の端末と同時に認証してください。");
+  }
+}
 function closeEmergencyTask(){
-  emergencyPanelOpen=null;
-  show("emergencyTask",false);
+  emergencyPanelOpen=null;clearInterval(emergencyUIInterval);emergencyUIInterval=0;clearTimeout(emergencyCloseTimer);emergencyCloseTimer=0;
+  emergencyMachine3D?.dispose();emergencyMachine3D=null;show("emergencyTask",false);
+}
+function mountEmergencyTaskMachine(){
+  const root=$("emergencyTask");root.dataset.machine3d="true";
+  const fallback=()=>{emergencyMachine3D=null;root.dataset.machine3d="false";$("emergencyMachineStage").replaceChildren();};
+  try{
+    emergencyMachine3D=createInteractiveTaskMachine(THREE,$("emergencyMachineStage"),emergencyTaskMachineState,index=>{
+      if(game.sabotage?.type==="oxygen")applyEmergencyKey(index);else if(index===0)submitEmergencyTask();
+    },value=>{const input=$("emergencyDialInput");input.value=String(value);input.dispatchEvent(new Event("input",{bubbles:true}));},fallback);
+    emergencyMachine3D.canvas.setAttribute("aria-label",game.sabotage?.type==="oxygen"?"酸素修理端末。数字キーで入力、Backspaceで削除、Enterで送信。":"緊急修理の3D端末。光る操作部分をタップ。通信ダイヤルはドラッグまたは矢印キー、Enterで確定。");
+    emergencyMachine3D.canvas.focus({preventScroll:true});
+  }catch(error){console.warn("緊急端末の3D表示を開始できませんでした",error);fallback();}
 }
 function openEmergencyTask(panel){
-  const sabotage=game.sabotage;
-  if(!panel||!sabotage)return;
-  emergencyPanelOpen={panelId:panel.id,sabotageId:sabotage.id};
+  const sabotage=game.sabotage;if(!panel||!sabotage)return;
+  closeEmergencyTask();
+  emergencyPanelOpen={panelId:panel.id,sabotageId:sabotage.id,feedbackType:"info"};
   $("emergencyTitle").textContent=panel.name;
-  $("emergencyStatus").textContent=sabotage.type==="oxygen"
-    ? "2か所の端末で解除します。残り時間に注意してください。"
-    : sabotage.type==="reactor"?"別の生存クルーと上・下のスキャナーを同時に操作してください。"
-    : sabotage.type==="lights"?"6部屋のスイッチを現地で操作します。消灯中の部屋をすべて点灯してください。":"専用端末で妨害を修理してください。";
-  show("emergencyOxygen",sabotage.type==="oxygen");
-  show("emergencyLights",sabotage.type==="lights");
-  show("emergencyComms",sabotage.type==="comms");
-  $("emergencyCode").textContent=sabotage.code||"";
-  $("emergencyCodeInput").value="";
-  renderEmergencyLightSwitches(sabotage,panel);
+  setEmergencyFeedback({oxygen:"表示コードと同じ6桁を入力して送信してください。",reactor:"2人で別々のスキャナーを操作してください。",lights:"この部屋のレバーを操作して、照明回線を復旧します。",comms:"ダイヤルを回し、波形が重なったら接続してください。"}[sabotage.type]||"専用端末で修理してください。");
+  show("emergencyOxygen",sabotage.type==="oxygen");show("emergencyLights",sabotage.type==="lights");show("emergencyComms",sabotage.type==="comms");
+  $("emergencyCode").textContent=sabotage.code||"";$("emergencyCodeInput").value="";renderEmergencyLightSwitches(sabotage,panel);
   emergencyDialTarget=20+randomInt(61);$("emergencyDialInput").value="0";$("emergencyDialTarget").textContent=`目標 ${emergencyDialTarget}%`;$("emergencyDialGraph").style.setProperty("--dial-value","0%");
-  $("emergencySubmitBtn").textContent=sabotage.type==="oxygen"?"コードを送信":sabotage.type==="reactor"?"スキャナーを押す":sabotage.type==="lights"?"この部屋の照明を点灯":"修理する";
-  show("emergencyTask",true);
-  if(sabotage.type==="oxygen")$("emergencyCodeInput").focus();
+  $("emergencySubmitBtn").textContent={oxygen:"コードを送信",reactor:"スキャン",lights:"この部屋を点灯",comms:"接続"}[sabotage.type];$("emergencySubmitBtn").disabled=false;
+  $("emergencyHint").textContent={oxygen:"数字キーで入力 · Enterで送信",reactor:"手形をタップして認証",lights:"現地のレバーをタップ",comms:"ダイヤルをドラッグ · 矢印キーで微調整"}[sabotage.type];
+  show("emergencyTask",true);mountEmergencyTaskMachine();updateEmergencyTaskUI();if(emergencyPanelOpen)emergencyUIInterval=setInterval(updateEmergencyTaskUI,200);
 }
 function renderEmergencyLightSwitches(sabotage=game.sabotage,panel=null){
   const host=$("emergencyLightSwitches");if(!host)return;
   const lights=EMERGENCY_PANELS.filter(item=>item.room==="lights"),onCount=lights.filter(item=>!!sabotage?.switches?.[item.id]).length;
-  host.replaceChildren(...lights.map(item=>{
-    const row=document.createElement("div"),label=document.createElement("span"),state=document.createElement("small"),on=!!sabotage?.switches?.[item.id];
-    row.className="emergencyLightSwitch"+(on?" is-on":"");label.textContent=item.name.replace("の照明スイッチ","");state.textContent=on?"点灯 ✓":item.id===panel?.id?"操作できます":"消灯";row.append(label,state);return row;
-  }));
+  host.replaceChildren(...lights.map(item=>{const row=document.createElement("div"),label=document.createElement("span"),state=document.createElement("small"),on=!!sabotage?.switches?.[item.id];row.className="emergencyLightSwitch"+(on?" is-on":"");label.textContent=item.name.replace("の照明スイッチ","");state.textContent=on?"点灯 ✓":item.id===panel?.id?"操作できます":"消灯";row.append(label,state);return row;}));
   $("emergencyPowerState").textContent=`点灯 ${onCount}/${lights.length}`;
 }
 function submitEmergencyTask(){
-  if(!emergencyPanelOpen)return;
-  const panel=EMERGENCY_PANELS.find(item=>item.id===emergencyPanelOpen.panelId);
-  const sabotage=game.sabotage;
-  if(!panel||!sabotage||sabotage.id!==emergencyPanelOpen.sabotageId)return closeEmergencyTask();
+  const open=emergencyPanelOpen;if(!open)return;
+  const panel=EMERGENCY_PANELS.find(item=>item.id===open.panelId),sabotage=game.sabotage;
+  if(!panel||!sabotage||sabotage.id!==open.sabotageId)return closeEmergencyTask();
+  if(open.sentAt&&(sabotage.type!=="reactor"||now()-open.sentAt<1500))return;
   const codeValue=$("emergencyCodeInput").value.trim();
-  if(sabotage.type==="lights"&&sabotage.switches?.[panel.id]){closeEmergencyTask();return;}
-  if(sabotage.type==="comms"&&Math.abs(Number($("emergencyDialInput").value)-emergencyDialTarget)>3){$("emergencyStatus").textContent="円グラフの割合が合っていません。調整してください。";return;}
-  if(sabotage.type==="oxygen"&&codeValue!==sabotage.code){
-    $("emergencyStatus").textContent="番号が違います。端末の番号を確認してください。";return;
-  }
+  if(sabotage.type==="lights"&&sabotage.switches?.[panel.id])return closeEmergencyTask();
+  if(sabotage.type==="comms"&&Math.abs(Number($("emergencyDialInput").value)-emergencyDialTarget)>3){setEmergencyFeedback("波形が合っていません。ダイヤルを調整してください。","error");return;}
+  if(sabotage.type==="oxygen"&&codeValue!==sabotage.code){setEmergencyFeedback("コードが違います。表示された6桁を確認してください。","error");return;}
   if(sendCommand("repair",{panel:panel.id,sabotageId:sabotage.id,code:codeValue})){
-    closeEmergencyTask();toast("解除信号を送信しました");
-  }
+    open.sentAt=now();setEmergencyFeedback(sabotage.type==="reactor"?"生体認証中…":"解除信号を送信中…","ok");updateEmergencyTaskUI();
+    if(sabotage.type!=="reactor")emergencyCloseTimer=setTimeout(()=>{if(emergencyPanelOpen===open)closeEmergencyTask();},600);
+  }else setEmergencyFeedback("解除信号を送信できませんでした。もう一度操作してください。","error");
 }
+
 
 function clearReactorTimers() {
       reactorTimerIds.forEach(timerId => clearTimeout(timerId));
@@ -11992,18 +12035,122 @@ function createInteractiveTaskMachine(THREE,host,getState,onAction,onValue,onUna
   const key=text+":"+color;let map=labels.get(key);if(!map){const c=document.createElement("canvas"),ctx=c.getContext("2d");ctx.font="700 54px system-ui,sans-serif";c.width=Math.min(1400,Math.ceil(ctx.measureText(text).width)+32);c.height=80;ctx.font="700 54px system-ui,sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=color;ctx.fillText(text,c.width/2,41,c.width-16);map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;textures.add(map);labels.set(key,map);}
   const o=new THREE.Sprite(material(new THREE.SpriteMaterial({map,transparent:true,depthWrite:false}))),aspect=map.image.width/map.image.height,h=Math.min(w/aspect,w>=3?.58:w>=1?.43:.33);o.position.set(x,y,z);o.scale.set(h*aspect,h,1);parent.add(o);return o;
  }
+ function machineScreen(w,h,x,y,z,pixelsW=640,pixelsH=360){
+  const c=document.createElement("canvas");c.width=pixelsW;c.height=pixelsH;const ctx=c.getContext("2d"),map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;textures.add(map);
+  plate(w+.12,h+.12,.045,edge,scene,x,y,z-.035,.06);
+  const surface=mesh(new THREE.PlaneGeometry(w,h),material(new THREE.MeshBasicMaterial({map,toneMapped:false})),scene,x,y,z+.09);let previousKey=null;
+  return{surface,paint(key,draw){if(key===previousKey)return;previousKey=key;ctx.clearRect(0,0,pixelsW,pixelsH);draw(ctx,pixelsW,pixelsH);map.needsUpdate=true;}};
+ }
+ function screenGrid(g,w,h,background){g.fillStyle=background;g.fillRect(0,0,w,h);g.strokeStyle="#8cd6da08";g.lineWidth=1;for(let y=0;y<h;y+=5){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke();}}
+ function cable(points,m=brass,r=.035){return mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p))),24,r,7,false),m);}
+ function canAction(s,index){
+  if(!s?.accepting)return false;if(index<0)return true;
+  if(mode==="emergency-oxygen")return index===12?s.input.length===6:index===10||index===11?s.input.length>0:s.input.length<6;
+  if(mode==="emergency-comms")return Math.abs(s.value-s.target)<=3;
+  if(mode==="emergency-lights")return !s.localOn;
+  if(mode==="emergency-reactor")return !s.ownActive;
+  return true;
+ }
+
  function hit(parent,index,w,h,x=0,y=0,z=.3,drag=""){
   const o=box(w,h,.24,material(new THREE.MeshBasicMaterial({visible:false})),parent,x,y,z);o.userData.taskControl={index,drag};hits.push(o);return o;
  }
- function pushButton(text,x,y,index,w=1.55){const group=new THREE.Group();group.position.set(x,y,.4);scene.add(group);plate(w,.62,.12,rubber,group,0,0,0);const cap=plate(w-.12,.49,.10,frame,group,0,.025,.12);label(text,0,.025,.26,w-.24,"#d6f8f5",group);hit(group,index,w+.16,1,0,0,.36);updates.push((s,t)=>{cap.position.z=.12-(lastPress?.index===index&&t-lastPress.at<180?.06:0);});return group;}
+ function pushButton(text,x,y,index,w=1.55){const group=new THREE.Group();group.position.set(x,y,.4);scene.add(group);plate(w,.62,.12,rubber,group,0,0,0);const cap=plate(w-.12,.49,.10,frame,group,0,.025,.12);const textNode=label(text,0,.025,.34,w-.24,"#d6f8f5",group);hit(group,index,w+.16,1,0,0,.36);updates.push((s,t)=>{const enabled=canAction(s,index);cap.position.z=.12-(lastPress?.index===index&&t-lastPress.at<180?.06:0);cap.material=enabled?frame:rubber;textNode.material.opacity=enabled?1:.38;});return group;}
  plate(9.1,5.45,.25,frame,scene,0,0,-.5,.23);plate(8.75,5.12,.09,dark,scene,0,0,-.19,.18);
  for(const x of [-4.27,4.27])for(const y of [-2.38,2.38]){cylinder(.085,.05,edge,scene,x,y,.06);box(.085,.018,.014,rubber,scene,x,y,.1);}
  for(let i=0;i<13;i++)box(.018,.16,.025,i%3?edge:cyan,scene,-3.98+i*.07,2.35,.03);
- label(({filter:"AIR PURIFICATION",sample:"SAMPLE ANALYZER",weapons:"TARGET ARRAY",shields:"SHIELD DISTRIBUTION",camera:"SIGNAL DIAGNOSTICS",sort:"WASTE PROCESSOR",engine:"ENGINE CALIBRATION",convert:"POWER CONVERTER",upload:"DATA TRANSMISSION"})[mode],0,2.36,.08,4.3);
+ label(({filter:"AIR PURIFICATION",sample:"SAMPLE ANALYZER",weapons:"TARGET ARRAY",shields:"SHIELD DISTRIBUTION",camera:"SIGNAL DIAGNOSTICS",sort:"WASTE PROCESSOR",engine:"ENGINE CALIBRATION",convert:"POWER CONVERTER",upload:"DATA TRANSMISSION","emergency-oxygen":"OXYGEN RESTORATION","emergency-lights":"ELECTRICAL DISTRIBUTION","emergency-comms":"COMMUNICATIONS RECOVERY","emergency-reactor":"REACTOR HAND SCANNER"})[mode],0,2.36,.08,4.3);
  const lamp=mesh(new THREE.SphereGeometry(.055,12,8),green,scene,3.98,2.35,.10);updates.push((s,t)=>{lamp.scale.setScalar(s.accepting?1+.13*Math.sin(t*.004):.8);});
  let lastPress=null,lastStateKey="",disposed=false,raf=0,dragging=null,lastWidth=0,lastHeight=0;
  const progressParts=[];for(let i=0;i<30;i++)progressParts.push(box(.225,.065,.04,frame,scene,-3.68+i*.254,-2.35,.1));
  updates.push(s=>{const p=mode==="convert"?Number(s.value||0)/100:s.done/s.total;for(let i=0;i<30;i++)progressParts[i].material=i/30<p?green:frame;});
+/* Emergency terminals share the task machine's renderer, picking and disposal. */
+if(mode==="emergency-oxygen"){
+  plate(3.85,3.48,.13,rubber,scene,-2.04,.17,.10,.15);
+  const lcd=machineScreen(3.5,2.38,-2.04,.39,.27,768,480);
+  for(let i=0;i<6;i++){const led=cylinder(.075,.04,edge,scene,-3.31+i*.51,-1.13,.29);updates.push(s=>{led.material=i<s.input.length?(s.pending?green:cyan):frame;});}
+  label("O₂",-3.47,1.86,.38,.42,"#a7d5de");
+  pushButton("送信",-2.04,-1.89,12,3.42);
+  const keys=[1,2,3,4,5,6,7,8,9,10,0,11];
+  for(let i=0;i<keys.length;i++){
+    const n=keys[i],g=new THREE.Group();g.position.set(.94+i%3*1.15,1.3-Math.floor(i/3)*.89,.22);scene.add(g);
+    plate(1.04,.74,.10,rubber,g,0,0,0,.07);
+    const cap=plate(.92,.63,.16,n<10?edge:frame,g,0,.02,.10,.07),txt=label(n<10?String(n):n===10?"消去":"⌫",0,.01,.39,n<10?.43:.64,n<10?"#071d2d":"#c5e7ef",g);
+    hit(g,n,1.08,.84,0,0,.43);
+    updates.push((s,t)=>{const active=lastPress?.index===n&&t-lastPress.at<165;cap.position.z=.10-(active ? .07 : 0);txt.position.z=.39-(active ? .07 : 0);cap.material=n<10?(canAction(s,n)?edge:frame):frame;txt.material.opacity=canAction(s,n)?1:.4;});
+  }
+  updates.push(s=>lcd.paint([s.code,s.input,s.pending,s.error].join('|'),(g,w,h)=>{
+    screenGrid(g,w,h,"#06232b");g.textAlign="left";g.fillStyle="#83b7be";g.font="600 31px system-ui";g.fillText("照合コード",36,55);
+    g.fillStyle="#baf4dc";g.font="700 76px ui-monospace,monospace";g.fillText(s.code,36,145);
+    g.strokeStyle="#275660";g.beginPath();g.moveTo(35,185);g.lineTo(w-35,185);g.stroke();
+    g.fillStyle="#83b7be";g.font="600 30px system-ui";g.fillText("入力コード",36,238);
+    g.fillStyle=s.error?"#ff8c8f":s.pending?"#92f2ba":"#effffc";g.font="700 75px ui-monospace,monospace";g.fillText((s.input+"______").slice(0,6).split("").join(" "),36,331);
+    g.fillStyle=s.pending?"#92f2ba":s.error?"#ff8c8f":"#63959c";g.font="600 29px system-ui";g.fillText(s.pending?"解除信号を送信中":s.error?"コードを確認してください":"6桁入力して送信",36,416);
+  }));
+}else if(mode==="emergency-lights"){
+  label("ROOM CIRCUITS",-2.14,1.89,.34,2.9);
+  const circuits=getState().circuits;
+  for(let i=0;i<circuits.length;i++){
+    const g=new THREE.Group();g.position.set(-3.12+i%2*1.94,1.05-Math.floor(i/2)*1.24,.15);scene.add(g);
+    plate(1.75,1.06,.12,rubber,g,0,0,0,.08);const led=cylinder(.11,.07,red,g,-.57,.24,.20);
+    const text=label(circuits[i].name,0,-.24,.25,1.56,"#bad2dc",g),relay=box(.61,.17,.12,edge,g,.18,.24,.17);
+    for(const x of[-.18,.02,.22,.42])box(.025,.18,.025,brass,g,x,.24,.25);
+    updates.push(s=>{const c=s.circuits[i],on=!!c?.on;led.material=on?green:red;relay.material=on?edge:frame;text.material.opacity=on?1:.5;});
+  }
+  cable([[-3.8,-1.91,.15],[-3.8,-2.05,.15],[-.43,-2.05,.15],[-.43,.45,.15],[.63,.45,.15]],brass);
+  plate(3.52,3.95,.16,rubber,scene,2.12,-.02,.12,.15);
+  const readout=machineScreen(2.95,1.0,2.12,1.26,.33,640,210);
+  const breaker=new THREE.Group();breaker.position.set(2.12,-.42,.39);scene.add(breaker);
+  plate(2.65,1.72,.12,frame,breaker,0,0,0,.1);
+  for(const x of[-.86,.86]){cylinder(.14,.15,brass,breaker,x,0,.24);box(.07,1.12,.04,edge,breaker,x,0,.11);}
+  const lever=new THREE.Group();lever.position.set(0,0,.64);breaker.add(lever);
+  box(.14,.74,.14,edge,lever,0,.27,0);plate(1.43,.32,.23,white,lever,0,.73,-.04,.08);
+  hit(breaker,0,3,2.05,0,.15,.72);label("この部屋を点灯",2.12,-1.67,.39,2.92);
+  const led=cylinder(.09,.04,red,scene,3.48,-1.76,.36);
+  updates.push((s,t,dt)=>{const on=s.localOn||s.pending;lever.rotation.x+=((on?-.62:.62)-lever.rotation.x)*(1-Math.exp(-dt*13));led.material=on?green:red;
+    readout.paint([s.done,s.localOn,s.pending].join('|'),(g,w,h)=>{screenGrid(g,w,h,"#071d26");g.textAlign="center";g.fillStyle="#8cb5c1";g.font="600 27px system-ui";g.fillText("照明回線の復旧",w/2,46);g.fillStyle=on?"#91efb8":"#ffd58c";g.font="700 64px ui-monospace,monospace";g.fillText(`${s.done} / ${s.total}`,w/2,123);g.fillStyle="#9fced8";g.font="500 27px system-ui";g.fillText(s.pending?"信号を送信中":s.localOn?"この回線は復旧済み":"レバーをタップして点灯",w/2,177);});
+  });
+}else if(mode==="emergency-comms"){
+  plate(4.86,3.71,.16,rubber,scene,-1.67,.08,.11,.15);
+  const scope=machineScreen(4.42,2.83,-1.67,.20,.30,800,500);
+
+  for(let i=0;i<8;i++)box(.045,.15,.04,edge,scene,-3.42+i*.5,-1.65,.29);
+  const dial=new THREE.Group();dial.position.set(2.81,.13,.18);scene.add(dial);
+  cylinder(1.12,.14,rubber,dial);ring(1.02,.035,edge,dial,0,0,.16);
+  for(let i=0;i<=20;i++){const a=Math.PI*1.25-i/20*Math.PI*1.5;const m=box(.035,i%5?.09:.18,.035,i%5?edge:white,dial,Math.cos(a)*.9,Math.sin(a)*.9,.2);m.rotation.z=a-Math.PI/2;}
+  const knob=new THREE.Group();dial.add(knob);cylinder(.65,.31,edge,knob,0,0,.16);cylinder(.52,.08,frame,knob,0,0,.36);
+  for(let i=0;i<24;i++){const a=i/24*Math.PI*2;const rib=box(.055,.09,.20,rubber,knob,Math.cos(a)*.63,Math.sin(a)*.63,.23);rib.rotation.z=a;}
+  box(.05,.22,.03,white,knob,0,.37,.42);hit(dial,-1,2.58,2.58,0,0,.67,"knob");
+  const lockLamp=cylinder(.09,.04,amber,scene,3.82,1.75,.31);label("回して周波数を合わせる",2.71,1.74,.29,2.03);
+  const valueScreen=machineScreen(2.37,.55,2.81,-1.31,.34,520,120);
+  pushButton("接続",2.81,-2.02,0,2.33);
+  updates.push((s,t)=>{const aligned=Math.abs(s.value-s.target)<=3;knob.rotation.z=Math.PI*.75-s.value/100*Math.PI*1.5;lockLamp.material=aligned?green:amber;
+    valueScreen.paint([s.value,s.target,aligned].join('|'),(g,w,h)=>{screenGrid(g,w,h,"#091d27");g.fillStyle=aligned?"#a5f4c5":"#e4f3f4";g.font="700 40px ui-monospace,monospace";g.textAlign="center";g.fillText(`${s.value} / ${s.target}%`,w/2,77);});
+    scope.paint([Math.floor(t/45),s.value,s.target,s.pending].join('|'),(g,w,h)=>{
+      screenGrid(g,w,h,"#041b22");g.strokeStyle="#17404a";g.lineWidth=1;for(let x=30;x<w;x+=45){g.beginPath();g.moveTo(x,20);g.lineTo(x,h-20);g.stroke();}for(let y=40;y<h;y+=45){g.beginPath();g.moveTo(20,y);g.lineTo(w-20,y);g.stroke();}
+      const trace=(v,color,alpha)=>{g.globalAlpha=alpha;g.strokeStyle=color;g.lineWidth=4;g.beginPath();for(let x=18;x<w-18;x+=2){const y=h*.52+Math.sin((x/w*(2.1+v/100*4)*Math.PI*2)-t*.0016)*h*.20+Math.sin(x/w*13+t*.0005)*h*.025;x===18?g.moveTo(x,y):g.lineTo(x,y);}g.stroke();g.globalAlpha=1;};
+      trace(s.target,"#759b9d",.65);trace(s.value,aligned?"#8bf3bb":"#75e9eb",1);g.fillStyle=aligned?"#8bf3bb":"#99c7cc";g.font="600 30px system-ui";g.textAlign="left";g.fillText(aligned?"SIGNAL LOCKED":"SEARCHING SIGNAL",32,48);g.fillStyle="#719da4";g.font="500 26px system-ui";g.fillText("基準波形に重ねて接続",32,h-29);
+    });
+  });
+}else if(mode==="emergency-reactor"){
+  plate(4.4,4.22,.19,rubber,scene,-1.79,-.04,.10,.2);plate(3.91,3.74,.07,metal(0x123b43,{roughness:.2,metalness:.65}),scene,-1.79,-.04,.32,.18);
+  const glass=machineScreen(3.68,3.50,-1.79,-.04,.42,640,640);
+  hit(scene,0,4.4,4.25,-1.79,-.04,.65);
+  const halo=[];for(let i=0;i<32;i++){const a=i/32*Math.PI*2;const m=box(.045,.13,.03,frame,scene,-1.79+Math.sin(a)*1.65,Math.cos(a)*1.65,.58);m.rotation.z=-a;halo.push(m);}
+  const status=machineScreen(2.91,1.71,2.36,.79,.30,640,380);
+  pushButton("スキャン",2.36,-1.02,0,2.93);
+  for(const x of[1.28,3.44]){cylinder(.08,.04,brass,scene,x,-1.62,.28);cable([[x,-1.62,.17],[x,-2.01,.17],[.75,-2.01,.17],[.75,.16,.17]],edge);}
+  updates.push((s,t)=>{
+    const scan=s.ownActive||s.pending,progress=scan?Math.min(1,s.scanAge/950):0;
+    halo.forEach((m,i)=>m.material=i/32<progress?green:frame);
+    glass.paint([Math.floor(t/50),scan,s.ownActive,Math.floor(progress*30)].join('|'),(g,w,h)=>{
+      screenGrid(g,w,h,"#06272b");g.save();g.translate(w/2,h*.51);g.strokeStyle=scan?"#94f5ce":"#7bbdc1";g.fillStyle=scan?"#1b6c60":"#153f46";g.lineWidth=5;g.beginPath();g.moveTo(-80,166);g.lineTo(-104,75);g.lineTo(-175,-12);g.quadraticCurveTo(-184,-40,-160,-44);g.quadraticCurveTo(-140,-42,-101,3);g.lineTo(-103,-122);g.quadraticCurveTo(-103,-155,-82,-155);g.quadraticCurveTo(-61,-155,-61,-122);g.lineTo(-59,-26);g.lineTo(-55,-178);g.quadraticCurveTo(-55,-210,-33,-210);g.quadraticCurveTo(-11,-210,-11,-178);g.lineTo(-10,-29);g.lineTo(-6,-190);g.quadraticCurveTo(-6,-220,16,-220);g.quadraticCurveTo(38,-220,38,-190);g.lineTo(38,-24);g.lineTo(46,-152);g.quadraticCurveTo(48,-182,70,-180);g.quadraticCurveTo(89,-178,87,-148);g.lineTo(88,56);g.quadraticCurveTo(91,115,55,166);g.closePath();g.fill();g.stroke();
+      for(let i=0;i<5;i++){g.beginPath();g.ellipse(-4,44,24+i*13,33+i*17,.1,.2,Math.PI*1.8);g.strokeStyle=scan?"#63caa5":"#36727b";g.lineWidth=2;g.stroke();}g.restore();
+      if(scan){const y=60+(t*.24%(h-120));const grad=g.createLinearGradient(0,y-55,0,y);grad.addColorStop(0,"#76ffd000");grad.addColorStop(1,"#76ffd055");g.fillStyle=grad;g.fillRect(22,y-55,w-44,55);g.fillStyle="#a6ffdb";g.fillRect(22,y,w-44,3);}g.fillStyle=scan?"#acffdd":"#80b9c1";g.textAlign="center";g.font="600 25px system-ui";g.fillText(scan?(progress<1?"認証中":"認証済み") :"手形にタッチして認証",w/2,h-31);
+    });
+    status.paint([s.ownActive,scan,Math.floor(s.scanAge/250),s.partnerActive].join('|'),(g,w,h)=>{screenGrid(g,w,h,"#071f29");g.textAlign="center";g.fillStyle="#91bfc9";g.font="600 31px system-ui";g.fillText("REACTOR INTERLOCK",w/2,61);g.fillStyle=scan?"#a1f4c7":"#ffd28e";g.font="700 59px system-ui";g.fillText(scan?(progress<1?"認証中":"認証済み"):"未認証",w/2,158);g.fillStyle="#9ecdd5";g.font="500 30px system-ui";g.fillText(scan?"もう一方の端末を待っています":"別の生存者と同時に操作",w/2,235);g.fillStyle=s.partnerActive?"#93edbd":"#65848d";g.font="600 29px system-ui";g.fillText(s.partnerActive?"● もう一方の端末：認証済み":"○ もう一方の端末：待機中",w/2,312);});
+  });
+}else
  if(mode==="filter"){
   for(let i=0;i<6;i++){
    const g=new THREE.Group();g.position.set((i%3-1)*2.58,1.03-Math.floor(i/3)*1.85,.12);scene.add(g);
@@ -12077,9 +12224,9 @@ function createInteractiveTaskMachine(THREE,host,getState,onAction,onValue,onUna
  const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),point=new THREE.Vector3(),plane=new THREE.Plane(new THREE.Vector3(0,0,1),-.7);
  function rayAt(event){const r=canvas.getBoundingClientRect();pointer.set((event.clientX-r.left)/Math.max(1,r.width)*2-1,-(event.clientY-r.top)/Math.max(1,r.height)*2+1);ray.setFromCamera(pointer,camera);return ray;}
  function worldPoint(event){return rayAt(event).ray.intersectPlane(plane,point)?point.clone():null;}
- function controlAt(event){return rayAt(event).intersectObjects(hits,false).find(h=>{for(let n=h.object;n;n=n.parent)if(n.visible===false)return false;return true;})?.object.userData.taskControl;}
+ function controlAt(event){return rayAt(event).intersectObjects(hits,false).find(h=>{for(let n=h.object;n;n=n.parent)if(n.visible===false)return false;return canAction(getState(),h.object.userData.taskControl.index);})?.object.userData.taskControl;}
  function value(next,commit=false){onValue(Math.max(0,Math.min(100,Math.round(next))));if(commit)press(0);}
- function press(index){const s=getState();if(!s?.accepting||index<0)return;lastPress={index,beforeDone:s.done,at:performance.now()};onAction(index);const next=getState();if(next){for(const update of updates)update(next,lastPress.at,0);scene.updateMatrixWorld(true);}}
+ function press(index){const s=getState();if(!canAction(s,index)||index<0)return;lastPress={index,beforeDone:s.done,at:performance.now()};onAction(index);const next=getState();if(next){for(const update of updates)update(next,lastPress.at,0);scene.updateMatrixWorld(true);}}
  function down(event){if(event.button!==undefined&&event.button!==0||dragging||!getState()?.accepting)return;const c=controlAt(event);if(!c)return;event.preventDefault();canvas.focus({preventScroll:true});canvas.setPointerCapture(event.pointerId);const p=worldPoint(event);dragging={id:event.pointerId,kind:c.drag||"tap",index:c.index,startX:event.clientX,startY:event.clientY,value:Number(getState().value)||0,point:p};if(!c.drag)press(c.index);}
  function move(event){const p=worldPoint(event);const reticle=objects.find(o=>o.kind==="reticle")?.node;if(reticle&&p){reticle.visible=true;reticle.position.set(p.x,p.y,.7);}
   if(!dragging||event.pointerId!==dragging.id){canvas.style.cursor=controlAt(event)?"pointer":"default";return;}event.preventDefault();
@@ -12089,7 +12236,13 @@ function createInteractiveTaskMachine(THREE,host,getState,onAction,onValue,onUna
  }
  function up(event){if(!dragging||event.pointerId!==dragging.id)return;const d=dragging;dragging=null;if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);if(d.kind==="waste"){const p=worldPoint(event);if(p&&p.y<-.3&&Math.abs(p.x)>1)press(p.x<0?0:1);}}
  function cancel(event){if(dragging?.id===event.pointerId){dragging=null;if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);}}
- function key(event){if(["engine","convert"].includes(mode)&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Enter"," "].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==="Enter"||event.key===" ")press(0);else value(Number(getState()?.value||0)+(["ArrowUp","ArrowRight"].includes(event.key)?1:-1)*(event.shiftKey?5:1));}}
+ function key(event){
+  if(mode==="emergency-oxygen"){
+    let index=/^[0-9]$/.test(event.key)?Number(event.key):event.key==="Enter"?12:event.key==="Backspace"?11:event.key==="Delete"?10:null;
+    if(index!==null){event.preventDefault();event.stopPropagation();if(!event.repeat)press(index);return;}
+  }
+  if(["emergency-reactor","emergency-lights"].includes(mode)&&["Enter"," "].includes(event.key)){event.preventDefault();event.stopPropagation();if(!event.repeat)press(0);return;}
+  if(["engine","convert","emergency-comms"].includes(mode)&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Enter"," "].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==="Enter"||event.key===" ")press(0);else value(Number(getState()?.value||0)+(["ArrowUp","ArrowRight"].includes(event.key)?1:-1)*(event.shiftKey?5:1));}}
  canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",cancel);canvas.addEventListener("keydown",key);canvas.addEventListener("contextmenu",e=>e.preventDefault());
  function resize(){const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);if(w===lastWidth&&h===lastHeight)return;lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);const aspect=w/h,v=Math.max(2.96,4.79/aspect);camera.left=-v*aspect;camera.right=v*aspect;camera.top=v;camera.bottom=-v;camera.updateProjectionMatrix();}
  const observer=new ResizeObserver(resize);observer.observe(host);let previous=performance.now();
@@ -12779,13 +12932,9 @@ function useRoleAbility(){
     $("emergencySubmitBtn").onclick=submitEmergencyTask;
     $("emergencyKeypad").addEventListener("click",event=>{
       const key=event.target.closest("button");if(!key)return;
-      const input=$("emergencyCodeInput");
-      if(key.dataset.digit!==undefined&&input.value.length<6)input.value+=key.dataset.digit;
-      else if(key.dataset.key==="clear")input.value="";
-      else if(key.dataset.key==="back")input.value=input.value.slice(0,-1);
-      input.dispatchEvent(new Event("input",{bubbles:true}));
+      applyEmergencyKey(key.dataset.digit!==undefined?Number(key.dataset.digit):key.dataset.key==="clear"?10:11);
     });
-    $("emergencyDialInput").addEventListener("input",event=>{const value=Number(event.target.value);$("emergencyDialGraph").style.setProperty("--dial-value",value+"%");$("emergencyDialGraph").classList.toggle("aligned",Math.abs(value-emergencyDialTarget)<=3);});
+    $("emergencyDialInput").addEventListener("input",event=>{const value=Number(event.target.value);$("emergencyDialGraph").style.setProperty("--dial-value",value+"%");$("emergencyDialGraph").classList.toggle("aligned",Math.abs(value-emergencyDialTarget)<=3);if(emergencyPanelOpen)setEmergencyFeedback(Math.abs(value-emergencyDialTarget)<=3?"波形が一致しました。接続を押してください。":"ダイヤルを回し、波形を重ねてください。");});
     $("emergencyCodeInput").addEventListener("keydown",event=>{if(event.key==="Enter")submitEmergencyTask();});
     $("abilityBtn").onclick = useRoleAbility;
     $("waveHawkBtn").onclick=()=>{const me=self();if(game.settings?.waveMode!=="team"&&game.settings?.waveMode!=="battleRoyale"||game.phase!=="play"||!me?.alive||me?.disconnected||me?.observer)return;sendCommand("ability",{ability:"waveHawk"});};
@@ -18595,7 +18744,7 @@ function renderUI() {
       updateWallPresentation();
       if(emergencyPanelOpen){
         const active=game.sabotage,panel=EMERGENCY_PANELS.find(item=>item.id===emergencyPanelOpen.panelId);
-        if(!active||active.id!==emergencyPanelOpen.sabotageId||!panel||active.endsAt<=now())closeEmergencyTask();
+        if(!active||active.id!==emergencyPanelOpen.sabotageId||!panel||active.endsAt<=now()||phase!=="play"||!self()?.alive)closeEmergencyTask();
         else if(active.type==="lights")renderEmergencyLightSwitches(active,panel);
       }
       renderGhostHud();
@@ -21461,37 +21610,7 @@ setInterval(check,500);
 })();
 </script>
 <style id="ghostHudFitStyle">#ghostHudList{--n:1;justify-content:stretch}#ghostHudList .ghostTarget{flex:1 1 0;min-width:min(88px,calc(100% / var(--n)));max-width:calc(100% / var(--n) * 1.6);overflow:hidden}#ghostHudList .ghostTarget>span,#ghostHudList .ghostTarget>small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#ghostHudList .ghostTarget{font-size:clamp(10px,calc(12px + (6 - var(--n)) * .4px),14px)}</style><style id="costumePaletteStyle">#costumeColorPalette.collapsed{display:none}#costumeColorToggle{width:36px;height:36px;border-radius:10px;border:2px solid #ffffffcc;cursor:pointer;padding:0;box-shadow:0 2px 8px #0006}@media(max-width:700px){#costumeColorToggle{width:34px;height:34px}}@media(max-width:380px){#costumeColorToggle{width:30px;height:30px}}</style><div id="ssTaskTerminalHost" aria-label="タスク端末"><iframe id="ssTaskTerminalFrame" title="タスク端末"></iframe><button id="ssTaskTerminalClose" type="button" aria-label="タスクを閉じる">閉じる</button></div>
-<style id="meetingRemainingWolfFadeStyle">#eject3DStage .remainingWolfLine{position:absolute;z-index:5;top:12px;left:50%;transform:translateX(-50%);max-width:94%;padding:7px 14px;border:1px solid #f4c76a88;border-radius:999px;background:#07111eea;color:#ffe39b;font-size:clamp(17px,2.8vw,27px);font-weight:900;line-height:1.2;text-align:center;text-shadow:0 2px 8px #000;white-space:nowrap;pointer-events:none;opacity:0;animation:meetingRemainingWolfFade .7s ease-out 1.8s both}@keyframes meetingRemainingWolfFade{from{opacity:0;transform:translate(-50%,7px)}to{opacity:1;transform:translate(-50%,0)}}</style><style id="chatLineStyle">#chatMessages .chatBubble{display:block;width:fit-content;max-width:78%;margin-right:auto;margin-left:0}#chatMessages .chatBubble.mine{margin-left:auto;margin-right:0;background:#3a7bd5;color:#fff}</style><style id="chatLineBubbleStyle">#chatMessages .chatLine{display:flex;align-items:flex-end;gap:6px;margin:6px 0}#chatMessages .chatLine.mine{flex-direction:row-reverse}#chatMessages .chatLine.mine>.chatAvatar{display:none}#chatMessages .chatBubble{display:block;width:fit-content;max-width:72%;padding:8px 12px;border-radius:18px;background:#ffffff1f;color:#eef6ff;word-break:break-word}#chatMessages .chatBubble.mine{background:#3a7bd5;color:#fff;border-bottom-right-radius:4px}#chatMessages .chatLine:not(.mine) .chatBubble{border-bottom-left-radius:4px}#chatMessages .chatDeliveryStatus[data-state="sent"]{display:none}</style><style id="voteLightStyle">@keyframes voteLight{0%{box-shadow:0 0 0 0 var(--tokc,#ffffff)}35%{box-shadow:0 0 22px 9px var(--tokc,#ffffff);filter:brightness(1.8)}100%{box-shadow:0 0 8px 2px var(--tokc,#ffffff);filter:none}}.voteToken{animation:voteStamp .3s both,voteLight 1.4s ease-out .3s both}</style><style id="meeting3DOnlyStyle">#meeting .card>*:not(#meeting3D):not(#meetingStatusBar){display:none!important}#meeting3DBtn{display:none!important}#meeting3D.hidden{display:block!important}#meeting3D{display:block!important;width:100%!important;height:100dvh!important;border-radius:0!important}</style><style id="emergencyTaskQualityStyle">
-#emergencyTask{background:radial-gradient(ellipse at 50% 40%,#1a2a3ccc,#03060ceb 72%);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);position:fixed;inset:0;}
-#emergencyTask::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,#ffffff06 0 1px,transparent 1px 3px);mix-blend-mode:screen;animation:etScan 6s linear infinite;}
-@keyframes etScan{to{background-position:0 60px}}
-#emergencyTask>.card{position:relative;overflow:hidden;border-radius:18px;background:linear-gradient(160deg,#2a1f1acc,#0d1522f2 60%);border:1.5px solid #ffcb6899;border-top:4px solid #ffcb68;box-shadow:0 0 0 1px #ffcb6822,0 0 40px #ffb14a33,0 24px 80px #000d;animation:etIn .45s cubic-bezier(.2,1.1,.35,1) both}
-@keyframes etIn{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
-#emergencyTitle{font-weight:900;letter-spacing:.06em;text-shadow:0 0 14px #ffb14a88;font-size:clamp(18px,2.6vw,24px)}
-#emergencyStatus{padding:10px 14px;border-radius:12px;background:#ffffff0c;border:1px solid #ffffff14;min-height:2.4em;transition:background .25s,border-color .25s,color .25s}
-#emergencyStatus.ok{background:#2dd3aa1a;border-color:#2dd3aa88;color:#c8fff0}
-#emergencyStatus.ng{background:#ff4d6d1a;border-color:#ff4d6d88;color:#ffd6de}
-#emergencyComms p,#emergencyLights p{opacity:.85}
-#emergencyDialGraph{width:168px;height:168px;border:0;padding:8px;border-radius:50%;background:conic-gradient(#2dd3aa var(--dial-value),#17304a 0);box-shadow:0 0 0 2px #7fb6cc66,0 0 28px #2dd3aa44,inset 0 0 18px #000b;transition:box-shadow .3s}
-#emergencyDialGraph.aligned{box-shadow:0 0 0 2px #7fffd4,0 0 40px #2dd3aaaa,inset 0 0 18px #000b;animation:etPulse 1.2s ease-in-out infinite}
-@keyframes etPulse{50%{box-shadow:0 0 0 2px #7fffd4,0 0 56px #2dd3aadd,inset 0 0 18px #000b}}
-#emergencyDialGraph>div{width:100%;height:100%;border-radius:50%;background:radial-gradient(circle,#0c1826 60%,#08111c);border:2px solid #7fb6cc55;display:grid;place-items:center}
-#emergencyDialGraph>div::after{content:"";width:6px;height:6px;border-radius:50%;background:#dff7ff;box-shadow:0 0 10px #9fe8ff}
-#emergencyDialInput{accent-color:#2dd3aa;height:26px;cursor:pointer}
-#emergencyDialTarget{font-weight:900;color:#ffcb68;text-shadow:0 0 10px #ffb14a77;font-variant-numeric:tabular-nums}
-#emergencyKeypad{gap:9px}
-#emergencyKeypad button{min-height:58px;color:#eaf6ff;border-radius:12px;background:linear-gradient(180deg,#1d3a52,#10233a);border:1px solid #6e90a8;box-shadow:0 4px 0 #061018,0 6px 14px #0008;transition:transform .08s,box-shadow .08s,filter .15s}
-#emergencyKeypad button:hover{filter:brightness(1.15)}
-#emergencyKeypad button:active{transform:translateY(3px);box-shadow:0 1px 0 #061018,0 3px 8px #0008}
-#emergencyKeypad button[data-key="clear"],#emergencyKeypad button[data-key="back"]{background:linear-gradient(180deg,#34404f,#222b38);color:#ffd6de}
-.emergencyLightSwitches button{min-height:56px;border-radius:12px;font-weight:900;letter-spacing:.04em;background:linear-gradient(180deg,#2a2f3b,#171b24);border:1px solid #556070;color:#9fb0c4;box-shadow:inset 0 0 14px #000a;transition:background .25s,color .25s,box-shadow .25s,border-color .25s}
-.emergencyLightSwitches button[aria-pressed="true"],.emergencyLightSwitches button.on{background:linear-gradient(180deg,#ffe27a,#ffb020);color:#2a1800;border-color:#fff1b8;box-shadow:0 0 22px #ffd45acc,inset 0 0 8px #fff8}
-#emergencyPowerState{display:block;margin-top:6px;font-size:18px;color:#ffe9a8;text-shadow:0 0 12px #ffcb6899;font-variant-numeric:tabular-nums}
-#emergencyComms input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:6px;background:linear-gradient(90deg,#2dd3aa,#17304a)}
-#emergencyComms input[type=range]::-webkit-slider-thumb{width:22px;height:22px;margin-top:-7px;border-radius:50%;background:#dff7ff;box-shadow:0 0 12px #9fe8ff;border:0;-webkit-appearance:none}
-#emergencyTask button:focus-visible{outline:2px solid #ffcb68;outline-offset:2px}
-@media (max-width:600px){#emergencyDialGraph{width:136px;height:136px}#emergencyKeypad button{min-height:50px;font-size:18px}}
-</style>
+<style id="meetingRemainingWolfFadeStyle">#eject3DStage .remainingWolfLine{position:absolute;z-index:5;top:12px;left:50%;transform:translateX(-50%);max-width:94%;padding:7px 14px;border:1px solid #f4c76a88;border-radius:999px;background:#07111eea;color:#ffe39b;font-size:clamp(17px,2.8vw,27px);font-weight:900;line-height:1.2;text-align:center;text-shadow:0 2px 8px #000;white-space:nowrap;pointer-events:none;opacity:0;animation:meetingRemainingWolfFade .7s ease-out 1.8s both}@keyframes meetingRemainingWolfFade{from{opacity:0;transform:translate(-50%,7px)}to{opacity:1;transform:translate(-50%,0)}}</style><style id="chatLineStyle">#chatMessages .chatBubble{display:block;width:fit-content;max-width:78%;margin-right:auto;margin-left:0}#chatMessages .chatBubble.mine{margin-left:auto;margin-right:0;background:#3a7bd5;color:#fff}</style><style id="chatLineBubbleStyle">#chatMessages .chatLine{display:flex;align-items:flex-end;gap:6px;margin:6px 0}#chatMessages .chatLine.mine{flex-direction:row-reverse}#chatMessages .chatLine.mine>.chatAvatar{display:none}#chatMessages .chatBubble{display:block;width:fit-content;max-width:72%;padding:8px 12px;border-radius:18px;background:#ffffff1f;color:#eef6ff;word-break:break-word}#chatMessages .chatBubble.mine{background:#3a7bd5;color:#fff;border-bottom-right-radius:4px}#chatMessages .chatLine:not(.mine) .chatBubble{border-bottom-left-radius:4px}#chatMessages .chatDeliveryStatus[data-state="sent"]{display:none}</style><style id="voteLightStyle">@keyframes voteLight{0%{box-shadow:0 0 0 0 var(--tokc,#ffffff)}35%{box-shadow:0 0 22px 9px var(--tokc,#ffffff);filter:brightness(1.8)}100%{box-shadow:0 0 8px 2px var(--tokc,#ffffff);filter:none}}.voteToken{animation:voteStamp .3s both,voteLight 1.4s ease-out .3s both}</style><style id="meeting3DOnlyStyle">#meeting .card>*:not(#meeting3D):not(#meetingStatusBar){display:none!important}#meeting3DBtn{display:none!important}#meeting3D.hidden{display:block!important}#meeting3D{display:block!important;width:100%!important;height:100dvh!important;border-radius:0!important}</style>
 
 <script id="SS_MEETING_ROLES_REVISION_JS">
 (()=>{
@@ -21948,8 +22067,8 @@ body[data-phase="meeting"] #titleInputSettingsBtn,body[data-phase="results"] #ti
   #sabotageMapTitle small,#sabotageMapFooter{font-size:10px!important}
   #sabotageMapCanvas{min-height:0!important;height:calc(100% - 82px)!important;max-height:none!important}
   #sabotageMapFooter{min-height:28px!important;padding:3px!important}
-  .overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles):not(#taskGame[data-machine3d="true"]){padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;overflow:auto!important;overscroll-behavior:contain!important}
-  .overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles):not(#taskGame[data-machine3d="true"])>.card{box-sizing:border-box!important;width:min(94vw,680px)!important;max-width:94vw!important;max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px)!important;margin:auto!important;padding:clamp(12px,3vw,20px)!important;border-radius:16px!important;overflow:auto!important}
+  .overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles):not(#taskGame[data-machine3d="true"]):not(#emergencyTask[data-machine3d="true"]){padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;overflow:auto!important;overscroll-behavior:contain!important}
+  .overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles):not(#taskGame[data-machine3d="true"]):not(#emergencyTask[data-machine3d="true"])>.card{box-sizing:border-box!important;width:min(94vw,680px)!important;max-width:94vw!important;max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px)!important;margin:auto!important;padding:clamp(12px,3vw,20px)!important;border-radius:16px!important;overflow:auto!important}
   #inputSettingsDialog>.card{width:min(96vw,760px)!important;max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;padding:10px!important}
   #inputSettingsDialog h2{font-size:18px!important}
   #inputSettingsDialog button,#inputSettingsDialog summary{min-height:42px!important}
@@ -22713,6 +22832,44 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
 }
 </style>
 <style id="role-list-use-full-height-oct17">#roundRoles.roundRolesFitsContent[data-source] .roleFactionCards{align-content:space-evenly!important;grid-auto-rows:max-content!important;row-gap:clamp(6px,1dvh,12px)!important}#ejectResult[data-await-death="true"]{visibility:hidden!important}</style>
+<style id="emergencyTerminals3DStyle">
+/* EMERGENCY_TERMINALS_3D_V1 */
+#emergencyTask{position:fixed!important;inset:0!important;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;background:#020810cb!important;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+#emergencyTask::before,#emergencyTask>.card::before,#emergencyTask>.card::after{display:none!important;content:none!important}
+#emergencyTask>.card{position:relative!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;gap:8px!important;width:min(1040px,100%)!important;max-width:100%!important;height:min(780px,calc(100dvh - 20px))!important;max-height:calc(100dvh - 20px)!important;padding:13px!important;overflow:hidden!important;border:1px solid #7195a7!important;border-radius:18px!important;background:linear-gradient(150deg,#193240,#07121d 70%)!important;box-shadow:0 20px 90px #000b,inset 0 1px #d2efff22!important}
+#emergencyTask .emergencyHead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;min-width:0}
+#emergencyTitle{margin:0!important;min-width:0;font-size:clamp(16px,2.3vw,23px)!important;line-height:1.25!important;letter-spacing:.025em!important;color:#e5f7fa!important;text-shadow:none!important;overflow-wrap:anywhere}
+#emergencyCountdown{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:64px;padding:7px 10px;border:1px solid #e7b36166;border-radius:9px;background:#b48a231a;color:#ffe4a7!important;font:800 18px/1.1 ui-monospace,monospace;font-variant-numeric:tabular-nums}
+#emergencyTimeTrack{flex:0 0 4px;height:4px;overflow:hidden;border-radius:9px;background:#2b4350}
+#emergencyTimeFill{display:block;height:100%;width:100%;border-radius:inherit;background:#e9c374;transition:width .2s linear}
+#emergencyStatus{flex:0 0 auto!important;min-height:1.3em!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:none!important;color:#b1d0db!important;font-size:clamp(11px,1.5vw,14px)!important;line-height:1.3!important;text-align:center}
+#emergencyStatus[data-feedback="error"]{color:#ffa1a8!important}#emergencyStatus[data-feedback="ok"]{color:#9deac3!important}
+#emergencyMachineStage{display:none;position:relative;isolation:isolate;flex:1 1 auto;min-width:0;min-height:120px;overflow:hidden;border:1px solid #456778;border-radius:12px;background:radial-gradient(ellipse at 45% 25%,#214353,#06121c 80%);touch-action:none}
+#emergencyMachineStage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none;outline-offset:-3px}
+#emergencyMachineStage canvas:focus{outline:none!important}
+#emergencyMachineStage canvas:focus-visible{outline:1px solid #7097a8!important;outline-offset:-2px!important}
+
+#emergencyTask[data-machine3d="true"] #emergencyMachineStage{display:block!important}
+#emergencyTask[data-machine3d="true"] .emergencyLegacyControls,#emergencyTask[data-machine3d="true"] #emergencySubmitBtn{display:none!important}
+#emergencyTask .emergencyFooter{display:flex;align-items:center;gap:12px;flex:0 0 auto;min-width:0}
+#emergencyCloseBtn{position:static!important;inset:auto!important;transform:none!important;flex:0 0 auto!important;min-width:76px!important;min-height:40px!important;margin:0!important;padding:7px 14px!important;border:1px solid #668a9d!important;border-radius:10px!important;background:linear-gradient(#294b5d,#173344)!important;color:#e5f6fb!important;font-size:13px!important;font-weight:800!important;box-shadow:inset 0 1px #b6e5f522,0 3px 8px #0003!important}
+#emergencyCloseBtn:active{background:#375e70!important;box-shadow:inset 0 2px 5px #0005!important}
+#emergencyHint{flex:1;min-width:0;color:#8eb2c0;font-size:12px;line-height:1.25;text-align:right}
+#emergencyTask[data-danger="true"] #emergencyCountdown{border-color:#ee7888;color:#ffacb2!important;background:#67253766}
+#emergencyTask[data-danger="true"] #emergencyTimeFill{background:#f17c86}
+#emergencyTask[data-machine3d="false"]>.card{width:min(660px,100%)!important;height:auto!important;min-height:220px}
+#emergencyTask .emergencyLegacyControls{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:5px 2px}
+#emergencyKeypad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;max-width:350px;margin:8px auto}
+#emergencyKeypad button{min-height:40px;padding:7px;border:1px solid #5c899d;border-radius:8px;background:#19394b;color:#ecfaff;font-size:18px}
+#emergencyCodeInput{display:block;width:min(350px,100%);margin:10px auto;text-align:center;font-size:24px;letter-spacing:.18em}
+#emergencyTask .emergencyLightSwitches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#emergencyTask .emergencyLightSwitch{padding:9px;border:1px solid #385666;border-radius:8px;background:#102b37;display:flex;justify-content:space-between;gap:8px;font-size:12px}
+#emergencyTask .emergencyLightSwitch.is-on{border-color:#6cb49c;color:#9df5c3}
+#emergencyTask button:focus-visible{outline:2px solid #a2eaf2!important;outline-offset:2px}
+@media(max-height:500px){#emergencyTask{padding:5px max(7px,env(safe-area-inset-right)) 5px max(7px,env(safe-area-inset-left))!important}#emergencyTask>.card{height:calc(100dvh - 10px)!important;max-height:calc(100dvh - 10px)!important;padding:7px 9px!important;gap:4px!important;border-radius:12px!important}#emergencyTitle{font-size:15px!important}#emergencyCountdown{min-width:52px;padding:4px 7px;font-size:16px}#emergencyStatus{font-size:10px!important}#emergencyCloseBtn{min-height:33px!important;min-width:68px!important;padding:5px 10px!important;font-size:12px!important}#emergencyHint{font-size:10px}#emergencyMachineStage{border-radius:8px}}
+@media(max-width:500px) and (orientation:portrait){#emergencyTask>.card{height:min(680px,calc(100dvh - 24px))!important;padding:9px!important;gap:7px!important}#emergencyTitle{font-size:16px!important}#emergencyHint{font-size:10px}#emergencyStatus{font-size:11px!important}#emergencyCountdown{font-size:16px;min-width:52px}}
+
+</style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
 </html>
