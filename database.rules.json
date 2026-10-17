@@ -6,7 +6,10 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['name','color','costume']) && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('color').isString() && newData.child('color').val().length <= 32 && newData.child('costume').isString() && newData.child('costume').val().length <= 512 && (!newData.child('updatedAt').exists() || newData.child('updatedAt').isNumber()) && (!newData.child('winStats').exists() || (newData.child('winStats').hasChildren(['games','wins','processed','updatedAt']) && newData.child('winStats').child('games').isNumber() && newData.child('winStats').child('wins').isNumber() && newData.child('winStats').child('updatedAt').isNumber()))",
+        ".validate": "newData.hasChildren(['name','color','costume']) && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('color').isString() && newData.child('color').val().length <= 32 && newData.child('costume').isString() && newData.child('costume').val().length <= 512 && (!newData.child('updatedAt').exists() || newData.child('updatedAt').isNumber()) && (!newData.child('lastSeenUpdate').exists() || (newData.child('lastSeenUpdate').isString() && newData.child('lastSeenUpdate').val().length <= 32)) && (!newData.child('winStats').exists() || (newData.child('winStats').hasChildren(['games','wins','processed','updatedAt']) && newData.child('winStats').child('games').isNumber() && newData.child('winStats').child('wins').isNumber() && newData.child('winStats').child('updatedAt').isNumber()))",
+        "lastSeenUpdate": {
+          ".validate": "newData.isString() && newData.val().length <= 32"
+        },
         "winStats": {
           "processed": {
             "$match": {
