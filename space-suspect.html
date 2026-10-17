@@ -6930,7 +6930,7 @@ function createRoleBehaviorControls(container){
     if(spec.enabledBy)input.disabled=!$(spec.enabledBy)?.checked;
   }
 }
-const NORMAL_SIGHT_RADIUS=8;
+const NORMAL_SIGHT_RADIUS=7.6;
 function hasHawkEyeVision(player,stamp=now()){return Number(player?.hawkUntil)>stamp||Number(player?.waveHawkUntil)>stamp;}
 function lighterSightRadius(player,settings=game.settings,stamp=now()){return NORMAL_SIGHT_RADIUS*(Number(player?.lighterUntil)>stamp?roleBehaviorValue(settings,"lighterVisionMultiplier"):1);}
 function upgradedRoleCooldownMs(role,settings){
@@ -9084,9 +9084,9 @@ function fitRoundRoleList(){
   const modal=$("roundRoles"),card=modal?.querySelector(":scope>.card"),list=$("roundRoleList");if(!card||!list||modal.classList.contains("hidden"))return;
   modal.classList.add("roundRolesFitsContent");
   const viewport=Math.min(innerHeight,window.visualViewport?.height||innerHeight),maximum=Math.max(160,viewport-16),style=getComputedStyle(card),gap=parseFloat(getComputedStyle(list).rowGap)||8;
-  const header=card.firstElementChild,fixed=header.getBoundingClientRect().height+(parseFloat(style.paddingTop)||0)+(parseFloat(style.paddingBottom)||0)+(parseFloat(style.rowGap)||8)+4;
+  const header=card.firstElementChild,fixed=header.offsetHeight+(parseFloat(style.paddingTop)||0)+(parseFloat(style.paddingBottom)||0)+(parseFloat(style.rowGap)||8)+4;
   const columns=[...list.querySelectorAll(":scope>.roleFactionColumn")];
-  const naturalColumns=Math.max(132,...columns.map(column=>{const cards=column.querySelector(".roleFactionCards"),heading=column.querySelector(".roleFactionHeading"),cs=getComputedStyle(column);const children=[...(cards?.children||[])],cardStyle=cards?getComputedStyle(cards):null,content=children.reduce((sum,node)=>{const st=getComputedStyle(node);return sum+node.getBoundingClientRect().height+(parseFloat(st.marginTop)||0)+(parseFloat(st.marginBottom)||0);},0)+Math.max(0,children.length-1)*(parseFloat(cardStyle?.rowGap)||0);return Math.max(132,content)+(heading?.getBoundingClientRect().height||0)+(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0)+14;}));
+  const naturalColumns=Math.max(132,...columns.map(column=>{const cards=column.querySelector(".roleFactionCards"),heading=column.querySelector(".roleFactionHeading"),cs=getComputedStyle(column);const children=[...(cards?.children||[])],cardStyle=cards?getComputedStyle(cards):null,content=children.reduce((sum,node)=>{const st=getComputedStyle(node);return sum+node.offsetHeight+(parseFloat(st.marginTop)||0)+(parseFloat(st.marginBottom)||0);},0)+Math.max(0,children.length-1)*(parseFloat(cardStyle?.rowGap)||0);return Math.max(132,content)+(heading?.offsetHeight||0)+(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0)+14;}));
   const detail=list.querySelector(".roleDetailPane:not([hidden])"),detailNatural=detail?Math.max(140,detail.scrollHeight):0;
   const height=Math.min(maximum,Math.max(Math.min(420,maximum),fixed+naturalColumns+(detail?gap+detailNatural:0))),available=Math.max(80,height-fixed);
   const top=detail?Math.min(naturalColumns,Math.max(132,(available-gap)*.48)):available;
@@ -10178,10 +10178,13 @@ function roomNeedsCleanup(room,stamp=now(),summary=null){
   if(!room)return true;
   const cutoff=stamp-ROOM_PRESENCE_GRACE_MS;
   const roster=room.players||{};
-  if(Object.keys(room.activeConnections||{}).length)return false;
   const humanPlayers=Object.values(roster).filter(player=>player&&player.bot!==true);
-  if(humanPlayers.some(player=>roomHumanIsOnline(player,cutoff)||Number(player.updatedAt)>=cutoff))return false;
-  return Number(room.createdAt)<cutoff;
+  if(humanPlayers.some(player=>roomHumanIsOnline(player,cutoff)))return false;
+  const freshConnection=Object.values(room.activeConnections||{}).some(connections=>Object.values(connections||{}).some(at=>typeof at==="number"&&at>=cutoff));
+  if(freshConnection)return false;
+  // Old connection flags and BOT rows are not proof that a human is connected.
+  // Give a new room time to publish its first player before deleting it.
+  return (Number(room.createdAt)||0)<stamp-5000;
 }
 async function cleanupInactiveRoomSummaries(summaries){
   if(roomCleanupBusy||!connected||!uid)return [];
@@ -10191,20 +10194,20 @@ async function cleanupInactiveRoomSummaries(summaries){
   try{
     for(const [roomCode,summary] of Object.entries(summaries||{})){
       if(!/^\d{4}$/.test(roomCode))continue;
-      if(Number(summary?.updatedAt||0)>=staleBefore)continue;
+      if(Number(summary?.updatedAt||0)>=staleBefore&&Number(summary?.onlineCount)>0&&summary?.hostOnline===true)continue;
       try{
         const roomSnapshot=await get(ref(db,"rooms/"+roomCode));
         if(!roomSnapshot.exists()){
           await remove(ref(db,"roomSummaries/"+roomCode));removedRooms.push(roomCode);continue;
         }
-        const observedRoom=roomSnapshot.val(),createdAt=Number(observedRoom.createdAt);
+        const observedRoom=roomSnapshot.val(),createdAt=Number(observedRoom.createdAt)||0;
         if(!Number.isFinite(createdAt)||!roomNeedsCleanup(observedRoom,now(),summary))continue;
         const deleted=await runTransaction(ref(db,"rooms/"+roomCode),current=>{
-          if(!current||Number(current.createdAt)!==createdAt||!roomNeedsCleanup(current,now(),summary))return;
+          if(!current||(Number(current.createdAt)||0)!==createdAt||!roomNeedsCleanup(current,now(),summary))return;
           return null;
         },{applyLocally:false});
         if(!deleted.committed)continue;
-        await runTransaction(ref(db,"roomSummaries/"+roomCode),current=>Number(current?.createdAt)===createdAt?null:undefined,{applyLocally:false});
+        await runTransaction(ref(db,"roomSummaries/"+roomCode),current=>(Number(current?.createdAt)||0)===createdAt?null:undefined,{applyLocally:false});
         removedRooms.push(roomCode);
       }catch(error){
         if(error?.code==="PERMISSION_DENIED"){
@@ -10334,7 +10337,7 @@ async function loadRoomList(){
       const availablePhase=["lobby","play","meeting","results","ended"].includes(summary.phase);
       const joinable=availablePhase&&summary.hostOnline&&occupants>0&&occupants<(summary.maxPlayers||20);
       const ownRoom=availablePhase&&summary.hostId===uid;
-      if(joinable||ownRoom||isSiteAdmin)rooms.push({roomCode,summary,occupants,joinable:joinable||ownRoom});
+      if(occupants>0&&(joinable||ownRoom||isSiteAdmin))rooms.push({roomCode,summary,occupants,joinable:joinable||ownRoom});
     }
     rooms.sort((a,b)=>(Number(b.summary.createdAt)||Number(b.summary.updatedAt)||0)-(Number(a.summary.createdAt)||Number(a.summary.updatedAt)||0));
     if($("portalRoomCount"))$("portalRoomCount").textContent=String(rooms.length);
@@ -13933,11 +13936,10 @@ function analyzeBotMeetingEvidence(g,voterId,choices){
  return{scores,support,ranked:ids.map(id=>({id,score:scores.get(id),support:support.get(id)})).sort((a,b)=>b.score-a.score)};
 }
 function chooseBotMeetingVote(g,voterId,choices){
- const eligible=[...new Set((choices||[]).filter(id=>id!==voterId&&g.players?.[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected))];if(!eligible.length)return 'skip';
+ const eligible=[...new Set((choices||[]).filter(id=>id!==voterId&&g.players?.[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected))];if(!eligible.length)return (choices||[]).find(id=>g.players?.[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected)||null;
  const evidence=analyzeBotMeetingEvidence(g,voterId,eligible),persona=botPersonalityFor(voterId),strongest=Math.max(0,...evidence.scores.values());
- if(strongest<=0)return 'skip';
- const rows=eligible.map(id=>({id,weight:Math.max(.04,.12+Math.max(0,evidence.scores.get(id)||0)*persona.accusationTrust)})),skipWeight=Math.max(.65,eligible.length*persona.skipBias/(1+strongest*.7));
- let pick=Math.random()*(skipWeight+rows.reduce((sum,row)=>sum+row.weight,0));for(const row of rows){pick-=row.weight;if(pick<0)return row.id;}return 'skip';
+ const rows=eligible.map(id=>({id,weight:Math.max(.04,.12+Math.max(0,evidence.scores.get(id)||0)*persona.accusationTrust)}));
+ let pick=Math.random()*rows.reduce((sum,row)=>sum+row.weight,0);for(const row of rows){pick-=row.weight;if(pick<0)return row.id;}return rows[rows.length-1].id;
 }
 function botEvidenceReplyLines(g,botId){
  const eligible=Object.keys(g.players||{}).filter(id=>id!==botId),analysis=analyzeBotMeetingEvidence(g,botId,eligible),top=analysis.ranked.find(row=>row.score>0),defended=analysis.ranked.find(row=>row.score<0);
@@ -14945,6 +14947,7 @@ if (checkWin(g)) {
               g.players[id].alive && !g.players[id].observer && !g.players[id].disconnected
             );
             const target=chooseBotMeetingVote(g,botId,choices);
+            if(!target||target==="skip")continue;
             const ballot={id:token(),round:g.round,meeting:meetingId,target,at:now()};
             await set(ref(db,`ballots/${roomCode}/${g.round}/${meetingId}/${botId}`),ballot);
             ballots[botId]=ballot;privateBallots[botId]=ballot;
@@ -17419,6 +17422,7 @@ function updateCameraOccluders(target,active){
       const progress=clamp((stamp-inputCameraPoseStarted)/280,0,1),eased=progress*progress*(3-2*progress);
       if(progress<1){cameraObject.position.lerpVectors(inputCameraFromPosition,desiredPosition,eased);inputCameraBlendTarget.lerpVectors(inputCameraFromTarget,desiredTarget,eased);if(cameraObject===camera3D)cameraObject.position.copy(inputClipCameraRay(inputCameraBlendTarget,cameraObject.position,inputCameraBlendTarget.y));cameraObject.lookAt(inputCameraBlendTarget);}
       else{cameraObject.position.copy(desiredPosition);cameraObject.lookAt(desiredTarget);}
+      if(game.phase==="play"&&self()?.alive===true&&key!=="3d-first")cameraObject.lookAt(desiredTarget);
       cameraObject.updateMatrixWorld();inputCameraLastPosition.copy(cameraObject.position);inputCameraLastTarget.copy(desiredTarget);
     }
     function inputClipCameraRay(origin,desired,targetY){
@@ -17470,11 +17474,12 @@ function sampleVentTraversal(transition,stamp,isVented){
       const hawkVision=(Number(viewer?.hawkUntil)||0)>now();
       const worldWidth=Math.max(1,(Number(worldBounds.maxX)||0)-(Number(worldBounds.minX)||0)),worldHeight=Math.max(1,(Number(worldBounds.maxZ)||0)-(Number(worldBounds.minZ)||0));
       const fullMapZoom=Math.min((camera2D.right-camera2D.left)/worldWidth,(camera2D.top-camera2D.bottom)/worldHeight)*1.22;
-      const nextZoom=waveHawkVision?fullMapZoom:(hawkVision ? .42 : viewer?.alive===true&&!viewer.observer?1.1:1)*manualCameraZoom;if(camera2D.zoom!==nextZoom){camera2D.zoom=nextZoom;camera2D.updateProjectionMatrix();}
-      const baseFov=hawkVision?90:firstPerson?70:56,nextFov=Math.max(38,Math.min(waveHawkVision ? 120 : viewer?.alive===false||viewer?.observer ? 120 : 85,baseFov/manualCameraZoom));if(camera3D.fov!==nextFov){camera3D.fov=nextFov;camera3D.updateProjectionMatrix();}
+      const nextZoom=waveHawkVision?fullMapZoom:(hawkVision ? .42 : viewer?.alive===true&&!viewer.observer?1.17:1)*manualCameraZoom;if(camera2D.zoom!==nextZoom){camera2D.zoom=nextZoom;camera2D.updateProjectionMatrix();}
+      const baseFov=hawkVision?90:firstPerson?70:53,nextFov=Math.max(38,Math.min(waveHawkVision ? 120 : viewer?.alive===false||viewer?.observer ? 120 : 85,baseFov/manualCameraZoom));if(camera3D.fov!==nextFov){camera3D.fov=nextFov;camera3D.updateProjectionMatrix();}
       const nextCameraFar=viewer?.alive===false||viewer?.observer||waveHawkVision ? 240 : hawkVision ? 90 : 70;if(camera3D.far!==nextCameraFar){camera3D.far=nextCameraFar;camera3D.updateProjectionMatrix();}
       camera=use3D?camera3D:camera2D;
       const ownAvatar=avatars.get(spectator?spectatorTargetId:uid);
+      const centerY=.82+Math.max(0,Number(ownAvatar?.position.y)||0);
       if(ownAvatar)ownAvatar.visible=!firstPerson;
       if(use3D){
         const yaw=ownAvatar?.rotation.y||0;
@@ -17482,17 +17487,17 @@ function sampleVentTraversal(transition,stamp,isVented){
           if(window.__spaceInputPreferences?.firstPersonBob&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches){const elapsed=inputCameraLastTargetAt?Math.max(.001,(stamp-inputCameraLastTargetAt)/1000):0,moved=inputCameraLastTargetAt&&Math.hypot(target.x-inputCameraLastTargetX,target.z-inputCameraLastTargetZ)>.002;if(moved&&elapsed<.25)bob=Math.sin(stamp*.018)*.035;}
           const eye=inputCameraDesiredPosition.set(target.x,eyeY+bob,target.z),lookYaw=touchLookYaw??yaw,lookReach=9*Math.cos(touchLookPitch),look=inputCameraDesiredTarget.set(target.x+Math.sin(lookYaw)*lookReach,eyeY+bob+Math.sin(touchLookPitch)*9,target.z+Math.cos(lookYaw)*lookReach);inputSetCameraPose(camera3D,"3d-first",eye,look);inputCameraLastTargetX=target.x;inputCameraLastTargetZ=target.z;inputCameraLastTargetAt=stamp;}
         else if(cameraPerspective==="overhead"){
-          const desired=inputCameraDesiredPosition.set(target.x,12,target.z+9.2),origin=inputCameraOrigin.set(target.x,.9,target.z);
-          const clipped=inputClipCameraRay(origin,desired,.9);
-          inputSetCameraPose(camera3D,"3d-overhead",clipped,inputCameraDesiredTarget.set(target.x,.9,target.z));}
+          const desired=inputCameraDesiredPosition.set(target.x,centerY+11.1,target.z+9.2),origin=inputCameraOrigin.set(target.x,centerY,target.z);
+          const clipped=inputClipCameraRay(origin,desired,centerY);
+          inputSetCameraPose(camera3D,"3d-overhead",clipped,inputCameraDesiredTarget.set(target.x,centerY,target.z));}
         else{const ghostView=!!spectator,behind=ghostView?3.4:5.6,camHeight=ghostView?11.5:5.3;
           // Move the follow camera in front of intersecting wall segments when it would clip below the wall top.
-          const desired=inputCameraDesiredPosition.set(target.x-Math.sin(yaw)*behind,camHeight,target.z-Math.cos(yaw)*behind),origin=inputCameraOrigin.set(target.x,.9,target.z);
-          const clipped=inputClipCameraRay(origin,desired,.9);
-          inputSetCameraPose(camera3D,"3d-third",clipped,inputCameraDesiredTarget.set(target.x,.9,target.z));}
+          const desired=inputCameraDesiredPosition.set(target.x-Math.sin(yaw)*behind,camHeight+centerY-.82,target.z-Math.cos(yaw)*behind),origin=inputCameraOrigin.set(target.x,centerY,target.z);
+          const clipped=inputClipCameraRay(origin,desired,centerY);
+          inputSetCameraPose(camera3D,"3d-third",clipped,inputCameraDesiredTarget.set(target.x,centerY,target.z));}
         scene.fog=null;
       }else{
-      inputSetCameraPose(camera2D,"2d",inputCameraDesiredPosition.set(target.x,13,target.z+12),inputCameraDesiredTarget.set(target.x,.82,target.z));
+      inputSetCameraPose(camera2D,"2d",inputCameraDesiredPosition.set(target.x,centerY+12.18,target.z+12),inputCameraDesiredTarget.set(target.x,centerY,target.z));
       // 斜め見下ろしの2.5Dカメラ。奥行きを残しつつ床面全体を読めるようにする。
       scene.fog=null;
       }
@@ -18878,7 +18883,7 @@ if (phase === "meeting" && game.meeting) {
         show("meetingCountdown",!allVoted);
         const meetingDeadCount=Number.isFinite(Number(meeting.deadAtStart))?Number(meeting.deadAtStart):Object.values(game.players||{}).filter(p=>p&&!p.observer&&!p.alive).length;
         const meetingWolfCount=Object.values(game.players||{}).filter(p=>p&&!p.observer&&!p.disconnected&&p.alive&&typeof isImpostorTeamPlayer==="function"&&isImpostorTeamPlayer(p)).length;
-        $("meetingDeadCount").textContent=String(meetingDeadCount);$("meetingWolfCount").textContent=String(meetingWolfCount);show("meetingStatusBar",phase==="meeting"||phase==="results");
+        $("meetingDeadCount").textContent=String(meetingDeadCount);$("meetingWolfCount").textContent=String(meetingWolfCount);show("meetingStatusBar",false);
         $("meeting").classList.toggle("criticalMeeting",voting&&seconds<=10&&seconds>0&&!ownVoted&&!allVoted);
         if(phase!=="meeting"||meeting.scalesVote)show("abilityTargetSelect",false);
         const urgencyBox=$("meetingChat"),urgencyId="meetingUrgencyLine";
@@ -22610,6 +22615,29 @@ body[data-controls-countdown="true"] #controls,body:has(#roleReveal:not(.hidden)
  #ending>.card{width:min(560px,86vw)!important;max-height:82dvh!important;transform:none!important;padding:12px!important}
  #endLineup{max-height:18dvh!important;gap:7px!important;padding:8px 0!important}#endLineup small{font-size:10px!important}
 }
+</style>
+<style id="empty-room-costume-control-layout">
+body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeStudio:not(.hidden)) #titleInputSettingsBtn{display:none!important;pointer-events:none!important}
+#meeting #meetingStatusBar,#meetingDeadCount{display:none!important}
+#controls #buttons{row-gap:14px!important}
+#controls #buttons #taskBtn{width:min(100%,64px)!important;min-width:0!important;justify-self:end!important;padding-inline:3px!important}
+#lobbyUseBtn{width:76px!important;min-width:76px!important;padding-inline:6px!important}
+#roundRoles.roundRolesFitsContent[data-source]:has(#roundRoleList[data-role-layout])>.card{transform:none!important;width:min(840px,calc(100vw - 32px))!important;max-width:calc(100vw - 32px)!important}
+#roundRoles[data-source] #roundRoleList{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important;min-width:0!important;column-gap:8px!important;align-items:stretch!important}
+#roundRoles[data-source] .roleFactionColumn{min-width:0!important;width:100%!important;box-sizing:border-box!important}
+#roundRoles[data-source] .roleFactionHeading{display:flex!important;flex-wrap:wrap!important;gap:3px!important;min-width:0!important;padding:5px!important;font-size:12px!important;line-height:1.25!important}
+#roundRoles[data-source] .roleFactionHeading>*{min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
+#roundRoles[data-source] .roleChoiceButton{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;white-space:normal!important;overflow-wrap:anywhere!important}
+#roundRoles[data-source] .roleChoiceButton span{min-width:0!important;white-space:normal!important;overflow-wrap:anywhere!important}
+#roundRoles[data-source] .roleDetailPane{grid-column:1/-1!important;min-width:0!important;width:100%!important;box-sizing:border-box!important}
+@media(min-width:1001px),(pointer:fine){
+ #costumeStudio #costumeSlots{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(2,auto)!important;grid-auto-flow:row!important;gap:7px!important;overflow:visible!important}
+ #costumeStudio #costumeSlots button{min-width:0!important;width:100%!important;min-height:46px!important;padding:6px!important}
+ #costumeStudio #costumeSlots .slotText{font-size:12px!important}
+ #controls #buttons #jumpBtn{height:54px!important;min-height:54px!important;min-width:64px!important;padding:5px 10px!important;font-size:14px!important}
+ #lobbyChatMessages .lobbyChatText{font-size:13px!important;line-height:1.35!important}#lobbyChatMessages .lobbyChatText>strong{font-size:11px!important}#lobbyChatMessages .lobbyChatTime{font-size:9px!important}
+}
+@media(pointer:coarse) and (max-width:1000px){#roundRoles.roundRolesFitsContent[data-source]:has(#roundRoleList[data-role-layout])>.card{width:min(720px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important}#controls #buttons #taskBtn{width:min(100%,54px)!important}#roundRoles[data-source] .roleFactionHeading{font-size:10px!important}#roundRoles[data-source] .roleChoiceButton{padding:5px!important;font-size:11px!important}}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
