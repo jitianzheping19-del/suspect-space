@@ -8407,14 +8407,33 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     // SkyWay SFU carries audio; Firebase keeps only mic presence and uses the
     // existing roster positions for proximity, walls, camera, and ghost gates.
     let voiceEnabledByRoom=false,voiceJoined=false,voiceMuted=true,voicePromptOpen=false,voiceStream=null,voiceContext=null,voiceSessionId="",voicePresenceUnsub=[],voiceDisplayUnsub=[],voiceDisplayRoom="",voicePeers=new Map(),voiceRemoteStates=new Map(),voicePositionOverride=null;
-    let skywaySdkPromise=null,skywayNoiseCancellerModulePromise=null,skywayContext=null,skywayRoom=null,skywayMember=null,skywayLocalAudio=null,skywayInputAudio=null,skywayAudioPublication=null,skywayNoiseCanceller=null,skywayRoomName="";
+    let skywaySdkPromise=null,skywayNoiseCancellerModulePromise=null,skywayContext=null,skywayRoom=null,skywayMember=null,skywayLocalAudio=null,skywayInputAudio=null,skywayAudioPublication=null,skywayNoiseCanceller=null,skywayRoomName="",skywayLocalMemberId="";
+    const skywayMemberIdCache=new Map();let voiceSkywayIdentityMap=new Map(),voiceSkywayIdentitySignature="",voiceSkywayIdentityPromise=null,voicePeerSyncPromise=null;
     const SKYWAY_TOKEN_ENDPOINT="https://skyway-toooken.jitianzheping19.workers.dev/api/token";
     async function loadSkyWaySdk(){if(!skywaySdkPromise)skywaySdkPromise=import("@skyway-sdk/room").catch(error=>{skywaySdkPromise=null;throw error;});return skywaySdkPromise;}
     async function loadSkyWayNoiseCanceller(){if(!skywayNoiseCancellerModulePromise)skywayNoiseCancellerModulePromise=import("skyway-ai-noise-canceller").catch(error=>{skywayNoiseCancellerModulePromise=null;throw error;});return skywayNoiseCancellerModulePromise;}
+    async function skywayMemberIdForFirebaseUid(playerId){
+      const source=String(playerId||"");if(!source)throw new Error("Firebase UIDがありません。");
+      if(skywayMemberIdCache.has(source))return skywayMemberIdCache.get(source);
+      const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(`suspect-space-skyway-member-v1:${source}`))),bytes=digest.slice(0,16);
+      bytes[6]=(bytes[6]&0x0f)|0x50;bytes[8]=(bytes[8]&0x3f)|0x80;
+      const hex=Array.from(bytes,value=>value.toString(16).padStart(2,"0")).join(""),memberId=`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+      skywayMemberIdCache.set(source,memberId);return memberId;
+    }
+    async function refreshVoiceSkywayIdentityMap(){
+      const playerIds=[...new Set([...Object.keys(players||{}),...(uid?[uid]:[])])].sort(),signature=playerIds.join("\u0000");
+      if(signature===voiceSkywayIdentitySignature)return voiceSkywayIdentityMap;
+      if(voiceSkywayIdentityPromise)return voiceSkywayIdentityPromise;
+      voiceSkywayIdentityPromise=Promise.all(playerIds.map(async playerId=>[await skywayMemberIdForFirebaseUid(playerId),playerId])).then(entries=>{
+        voiceSkywayIdentityMap=new Map(entries.map(([memberId,playerId])=>[memberId,playerId]));voiceSkywayIdentitySignature=signature;return voiceSkywayIdentityMap;
+      }).finally(()=>{voiceSkywayIdentityPromise=null;});
+      return voiceSkywayIdentityPromise;
+    }
+    function firebasePlayerIdForSkywayMember(member){const memberId=String(member?.id||"");return voiceSkywayIdentityMap.get(memberId)||(players?.[memberId]?memberId:"");}
     async function requestSkyWayToken(roomName,memberName){
       const user=auth?.currentUser;if(!user)throw new Error("Firebaseログインを確認できません。ログインし直してから通話を開始してください。");
-      const idToken=await user.getIdToken();
-      const response=await fetch(SKYWAY_TOKEN_ENDPOINT,{method:"POST",mode:"cors",cache:"no-store",headers:{"Authorization":`Bearer ${idToken}`,"Content-Type":"application/json"},body:JSON.stringify({roomId:String(roomName),memberId:String(user.uid),memberName:String(memberName||"プレイヤー").slice(0,24)})});
+      const idToken=await user.getIdToken(),memberId=await skywayMemberIdForFirebaseUid(user.uid);
+      const response=await fetch(SKYWAY_TOKEN_ENDPOINT,{method:"POST",mode:"cors",cache:"no-store",headers:{"Authorization":`Bearer ${idToken}`,"Content-Type":"application/json"},body:JSON.stringify({roomId:String(roomName),memberId,memberName:String(memberName||"プレイヤー").slice(0,24)})});
       let data={};try{data=await response.json();}catch{}
       if(!response.ok||typeof data.token!=="string"){
         const reason=response.status===401?"Firebaseログインを確認できません。いったんログアウトして再ログインしてください。":response.status===403?"SkyWay WorkerのOrigin設定を確認してください。":response.status===500?"SkyWay WorkerのSecrets設定を確認してください。":String(data.error||`SkyWayトークンの取得に失敗しました（${response.status}）`);
@@ -8746,7 +8765,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       voiceRemoteStates.set(peerId,value);syncVoicePeers();updateVoiceReceiveGates();safeRenderUI();
     }
     async function subscribeSkyWayPublication(publication){
-      const peerId=String(publication?.publisher?.id||"");
+      await refreshVoiceSkywayIdentityMap();const peerId=firebasePlayerIdForSkywayMember(publication?.publisher);
       if(!peerId||peerId===uid||publication.contentType!=="audio"||!skywayMember||!voiceJoined)return;
       if(players?.[peerId]?.online!==true||voiceRemoteStates.get(peerId)?.joined!==true)return;
       const current=voicePeers.get(peerId);if(current?.publication?.id===publication.id)return;
@@ -8763,21 +8782,25 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         updateVoiceSpatialAudio();updateVoiceReceiveGates();
       }catch(error){console.warn("SkyWay音声の購読に失敗しました",error);if(voicePeers.get(peerId)===peer)voicePeers.delete(peerId);peer.closed=true;}
     }
-    function handleSkyWayPublicationRemoved(publication){
-      const peerId=String(publication?.publisher?.id||"");const peer=voicePeers.get(peerId);
+    async function handleSkyWayPublicationRemoved(publication){
+      await refreshVoiceSkywayIdentityMap();const peerId=firebasePlayerIdForSkywayMember(publication?.publisher),peer=voicePeers.get(peerId);
       if(peer&&peer.publication?.id===publication.id)closeVoicePeer(peerId);
     }
     function syncVoicePeers(){
       if(!voiceJoined||!voiceRoomIsEnabled()||!skywayRoom||!skywayMember)return;
-      const publications=new Map();
-      for(const publication of skywayRoom.publications||[]){
-        const peerId=String(publication?.publisher?.id||"");
-        if(!peerId||peerId===uid||publication.contentType!=="audio")continue;
-        if(players?.[peerId]?.online===true&&voiceRemoteStates.get(peerId)?.joined===true)publications.set(peerId,publication);
-      }
-      for(const peerId of [...voicePeers.keys()])if(!publications.has(peerId)||voicePeers.get(peerId)?.publication?.id!==publications.get(peerId)?.id)closeVoicePeer(peerId);
-      for(const publication of publications.values())void subscribeSkyWayPublication(publication);
-      updateVoiceReceiveGates();
+      if(voicePeerSyncPromise)return;
+      voicePeerSyncPromise=(async()=>{
+        await refreshVoiceSkywayIdentityMap();if(!voiceJoined||!voiceRoomIsEnabled()||!skywayRoom||!skywayMember)return;
+        const publications=new Map();
+        for(const publication of skywayRoom.publications||[]){
+          const peerId=firebasePlayerIdForSkywayMember(publication?.publisher);
+          if(!peerId||peerId===uid||publication.contentType!=="audio")continue;
+          if(players?.[peerId]?.online===true&&voiceRemoteStates.get(peerId)?.joined===true)publications.set(peerId,publication);
+        }
+        for(const peerId of [...voicePeers.keys()])if(!publications.has(peerId)||voicePeers.get(peerId)?.publication?.id!==publications.get(peerId)?.id)closeVoicePeer(peerId);
+        for(const publication of publications.values())void subscribeSkyWayPublication(publication);
+        updateVoiceReceiveGates();
+      })().catch(error=>console.warn("SkyWay参加者の同期に失敗しました",error)).finally(()=>{voicePeerSyncPromise=null;});
     }
     async function publishVoicePresence(force=false){
       const room=code,playerId=uid,voiceSession=voiceSessionId;
@@ -8791,7 +8814,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       });voicePresenceWrite=write;return write;
     }
     async function stopVoiceChat({removePresence=true,removeSignals=true,closeContext=true}={}){
-      const oldCode=code,oldUid=uid,oldMember=skywayMember,oldRoom=skywayRoom,oldSkywayContext=skywayContext,oldNoiseCanceller=skywayNoiseCanceller;voiceJoined=false;voiceMuted=true;voicePromptOpen=false;stopVoiceSpatialTimer();stopVoiceActivityMeter();closeAllVoicePeers();voicePresenceSignature="";
+      const oldCode=code,oldUid=uid,oldMember=skywayMember,oldRoom=skywayRoom,oldSkywayContext=skywayContext,oldNoiseCanceller=skywayNoiseCanceller;voiceJoined=false;voiceMuted=true;voicePromptOpen=false;skywayLocalMemberId="";stopVoiceSpatialTimer();stopVoiceActivityMeter();closeAllVoicePeers();voicePresenceSignature="";
       skywayMember=null;skywayRoom=null;skywayContext=null;skywayLocalAudio=null;skywayInputAudio=null;skywayAudioPublication=null;skywayNoiseCanceller=null;skywayRoomName="";
       if(oldNoiseCanceller)try{await oldNoiseCanceller.dispose();}catch(error){console.debug("SkyWayノイズキャンセラーを解放しました",error);}
       for(const track of voiceStream?.getAudioTracks()||[])track.enabled=false;
@@ -8826,11 +8849,11 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         const audioTrack=voiceStream.getAudioTracks()[0];if(!audioTrack)throw new Error("マイクの音声トラックを取得できませんでした。");
         const requestedName=nicknameFor(uid)||players?.[uid]?.name||auth?.currentUser?.displayName||"プレイヤー";
         message.textContent="SkyWayへ接続しています…";
-        const authToken=await requestSkyWayToken(requestedRoom,requestedName),sdk=await loadSkyWaySdk();
+        const authToken=await requestSkyWayToken(requestedRoom,requestedName),requestedMemberId=await skywayMemberIdForFirebaseUid(uid),sdk=await loadSkyWaySdk();
         if(code!==requestedRoom||session!==requestedSession||!voiceRoomIsEnabled()){for(const track of voiceStream?.getTracks()||[])track.stop();await stopVoiceChat();return;}
         skywayContext=await sdk.SkyWayContext.Create(authToken);
         skywayRoom=await sdk.SkyWayRoom.FindOrCreate(skywayContext,{type:"sfu",name:requestedRoom});skywayRoomName=requestedRoom;
-        skywayMember=await skywayRoom.join({id:uid,name:String(requestedName).slice(0,24)});
+        skywayMember=await skywayRoom.join({id:requestedMemberId,name:String(requestedName).slice(0,24)});skywayLocalMemberId=String(skywayMember?.id||requestedMemberId);await refreshVoiceSkywayIdentityMap();
         const rawAudio=new sdk.LocalAudioStream(audioTrack);skywayInputAudio=rawAudio;
         let noiseCanceller=null,noiseReadyTimeout=0,noiseReadySettled=false;
         try{
@@ -8864,7 +8887,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         skywayAudioPublication=await skywayMember.publish(skywayLocalAudio);
         skywayRoom.onStreamPublished.add(({publication})=>{void subscribeSkyWayPublication(publication);});
         skywayRoom.onStreamUnpublished.add(({publication})=>handleSkyWayPublicationRemoved(publication));
-        skywayRoom.onMemberLeft.add(({member})=>{closeVoicePeer(String(member?.id||""));});
+        skywayRoom.onMemberLeft.add(({member})=>{const playerId=firebasePlayerIdForSkywayMember(member);if(playerId)closeVoicePeer(playerId);});
         skywayContext.onTokenUpdateReminder.add(()=>{
           const activeContext=skywayContext,activeRoom=skywayRoomName,activeName=String(requestedName).slice(0,24);
           if(!activeContext||!activeRoom||!voiceJoined)return;
