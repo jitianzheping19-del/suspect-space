@@ -8412,7 +8412,17 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     const SKYWAY_TOKEN_ENDPOINT="https://skyway-toooken.jitianzheping19.workers.dev/api/token";
     async function loadSkyWaySdk(){if(!skywaySdkPromise)skywaySdkPromise=import("@skyway-sdk/room").catch(error=>{skywaySdkPromise=null;throw error;});return skywaySdkPromise;}
     async function loadSkyWayNoiseCanceller(){if(!skywayNoiseCancellerModulePromise)skywayNoiseCancellerModulePromise=import("skyway-ai-noise-canceller").catch(error=>{skywayNoiseCancellerModulePromise=null;throw error;});return skywayNoiseCancellerModulePromise;}
-    function firebasePlayerIdForSkywayMember(member){const playerId=String(member?.metadata||"");return playerId&&(players?.[playerId]||playerId===uid)?playerId:"";}
+    function firebasePlayerIdForSkywayMember(member){
+      const metadataId=String(member?.metadata||"");
+      if(metadataId&&(players?.[metadataId]||metadataId===uid))return metadataId;
+      const skywayId=String(member?.id||"");
+      if(!skywayId)return "";
+      if(skywayMember?.id===skywayId&&uid)return String(uid);
+      for(const [playerId,state] of voiceRemoteStates){
+        if(state?.joined===true&&String(state.skywayMemberId||"")===skywayId)return playerId;
+      }
+      return "";
+    }
     async function requestSkyWayToken(roomName,memberName){
       const user=auth?.currentUser;if(!user)throw new Error("Firebaseログインを確認できません。ログインし直してから通話を開始してください。");
       const idToken=await user.getIdToken();
@@ -8788,7 +8798,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       if(!room||!playerId||!voiceJoined||!connected)return;
       const write=voicePresenceWrite.catch(()=>{}).then(async()=>{
         if(code!==room||uid!==playerId||voiceSessionId!==voiceSession||!voiceJoined||!connected)return;
-        const presence={joined:true,mic:!voiceEffectiveMuted(),micIntent:!voiceMuted,ghost:voicePlayerIsGhost(playerId),speaking:!voiceEffectiveMuted()&&voiceSpeaking,session:voiceSession};
+        const presence={joined:true,mic:!voiceEffectiveMuted(),micIntent:!voiceMuted,ghost:voicePlayerIsGhost(playerId),speaking:!voiceEffectiveMuted()&&voiceSpeaking,session:voiceSession,skywayMemberId:String(skywayMember?.id||"")};
         const signature=JSON.stringify(presence);if(!force&&signature===voicePresenceSignature)return;
         await set(ref(db,`rooms/${room}/voicePresence/${playerId}`),{...presence,updatedAt:now()});
         if(code===room&&voiceSessionId===voiceSession)voicePresenceSignature=signature;
@@ -8841,10 +8851,9 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         voiceStage="SFUルーム検索・作成";
         skywayRoom=await sdk.SkyWayRoom.FindOrCreate(skywayContext,{type:"sfu",name:requestedRoom});skywayRoomName=requestedRoom;
         voiceStage="ルーム入室";
-        // Keep player names (including Japanese nicknames) in Firebase/UI only.
-        // SkyWay member identity is mapped through metadata, so don't send a
-        // user-facing name through the SDK's stricter API string validation.
-        skywayMember=await skywayRoom.join({metadata:String(uid)});
+        // Let SkyWay create the member without optional name/metadata strings.
+        // The generated ID is associated with the Firebase player via presence.
+        skywayMember=await skywayRoom.join();
         const rawAudio=new sdk.LocalAudioStream(audioTrack);skywayInputAudio=rawAudio;
         let noiseCanceller=null,noiseReadyTimeout=0,noiseReadySettled=false;
         try{
