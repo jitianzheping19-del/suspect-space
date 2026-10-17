@@ -23020,14 +23020,14 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
 
 /* Spectator cards sit on the bottom edge, beside the movement stick, on touch screens. */
 @media (pointer:coarse) and (min-width:701px) and (max-width:1366px) and (min-height:600px){
-  #ghostHud{left:calc(max(8px,env(safe-area-inset-left)) + min(var(--stick-size,150px),18vw,148px) + 10px)!important;right:max(8px,env(safe-area-inset-right))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;top:auto!important;transform:none!important;width:auto!important;max-width:none!important;grid-template-columns:36px minmax(0,1fr) 36px!important;gap:5px!important;padding:5px 7px!important}
+  #ghostHud{left:calc(max(8px,env(safe-area-inset-left)) + min(var(--stick-size,150px),18vw,148px) + 10px)!important;right:max(8px,env(safe-area-inset-right))!important;bottom:max(8px,env(safe-area-inset-bottom))!important;top:auto!important;transform:none!important;width:auto!important;max-width:min(860px,calc(100vw - 180px))!important;grid-template-columns:36px minmax(0,1fr) 36px!important;gap:5px!important;padding:5px 7px!important}
   #ghostHud .ghostArrow{flex-basis:36px!important;width:36px!important;min-width:36px!important;height:38px!important;font-size:17px!important}
   #ghostHudList{min-height:0!important;max-height:68px!important;gap:5px!important}
   #ghostHudList .ghostTarget{flex-basis:62px!important;min-width:62px!important;max-width:76px!important;padding:4px!important;font-size:10px!important}
   #ghostHudList .ghostTargetIcon{width:25px!important;height:28px!important}
 }
 @media (pointer:coarse) and (max-width:700px){
-  #ghostHud{left:calc(max(6px,env(safe-area-inset-left)) + min(var(--stick-size,150px),31vw,118px) + 8px)!important;right:max(6px,env(safe-area-inset-right))!important;bottom:max(6px,env(safe-area-inset-bottom))!important;top:auto!important;transform:none!important;width:auto!important;max-width:none!important;grid-template-columns:25px minmax(0,1fr) 25px!important;gap:3px!important;padding:4px!important;border-radius:10px!important}
+  #ghostHud{left:calc(max(6px,env(safe-area-inset-left)) + min(var(--stick-size,150px),31vw,118px) + 8px)!important;right:max(6px,env(safe-area-inset-right))!important;bottom:max(6px,env(safe-area-inset-bottom))!important;top:auto!important;transform:none!important;width:auto!important;max-width:min(620px,calc(100vw - 150px))!important;grid-template-columns:25px minmax(0,1fr) 25px!important;gap:3px!important;padding:4px!important;border-radius:10px!important}
   #ghostHud .ghostArrow{flex-basis:25px!important;width:25px!important;min-width:25px!important;height:30px!important;padding:0!important;font-size:13px!important;border-radius:8px!important}
   #ghostHudList{min-height:0!important;max-height:54px!important;gap:3px!important}
   #ghostHudList .ghostTarget{flex-basis:52px!important;min-width:52px!important;max-width:58px!important;gap:2px!important;padding:3px!important;font-size:8px!important}
