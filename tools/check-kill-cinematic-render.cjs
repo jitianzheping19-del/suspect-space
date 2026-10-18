@@ -62,7 +62,36 @@ const base=process.argv[2]||'http://127.0.0.1:4173';
       assert(!(await page.locator('#viewDescription').textContent()).includes('読み込めません'));
       console.log('PASS',id);
     }
-    // Ordinary viewers keep their control view and see a corpse immediately.
+    // The five public abilities animate inside the room, without opening the
+    // victim's screen overlay for either the attacker or a nearby witness.
+    for(const id of ['samurai','suicideBomber','waveCannon','slugger','penguin']){
+      await role(id);
+      for(const view of ['attacker','witness']){
+        await page.locator('[data-view="'+view+'"]').click();await seek(.25);
+        const state=await page.evaluate(()=>window.SpaceSuspectVictimPreview.getState());
+        assert(state.publicRole&&state.publicEffects>0,id+' has an in-world animation');
+        assert(!state.corpseVisible&&!state.worldVictimVisible,id+' replaces the target with its animated matching model first');
+        assert.equal(await page.locator('#authoredStage iframe').evaluate(n=>n.style.visibility),'hidden');
+        if(view==='witness')await page.locator('#previewStage').screenshot({path:path.join(output,id+'-witness.png')});
+        await seek(1.5);assert((await page.evaluate(()=>window.SpaceSuspectVictimPreview.getState())).corpseVisible);
+        await seek(.1);assert(!(await page.evaluate(()=>window.SpaceSuspectVictimPreview.getState())).corpseVisible,'Backward seeking replays public effects');
+      }
+    }
+    await page.locator('[data-view="victim"]').click();await role('sheriff');
+    await page.locator('#misfire').check();
+    // A reflected knife kills the caster and leaves the selected civilian alive.
+    await frame().waitForFunction(()=>window.__killQA?.role==='sheriff');await seek(1.85);
+    assert(await frame().evaluate(()=>{const [a,b]=window.__killQA.controller.actors;return a.rig.rotation.x>.5&&Math.abs(b.rig.rotation.x)<.01;}));
+    await page.locator('#previewStage').screenshot({path:path.join(output,'sheriff-misfire.png')});
+    await role('vampire');await seek(.2);
+    const close=await frame().evaluate(()=>window.__killQA.controller.actors[0].root.position.x);
+    await seek(1.4);assert(await frame().evaluate(x=>window.__killQA.controller.actors[0].root.position.x<x-1,close));
+    await seek(2.85);assert(await frame().evaluate(()=>window.__killQA.controller.actors[1].rig.rotation.x<-.5));
+    await role('suicideBomber');await seek(1.8);
+    assert(await frame().evaluate(()=>window.__killQA.controller.actors[0].rig.rotation.x>1),'Bomber itself dies in the clip');
+
+    // Other roles preserve the immediate-corpse policy for ordinary viewers.
+    await role('triggerHappy');
     for(const view of ['attacker','witness']){
       await page.locator('[data-view="'+view+'"]').click();
       await page.evaluate(()=>window.SpaceSuspectVictimPreview.seek(1.51));
@@ -89,6 +118,6 @@ const base=process.argv[2]||'http://127.0.0.1:4173';
     assert(after.textures<=before.textures+2,'Scene switches do not accumulate textures');
     assert.deepEqual(errors,[],'No browser, shader, or WebGL errors');
     fs.writeFileSync(path.join(output,'report.json'),JSON.stringify({roles,memory,before,after,errors},null,2));
-    console.log('PASS: identity, alpha, shared renderer, finite poses, viewer separation, mobile framing, GPU cleanup');
+    console.log('PASS: identity, alpha, shared renderer, finite poses, five public abilities, sheriff knife ricochet, vampire delayed collapse, self destruction, viewer separation, mobile framing, GPU cleanup');
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -3,10 +3,10 @@ import {createCinematicArt} from './kill-cinematic-art.js';
 // The same authored choreography and cinematic assets run in game and preview.
 export const authoredKillRoles = [
   ['impostor','インポスター',4.2],['jackal','ジャッカル',1.8],
-  ['sheriff','シェリフ',1.7],['samurai','侍',1.9],['slugger','スラッガー',1.6],
-  ['vampire','ヴァンパイア',1.2],['viper','バイパー',4.1],
+  ['sheriff','シェリフ',2.4],['samurai','侍',1.9],['slugger','スラッガー',1.6],
+  ['vampire','ヴァンパイア',3.4],['viper','バイパー',4.1],
   ['penguin','ペンギン',2.6],['rocket','ロケット',3],
-  ['arsonist','アーソニスト',4.4],['conjurer','コンジュラー',2.4],
+  ['arsonist','アーソニスト',4.4],['conjurer','コンジュラー',2.8],
   ['waveCannon','波動砲',1.9],['suicideBomber','自爆魔',2.6],
   ['triggerHappy','トリガーハッピー',2.4],
 ];
@@ -84,6 +84,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
         .replace(/\{const hood=new THREE\.Mesh[\s\S]*?viper\.torso\.add\(eye\);\}/,'')
         .replace('o.material=meltMat(o.material===vic.visorM?0x9fdcf0:col);','o.material=__runtime.art.corrosionMaterial(o.material,meltU);');
     }
+    if(data.role==='vampire')code=code.replace(/\/\* cape \+ fangs \*\/[\s\S]*?(?=const VX=)/,'');
     if(data.role==='samurai')code=code.replace(/function swordLine\([\s\S]*?(?=\nfunction slashTick)/,'function swordLine(){}\n');
     if(data.role==='jackal')code=code.replace(/function sliceTrail\([\s\S]*?(?=\nfunction reset)/,'function sliceTrail(){}\n');
     code=code.replace('composer.addPass(new OutputPass());',`composer.addPass(new OutputPass());
@@ -94,8 +95,8 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     code=code.replace(/new \(window.AudioContext\|\|window.webkitAudioContext\)\(\)/g,'__runtime.audio');
     const actors={impostor:['killer','victim,victimB'],jackal:['jk','vic'],sheriff:['she','tgt,crewMis'],triggerHappy:['she','tgt,crewMis'],samurai:['sam','...vics'],slugger:['sl','vic'],vampire:['vamp','vic'],viper:['viper','vic'],penguin:['peng','vic'],rocket:['rk','vic'],arsonist:['ars','...tg'],conjurer:['cj','vic'],waveCannon:['jk','vic'],suicideBomber:['bom','...vics']};
     const [attacker,victims]=actors[data.role];
-    const starts={impostor:'play("knife");',jackal:'reset();startShow(killTick,1.8);',sheriff:'startShow(shootTick(false),1.7,reset);',triggerHappy:'startShow(shootTick(false),2.4,reset);',samurai:'startShow(slashTick,1.9,reset);',slugger:'startShow(swingTick,1.6,reset);',vampire:'startAcceptedRoleKill({...payload,mode:"death"});',viper:'startAcceptedRoleKill(payload);',penguin:'startShow(captureTick,2.6,reset);',rocket:'startShow(launchTick,3,reset);',arsonist:'reset();tg.forEach((target,index)=>{if(index<(payload.victims?.length||1))oil(target);else target.root.visible=false;});startShow(igniteTick(),4.4);',conjurer:'startShow(conjureTick,2.4,reset);',waveCannon:'startShow(blastTick,1.9,reset);',suicideBomber:'startShow(boomTick,2.6,reset);'};
-    const propNames={impostor:'weapons',sheriff:'gun',triggerHappy:'gun',slugger:'hari',vampire:'drops,timer',viper:'needle,meltU,pud',rocket:'fin,pad,smoke,flame',waveCannon:'gun,coreG,floorLine,hitRip',suicideBomber:'bomb,fuse'};
+    const starts={impostor:'play("knife");',jackal:'reset();startShow(killTick,1.8);',sheriff:'startShow(()=>{},2.4,reset);',triggerHappy:'startShow(shootTick(false),2.4,reset);',samurai:'startShow(slashTick,1.9,reset);',slugger:'startShow(swingTick,1.6,reset);',vampire:'rolePayload=payload;roleStarted=true;startShow(()=>{},3.4,reset);',viper:'startAcceptedRoleKill(payload);',penguin:'startShow(captureTick,2.6,reset);',rocket:'startShow(launchTick,3,reset);',arsonist:'reset();tg.forEach((target,index)=>{if(index<(payload.victims?.length||1))oil(target);else target.root.visible=false;});startShow(igniteTick(),4.4);',conjurer:'startShow(()=>{},2.8,reset);',waveCannon:'startShow(blastTick,1.9,reset);',suicideBomber:'startShow(boomTick,2.6,reset);'};
+    const propNames={impostor:'weapons',sheriff:'gun',triggerHappy:'gun',slugger:'hari',vampire:'drops,timer,neckRing,spark',viper:'needle,meltU,pud',rocket:'fin,pad,smoke,flame',waveCannon:'gun,coreG,floorLine,hitRip',suicideBomber:'bomb,fuse'};
     // Original role-only hats are placeholders; substitute the players' outfits
     // when actual game data is available, leaving original demo outfits otherwise.
     code=code.replace(/c\.torso\.add\(g\);return g;/g,'g.userData.authoredHat=true;c.torso.add(g);return g;');

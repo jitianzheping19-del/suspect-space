@@ -23,6 +23,7 @@
     .viewTabs{display:flex;gap:5px;flex:none}.viewTabs button{padding:9px 13px;border:1px solid #446679;border-radius:9px;background:#0d2030;color:#acc4d4;font-size:12px;font-weight:800;cursor:pointer;touch-action:manipulation}
     .viewTabs button[aria-selected="true"]{background:#164851;border-color:#84e8e6;color:#efffff;box-shadow:inset 0 1px #b5ffff22}
     .rolePicker{display:flex;gap:8px;align-items:center;font-size:12px;color:#bde1eb}.rolePicker select{max-width:210px;background:#102b3c;color:#efffff;border:1px solid #74b9ca;border-radius:8px;padding:8px;font:inherit}#authoredStage{position:absolute;inset:0;pointer-events:none;z-index:1}
+    .rolePicker[hidden]{display:none}
     .viewDescription{flex:1;min-width:190px;margin:0;color:#aac4d2;font-size:11px;line-height:1.5}
     .stage{position:relative;height:min(68vh,700px);min-height:430px;background:#0a1420;overflow:hidden;isolation:isolate}
     #scene{display:block;width:100%;height:100%;touch-action:none}
@@ -83,6 +84,7 @@
         <button id="viewWitness" type="button" role="tab" aria-selected="false" aria-controls="previewStage" data-view="witness" tabindex="-1">第三者</button>
       </div>
       <label class="rolePicker">役職<select id="rolePicker" aria-label="キル演出の役職"></select></label>
+      <label class="rolePicker" id="misfireOption" hidden><input type="checkbox" id="misfire">誤射・ナイフ反射</label>
       <p class="viewDescription" id="viewDescription">本人だけに、背景透過のキル演出を表示します。</p>
     </section>
     <section class="stage" id="previewStage" role="tabpanel" aria-labelledby="viewVictim" aria-label="試合中の3Dシーン">
@@ -117,11 +119,12 @@
         <select class="speed" id="speed" aria-label="再生速度"><option value="0.65">0.65×</option><option value="1" selected>1×</option><option value="1.35">1.35×</option></select>
       </div>
     </section>
-    <div class="foot">同じキルを3つの視点で確認できます。第三者と殺す側は、キル成立と同時に死体だけを表示します。再生バーを動かすと、その瞬間を比べられます。</div>
+    <div class="foot">同じキルを3つの視点で確認できます。自爆魔・侍・波動砲・スラッガー・ペンギンは、第三者と殺す側にも船内での動きが見えます。再生バーを動かすと、その瞬間を比べられます。</div>
   </main>
   <script type="module">
     import {createAuthoredKillPlayer,authoredKillRoles,authoredKillSpec} from "./authored-kill-player.js";
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+    import {createWorldRoleEffect,worldDeathAnimating} from "./role-world-cinematics.js";
 
     const originalAssets=await fetch(new URL('./kill-originals.json',location.href)).then(response=>{if(!response.ok)throw new Error('元の演出データを読み込めません');return response.json();});
     const rolePicker=document.querySelector('#rolePicker');
@@ -130,7 +133,7 @@
     let selectedRole=authoredKillRoles.some(([id])=>id===requestedRole)?requestedRole:'impostor';rolePicker.value=selectedRole;
     const originalPlayer=createAuthoredKillPlayer({mount:document.querySelector('#authoredStage'),onError:message=>{document.querySelector('#viewDescription').textContent='演出を読み込めません: '+message;console.error(message);}});
     let previewSound=false;
-    function configureOriginal(){return originalPlayer.configure(originalAssets,selectedRole,{killerColor:'#ee5368',victimColor:'#46c4e6',killerName:'インポスター',victimName:'クルーメイト',killerCostume:'standard',victimCostume:'standard',...(selectedRole==='arsonist'?{victims:[{color:'#46c4e6',costume:'standard'},{color:'#72d9ab',costume:'standard'},{color:'#bc87ef',costume:'standard'},{color:'#f5cc68',costume:'standard'}]}:{}),volume:previewSound ? .5 : 0});}
+    function configureOriginal(){document.querySelector("#misfireOption").hidden=selectedRole!=="sheriff";return originalPlayer.configure(originalAssets,selectedRole,{cause:selectedRole==="sheriff"&&document.querySelector("#misfire").checked?"sheriffMisfire":"",killerColor:'#ee5368',victimColor:'#46c4e6',killerName:'インポスター',victimName:'クルーメイト',killerCostume:'standard',victimCostume:'standard',...(selectedRole==='arsonist'?{victims:[{color:'#46c4e6',costume:'standard'},{color:'#72d9ab',costume:'standard'},{color:'#bc87ef',costume:'standard'},{color:'#f5cc68',costume:'standard'}]}:{}),volume:previewSound ? .5 : 0});}
     let originalSpec=configureOriginal();
     const embedded=window.__SS_KILL_EMBED__===true;
     const viewOptions={victim:{label:'殺される側',description:'本人だけに、本番と同じ背景透過のキル演出を表示します。'},attacker:{label:'殺す側',description:'キル演出は表示せず、相手がすぐ死体になります。操作画面はそのままです。'},witness:{label:'第三者',description:'演出・倒れる動き・幽霊の出現はなく、キル成立と同時に死体になります。'}};
@@ -201,8 +204,8 @@
     const sparks=[];for(let i=0;i<30;i++){const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+(i%3)*.012,0),new THREE.MeshBasicMaterial({color:i%3===0?'#fff2de':i%3===1?'#ff4d68':'#ffb0bf',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));overlayScene.add(mesh);sparks.push({mesh,angle:i*2.3999632297,speed:.8+(i%7)*.17,up:.35+(i%5)*.13});}
     const shadow=new THREE.Mesh(new THREE.CircleGeometry(.75,36),new THREE.MeshBasicMaterial({color:'#02060a',transparent:true,opacity:.35,depthWrite:false}));shadow.position.set(.65,-1.17,.55);shadow.scale.set(1,.28,1);overlayScene.add(shadow);
 
-    // These actors remain in the playfield. Only the victim's view composites
-    // the existing kill clip over this scene; other views swap straight to a corpse.
+    // Only victims receive the screen overlay. Replicated public role effects
+    // stay in the same playfield for all nearby viewers.
     const world=new THREE.Group();scene.add(world);
     const worldVictim=makeCrew('#46c4e6','レモン'),worldKiller=makeCrew('#ee5368','ユウ'),worldWitness=makeCrew('#eacb62','ソラ');
     for(const actor of [worldVictim,worldKiller,worldWitness]){world.add(actor);actor.scale.setScalar(.9);}
@@ -221,18 +224,48 @@
     const statePill=document.querySelector('#statePill'),caption=document.querySelector('#caption'),ghostNotice=document.querySelector('#ghostNotice'),timelineLabel=document.querySelector('#timelineLabel'),flash=document.querySelector('#flash'),scrubber=document.querySelector('#scrubber'),currentTime=document.querySelector('#currentTime'),playBtn=document.querySelector('#playBtn');
     const stages=[{at:0,label:'通常プレイ',pill:'試合中 · タスクへ移動',cap:''},{at:.65,label:'人狼が接近',pill:'試合中 · 接近',cap:''},{at:killMoment,label:'キル発生',pill:'キルされました',cap:''},{at:killMoment+3.35,label:'倒れる',pill:'死亡 · 幽霊化まで',cap:''},{at:killMoment+4.55,label:'ゴースト化',pill:'ゴースト · 船内を見渡す',cap:'幽霊として試合に残る'}];
     document.querySelectorAll('.step').forEach((element,index)=>element.dataset.at=String(stages[index].at));
+    const publicRoles=new Set(['suicideBomber','samurai','waveCannon','slugger','penguin']);
+    const worldAvatars=new Map([['killer',worldKiller],['victim',worldVictim],['witness',worldWitness]]);
+    let publicEffects=[],publicKey='',lastPublicTime=-1,worldBeam=null;
+    function clearPublicEffects(){publicEffects.forEach(f=>f.dispose());publicEffects=[];publicKey='';lastPublicTime=-1;if(worldBeam){worldBeam.removeFromParent();worldBeam.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});worldBeam=null;}}
+    function viewDescription(){
+      const visible=publicRoles.has(selectedRole);
+      document.querySelector('#viewDescription').textContent=perspective==='victim'?viewOptions.victim.description:visible?'全画面のキル演出はなく、船内で武器・攻撃・倒れる動きが見えます。':viewOptions[perspective].description;
+    }
     function updateWorld(t){
-      const dead=t>=killMoment,localGhost=perspective==='victim'&&t>=duration;
-      const approach=between(t,0,killMoment),leave=between(t,killMoment+.7,killMoment+2.2);
-      worldKiller.position.set(mix(-2.9,-.65,approach)-leave*2.1,0,.12+leave*.7);worldKiller.rotation.y=leave>0?-1.3:Math.PI/2;
+      const dead=t>=killMoment,localGhost=perspective==='victim'&&t>=duration,publicRole=publicRoles.has(selectedRole),bomb=selectedRole==='suicideBomber';
+      const approach=between(t,0,killMoment),leave=bomb?0:between(t,killMoment+(publicRole?1.2:.7),killMoment+2.7);
+      worldKiller.position.set(mix(-2.9,-.65,approach)-leave*2.1,0,.12+leave*.7);worldKiller.rotation.set(0,leave>0?-1.3:Math.PI/2,0);worldKiller.visible=true;
       const gait=Math.sin(t*9)*.25*((t<killMoment||leave>0&&leave<1)?1:0);
       worldKiller.userData.legs.forEach((leg,index)=>leg.rotation.x=gait*(index?1:-1));
+      worldKiller.userData.arms.forEach(arm=>arm.rotation.set(0,0,0));
       worldVictim.position.set(.72,localGhost ? .35 : 0,0);worldVictim.rotation.set(0,0,0);worldVictim.visible=!dead||localGhost;
       worldVictim.userData.materials.forEach(material=>{material.transparent=localGhost;material.opacity=localGhost ? .48 : 1;material.depthWrite=!localGhost;});
       worldVictim.userData.legs.forEach(leg=>leg.visible=!localGhost);
-      corpse.visible=dead;
-      // No kill pose, flash, ghost or camera cut is applied to the attacker or witness.
       worldKiller.userData.knife.visible=false;worldWitness.userData.knife.visible=false;
+      if(!dead||!publicRole){clearPublicEffects();corpse.visible=dead;return;}
+      const time=t*1000,key=selectedRole+':'+perspective;
+      if(publicKey!==key||time<lastPublicTime){
+        clearPublicEffects();publicKey=key;
+        const roster={killer:{name:'ユウ',color:'#ee5368',alive:!bomb,costume:'standard',penguinTargetId:'victim'},victim:{name:'レモン',color:'#46c4e6',alive:false,costume:'standard'},witness:{name:'ソラ',color:'#eacb62',alive:true}};
+        const type={samurai:'samuraiSlash',suicideBomber:'suicideBomber',waveCannon:'waveCannonVictim',slugger:'sluggerSwing',penguin:'penguinFinish'}[selectedRole];
+        const event={id:'preview-'+key,type,by:'killer',at:killMoment*1000,x:-.65,z:.12,yaw:Math.PI/2,radius:1.6,targets:[{id:'victim',x:.72,z:0}]};
+        const create=e=>createWorldRoleEffect({THREE,scene,event:e,avatars:worldAvatars,roster});
+        publicEffects.push(create(event));
+        if(selectedRole==='waveCannon'){
+          publicEffects.push(create({...event,id:event.id+'-cannon',type:'waveCannonProp',startedAt:event.at,endsAt:event.at+1100,targets:[]}));
+          worldBeam=new THREE.Group();worldBeam.position.set(-.3,.85,.08);worldBeam.rotation.y=Math.PI/2;scene.add(worldBeam);
+          for(const [radius,color,opacity]of [[.42,0x57cfff,.18],[.29,0x9deaff,.5],[.18,0xf2ffff,.95]]){
+            const g=new THREE.CylinderGeometry(radius,radius,1,24,1,true);g.rotateX(Math.PI/2);g.translate(0,0,.5);
+            worldBeam.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false})));
+          }
+        }
+      }
+      lastPublicTime=time;for(const fx of publicEffects)fx.update(time);
+      const age=t-killMoment;
+      if(worldBeam){worldBeam.visible=age>=.04&&age<.8;worldBeam.scale.set(1,1,Math.max(.01,Math.min(2.5,age*18)));worldBeam.children.forEach((m,i)=>m.material.opacity=[.18,.5,.95][i]*(1-between(age,.55,.8)));}
+      corpse.visible=!worldDeathAnimating('victim',time);
+      if(bomb){worldKiller.visible=!worldDeathAnimating('killer',time);worldKiller.position.set(-.65,.42,.12);worldKiller.rotation.set(0,Math.PI/2,-Math.PI/2);}
     }
     function updateAt(t){
       current=Math.max(0,Math.min(duration,t));const clipTime=embedded?current:Math.max(0,current-killMoment);const approach=between(clipTime,1.05,2.1),strike=between(clipTime,2.22,2.46),fall=between(clipTime,2.48,3.35),ghost=between(clipTime,4.05,4.9),leave=between(clipTime,3.1,4.0);const step=Math.sin(clipTime*10);
@@ -249,7 +282,7 @@
       const victimView=embedded||perspective==='victim';
       updateWorld(current);
       let stageIndex=0;for(let i=0;i<stages.length;i++)if(current>=stages[i].at)stageIndex=i;const phase=stages[stageIndex];
-      statePill.textContent=victimView?phase.pill:current>=killMoment?(perspective==='witness'?'第三者 · 死体だけ表示':'殺す側 · キル成立 / 操作継続'):'試合中 · '+viewOptions[perspective].label;
+      statePill.textContent=victimView?phase.pill:current>=killMoment?(publicRoles.has(selectedRole)?viewOptions[perspective].label+' · 船内の攻撃演出':perspective==='witness'?'第三者 · 死体だけ表示':'殺す側 · キル成立 / 操作継続'):'試合中 · '+viewOptions[perspective].label;
       statePill.classList.toggle('ghost',victimView&&stageIndex>=4);
       caption.textContent=victimView?phase.cap:'';caption.classList.toggle('show',victimView&&!!phase.cap&&current<phase.at+1.12);
       ghostNotice.classList.toggle('show',victimView&&current>=killMoment+originalSpec.duration&&current<duration);
@@ -289,10 +322,10 @@
     function setPerspective(view){
       if(embedded||!Object.hasOwn(viewOptions,view))return;
       perspective=view;playing=false;playBtn.textContent='▶ 再生';flash.classList.remove('hit');
-      const option=viewOptions[view];document.querySelector('#viewLabel').textContent=option.label;document.querySelector('#viewDescription').textContent=option.description;
+      const option=viewOptions[view];document.querySelector('#viewLabel').textContent=option.label;viewDescription();
       document.querySelectorAll('[data-view]').forEach(button=>{const active=button.dataset.view===view;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
       stage.setAttribute('aria-labelledby',{victim:'viewVictim',attacker:'viewAttacker',witness:'viewWitness'}[view]);
-      const labels=view==='victim'?['試合中','接近','キル','倒れる','ゴースト化']:['試合中','接近','死体に切替','通常画面','そのまま'];
+      const labels=view==='victim'?['試合中','接近','キル','倒れる','ゴースト化']:publicRoles.has(selectedRole)?['試合中','接近','攻撃','倒れる','通常画面']:['試合中','接近','死体に切替','通常画面','そのまま'];
       document.querySelectorAll('.step span').forEach((element,index)=>element.textContent=labels[index]);
       if(view==='attacker')camera.position.set(-1.2,4.5,7.6);else if(view==='witness')camera.position.set(4.4,6.3,8.7);else camera.position.set(.72,4.7,8.3);
       camera.lookAt(.5,.55,0);updateAt(current);
@@ -302,17 +335,18 @@
       button.addEventListener('click',()=>setPerspective(button.dataset.view));
       button.addEventListener('keydown',event=>{const tabs=[...document.querySelectorAll('[data-view]')],index=tabs.indexOf(button);let next=index;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();setPerspective(tabs[next].dataset.view);tabs[next].focus();});
     });
-    window.SpaceSuspectVictimPreview={seek(value){playing=false;playBtn.textContent='▶ 再生';updateAt(value)},play,resize,setPerspective,getState:()=>({time:current,playing,embedded,perspective,killMoment,duration,overlayVisible:victimOverlayVisible(),corpseVisible:corpse.visible,worldVictimVisible:worldVictim.visible,ghostVisible:perspective==='victim'&&current>=duration,killerVisible:victimOverlayVisible()&&killer.visible,victimVisible:victimOverlayVisible()&&victim.visible,killerColor:killer.userData.suit.color.getHexString(),victimColor:victim.userData.suit.color.getHexString()})};
+    window.SpaceSuspectVictimPreview={seek(value){playing=false;playBtn.textContent='▶ 再生';updateAt(value)},play,resize,setPerspective,getState:()=>({time:current,playing,embedded,perspective,killMoment,duration,overlayVisible:victimOverlayVisible(),corpseVisible:corpse.visible,worldVictimVisible:worldVictim.visible,ghostVisible:perspective==='victim'&&current>=duration,publicRole:publicRoles.has(selectedRole),publicEffects:publicEffects.length,worldKillerVisible:worldKiller.visible,killerVisible:victimOverlayVisible()&&killer.visible,victimVisible:victimOverlayVisible()&&victim.visible,killerColor:killer.userData.suit.color.getHexString(),victimColor:victim.userData.suit.color.getHexString()})};
 
     function selectOriginalRole(){
       selectedRole=rolePicker.value;playing=false;playBtn.textContent='▶ 再生';
-      originalSpec=configureOriginal();duration=killMoment+originalSpec.duration+.8;
+      clearPublicEffects();originalSpec=configureOriginal();duration=killMoment+originalSpec.duration+.8;viewDescription();
       scrubber.max=String(duration);scrubber.parentElement.lastElementChild.textContent=duration.toFixed(1)+'s';
       stages[3].at=killMoment+originalSpec.duration*.65;stages[4].at=killMoment+originalSpec.duration;
       document.querySelectorAll('.step').forEach((element,index)=>element.dataset.at=String(stages[index].at));
       const url=new URL(location.href);url.searchParams.set('role',selectedRole);history.replaceState(null,'',url);updateAt(0);
     }
     rolePicker.addEventListener('change',selectOriginalRole);
+    document.querySelector('#misfire').addEventListener('change',selectOriginalRole);
     resize();selectOriginalRole();setPerspective(perspective);updateAt(0);requestAnimationFrame(frame);
   </script>
 </body>
