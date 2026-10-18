@@ -102,7 +102,7 @@
         },
         "positions": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($room).child('players').child($uid).exists()",
+            ".write": "auth != null && ((auth.uid === $uid && root.child('rooms').child($room).child('players').child($uid).exists()) || (auth.uid === root.child('rooms').child($room).child('hostId').val() && newData.val() === null && root.child('rooms').child($room).child('players').child($uid).child('online').val() !== true))",
             ".validate": "newData.hasChildren(['x','z','yaw','walking','lobbyY','updatedAt']) && newData.child('x').isNumber() && newData.child('z').isNumber() && newData.child('yaw').isNumber() && newData.child('walking').isBoolean() && newData.child('lobbyY').isNumber() && newData.child('updatedAt').isNumber()"
           }
         },

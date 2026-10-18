@@ -8024,7 +8024,37 @@ let app, auth, db, uid;
 // Firebase UID is public identity, not a password; deletion is also enforced by database.rules.json.
 const SPACE_SUSPECT_ADMIN_UID="dUAYnvjlbvTUluFXyQkTsAFMs1c2";
 const isSpaceSuspectAdmin=()=>Boolean(uid)&&uid===SPACE_SUSPECT_ADMIN_UID;
-let botPositions={},roomRosterRaw={};
+let botPositions={},roomRosterRaw={},roomPositionsRaw={},roomPositionKnown=new Set();
+const ROOM_POSITION_FIELDS=["x","z","yaw","walking","lobbyY","lobbyKart","lobbyCircuit","lobbyVehicle","lobbyVehicleX","lobbyVehicleZ","kartSession","circuitCourse"];
+function roomPositionFields(value){
+  const fields={};
+  for(const key of ROOM_POSITION_FIELDS)if(value&&Object.prototype.hasOwnProperty.call(value,key)&&value[key]!==undefined)fields[key]=value[key];
+  return fields;
+}
+function makeRoomPositionRecord(value={}){
+  const numeric=(raw,fallback)=>Number.isFinite(Number(raw))?Number(raw):fallback;
+  const record={
+    x:numeric(value.x,0),z:numeric(value.z,0),yaw:numeric(value.yaw,0),
+    walking:value.walking===true,lobbyY:numeric(value.lobbyY,0)
+  };
+  for(const key of ROOM_POSITION_FIELDS.slice(5))if(Object.prototype.hasOwnProperty.call(value,key)&&value[key]!==undefined)record[key]=value[key];
+  return record;
+}
+function roomRosterRecord(value={}){
+  const record={...(value||{})};
+  for(const key of ROOM_POSITION_FIELDS)if(key!=="x"&&key!=="z")delete record[key];
+  return record;
+}
+function roomRosterPatch(value={}){
+  const record={...(value||{})};
+  for(const key of ROOM_POSITION_FIELDS)delete record[key];
+  return record;
+}
+function mergeRoomPositionRows(roster={},positions={}){
+  return Object.fromEntries(Object.entries(roster||{}).map(([id,player])=>[
+    id,{...(player||{}),...roomPositionFields(positions?.[id])}
+  ]));
+}
 let lastAppliedTeleportEventId="";
 let accountCostume="standard";
 let profileCacheUid="",profileCache=null,profileCacheAt=0,profileFetchPromise=null,profileFetchUid="";
@@ -8189,7 +8219,7 @@ if(typeof module!=='undefined')module.exports=KartRaceProtocol;
     const TASK_HUD_REFRESH_MS=30000;
     let meetingTypingKey="",meetingTypingSelfPath="",meetingTypingUnsub=null,meetingTypingRows={},meetingTypingExpireTimer=null,meetingTypingWriteTimer=null;
     let privateBallots = {}, ownBallot = null, ballotMeetingKey = "", ballotWatchUnsubs = [];
-    let unsubscribers = [], presence = null, roomSummaryPresence=null, session = 0;
+    let unsubscribers = [], presence = null, positionPresence=null, roomSummaryPresence=null, session = 0;
     let tabResumePending=false,tabResumeBusy=false;
     let serverOffset = 0, connected = false, firebaseConnectionPending=false, firebaseWasConnected=false, firebaseOfflinePrompt=false, firebaseOfflineTimer=null;
     function renderFirebaseConnection(){const overlay=$("firebaseConnecting"),offline=$("firebaseOffline");if(overlay){overlay.classList.toggle("hidden",!firebaseConnectionPending||firebaseOfflinePrompt);overlay.classList.toggle("inRoom",!!code);}if(offline)offline.classList.toggle("hidden",!firebaseOfflinePrompt);}
@@ -8303,11 +8333,12 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
   if(!saved||saved.roomCode!==code)return;
   window.SpaceSuspect.runtime.waitingLobbyRollback=null;window.SpaceSuspect.runtime.waitingLobbyForRunningMatch=false;
   position={...saved.position};lobbyElevation=saved.lobbyElevation;lobbyFacingYaw=saved.lobbyFacingYaw;lobbyWalking=saved.lobbyWalking;
-  players[uid]={...(players[uid]||{}),...saved.player};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...saved.roster};
+  players[uid]={...(players[uid]||{}),...saved.player};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...roomRosterRecord(saved.roster)};
   lastSent={x:999,z:999,at:0};resetInput();
-  const restore={x:saved.position.x,z:saved.position.z,lobbyY:saved.player.lobbyY||0,yaw:saved.player.yaw??saved.lobbyFacingYaw,walking:!!saved.lobbyWalking,
-    ready:!!saved.roster.ready,seated:!!saved.roster.seated,sitting:!!saved.roster.sitting,seatId:saved.roster.seatId||null,updatedAt:serverTimestamp()};
-  update(ref(db,`rooms/${code}/players/${uid}`),restore).catch(error=>console.warn("待機ロビー切替前の位置を復元できませんでした",error));
+  const restorePosition={x:saved.position.x,z:saved.position.z,lobbyY:saved.player.lobbyY||0,yaw:saved.player.yaw??saved.lobbyFacingYaw,walking:!!saved.lobbyWalking};
+  const restoreRoster={ready:!!saved.roster.ready,seated:!!saved.roster.seated,sitting:!!saved.roster.sitting,seatId:saved.roster.seatId||null,updatedAt:serverTimestamp()};
+  void publishRoomPosition(code,uid,restorePosition).catch(error=>console.warn("待機ロビー切替前の位置を復元できませんでした",error));
+  update(ref(db,`rooms/${code}/players/${uid}`),restoreRoster).catch(error=>console.warn("待機ロビー切替前の状態を復元できませんでした",error));
   safeRenderUI();followCamera();
 }
     // The host's own roster entry can briefly lag behind .info/connected while
@@ -8327,8 +8358,12 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         if(roomSession!==session||roomCode!==code||playerId!==hostId||!snapshot.exists())return false;
         const fresh=snapshot.val();
         if(!fresh||typeof fresh!=="object")return false;
+        const previous=roomRosterRaw[playerId],poseChanged=!previous||ROOM_POSITION_FIELDS.some(key=>fresh[key]!==previous[key]);
+        const freshPoseAt=Number(fresh.updatedAt)||now(),cachedPoseAt=Number(roomPositionsRaw[playerId]?.updatedAt)||0;
+        if(poseChanged&&(!roomPositionsRaw[playerId]||freshPoseAt>=cachedPoseAt))
+          roomPositionsRaw[playerId]={...makeRoomPositionRecord({...roomPositionsRaw[playerId],...fresh}),updatedAt:freshPoseAt};
         roomRosterRaw[playerId]=fresh;
-        players={...players,[playerId]:fresh};
+        players=mergeBots(roomRosterRaw);
         syncRoomSummary();
         if(fresh.online===true){hostOfflineNoticeShown=false;queueMicrotask(flushCommandQueue);}
         safeRenderUI();
@@ -8907,14 +8942,16 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     function mergeBots(basePlayers) {
       const merged = Object.fromEntries(
         Object.entries(basePlayers).filter(([id, player]) => player?.online===true&&!player.bot&&(hasDisplayableName(player.name)||id===uid))
+          .map(([id,player])=>[id,{...player,...roomPositionFields(roomPositionsRaw[id])}])
       );
       // Bots live only in the active game roster. Never resurrect them in a
       // lobby from the previous round's cached game.players snapshot.
       if (isLobbyInteractionActive()) return merged;
       for (const [id, rosterPlayer] of Object.entries(game.players || {})) {
         const connectedPlayer=merged[id];
+        const connectedPoseAt=Number(roomPositionsRaw[id]?.updatedAt)||Number(connectedPlayer?.updatedAt)||0;
         if(!rosterPlayer.bot&&!isLobbyInteractionActive()&&game.startedAt&&connectedPlayer&&
-            Number(connectedPlayer.updatedAt||0)<game.startedAt){
+            connectedPoseAt<game.startedAt){
           merged[id]={...connectedPlayer,x:rosterPlayer.x,z:rosterPlayer.z};
         }
         if(!rosterPlayer.bot)continue;
@@ -9846,8 +9883,11 @@ function enterWaitingLobbyForRunningMatch(){
   const spawn=findLobbyRespawn(occupied);
   const roomCode=code,changes={x:spawn.x,z:spawn.z,lobbyY:0,yaw:0,walking:false,ready:false,seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()};
   position={...spawn};lobbyElevation=0;lobbyFacingYaw=0;lobbyWalking=false;
-  players[uid]={...players[uid],...changes};roomRosterRaw[uid]={...roomRosterRaw[uid],...changes};lastSent={x:999,z:999,at:0};
-  update(ref(db,"rooms/"+roomCode+"/players/"+uid),changes).catch(error=>toast("待機ロビーへ移動できませんでした："+errorText(error)));
+  players[uid]={...players[uid],...changes};lastSent={x:999,z:999,at:0};
+  const rosterChanges={ready:false,seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()};
+  roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...rosterChanges};
+  void publishRoomPosition(roomCode,uid,roomPositionFields(changes)).catch(error=>toast("待機ロビーへ移動できませんでした："+errorText(error)));
+  update(ref(db,"rooms/"+roomCode+"/players/"+uid),rosterChanges).catch(error=>toast("待機ロビー状態を同期できませんでした："+errorText(error)));
   if(game.phase!=="ended"&&!me.observer&&!sendCommand("waitLobby"))rollbackWaitingLobby("ホストへ切替要求を送れませんでした。試合画面に戻ります。");
   safeRenderUI();
 }
@@ -9862,7 +9902,7 @@ function resumeMatchSpectating(){
       .map(([id,state])=>({x:Number(players[id]?.x??state.x),z:Number(players[id]?.z??state.z)}));
     const seed=[...String(uid||"")].reduce((sum,char)=>sum+char.charCodeAt(0),0),safe=findOpenSpawn(seed,occupied);
     position={...safe};players[uid]={...(players[uid]||{}),...safe,lobbyY:0};if(game.players?.[uid])game.players[uid]={...game.players[uid],...safe};
-    update(ref(db,`rooms/${code}/players/${uid}`),{...safe,lobbyY:0,walking:false,updatedAt:serverTimestamp()})
+    void publishRoomPosition(code,uid,{...safe,lobbyY:0,walking:false})
       .catch(error=>console.warn("観戦再開位置を同期できませんでした",error));
   }
   safeRenderUI();renderGhostHud();followCamera();
@@ -9981,7 +10021,7 @@ const result = await runTransaction(
           current => current === null ? {
             hostId: uid,
             createdAt: serverTimestamp(),
-            players: { [uid]: player },
+            players: { [uid]: roomRosterRecord(player) },
             game: { phase: "lobby", round: 0, lobbySettings:lobbySettingsPayload(roomMatchSettings) }
           } : undefined,
           { applyLocally: false }
@@ -10012,15 +10052,15 @@ async function readRoomListingPresence(roomCode){
 
 async function readRoomBootstrap(roomCode){
   const base=`rooms/${roomCode}`;
-  const [hostSnap,createdSnap,playersSnap,phaseSnap,ownGamePlayerSnap,inviteSnap,lobbySettingsSnap,roundSnap]=await Promise.all([
+  const [hostSnap,createdSnap,playersSnap,positionsSnap,phaseSnap,ownGamePlayerSnap,inviteSnap,lobbySettingsSnap,roundSnap]=await Promise.all([
     get(ref(db,`${base}/hostId`)),get(ref(db,`${base}/createdAt`)),
-    get(ref(db,`${base}/players`)),get(ref(db,`${base}/game/phase`)),
+    get(ref(db,`${base}/players`)),get(ref(db,`${base}/positions`)),get(ref(db,`${base}/game/phase`)),
     get(ref(db,`${base}/game/players/${uid}`)),get(ref(db,`${base}/game/invites/${uid}`)),
     get(ref(db,`${base}/game/lobbySettings`)),get(ref(db,`${base}/game/round`))
   ]);
   if(!hostSnap.exists())return null;
-  const ownGamePlayer=ownGamePlayerSnap.val(),invite=inviteSnap.val();
-  return {hostId:hostSnap.val(),createdAt:createdSnap.val(),players:playersSnap.val()||{},game:{
+  const ownGamePlayer=ownGamePlayerSnap.val(),invite=inviteSnap.val(),roster=playersSnap.val()||{},positions=positionsSnap.val()||{};
+  return {hostId:hostSnap.val(),createdAt:createdSnap.val(),roster,positions,players:mergeRoomPositionRows(roster,positions),game:{
     __partial:true,
     phase:phaseSnap.val()||"lobby",round:Number(roundSnap.val())||0,
     ...(ownGamePlayer?{players:{[uid]:ownGamePlayer}}:{}),
@@ -10058,8 +10098,10 @@ const player = applyAccountCostume(room.players?.[uid] || makePlayer(),room.play
       player.online = true;
       player.disconnectMode = null;
       player.updatedAt = serverTimestamp();
-      await set(ref(db, `rooms/${roomCode}/players/${uid}`), player);
+      const rosterPlayer=roomRosterRecord(player);
+      await set(ref(db, `rooms/${roomCode}/players/${uid}`), rosterPlayer);
       room.players = { ...room.players, [uid]: player };
+      room.roster = { ...(room.roster||{}), [uid]: rosterPlayer };
       await enterRoom(roomCode, room);
     });
 
@@ -10122,8 +10164,9 @@ async function joinRoomByCode(roomCode){
   if(online>=20&&!room.players?.[uid])throw new Error("この部屋は満員です");
   if(invite)await update(ref(db,`rooms/${roomCode}/game/invites/${uid}`),{accepted:true,acceptedAt:now()});
   const player=applyAccountCostume(room.players?.[uid]||makePlayer(),room.players||{},uid,room.game?.phase!=="lobby"?room.game?.players?.[uid]:null);player.online=true;player.disconnectMode=null;player.updatedAt=serverTimestamp();
-  await set(ref(db,`rooms/${roomCode}/players/${uid}`),player);
-  room.players={...room.players,[uid]:player};await enterRoom(roomCode,room);
+  const rosterPlayer=roomRosterRecord(player);
+  await set(ref(db,`rooms/${roomCode}/players/${uid}`),rosterPlayer);
+  room.players={...room.players,[uid]:player};room.roster={...(room.roster||{}),[uid]:rosterPlayer};await enterRoom(roomCode,room);
 }
 let roomInviteWatch=[],activeRoomInvite=null,roomInviteAutoHideTimer=null,inviteSeenUid="",roomInviteWatchGeneration=0;
 const dismissedRoomInvites=new Set(),seenRoomInvites=new Set();
@@ -10547,8 +10590,10 @@ async function reconnectPreviousRoom({preserveOnFailure=false}={}) {
         player.online = true;
         player.disconnectMode = null;
         player.updatedAt = serverTimestamp();
-        await set(ref(db, `rooms/${previousRoom}/players/${uid}`), player);
+        const rosterPlayer=roomRosterRecord(player);
+        await set(ref(db, `rooms/${previousRoom}/players/${uid}`), rosterPlayer);
         room.players = { ...room.players, [uid]: player };
+        room.roster = { ...(room.roster||{}), [uid]: rosterPlayer };
         await enterRoom(previousRoom, room);
         return true;
       } catch (error) {
@@ -10606,6 +10651,7 @@ async function enterRoom(roomCode, room) {
       resetLobbyChatSend();lobbyChatMessages=[];lobbyChatSeenIds=new Set();lobbyChatUnreadCount=0;lobbyChatInitialized=false;lobbyChatOpen=false;lobbyNearSeat=false;lobbyNearCustomize=false;
       stopBallotWatch();
       await presence?.cancel();presence=null;
+      await positionPresence?.cancel();positionPresence=null;
       resetRoundUI();
       session++;
       const currentSession = session;
@@ -10614,14 +10660,15 @@ async function enterRoom(roomCode, room) {
       code = roomCode;
       scheduleFrame();
       botPositions={};lastAppliedTeleportEventId="";
-      roomRosterRaw={...(room.players||{})};
+      roomRosterRaw=Object.fromEntries(Object.entries(room.roster||room.players||{}).map(([id,player])=>[id,roomRosterRecord(player)]));
+      roomPositionsRaw={...(room.positions||{})};roomPositionKnown=new Set(Object.keys(roomPositionsRaw));
       publishedRoleSummaryKey="";
       positionedRound = -1;
       rosterPositionedRound = -1;
       saveStored("space-suspect-room", roomCode);
       hostId = room.hostId;
       lastRoomSummarySignature="";
-      players = room.players || {};
+      players = mergeRoomPositionRows(roomRosterRaw,roomPositionsRaw);
       game = room.game || {};
       if(game.__partial){
         const initialGameSnapshot=await get(ref(db,`rooms/${roomCode}/game`));
@@ -10654,10 +10701,11 @@ async function enterRoom(roomCode, room) {
         const spawnSeed=[...String(uid||"")].reduce((sum,char)=>sum+char.charCodeAt(0),0);
         const spawn=game.phase==="lobby"?findLobbyDoorSpawn(uid):findOpenSpawn(spawnSeed,otherPositions);
         position={x:spawn.x,z:spawn.z};
-        const spawnChanges={x:spawn.x,z:spawn.z,updatedAt:serverTimestamp(),...(game.phase==="lobby"?{lobbyY:0,ready:false,seated:false,sitting:false,seatId:null}:{})};
+        const spawnChanges={x:spawn.x,z:spawn.z,...(game.phase==="lobby"?{lobbyY:0,ready:false,seated:false,sitting:false,seatId:null}:{})};
+        const spawnRosterChanges={updatedAt:serverTimestamp(),...(game.phase==="lobby"?{ready:false,seated:false,sitting:false,seatId:null}:{})};
         players[uid]={...(players[uid]||{}),...spawnChanges};
-        roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...spawnChanges};
-        update(ref(db,`rooms/${roomCode}/players/${uid}`),spawnChanges)
+        roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...spawnRosterChanges};
+        update(ref(db,`rooms/${roomCode}/players/${uid}`),spawnRosterChanges)
           .catch(error=>console.warn("入室時の安全な位置を同期できませんでした",error));
       }
       voicePositionOverride=null;
@@ -10671,8 +10719,18 @@ show("setup", false);
 
 const base = `rooms/${code}`;
       const playerRef = ref(db, `${base}/players/${uid}`);
+      const roomPositionRef=ref(db,`${base}/positions/${uid}`);
+      const initialPosition=makeRoomPositionRecord({...roomRosterRaw[uid],...players[uid],x:position.x,z:position.z,lobbyY:lobbyElevation,yaw:lobbyFacingYaw,walking:lobbyWalking});
+      try{
+        await set(roomPositionRef,{...initialPosition,updatedAt:serverTimestamp()});
+        roomPositionsRaw[uid]={...initialPosition,updatedAt:now()};roomPositionKnown.add(uid);
+        players[uid]={...(roomRosterRaw[uid]||{}),...roomPositionFields(roomPositionsRaw[uid])};
+      }catch(error){
+        toast("位置データを別送できません。Firebaseのdatabase.rules.jsonを公開してください。","command-error");
+        throw error;
+      }
       presence = onDisconnect(playerRef);
-      try{await presence.update({lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartReady:null,kartRequest:null,kartFinish:null,kartSession:null,online:false,disconnectMode:"temporary",ready:false,seated:false,sitting:false,seatId:null,lobbyY:0,updatedAt:serverTimestamp()});}
+      try{await presence.update({kartReady:null,kartRequest:null,kartFinish:null,online:false,disconnectMode:"temporary",ready:false,seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()});}
       catch(error){console.warn("切断時の部屋状態を登録できませんでした。入室を続行します。",error);}
       try{await update(playerRef,{...resetLobbyKartSession(),online:true,lastSeenAt:serverTimestamp(),updatedAt:serverTimestamp()});}
       catch(error){console.warn("部屋参加後の接続状態を更新できませんでした。",error);players[uid]={...(players[uid]||{}),online:true};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),online:true};}
@@ -10696,6 +10754,7 @@ const base = `rooms/${code}`;
       }
 
 const rosterRef=ref(db,`${base}/players`);
+const roomPositionsRef=ref(db,`${base}/positions`);
 const lobbyChatSubscribedAt=now();
 lobbyChatInitialized=true;
 const applyRosterPlayer=(id,value,removed=false)=>{
@@ -10704,7 +10763,7 @@ const applyRosterPlayer=(id,value,removed=false)=>{
   if(previous?.online===true&&(removed||value?.online===false)&&isHost()&&code){
     const messageId=token();set(ref(db,`rooms/${code}/lobbyChat/${messageId}`),{uid:"system",name:"システム",hue:.5,text:`${previous.name||"プレイヤー"}：回線落ち`,at:now()}).catch(error=>console.warn("回線落ち表示をロビーチャットへ保存できませんでした",error));
   }
-  if(removed){delete roomRosterRaw[id];delete players[id];const avatar=avatars.get(id);if(avatar){disposeObject(avatar);avatars.delete(id);}}
+  if(removed){delete roomRosterRaw[id];delete roomPositionsRaw[id];roomPositionKnown.delete(id);delete players[id];const avatar=avatars.get(id);if(avatar){disposeObject(avatar);avatars.delete(id);}}
   else if(value&&typeof value==="object"){
     // An old tab's onDisconnect can arrive after the new tab has rejoined.
     // Keep this live connection's actor and reclaim only temporary presence.
@@ -10713,6 +10772,12 @@ const applyRosterPlayer=(id,value,removed=false)=>{
       update(playerRef,{online:true,disconnectMode:null,lastSeenAt:serverTimestamp(),updatedAt:serverTimestamp()})
         .catch(error=>console.warn("再参加後の接続状態を再同期します",error));
     }
+    const rosterPoseChanged=!previous||ROOM_POSITION_FIELDS.some(key=>value[key]!==previous[key]);
+    const rosterPoseAt=Number(value.updatedAt)||now(),cachedPoseAt=Number(roomPositionsRaw[id]?.updatedAt)||0;
+    // Older open tabs still publish position fields on the player row. Mirror
+    // those changes locally until every participant uses the dedicated path.
+    if(rosterPoseChanged&&(!roomPositionsRaw[id]||rosterPoseAt>=cachedPoseAt))
+      roomPositionsRaw[id]={...makeRoomPositionRecord({...roomPositionsRaw[id],...value}),updatedAt:rosterPoseAt};
     roomRosterRaw[id]=value;
     if(id===hostId&&value.online===true)hostOfflineNoticeShown=false;
     if(!hasDisplayableName(value.name)){
@@ -10734,6 +10799,13 @@ const applyRosterPlayer=(id,value,removed=false)=>{
   syncVoicePeers();
   safeRenderUI();
   queueMicrotask(flushCommandQueue);
+};
+const applyRoomPosition=(id,value,removed=false)=>{
+  if(currentSession!==session)return;
+  if(removed||!value){delete roomPositionsRaw[id];roomPositionKnown.delete(id);}
+  else{roomPositionsRaw[id]=value;roomPositionKnown.add(id);}
+  players=mergeBots(roomRosterRaw);
+  safeRenderUI();
 };
 const applyBotPosition=(id,value)=>{
   if(currentSession!==session)return;
@@ -10786,10 +10858,11 @@ const reconcileGameState=previousGame=>{
   }
   for(const [botId,pose] of Object.entries(botPositions))if(game.players?.[botId]?.bot)game.players[botId]={...game.players[botId],...pose};
           if(game.phase==="play"&&previousGame.phase==="lobby"){
-            const standing={seated:false,sitting:false,seatId:null,lobbyY:0,updatedAt:serverTimestamp()};
+            const standing={seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()};
             players[uid]={...(players[uid]||{}),seated:false,sitting:false,seatId:null,lobbyY:0};
             $("lobbyAttachedFrame").contentWindow?.postMessage({type:"lobby-force-stand"},"*");
             update(ref(db,`${base}/players/${uid}`),standing).catch(error=>console.warn("試合開始時の着席解除を同期できませんでした",error));
+            void publishRoomPosition(code,uid,{lobbyY:0,walking:false}).catch(error=>console.warn("試合開始時の位置を同期できませんでした",error));
           }
           if(previousGame.phase!==game.phase){resetInput();mapOpen=false;toggleMap(false);show("roleMonitorModal",false);show("lobbyUpdateInfo",false);}else if(game.phase==="play"&&game.round!==previousGame.round){mapOpen=false;toggleMap(false);}
           if(previousGame.phase!==game.phase)syncRoomSummary();
@@ -10907,9 +10980,8 @@ const reconcileGameState=previousGame=>{
               updatedAt: now()
             };
             lastSent = { x: 999, z: 999, at: 0 };
-            update(ref(db, `${base}/players/${uid}`), {
-              x: position.x, z: position.z, circuitCourse, updatedAt: serverTimestamp()
-            }).catch(error => toast(errorText(error)));
+            void publishRoomPosition(code,uid,{x:position.x,z:position.z,circuitCourse},true)
+              .catch(error=>toast(errorText(error)));
           }
           if (previousSelf?.alive && currentSelf && !currentSelf.alive && !currentSelf.observer) {
             if(!killSequenceId)beginDeathAnimationVoiceMute("pending",30000);
@@ -10959,6 +11031,9 @@ unsubscribers.push(
         onChildAdded(rosterRef,snapshot=>applyRosterPlayer(snapshot.key,snapshot.val()),error=>toast(errorText(error))),
         onChildChanged(rosterRef,snapshot=>applyRosterPlayer(snapshot.key,snapshot.val()),error=>toast(errorText(error))),
         onChildRemoved(rosterRef,snapshot=>applyRosterPlayer(snapshot.key,null,true)),
+        onChildAdded(roomPositionsRef,snapshot=>applyRoomPosition(snapshot.key,snapshot.val()),error=>toast(errorText(error))),
+        onChildChanged(roomPositionsRef,snapshot=>applyRoomPosition(snapshot.key,snapshot.val()),error=>toast(errorText(error))),
+        onChildRemoved(roomPositionsRef,snapshot=>applyRoomPosition(snapshot.key,null,true)),
         onChildAdded(ref(db,`${base}/botPositions`),snapshot=>applyBotPosition(snapshot.key,snapshot.val())),
         onChildChanged(ref(db,`${base}/botPositions`),snapshot=>applyBotPosition(snapshot.key,snapshot.val())),
         onChildRemoved(ref(db,`${base}/botPositions`),snapshot=>applyBotPosition(snapshot.key,null)),
@@ -11017,13 +11092,14 @@ onChildAdded(query(ref(db,`${base}/lobbyChat`),orderByChild("at"),limitToLast(40
               const restored=applyAccountCostume(players[uid]||makePlayer(),roomPlayers,uid,canRestoreMatch?game.players[uid]:null);
               if(roomPhase==="lobby")Object.assign(restored,findLobbyRespawn(Object.entries(roomPlayers).filter(([id,p])=>id!==uid&&p?.online===true).map(([,p])=>({x:Number(p.x),z:Number(p.z)}))),{lobbyY:0});
               Object.assign(restored,{online:true,disconnectMode:null,ready:false,seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()});
-              await set(playerRef,restored);
+              await set(playerRef,roomRosterRecord(restored));
               players={...roomPlayers,[uid]:restored};
+              roomRosterRaw[uid]=roomRosterRecord(restored);
               position={x:restored.x,z:restored.z};lastSent={x:999,z:999,at:0};
               safeRenderUI();
             }
             await presence.update({
-              lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartReady:null,kartRequest:null,kartFinish:null,kartSession:null,online: false,disconnectMode:"temporary",ready: false,seated: false,sitting: false,seatId: null,
+              kartReady:null,kartRequest:null,kartFinish:null,online: false,disconnectMode:"temporary",ready: false,seated: false,sitting: false,seatId: null,
               updatedAt: serverTimestamp()
             });
             if(isHost()){
@@ -11033,8 +11109,13 @@ onChildAdded(query(ref(db,`${base}/lobbyChat`),orderByChild("at"),limitToLast(40
             }
             if (currentSession !== session) return;
             await update(playerRef, {
-              ...resetLobbyKartSession(),online: true,disconnectMode:null,ready:false,seated:false,sitting:false,seatId:null,
+              online: true,disconnectMode:null,ready:false,seated:false,sitting:false,seatId:null,
               updatedAt: serverTimestamp()
+            });
+            await publishRoomPosition(roomCode,uid,{
+              x:position.x,z:position.z,lobbyY:lobbyElevation,yaw:lobbyFacingYaw,walking:lobbyWalking,
+              lobbyKart:lobbyKartRiding,lobbyCircuit:lobbyCircuitLocation,lobbyVehicle:lobbyVehicleSpawned,
+              kartSession,circuitCourse
             });
             if(commandQueue.length){clearTimeout(commandRetryTimer);commandRetryTimer=null;pendingCommand=false;pendingCommandId="";commandAttempt++;}
             queueMicrotask(flushCommandQueue);
@@ -11060,6 +11141,7 @@ async function leaveRoom() {
       clearTimeout(commandRetryTimer);commandRetryTimer=null;commandQueue=[];pendingCommand=false;pendingCommandId="";commandAttempt++;
       const oldCode = code;
       const oldPresence = presence;
+      const oldPositionPresence=positionPresence;
       const oldRoomSummaryPresence=roomSummaryPresence;
       if(oldCode&&uid&&db){
         update(ref(db,`rooms/${oldCode}/players/${uid}`),{online:false,disconnectMode:"left",leftAt:now(),updatedAt:serverTimestamp()})
@@ -11069,6 +11151,7 @@ async function leaveRoom() {
         // 退出をサーバーへ確定してから画面と購読を片付ける。失敗時は部屋に留まり再試行できる。
         if (connected) {
           const playerRef=ref(db,`rooms/${oldCode}/players/${uid}`);
+          const positionRef=ref(db,`rooms/${oldCode}/positions/${uid}`);
           const [currentPlayer,rosterSnapshot]=await Promise.all([
             get(playerRef),get(ref(db,`rooms/${oldCode}/players`))
           ]);
@@ -11079,9 +11162,10 @@ async function leaveRoom() {
           if(hostLeaving){clearTimeout(roomSummaryTimer);roomSummaryTimer=null;lastRoomSummarySignature="";}
           await remove(ref(db,`rooms/${oldCode}/commands/${uid}`)).catch(error=>console.warn("退出時の操作スロット整理に失敗しました",error));
           if(currentPlayer.exists())await update(playerRef, {
-              lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartReady:null,kartRequest:null,kartFinish:null,kartSession:null,online: false, disconnectMode:"left", ready: false, seated: false, sitting: false, seatId: null, lobbyY:0,
+              kartReady:null,kartRequest:null,kartFinish:null,online: false, disconnectMode:"left", ready: false, seated: false, sitting: false, seatId: null,
               updatedAt: serverTimestamp()
             });
+          await remove(positionRef).catch(error=>console.warn("退出時の位置データを削除できませんでした",error));
           await releaseRoomConnection();
           if(hostLeaving){
             const summaryRef=ref(db,`roomSummaries/${oldCode}`);
@@ -11113,6 +11197,7 @@ async function leaveRoom() {
             }
           }
           try { await oldPresence?.cancel(); } catch (error) { console.warn("退出時のonDisconnect解除に失敗しました",error); }
+          try { await oldPositionPresence?.cancel(); } catch (error) { console.warn("位置データのonDisconnect解除に失敗しました",error); }
           try { await oldRoomSummaryPresence?.cancel(); } catch (error) { console.warn("部屋一覧のonDisconnect解除に失敗しました",error); }
         }
         if(game.phase==="lobby"&&$("lobbyAttachedFrame").contentWindow){
@@ -11128,7 +11213,7 @@ async function leaveRoom() {
         corpses.clear();
         session++;
         unsubscribers.forEach(fn => fn());unsubscribers = [];
-        code = "";roomCreatedAt=0;voiceEnabledByRoom=false;voicePromptOpen=false;botPositions={};roomRosterRaw={};commandInboxRows={};commandInboxPlayerVersions.clear();commandCleanupAttempted.clear();roomSummaryPresence=null;lobbyElevation=0;saveStored("space-suspect-room", "");hostId = "";game = {};players = {};commands = {};
+        code = "";roomCreatedAt=0;voiceEnabledByRoom=false;voicePromptOpen=false;botPositions={};roomRosterRaw={};roomPositionsRaw={};roomPositionKnown.clear();positionPresence=null;commandInboxRows={};commandInboxPlayerVersions.clear();commandCleanupAttempted.clear();roomSummaryPresence=null;lobbyElevation=0;saveStored("space-suspect-room", "");hostId = "";game = {};players = {};commands = {};
       lobbyChatMessages = [];lobbyChatSeenIds=new Set();lobbyChatUnreadCount=0;lobbyChatInitialized=false;lobbyChatOpen=false;lobbyNearSeat=false;lobbyNearCustomize=false;lobbyNearMonitor=false;lobbyNearUpdates=false;lobbyNeedsNudge=false;lobbyFacingYaw=0;lobbyWalking=false;
         taskWork = null;closeNumberTask();closeUploadTask();keys.clear();joystick.x = joystick.z = 0;
         spectatorTargetId="";mapOpen=false;voicePositionOverride=null;document.body.dataset.spectator="false";document.body.dataset.phase="home";
@@ -11421,10 +11506,11 @@ function applyLobbyReturnState(){
   const spawn=findLobbyDoorSpawn(uid);
   const changes={...spawn,lobbyY:0,ready:false,seated:false,sitting:false,seatId:null,walking:false,jumpAt:0,jumpStartedAt:0,updatedAt:serverTimestamp()};
   position={...spawn};lobbyElevation=0;lobbyWalking=false;lobbyNearSeat=false;lobbyNearCustomize=false;spectatorTargetId="";
-  roomRosterRaw[uid]={...own,...changes};players[uid]={...players[uid],...changes};lastSent={x:999,z:999,at:0};
+  roomRosterRaw[uid]={...own,...roomRosterPatch(changes)};players[uid]={...players[uid],...changes};lastSent={x:999,z:999,at:0};
   $("lobbyAttachedFrame").contentWindow?.postMessage({type:"lobby-return-reset",position:spawn,keep:Object.keys(players).filter(id=>id!==uid&&!players[id]?.bot&&players[id]?.online)},"*");
   const returnRoom=code;
-  update(ref(db,`rooms/${returnRoom}/players/${uid}`),changes).catch(error=>{if(code===returnRoom&&appliedLobbyReturnKey===key)appliedLobbyReturnKey="";toast(errorText(error));});
+  void publishRoomPosition(returnRoom,uid,roomPositionFields(changes)).catch(error=>{if(code===returnRoom&&appliedLobbyReturnKey===key)appliedLobbyReturnKey="";toast(errorText(error));});
+  update(ref(db,`rooms/${returnRoom}/players/${uid}`),roomRosterPatch(changes)).catch(error=>{if(code===returnRoom&&appliedLobbyReturnKey===key)appliedLobbyReturnKey="";toast(errorText(error));});
 }
 
 function findLobbyDoorSpawn(id=uid){
@@ -11451,7 +11537,8 @@ function ensureLobbyPosition(roster=players,roomCode=code){
   const occupied=Object.entries(roster||{}).filter(([id,p])=>id!==uid&&p?.online===true&&Number.isFinite(Number(p.x))&&Number.isFinite(Number(p.z))).map(([,p])=>({x:Number(p.x),z:Number(p.z)}));
   const spawn=findLobbyRespawn(occupied),changes={x:spawn.x,z:spawn.z,lobbyY:0,ready:false,seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()};
   if(roomCode===code){position={x:spawn.x,z:spawn.z};lobbyElevation=0;roster[uid]={...own,...changes};}
-  update(ref(db,`rooms/${roomCode}/players/${uid}`),changes).catch(error=>console.warn("再接続時のロビー位置を補正できませんでした",error));
+  void publishRoomPosition(roomCode,uid,roomPositionFields(changes)).catch(error=>console.warn("再接続時のロビー位置を補正できませんでした",error));
+  update(ref(db,`rooms/${roomCode}/players/${uid}`),roomRosterPatch(changes)).catch(error=>console.warn("再接続時のロビー状態を補正できませんでした",error));
   return true;
 }
 const LAST_MATCH_SETTINGS_KEY="space-suspect-last-finished-match-settings-v1";
@@ -13416,7 +13503,10 @@ function useRoleAbility(){
         if(seatId===null){
           const currentSeat=lobbySeatPoint(players[uid]?.seatId),stand=currentSeat?{x:currentSeat.standX,z:currentSeat.standZ}:position;
           position={...position,x:stand.x,z:stand.z};
-          update(ref(db,`rooms/${code}/players/${uid}`),{seated:false,sitting:false,seatId:null,x:stand.x,z:stand.z,lobbyY:0,updatedAt:serverTimestamp()})
+          Promise.all([
+            update(ref(db,`rooms/${code}/players/${uid}`),{seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()}),
+            publishRoomPosition(code,uid,{x:stand.x,z:stand.z,lobbyY:0,walking:false})
+          ])
             .then(()=>{lobbyElevation=0;players[uid]={...(players[uid]||{}),seated:false,sitting:false,seatId:null,x:stand.x,z:stand.z,lobbyY:0};safeRenderUI();})
             .catch(error=>toast("立ち上がれませんでした："+errorText(error)));
         }else{
@@ -13426,7 +13516,10 @@ function useRoleAbility(){
           if(occupied)return toast("その席は使われています。");
           if(Math.hypot(position.x-chair.x,position.z-chair.z)>1.9)return toast("椅子の近くで使用してください。");
           position={x:chair.x,z:chair.z};
-          update(ref(db,`rooms/${code}/players/${uid}`),{seated:true,sitting:true,seatId,x:chair.x,z:chair.z,lobbyY:0,updatedAt:serverTimestamp()})
+          Promise.all([
+            update(ref(db,`rooms/${code}/players/${uid}`),{seated:true,sitting:true,seatId,updatedAt:serverTimestamp()}),
+            publishRoomPosition(code,uid,{x:chair.x,z:chair.z,lobbyY:0,walking:false})
+          ])
             .then(()=>{lobbyElevation=0;players[uid]={...(players[uid]||{}),seated:true,sitting:true,seatId,x:chair.x,z:chair.z,lobbyY:0};safeRenderUI();})
             .catch(error=>toast("座れませんでした："+errorText(error)));
         }
@@ -14411,7 +14504,11 @@ function maybeAddBotMeetingChat(g){
               (current.online===false&&Number(current.updatedAt)<=cutoff&&
                 (current.disconnectMode||"left")===disconnectMode))?null:undefined,
             {applyLocally:false});
-          if(result.committed){delete roomRosterRaw[id];delete players[id];const avatar=avatars.get(id);if(avatar){disposeObject(avatar);avatars.delete(id);}}
+          if(result.committed){
+            delete roomRosterRaw[id];delete roomPositionsRaw[id];roomPositionKnown.delete(id);delete players[id];
+            const avatar=avatars.get(id);if(avatar){disposeObject(avatar);avatars.delete(id);}
+            await remove(ref(db,`rooms/${roomCode}/positions/${id}`)).catch(error=>console.warn("退室者の位置データ整理に失敗しました",error));
+          }
         }
       }catch(error){if(currentSession===session)console.warn("オフライン参加者の整理に失敗しました",error);}
       finally{offlineSweepBusy=false;}
@@ -17948,7 +18045,7 @@ window.addEventListener("resize", resize);
       players[uid]={...(players[uid]||{}),...destination,online:true};
       if(game.players?.[uid])game.players[uid]={...game.players[uid],...destination};
       lastSent={x:999,z:999,at:0};
-      update(ref(db,`rooms/${code}/players/${uid}`),{...destination,updatedAt:serverTimestamp()})
+      publishRoomPosition(code,uid,destination)
         .catch(error=>toast("テレポート位置を同期できませんでした："+errorText(error),"command-error"));
       updateVoiceSpatialAudio();renderGhostHud();followCamera();
     }
@@ -18686,13 +18783,15 @@ function updateStick(event) {
 // Host writes only game; each client writes only its own player row.
 function resetLobbyKartSession(){
   lobbyKartRiding=false;lobbyCircuitLocation=false;lobbyVehicleSpawned=false;lobbyKartAction='';kartSession=token();
-  const reset={lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartSession,kartReady:null,kartRequest:null,kartFinish:null};
+  const reset={kartReady:null,kartRequest:null,kartFinish:null};
+  const poseReset={lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartSession};
   if(game.phase==='lobby'){
     const old=players[uid];if(old?.lobbyCircuit||Number(position.x)>11.8)position=findLobbyDoorSpawn(uid);
-    Object.assign(reset,position,{lobbyY:0,walking:false});lobbyElevation=0;lobbyWalking=false;
-    players[uid]={...(players[uid]||{}),...reset};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...reset};
+    Object.assign(poseReset,position,{lobbyY:0,walking:false});lobbyElevation=0;lobbyWalking=false;
+    players[uid]={...(players[uid]||{}),...reset,...poseReset};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...reset};
     $('lobbyAttachedFrame').contentWindow?.postMessage({type:'lobby-kart-session-reset',position:{...position}},'*');
-  }
+  }else players[uid]={...(players[uid]||{}),...poseReset};
+  void publishRoomPosition(code,uid,poseReset,true).catch(error=>console.warn("ロビー位置の初期化を同期できませんでした",error));
   return reset;
 }
 function sendLobbyKartRaceState(){
@@ -18730,10 +18829,13 @@ async function handleLobbyKartMessage(data){
     if(KartRaceProtocol.active(game.kartRace)){raceReply(false,'レースはすでに進行中です。');return;}
     const room=code,playerRef=ref(db,`rooms/${room}/players/${uid}`),requestedAt=now();
     try{
-      const requestRow={x:position.x,z:position.z,lobbyCircuit:true,lobbyVehicle:true,kartSession,circuitCourse:data.course,kartRequest:{session:kartSession,at:requestedAt,course:data.course},updatedAt:serverTimestamp()};
-      await update(playerRef,requestRow);
+      const requestRow={kartRequest:{session:kartSession,at:requestedAt,course:data.course},updatedAt:serverTimestamp()};
+      await Promise.all([
+        update(playerRef,requestRow),
+        publishRoomPosition(room,uid,{x:position.x,z:position.z,lobbyCircuit:true,lobbyVehicle:true,kartSession,circuitCourse:data.course})
+      ]);
       if(code!==room||leaving)return;
-      players[uid]={...(players[uid]||{}),...requestRow,updatedAt:requestedAt};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...requestRow,updatedAt:requestedAt};
+      players[uid]={...(players[uid]||{}),...requestRow,lobbyCircuit:true,lobbyVehicle:true,kartSession,circuitCourse:data.course,updatedAt:requestedAt};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),...requestRow,updatedAt:requestedAt};
       lobbyCircuitLocation=true;lobbyKartWorldLocation=true;lobbyVehicleSpawned=true;
       raceReply(true);
     }catch(error){raceReply(false,'開始要求を保存できませんでした。もう一度押してください。');toast('カート操作を同期できませんでした：'+errorText(error));}
@@ -18742,12 +18844,13 @@ async function handleLobbyKartMessage(data){
   if(!code||!connected||game.phase!=='lobby'||leaving||!kartSession)return;
   const playerRef=ref(db,`rooms/${code}/players/${uid}`);
   try{
-    if(data.type==='lobby-kart-spawn'&&lobbyCircuitLocation){lobbyVehicleSpawned=true;const row={lobbyCircuit:true,lobbyVehicle:true,kartSession,updatedAt:serverTimestamp()};await update(playerRef,row);players[uid]={...(players[uid]||{}),...row};return;}
-    if(data.type==='lobby-kart-park'&&lobbyKartWorldLocation&&lobbyVehicleSpawned){const row={lobbyVehicleX:data.x,lobbyVehicleZ:data.z,updatedAt:serverTimestamp()};await update(playerRef,row);players[uid]={...(players[uid]||{}),...row};return;}
+    if(data.type==='lobby-kart-spawn'&&lobbyCircuitLocation){lobbyVehicleSpawned=true;const row={lobbyCircuit:true,lobbyVehicle:true,kartSession};await publishRoomPosition(code,uid,row);players[uid]={...(players[uid]||{}),...row};return;}
+    if(data.type==='lobby-kart-park'&&lobbyKartWorldLocation&&lobbyVehicleSpawned){const row={lobbyVehicleX:data.x,lobbyVehicleZ:data.z};await publishRoomPosition(code,uid,row);players[uid]={...(players[uid]||{}),...row};return;}
     if(['lobby-kart-ready','lobby-kart-finish'].includes(data.type)){
       const race=game.kartRace;if(!KartRaceProtocol.active(race)||race.id!==data.round||race.members?.[uid]?.session!==kartSession)return;
       const value={round:race.id,session:kartSession,at:now()};
-      await update(playerRef,data.type==='lobby-kart-ready'?{kartReady:value,lobbyKart:true}:{kartFinish:value});
+      if(data.type==='lobby-kart-ready')await Promise.all([update(playerRef,{kartReady:value}),publishRoomPosition(code,uid,{lobbyKart:true})]);
+      else await update(playerRef,{kartFinish:value});
     }
   }catch(error){toast('カート操作を同期できませんでした：'+errorText(error));}
 }
@@ -18762,6 +18865,22 @@ function compactPosePatch(next,previous){
     if(normalized!==previous?.[key])patch[key]=normalized;
   }
   return patch;
+}
+async function publishRoomPosition(roomCode,playerId,patch={},replace=false){
+  const normalizedPatch=roomPositionFields(patch);
+  const current={...(roomRosterRaw[playerId]||{}),...(players[playerId]||{}),...(roomPositionsRaw[playerId]||{}),...normalizedPatch};
+  const full=makeRoomPositionRecord(current),target=ref(db,`rooms/${roomCode}/positions/${playerId}`);
+  const wasKnown=roomPositionKnown.has(playerId);
+  if(wasKnown&&!replace){
+    try{await update(target,{...normalizedPatch,updatedAt:serverTimestamp()});}
+    catch(error){await set(target,{...full,updatedAt:serverTimestamp()});}
+  }else await set(target,{...full,updatedAt:serverTimestamp()});
+  if(code===roomCode&&uid===playerId){
+    const cached={...(roomPositionsRaw[playerId]||{}),...(wasKnown&&!replace?normalizedPatch:full),updatedAt:now()};
+    for(const [key,value] of Object.entries(normalizedPatch))if(value===null)delete cached[key];
+    roomPositionsRaw[playerId]=cached;roomPositionKnown.add(playerId);
+    players=mergeBots(roomRosterRaw);
+  }
 }
 let publishBusy = false;
     setInterval(async () => {
@@ -18784,7 +18903,7 @@ let publishBusy = false;
       const sent={x:next.x,z:next.z,at:now(),pose:{...previous,...patch}};
       publishBusy=true;
       try {
-        await update(ref(db,`rooms/${roomCode}/players/${playerId}`),{...patch,updatedAt:serverTimestamp()});
+        await publishRoomPosition(roomCode,playerId,patch);
         // Commit the captured pose, never a newer position reached while awaiting Firebase.
         if(code===roomCode&&uid===playerId&&session===currentSession){
           lastSent=sent;
