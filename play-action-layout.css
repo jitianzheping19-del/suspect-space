@@ -3,22 +3,22 @@
 @layer play-action-layout {
   @media (pointer: fine), (min-width: 768px) and (min-height: 600px) {
     body[data-phase="play"] #controls > div:last-child {
-      width: min(48vw, 460px) !important;
-      max-width: min(48vw, 460px) !important;
-      bottom: max(16px, calc(env(safe-area-inset-bottom) + 12px)) !important;
+      width: min(48vw, 500px) !important;
+      max-width: min(48vw, 500px) !important;
+      bottom: max(20px, calc(env(safe-area-inset-bottom) + 16px)) !important;
       height: auto !important;
       min-height: 0 !important;
       max-height: none !important;
     }
 
     body[data-phase="play"] #buttons {
-      --play-action-height: 72px;
+      --play-action-height: 82px;
       display: grid !important;
       grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
       grid-template-rows: repeat(2, var(--play-action-height)) !important;
       grid-auto-rows: var(--play-action-height) !important;
       grid-auto-flow: row !important;
-      gap: 12px !important;
+      gap: 14px !important;
       align-content: end !important;
       align-items: stretch !important;
       justify-items: stretch !important;
@@ -54,7 +54,7 @@
       justify-content: center !important;
       margin: 0 !important;
       padding: 6px !important;
-      font-size: clamp(16px, 1.5vw, 20px) !important;
+      font-size: clamp(17px, 1.6vw, 22px) !important;
       line-height: 1.15 !important;
       text-align: center !important;
     }
@@ -76,23 +76,87 @@
       line-height: 1.15 !important;
     }
 
-    #titleInputSettingsBtn.unifiedSettingsTrigger {
-      width: 56px !important;
-      height: 56px !important;
-      min-height: 56px !important;
-      font-size: 27px !important;
+    body[data-phase="play"] #titleInputSettingsBtn.unifiedSettingsTrigger {
+      width: 64px !important;
+      height: 64px !important;
+      min-height: 64px !important;
+      font-size: 30px !important;
+      right: max(16px, env(safe-area-inset-right)) !important;
+      top: max(16px, env(safe-area-inset-top)) !important;
     }
 
     body[data-phase="play"] #roundRoleBtn {
-      width: clamp(104px, 13vw, 128px) !important;
-      min-height: 52px !important;
-      height: 52px !important;
-      padding: 5px 8px !important;
-      font-size: clamp(12px, 1.3vw, 16px) !important;
+      width: 142px !important;
+      min-height: 60px !important;
+      height: 60px !important;
+      padding: 7px 10px !important;
+      font-size: 18px !important;
+      left: auto !important;
+      right: calc(max(16px, env(safe-area-inset-right)) + 170px) !important;
+      top: max(18px, env(safe-area-inset-top)) !important;
+      transform: none !important;
+    }
+
+    body[data-phase="play"] #mapBtn {
+      position: fixed !important;
+      inset: auto !important;
+      right: calc(max(16px, env(safe-area-inset-right)) + 76px) !important;
+      top: max(16px, env(safe-area-inset-top)) !important;
+      width: 82px !important;
+      min-width: 82px !important;
+      max-width: 82px !important;
+      height: 64px !important;
+      min-height: 64px !important;
+      max-height: 64px !important;
+      font-size: 18px !important;
+    }
+
+    body[data-phase="play"] #taskProgressHud {
+      width: clamp(240px, 32vw, 410px) !important;
+      max-width: 36vw !important;
+      left: 41% !important;
+      top: max(18px, env(safe-area-inset-top)) !important;
+      right: auto !important;
+      transform: translateX(-50%) !important;
+      padding: 10px 13px !important;
+    }
+
+    body[data-phase="play"] #taskProgressLabel,
+    body[data-phase="play"] #sabotageTimerLabel {
+      font-size: 18px !important;
+      line-height: 1.25 !important;
+    }
+
+    body[data-phase="play"] #sabotageTimerHud {
+      width: clamp(240px, 32vw, 410px) !important;
+      max-width: 36vw !important;
+      left: 41% !important;
+      top: calc(max(18px, env(safe-area-inset-top)) + 64px) !important;
+      right: auto !important;
+      transform: translateX(-50%) !important;
+    }
+
+    body[data-phase="play"] #role {
+      padding: 11px 18px !important;
+      font-size: clamp(25px, 2.3vw, 30px) !important;
+      line-height: 1.2 !important;
+    }
+
+    body[data-phase="play"] #stick {
+      width: calc(var(--stick-size, 150px) * 1.08) !important;
+      height: calc(var(--stick-size, 150px) * 1.08) !important;
+      flex-basis: calc(var(--stick-size, 150px) * 1.08) !important;
+    }
+
+    body[data-phase="play"] #controls #knob {
+      width: calc(var(--knob-size, 64px) * 1.08) !important;
+      height: calc(var(--knob-size, 64px) * 1.08) !important;
+      left: calc(50% - var(--knob-size, 64px) * .54) !important;
+      top: calc(50% - var(--knob-size, 64px) * .54) !important;
     }
   }
 
   @media (pointer: fine) and (max-height: 600px) {
-    body[data-phase="play"] #buttons { --play-action-height: 60px; }
+    body[data-phase="play"] #buttons { --play-action-height: 66px; }
   }
 }

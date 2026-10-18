@@ -1,0 +1,156 @@
+/* Shared spacecraft console materials. Layout, hit areas and labels belong to
+   the existing UI; these rules change surfaces only, including the DOM fallback
+   for the Three.js buttons. No additional canvas or animation loop is needed. */
+@layer play-action-layout {
+  :root {
+    --console-edge: #789aaf;
+    --console-accent: #78e0d9;
+    --console-face: #142c3e;
+    --console-highlight: #bfe9f333;
+    --console-shadow: #020912b3;
+    --console-button-fill: linear-gradient(160deg, #29485d, #142c3e 52%, #0d1e2d);
+    --console-panel-fill: linear-gradient(155deg, #182f40fa, #091725fc 65%);
+  }
+
+  body[data-phase="lobby"] {
+    --console-edge: #b6a27a;
+    --console-accent: #dfcca1;
+    --console-panel-fill: linear-gradient(155deg, #1b3039f5, #0b1926fa 65%);
+    --console-button-fill: linear-gradient(155deg, #33464d, #1b303b 55%, #11212d);
+  }
+  body[data-phase="lobby"] :is(#lobbyRoster, #lobbyRoomCode) {
+    background: var(--console-panel-fill) !important;
+    border-color: #b6a27ab3 !important;
+    box-shadow: inset 0 1px 0 #f8e7bd33, 0 5px 18px #02091280 !important;
+  }
+  body[data-phase="lobby"] #lobbyRoster h3 {
+    color: #e5d6b6 !important;
+  }
+
+  /* Information stays flat to read, with a raised metal housing. */
+  :is(#role, #taskProgressHud, #sabotageTimerHud, #abilityDurationBar,
+      #bountyHud, #waveSurvivalHud, #meetingCooldownHud, #modRoleStatus) {
+    background: var(--console-panel-fill) !important;
+    border-color: var(--console-edge) !important;
+    box-shadow: inset 0 1px 0 var(--console-highlight), inset 0 -3px 0 #02091280,
+                0 3px 0 #030b14, 0 6px 14px #02091280 !important;
+  }
+  :is(#taskTrack, #sabotageTimerTrack, #abilityDurationTrack) {
+    background: #050f1c !important;
+    box-shadow: inset 0 1px 4px #000b, 0 1px 0 #bfe9f31a !important;
+  }
+  :is(#taskFill, #sabotageTimerFill, #abilityDurationFill) {
+    box-shadow: inset 0 1px 0 #ffffff66, inset 0 -2px 0 #0003 !important;
+  }
+
+  :is(#inputSettingsDialog, #profileSettings, #lobby, #roundRoles,
+      #guesserPanel, #leaveConfirm, #stickPositionDialog, #roleMonitorModal,
+      #lobbyUpdateInfo) > .card,
+  :is(#playerActionDialog > .playerActionCard, #lobbyChat, #voicePermissionPanel,
+      #roomInviteBanner, #audioSettingsPanel:not(.unifiedAudioPanel)) {
+    background: var(--console-panel-fill) !important;
+    border-color: var(--console-edge) !important;
+    box-shadow: inset 0 1px 0 #c3efff38, inset 0 -4px 0 #030b1480,
+                0 5px 0 #020912, 0 16px 36px #0007 !important;
+  }
+
+  :is(#gmSettingsRoomPanel, #gmSettingsRoleDetailPanel, #inputSettingsDialog) label:has(input, select),
+  #gmSettingsRoleCountPanel .roleFactionColumn,
+  #roundRoleList .roleFactionColumn,
+  #roundRoleList .roleDetailPane {
+    background: linear-gradient(145deg, #152e3eeb, #0a1b29eb) !important;
+    border-color: #506f836b !important;
+    box-shadow: inset 0 1px 0 #c3efff12, inset 0 -1px 0 #02091280 !important;
+  }
+
+  :is(#inputSettingsDialog, #lobby, #profileSettings, #guesserPanel,
+      #leaveConfirm, #playerActionDialog, #stickPositionDialog,
+      #lobbyChat, #meetingChat, #voicePermissionPanel, #roomInviteBanner) button:not(.suitSwatch),
+  button:is([id$="Close"], [id$="CloseBtn"]),
+  :is(#roundRolesClose, #roleMonitorClose, #lobbyUpdateInfoClose,
+      #mapCloseBtn, #sabotageMapClose, #audioSettingsClose,
+      #reactorCloseBtn, #numberCloseBtn, #uploadCloseBtn, #fuelCloseBtn,
+      #taskGameCloseBtn, #cardCloseBtn, #wireCloseBtn, #emergencyTaskCloseBtn),
+  :is(#startBtn, #lobbyOpenBtn, #inviteOnlineFloating, #lobbyChatToggleBtn,
+      #lobbyUnstuckBtn, #lobbyShowRoles, #readyBtn),
+  body[data-phase="lobby"] #buttons > button,
+  body:not([data-three-actions="true"]) :is(#roundRoleBtn, #mapBtn, #titleInputSettingsBtn, #voiceToggleBtn) {
+    --console-button-edge: var(--console-edge);
+    background: var(--console-button-fill) !important;
+    border-color: var(--console-button-edge) !important;
+    box-shadow: inset 0 1px 0 #c3efff38, inset 0 -3px 0 #02091280,
+                0 3px 0 #020912, 0 5px 10px #0004 !important;
+    text-shadow: 0 1px 2px #02091299;
+    transition: box-shadow 100ms ease, border-color 100ms ease !important;
+  }
+
+  :is(#startBtn, #inviteOnlineFloating, #voicePermissionAllow),
+  :is(#inputSettingsDialog, #lobby, #profileSettings, #leaveConfirm,
+      #roomInviteBanner) button:is(.primary, .acceptInvite, [aria-selected="true"], [aria-pressed="true"]),
+  :is(#inputSettingsNav, .gmSettingsNav) button[aria-selected="true"] {
+    background: linear-gradient(155deg, #26736e, #14504f 55%, #0b333b) !important;
+    border-color: var(--console-accent) !important;
+    box-shadow: inset 0 1px 0 #bffff44d, inset 3px 0 0 var(--console-accent),
+                inset 0 -3px 0 #02091280, 0 3px 0 #020912 !important;
+    color: #ecfffa !important;
+  }
+  body[data-phase="lobby"] #startBtn {
+    background: linear-gradient(150deg, #e3d4ad, #bda276 65%, #a58a60) !important;
+    border-color: #f0dfb6 !important;
+    color: #14232e !important;
+    text-shadow: 0 1px 0 #ffffff40 !important;
+    box-shadow: inset 0 1px 0 #ffffff80, inset 0 -3px 0 #67553766,
+                0 3px 0 #020912, 0 6px 18px #0005 !important;
+  }
+  :is(#inputSettingsDialog, #lobby, #profileSettings, #leaveConfirm,
+      #playerActionDialog) button.danger {
+    background: linear-gradient(155deg, #733c50, #401f32 65%) !important;
+    border-color: #de7b8e !important;
+    color: #fff0f3 !important;
+  }
+  body:not([data-three-actions="true"]) #voiceToggleBtn[data-state="on"] {
+    background: linear-gradient(155deg, #1b6958, #0b392f) !important;
+    border-color: #6cdeb5 !important;
+  }
+  body:not([data-three-actions="true"]) #voiceToggleBtn[data-state="muted"] {
+    background: linear-gradient(155deg, #56482f, #2c251b) !important;
+    border-color: #e2b96d !important;
+  }
+
+  :is(#inputSettingsDialog, #lobby, #profileSettings, #roundRoles,
+      #guesserPanel, #leaveConfirm, #playerActionDialog, #stickPositionDialog,
+      #lobbyChat, #meetingChat, #voicePermissionPanel) button:not(.suitSwatch):enabled:active,
+  :is(#startBtn, #lobbyOpenBtn, #inviteOnlineFloating, #lobbyChatToggleBtn,
+      #mapCloseBtn, #sabotageMapClose):enabled:active {
+    box-shadow: inset 0 2px 5px #020912a6, 0 1px 0 #020912 !important;
+  }
+  :is(#inputSettingsDialog, #lobby, #profileSettings, #roundRoles,
+      #guesserPanel, #leaveConfirm, #playerActionDialog, #lobbyChat) button:not(.suitSwatch):disabled {
+    background: #152333 !important;
+    border-color: #435568 !important;
+    color: #91a2b3 !important;
+    box-shadow: inset 0 1px 3px #02091280 !important;
+  }
+  button:focus-visible {
+    outline: 2px solid #c4fff3 !important;
+    outline-offset: 3px !important;
+  }
+  :is(#inputSettingsDialog, #lobby, #profileSettings, #lobbyChat, #meetingChat) :is(input:not([type="range"]):not([type="checkbox"]):not([type="color"]), select) {
+    background: #091725 !important;
+    border-color: #536f83 !important;
+    color: #eff8ff !important;
+    box-shadow: inset 0 2px 5px #02091299, 0 1px 0 #c3efff1a !important;
+    color-scheme: dark;
+  }
+  :is(#lobbyChatInput, #chatInput)::placeholder { color: #9bb1c1 !important; }
+  @media (hover: hover) {
+    :is(#inputSettingsDialog, #lobby, #profileSettings, #roundRoles,
+        #guesserPanel, #leaveConfirm, #lobbyChat) button:not(.suitSwatch):enabled:hover {
+      border-color: #a7eee8 !important;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :is(#inputSettingsDialog, #lobby, #profileSettings, #roundRoles,
+        #guesserPanel, #leaveConfirm, #lobbyChat) button { transition: none !important; }
+  }
+}

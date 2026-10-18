@@ -1,0 +1,61 @@
+@layer play-action-layout {
+  body[data-phase="play"][data-three-actions="true"] button[data-three-action="true"] {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 9px !important;
+    clip-path: none !important;
+    outline-offset: 3px;
+    color: #eff8ff !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    animation: none !important;
+    text-shadow: 0 2px 3px #020b17 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    cursor: pointer;
+  }
+
+  body[data-phase="play"][data-three-actions="true"] button[data-three-action="true"][data-three-action-layout="icon"] {
+    padding: 7px 7px 7px var(--three-action-label-inset, 50px) !important;
+    justify-content: center !important;
+    align-items: center !important;
+    line-height: 1.15 !important;
+  }
+
+  body[data-phase="play"][data-three-actions="true"] button[data-three-action="true"][data-three-action-layout="compact"] {
+    padding: 5px 6px !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  body[data-phase="play"][data-three-actions="true"] button[data-three-action="true"]:disabled {
+    color: #92a4b6 !important;
+    cursor: default;
+    opacity: 1 !important;
+  }
+
+  body[data-phase="play"][data-three-actions="true"] button[data-three-action="true"]::before,
+  body[data-phase="play"][data-three-actions="true"] button[data-three-action="true"]::after,
+  body[data-phase="play"][data-three-actions="true"] #buttons > [data-three-action="true"] .abilityExhaustedMark,
+  body[data-phase="play"][data-three-actions="true"] #buttons > #rocketLaunchBtn > span,
+  body[data-phase="play"][data-three-actions="true"] #abilityIcon {
+    display: none !important;
+  }
+
+  body[data-phase="play"][data-three-actions="true"] button[data-three-action="true"][data-three-action-layout="symbol"] {
+    color: transparent !important;
+    text-shadow: none !important;
+  }
+
+  body[data-phase="play"][data-three-actions="true"] #buttons :is(#abilityCaption, #rocketLaunchCaption) {
+    color: inherit !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
+    text-align: center !important;
+  }
+}
