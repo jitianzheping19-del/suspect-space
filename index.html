@@ -3207,6 +3207,7 @@ window.buildAstraMap=buildAstraMap;
   });
 </script>
 <script type="module">
+    import {createAuthoredKillPlayer,resolveAuthoredKillRole,authoredKillSpec} from "./authored-kill-player.js";
     const THREE_VERSION = "0.164.1";
     const THREE_CDN_BASES = [
       `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}`,
@@ -9332,6 +9333,15 @@ const SS_VIPER_KILL_SRCDOC=EMBEDDED_ASSETS.SS_VIPER_KILL_SRCDOC;
 const ROLE_KILL_ASSETS={vampireBite:SS_VAMPIRE_KILL_SRCDOC,viper:SS_VIPER_KILL_SRCDOC};
 const KILL_ASSET_SRCDOC=EMBEDDED_ASSETS.KILL_ASSET_SRCDOC.replaceAll("__SS_THREE_CDN_BASE__",THREE_CDN_BASE);
 let killSequenceFrame=null,killSequenceTimer=0,killSequenceId="",lastVictimKillAt=0,lastVictimKillEventId="",lastVictimKillKey="";
+let authoredVictimPlayer=null;
+function prepareAuthoredVictimPlayer(){
+ if(authoredVictimPlayer)return authoredVictimPlayer;
+ const stage=$("killAnimation");
+ authoredVictimPlayer=createAuthoredKillPlayer({mount:stage,cdnBase:THREE_CDN_BASE,onDone:()=>{if(killSequenceFrame!==authoredVictimPlayer.frame||!killSequenceId)return;clearKillSequence();show("killAnimation",false);},onError:message=>{console.warn("Authored kill animation:",message);clearKillSequence();show("killAnimation",false);}});
+ authoredVictimPlayer.configure(EMBEDDED_ASSETS,"impostor",{volume:0});
+ return authoredVictimPlayer;
+}
+
 
 const SS_VICTIM_ALPHA_COMPOSITE="// Retain the scene's coverage instead of filling its empty background during bloom.\nfor(const pass of composer.passes){\n if(pass.blendMaterial){Object.assign(pass.blendMaterial,{blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.SrcAlphaFactor,blendDst:THREE.OneFactor,blendEquationAlpha:THREE.AddEquation,blendSrcAlpha:THREE.ZeroFactor,blendDstAlpha:THREE.OneFactor});pass.blendMaterial.needsUpdate=true;}\n if(pass instanceof OutputPass){pass.material.fragmentShader=pass.material.fragmentShader.replace(/}\\s*$/, 'gl_FragColor.rgb*=gl_FragColor.a;\\n}');pass.material.needsUpdate=true;}\n}\n";
 function transparentKillAssetSrcdoc(source=KILL_ASSET_SRCDOC){
@@ -9368,7 +9378,7 @@ function mountVictimKillFrame({source,id,title,role="",start,duration}){
 window.addEventListener("resize",()=>fitVictimKillFrame(killSequenceFrame));
 window.visualViewport?.addEventListener("resize",()=>fitVictimKillFrame(killSequenceFrame));
 
-function clearKillSequence(){endDeathAnimationVoiceMute("world");clearTimeout(killSequenceTimer);killSequenceTimer=0;killSequenceFrame?.remove();killSequenceFrame=null;killSequenceId="";$("killAnimation")?.removeAttribute("data-authored-role");$("killAnimation")?.removeAttribute("data-kill-swipe");const label=$("killAnimationText");if(label)label.hidden=false;}
+function clearKillSequence(){endDeathAnimationVoiceMute("world");clearTimeout(killSequenceTimer);killSequenceTimer=0;if(killSequenceFrame===authoredVictimPlayer?.frame)authoredVictimPlayer.stop();else killSequenceFrame?.remove();killSequenceFrame=null;killSequenceId="";$("killAnimation")?.removeAttribute("data-authored-role");$("killAnimation")?.removeAttribute("data-kill-swipe");const label=$("killAnimationText");if(label)label.hidden=false;}
 window.addEventListener("message",event=>{
  const frame=killSequenceFrame;if(!frame||event.source!==frame.contentWindow)return;
  if(event.data?.type==="ss-kill-ready"){
@@ -9401,19 +9411,19 @@ function showKillAnimation(name, killer, event = {}) {
     lastVictimKillKey=key;
     if(event.id)lastVictimKillEventId=String(event.id);
   }
-  clearKillSequence();lastVictimKillAt=Number(event.at)||0;const roleStyle=event.cause==="samurai"||event.cause==="samuraiSlash"||killer?.subrole==="samurai"?"sword":event.cause==="slugger"||event.cause==="sluggerSwing"||killer?.subrole==="slugger"?"hammer":"knife";
-  const authoredRole=event.cause==="vampireBite"?"vampire":(event.cause==="viper"||killer?.subrole==="viper")?"viper":"";
-  const waveDeath=["waveCannon","waveCannonJackal","jackalWaveCannon"].includes(event.cause)||(!event.cause&&["waveCannon","waveCannonJackal","jackalWaveCannon"].includes(killer?.subrole));
-  const id=String(event.id||`victim:${uid}:${event.at||now()}`),hue=(value,fallback)=>new THREE.Color().setHSL(Number.isFinite(Number(value))?Number(value):fallback,.7,.52).getStyle(),volume=$("audioEffectsVolume")?Math.max(0,Math.min(1,Number($("audioEffectsVolume").value)/100)):.7;
-  if(waveDeath&&KILL_DEMOS.waveCannon?.html){
-    mountVictimKillFrame({source:KILL_DEMOS.waveCannon.html,id,title:"波動砲の被弾演出",role:"waveCannon",duration:4500});return;
-  }
-  if(authoredRole){
-    mountVictimKillFrame({source:ROLE_KILL_ASSETS[authoredRole==="vampire"?"vampireBite":"viper"],id,title:authoredRole==="vampire"?"ヴァンパイアの遅延死演出":"バイパーの毒死演出",role:authoredRole,duration:authoredRole==="vampire"?4500:8000,start:{type:"ss-role-kill-start",role:authoredRole,id,killerColor:hue(killer?.hue,authoredRole==="vampire" ? .89 : .35),victimColor:hue(self()?.hue,.55),mode:"death",delaySeconds:Math.max(3,Math.min(60,Number(game.settings?.biteDelaySeconds)||15)),dissolveSeconds:Math.max(5,Math.min(60,Number(game.settings?.viperSeconds)||15)),volume}});return;
-  }
-  const assetKill=(!event.cause||["killed","samurai","samuraiSlash","slugger","sluggerSwing"].includes(event.cause))&&!!killer&&event.killer!==event.victim;
-  if(assetKill&&typeof KILL_ASSET_SRCDOC!=="undefined"){
-    mountVictimKillFrame({source:roleStyle==="knife"&&KILL_DEMOS.victimPreview?.html?KILL_DEMOS.victimPreview.html:KILL_ASSET_SRCDOC,id,title:"キルアニメーション",duration:11000,start:{type:"ss-kill-start",id,style:roleStyle,killerColor:hue(killer?.hue,.04),victimColor:hue(self()?.hue,.55),killerCostume:players?.[event.killer]?.costume||killer?.costume||"standard",victimCostume:players?.[uid]?.costume||readStored("space-suspect-costume")||"standard",volume}});return;
+  clearKillSequence();lastVictimKillAt=Number(event.at)||0;
+  const role=resolveAuthoredKillRole(event.cause,killer||{});
+  const id=String(event.id||`victim:${uid}:${event.at||now()}`),hue=(value,fallback)=>new THREE.Color().setHSL(Number.isFinite(Number(value))?Number(value):fallback,.7,.52).getStyle();
+  if(killer||role!=="impostor"){
+    const player=prepareAuthoredVictimPlayer(),spec=authoredKillSpec(EMBEDDED_ASSETS,role),stage=$("killAnimation");
+    killSequenceFrame=player.frame;killSequenceId=id;stage.dataset.authoredRole=role;
+    $("killAnimationText").hidden=true;clearTimeout(effectTimers.get("killAnimation"));effectTimers.delete("killAnimation");
+    if(stage.parentElement!==document.body)document.body.append(stage);
+    show("killAnimation",true);fitVictimKillFrame(player.frame);player.show(true);
+    beginDeathAnimationVoiceMute("world",Math.max(10000,spec.duration*1000+4000));
+    player.configure(EMBEDDED_ASSETS,role,{id,killerColor:hue(killer?.hue,.04),victimColor:hue(self()?.hue,.55),killerName:killer?.name||"",victimName:self()?.name||name||"",killerCostume:players?.[event.killer]?.costume||killer?.costume||"standard",victimCostume:players?.[uid]?.costume||readStored("space-suspect-costume")||"standard",volume:$("audioEffectsVolume")?Math.max(0,Math.min(1,Number($("audioEffectsVolume").value)/100)):.7},true);
+    clearTimeout(killSequenceTimer);killSequenceTimer=setTimeout(()=>{if(killSequenceId===id){clearKillSequence();show("killAnimation",false);}},Math.max(12000,spec.duration*1000+4000));
+    return;
   }
   const look=roleLook(killer);$("killAnimation").dataset.kind=killer?.subrole||killer?.role||"impostor";$("killAnimation").style.setProperty("--kill-color",look.color);
   const killerName=hasDisplayableName(killer?.name)?killer.name:"不明なプレイヤー",killerRole=roleNameFor(killer);
@@ -10787,6 +10797,7 @@ const reconcileGameState=previousGame=>{
             document.body.dataset.phase=game.phase;
             shipRoot.visible=true;
           }
+          if(["lobby","countdown","roleReveal","play"].includes(game.phase))prepareAuthoredVictimPlayer();
           if(game.phase==="play"&&game.round!==rosterPositionedRound){
             rosterPositionedRound=game.round;
             for(const [id,rosterPlayer] of Object.entries(game.players||{})){
@@ -10806,7 +10817,7 @@ const reconcileGameState=previousGame=>{
           const previousSelf = previousGame.players?.[uid];
           const currentSelf = game.players?.[uid];
           const teleportEvent=game.teleportEvent;
-          if(currentSelf?.vampireDeathAt&&currentSelf.vampireDeathAt!==previousSelf?.vampireDeathAt&&currentSelf.vampireBiteBy)showVampireBiteClip(uid,currentSelf.vampireBiteBy,currentSelf.vampireDeathAt);
+          // The victim cinematic starts on alive -> dead, including delayed bites.
           if(teleportEvent?.id&&teleportEvent.id!==lastAppliedTeleportEventId){
             lastAppliedTeleportEventId=teleportEvent.id;
             if(Number.isFinite(Number(teleportEvent.at))&&now()-Number(teleportEvent.at)<=12000){
@@ -10867,7 +10878,7 @@ const reconcileGameState=previousGame=>{
             }).catch(error => toast(errorText(error)));
           }
           if (previousSelf?.alive && currentSelf && !currentSelf.alive && !currentSelf.observer) {
-            beginDeathAnimationVoiceMute("pending",30000);
+            if(!killSequenceId)beginDeathAnimationVoiceMute("pending",30000);
             const ownDeathAt=Number(game.deathRecords?.[uid]?.at||currentSelf.deathAt)||0;
             if(ownDeathAt>0){const ownRecord=game.deathRecords?.[uid]||{},killerId=currentSelf.killedById||ownRecord.killerId||"",killer=game.players?.[killerId],origin=players?.[killerId]||killer||{},body=game.bodies?.[uid]||{};showKillAnimation(currentSelf.name,killer,{id:"victim:"+uid+":"+ownDeathAt,at:ownDeathAt,killer:killerId,victim:uid,cause:currentSelf.deathCause||"",x:Number(body.x??position.x)||0,z:Number(body.z??position.z)||0,fromX:Number(origin.x),fromZ:Number(origin.z)});}
             $("deathIntroReason").textContent = currentSelf.deathCause==="sheriffMisfire"
