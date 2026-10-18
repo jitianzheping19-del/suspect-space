@@ -111,6 +111,7 @@
         <div class="buttonRow">
           <button class="controlBtn primary" id="playBtn" type="button">▶ 再生</button>
           <button class="controlBtn" id="replayBtn" type="button" aria-label="最初から再生">↺</button>
+          <button class="controlBtn" id="soundBtn" type="button" aria-label="効果音を有効にする" aria-pressed="false">音声 OFF</button>
         </div>
         <label class="scrubberWrap"><span id="currentTime">0.0s</span><input id="scrubber" type="range" min="0" max="8.5" step="0.01" value="0" aria-label="アニメーションの再生位置"><span>8.5s</span></label>
         <select class="speed" id="speed" aria-label="再生速度"><option value="0.65">0.65×</option><option value="1" selected>1×</option><option value="1.35">1.35×</option></select>
@@ -128,7 +129,8 @@
     const requestedRole=new URLSearchParams(location.search).get('role');
     let selectedRole=authoredKillRoles.some(([id])=>id===requestedRole)?requestedRole:'impostor';rolePicker.value=selectedRole;
     const originalPlayer=createAuthoredKillPlayer({mount:document.querySelector('#authoredStage'),onError:message=>{document.querySelector('#viewDescription').textContent='演出を読み込めません: '+message;console.error(message);}});
-    function configureOriginal(){return originalPlayer.configure(originalAssets,selectedRole,{killerColor:'#ee5368',victimColor:'#46c4e6',killerName:'インポスター',victimName:'クルーメイト',volume:0});}
+    let previewSound=false;
+    function configureOriginal(){return originalPlayer.configure(originalAssets,selectedRole,{killerColor:'#ee5368',victimColor:'#46c4e6',killerName:'インポスター',victimName:'クルーメイト',killerCostume:'standard',victimCostume:'standard',...(selectedRole==='arsonist'?{victims:[{color:'#46c4e6',costume:'standard'},{color:'#72d9ab',costume:'standard'},{color:'#bc87ef',costume:'standard'},{color:'#f5cc68',costume:'standard'}]}:{}),volume:previewSound ? .5 : 0});}
     let originalSpec=configureOriginal();
     const embedded=window.__SS_KILL_EMBED__===true;
     const viewOptions={victim:{label:'殺される側',description:'本人だけに、本番と同じ背景透過のキル演出を表示します。'},attacker:{label:'殺す側',description:'キル演出は表示せず、相手がすぐ死体になります。操作画面はそのままです。'},witness:{label:'第三者',description:'演出・倒れる動き・幽霊の出現はなく、キル成立と同時に死体になります。'}};
@@ -257,14 +259,15 @@
       if(embedded&&victimView&&clipTime>=2.42&&lastTime<2.42){flash.classList.remove('hit');void flash.offsetWidth;flash.classList.add('hit');}
       if(!victimView)flash.classList.remove('hit');
       originalPlayer.show(perspective==='victim'&&current>=killMoment&&current<killMoment+originalSpec.duration);
-      originalPlayer.seek(Math.max(0,Math.min(originalSpec.duration,current-killMoment)));
+      originalPlayer.seek(Math.max(0,Math.min(originalSpec.duration,current-killMoment)),playing&&perspective==='victim');
       lastTime=clipTime;renderFrame();
     }
     function victimOverlayVisible(){return embedded||perspective==='victim'&&current>=killMoment&&current<duration;}
     function renderFrame(){renderer.clear();if(!embedded)renderer.render(scene,camera);if(embedded&&victimOverlayVisible()){renderer.clearDepth();renderer.render(overlayScene,overlayCamera);}}
-    function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';if(embedded&&killRunId){parent.postMessage({type:'ss-kill-done',id:killRunId},'*');killRunId='';}}}else renderFrame();}
+    function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';if(embedded&&killRunId){parent.postMessage({type:'ss-kill-done',id:killRunId},'*');killRunId='';}}}}
     function play(){if(current>=duration)updateAt(0);playing=true;fromTime=current;playStart=performance.now();playBtn.textContent='Ⅱ 一時停止';}
-    playBtn.addEventListener('click',()=>{if(playing){playing=false;playBtn.textContent='▶ 再生';}else play();});
+    playBtn.addEventListener('click',()=>{if(playing){playing=false;playBtn.textContent='▶ 再生';updateAt(current);}else play();});
+    document.querySelector('#soundBtn').addEventListener('click',event=>{previewSound=!previewSound;originalPlayer.setVolume(previewSound ? .5 : 0);event.currentTarget.textContent=previewSound?'音声 ON':'音声 OFF';event.currentTarget.setAttribute('aria-pressed',String(previewSound));event.currentTarget.setAttribute('aria-label',previewSound?'効果音を無効にする':'効果音を有効にする');});
     document.querySelector('#replayBtn').addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(0);play();});
     scrubber.addEventListener('input',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(scrubber.value));});
     document.querySelector('#speed').addEventListener('change',()=>{fromTime=current;playStart=performance.now();});

@@ -1,5 +1,6 @@
-// Reuse the original authored scenes. Their geometry, camera tracks and effects
-// stay in the lossless embedded asset bundle, shared by the game and preview.
+import {createCinematicArt} from './kill-cinematic-art.js';
+
+// The same authored choreography and cinematic assets run in game and preview.
 export const authoredKillRoles = [
   ['impostor','インポスター',4.2],['jackal','ジャッカル',1.8],
   ['sheriff','シェリフ',1.7],['samurai','侍',1.9],['slugger','スラッガー',1.6],
@@ -7,6 +8,7 @@ export const authoredKillRoles = [
   ['penguin','ペンギン',2.6],['rocket','ロケット',3],
   ['arsonist','アーソニスト',4.4],['conjurer','コンジュラー',2.4],
   ['waveCannon','波動砲',1.9],['suicideBomber','自爆魔',2.6],
+  ['triggerHappy','トリガーハッピー',2.4],
 ];
 
 export function resolveAuthoredKillRole(cause='', killer={}) {
@@ -20,55 +22,80 @@ export function authoredKillSpec(assets,role) {
   const entry=authoredKillRoles.find(([id])=>id===role)||authoredKillRoles[0];
   const source=entry[0]==='impostor'?assets.KILL_ASSET_SRCDOC:
     entry[0]==='vampire'?assets.SS_VAMPIRE_KILL_SRCDOC:
-    entry[0]==='viper'?assets.SS_VIPER_KILL_SRCDOC:assets.KILL_DEMOS[entry[0]].html;
+    entry[0]==='viper'?assets.SS_VIPER_KILL_SRCDOC:assets.KILL_DEMOS[entry[0]==='triggerHappy'?'sheriff':entry[0]].html;
   return {role:entry[0],label:entry[1],duration:entry[2],source};
 }
 
 // This function is serialized into one preloaded iframe. A single WebGL context
 // serves every original scene, without fetching modules again at the death event.
-function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass) {
+function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt) {
   const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
   document.body.append(renderer.domElement);
   const host=document.querySelector('#originalControls');
-  let controller=null,configuration=null,time=0,target=0,playing=false,finished=false,dirty=false,last=performance.now();
+  let controller=null,configuration=null,time=0,target=0,playing=false,audible=false,finished=false,dirty=false,last=performance.now();
   let sharedAudio=null,audioOutput=null;
   const listeners=[],timers=new Set();
+  let owned=null;
   const send=data=>parent.postMessage(data,'*');
+  function collect(object){
+    object.traverse(node=>{if(node.geometry)owned.geometries.add(node.geometry);for(const material of [].concat(node.material||[])){owned.materials.add(material);for(const value of Object.values(material))if(value?.isTexture)owned.textures.add(value);}});
+  }
   function dispose(){
     for(const [type,handler,options] of listeners)window.removeEventListener(type,handler,options);
     listeners.length=0;for(const timer of timers)clearTimeout(timer);timers.clear();
     if(controller){
-      const geometries=new Set(),materials=new Set(),textures=new Set();
-      controller.scene.traverse(object=>{if(object.geometry)geometries.add(object.geometry);object.shadow?.dispose?.();for(const material of [].concat(object.material||[])){materials.add(material);for(const value of Object.values(material))if(value?.isTexture)textures.add(value);}});
+      collect(controller.scene);const {geometries,materials,textures}=owned;
+      controller.scene.traverse(object=>object.shadow?.dispose?.());
       for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();for(const texture of textures)texture.dispose();
-      controller.composer.passes.forEach(pass=>pass.dispose?.());controller.composer.dispose();controller=null;
+      controller.art.dispose();controller.nodes.forEach(node=>node.remove());
+      controller.composer.passes.forEach(pass=>pass.dispose?.());controller.composer.dispose();controller=null;owned=null;
     }
     renderer.clear();
   }
   function initialize(data){
-    dispose();configuration=data;time=target=0;finished=false;playing=false;
+    dispose();configuration=data;time=target=0;finished=false;playing=false;audible=false;
+    owned={geometries:new Set(),materials:new Set(),textures:new Set()};
     const parsed=new DOMParser().parseFromString(data.source,'text/html');
     const script=[...parsed.querySelectorAll('script[type="module"]')].map(node=>node.textContent).join('\n');
     if(!script.includes('function startLoop(update)'))throw new Error('Unsupported original animation');
     parsed.querySelectorAll('script,style,link,canvas').forEach(node=>node.remove());host.innerHTML=parsed.body.innerHTML;
     let code=script.replace(/^import .*;\s*$/gm,'')
       .replace(/new THREE\.WebGLRenderer\(\{[^}]*\}\)/g,'__runtime.renderer')
+      .replace('const scene=new THREE.Scene();','const scene=new THREE.Scene();__runtime.ownScene(scene);')
       .replace('document.body.prepend(renderer.domElement);','')
       .replace(/scene\.background\s*=\s*new THREE\.Color\([^;]*\);/g,'scene.background=null;')
+      .replace(/function makeCrew\([\s\S]*?(?=\/\* ---------- particles)/,'function makeCrew(color,options){return __runtime.art.makeCrew(color,options);}\n\n')
       .replace(/(^|\n)[ \t]*stage\([^;\n]*\);/g,'$1')
       .replace(/function startLoop\(update\)\{[\s\S]*?\nfunction setCam/,'function startLoop(update){__runtime.update=update;}\nfunction setCam')
       .replace('if(P.life[i]<=0){P.col[i*3]=P.col[i*3+1]=P.col[i*3+2]=0;continue;}','if(P.life[i]<=0){P.col[i*3]=P.col[i*3+1]=P.col[i*3+2]=0;P.pos[i*3+1]=-10000;continue;}')
-      .replace(/a\.destination/g,'__runtime.audioOutput');
+      .replace(/a\.destination/g,'__runtime.audioOutput')
+      .replace('const MAXP=2600,','const MAXP=1200,');
+    // Fade routines must retain the alpha of the visor reflection layer.
+    code=code.replace(/function setAlpha\(c,a\)\{[^\n]*\}/,'function setAlpha(c,a){for(const m of(c._am||(c._am=allMats(c)))){const glass=m.userData.cinematicTransparent;m.transparent=!!glass||a<.995;m.opacity=glass?m.userData.cinematicOpacity*a:a;m.depthWrite=glass?false:a>.98;}}');
+    // The old white star covered the point of contact. Keep its sound/timing,
+    // using the cinematic's small sparks and blade trails for the visible hit.
+    if(data.role==='impostor')code=code.replace(/function impact\(p,[\s\S]*?(?=\nfunction dust)/,'function impact(p,{col=0xffffff,s=1}={}){burst(p,20*s,3,col,.3,3,1.8);}\n')
+      .replace(/function dust\([\s\S]*?(?=\nconst crackTex)/,'function dust(x,z,n=24,sz=1){burst(new THREE.Vector3(x,.04,z),Math.min(n,16),1.2,0x8b9cac,.3,1,2);}\n');
+    else code=code.replace(/function impact\(p,[\s\S]*?(?=\nfunction ring)/,'function impact(p,col=0xffffff,s=1){burst(p,16*s,2.5,col,.3,3,1.8);}\n')
+      .replace(/function dust\(x,z,n=24,sz=1\)\{[^\n]*/,'function dust(x,z,n=24,sz=1){burst(V3(x,.04,z),Math.min(n,16),1.2,0x8b9cac,.3,1,2);}\n');
+    if(data.role==='viper'){
+      code=code.replace('clamp((t-2.5)/2.4,0,1)','clamp((t-2.3)/1.6,0,1)')
+        .replace(/\{const hood=new THREE\.Mesh[\s\S]*?viper\.torso\.add\(eye\);\}/,'')
+        .replace('o.material=meltMat(o.material===vic.visorM?0x9fdcf0:col);','o.material=__runtime.art.corrosionMaterial(o.material,meltU);');
+    }
+    if(data.role==='samurai')code=code.replace(/function swordLine\([\s\S]*?(?=\nfunction slashTick)/,'function swordLine(){}\n');
+    if(data.role==='jackal')code=code.replace(/function sliceTrail\([\s\S]*?(?=\nfunction reset)/,'function sliceTrail(){}\n');
     code=code.replace('composer.addPass(new OutputPass());',`composer.addPass(new OutputPass());
       for(const pass of composer.passes){
         if(pass.blendMaterial){Object.assign(pass.blendMaterial,{blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.SrcAlphaFactor,blendDst:THREE.OneFactor,blendEquationAlpha:THREE.AddEquation,blendSrcAlpha:THREE.ZeroFactor,blendDstAlpha:THREE.OneFactor});pass.blendMaterial.needsUpdate=true;}
         if(pass instanceof OutputPass){pass.material.fragmentShader=pass.material.fragmentShader.replace(/}\\s*$/, 'gl_FragColor.rgb*=gl_FragColor.a;\\n}');pass.material.needsUpdate=true;}
       }`);
     code=code.replace(/new \(window.AudioContext\|\|window.webkitAudioContext\)\(\)/g,'__runtime.audio');
-    const actors={impostor:['killer','victim,victimB'],jackal:['jk','vic'],sheriff:['she','tgt,crewMis'],samurai:['sam','...vics'],slugger:['sl','vic'],vampire:['vamp','vic'],viper:['viper','vic'],penguin:['peng','vic'],rocket:['rk','vic'],arsonist:['ars','...tg'],conjurer:['cj','vic'],waveCannon:['jk','vic'],suicideBomber:['bom','...vics']};
+    const actors={impostor:['killer','victim,victimB'],jackal:['jk','vic'],sheriff:['she','tgt,crewMis'],triggerHappy:['she','tgt,crewMis'],samurai:['sam','...vics'],slugger:['sl','vic'],vampire:['vamp','vic'],viper:['viper','vic'],penguin:['peng','vic'],rocket:['rk','vic'],arsonist:['ars','...tg'],conjurer:['cj','vic'],waveCannon:['jk','vic'],suicideBomber:['bom','...vics']};
     const [attacker,victims]=actors[data.role];
-    const starts={impostor:'play("knife");',jackal:'reset();startShow(killTick,1.8);',sheriff:'startShow(shootTick(false),1.7,reset);',samurai:'startShow(slashTick,1.9,reset);',slugger:'startShow(swingTick,1.6,reset);',vampire:'startAcceptedRoleKill({...payload,mode:"death"});',viper:'startAcceptedRoleKill(payload);',penguin:'startShow(captureTick,2.6,reset);',rocket:'startShow(launchTick,3,reset);',arsonist:'reset();tg.forEach((target,index)=>{if(!payload.victims||index<payload.victims.length)oil(target);else target.root.visible=false;});startShow(igniteTick(),4.4);',conjurer:'startShow(conjureTick,2.4,reset);',waveCannon:'startShow(blastTick,1.9,reset);',suicideBomber:'startShow(boomTick,2.6,reset);'};
+    const starts={impostor:'play("knife");',jackal:'reset();startShow(killTick,1.8);',sheriff:'startShow(shootTick(false),1.7,reset);',triggerHappy:'startShow(shootTick(false),2.4,reset);',samurai:'startShow(slashTick,1.9,reset);',slugger:'startShow(swingTick,1.6,reset);',vampire:'startAcceptedRoleKill({...payload,mode:"death"});',viper:'startAcceptedRoleKill(payload);',penguin:'startShow(captureTick,2.6,reset);',rocket:'startShow(launchTick,3,reset);',arsonist:'reset();tg.forEach((target,index)=>{if(index<(payload.victims?.length||1))oil(target);else target.root.visible=false;});startShow(igniteTick(),4.4);',conjurer:'startShow(conjureTick,2.4,reset);',waveCannon:'startShow(blastTick,1.9,reset);',suicideBomber:'startShow(boomTick,2.6,reset);'};
+    const propNames={impostor:'weapons',sheriff:'gun',triggerHappy:'gun',slugger:'hari',vampire:'drops,timer',viper:'needle,meltU,pud',rocket:'fin,pad,smoke,flame',waveCannon:'gun,coreG,floorLine,hitRip',suicideBomber:'bomb,fuse'};
     // Original role-only hats are placeholders; substitute the players' outfits
     // when actual game data is available, leaving original demo outfits otherwise.
     code=code.replace(/c\.torso\.add\(g\);return g;/g,'g.userData.authoredHat=true;c.torso.add(g);return g;');
@@ -77,28 +104,32 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
         if(color){actor.suit.color.set(color);actor.base?.set(color);}
         if(outfit&&typeof buildLightCostume==="function"){
           const hats=[];actor.root.traverse(object=>{if(object.userData.authoredHat)hats.push(object);});hats.forEach(hat=>hat.removeFromParent());
-          const wear=buildLightCostume(THREE,outfit);wear.userData.pet?.removeFromParent();actor.rig.add(wear);
+          const wear=buildLightCostume(THREE,outfit);wear.userData.pet?.removeFromParent();
+          for(const [index,pants]of(wear.userData.walkPants||[]).entries())if(actor.legs[index]){pants.position.sub(actor.legs[index].position);actor.legs[index].add(pants);}
+          wear.position.y=-actor.torso.position.y;actor.torso.add(wear);
         }
       }
       const payload=__runtime.payload;
+      ${starts[data.role]}
+      ${['impostor','vampire','viper'].includes(data.role)?'assetVolume=1;':''}
       dress(${attacker},payload.killerColor,payload.killerCostume);
       for(const [index,actor] of [${victims}].entries())dress(actor,payload.victims?.[index]?.color||payload.victimColor,payload.victims?.[index]?.costume||payload.victimCostume);
-      ${starts[data.role]}
+      ${['samurai','suicideBomber'].includes(data.role)?`for(const [index,actor] of [${victims}].entries())if(index>0&&(!payload.victims||index>=payload.victims.length))actor.root.visible=false;`:''}
       ${data.role==='impostor'?'':'show.after=()=>{};'}
+      const art=__runtime.art.mount({scene,camera,renderer,role:${JSON.stringify(data.role)},duration:${data.duration},attacker:${attacker},victims:[${victims}],payload,props:{bloom,pPts,fxLight,tone,noise,${propNames[data.role]||''}}});
       return {scene,camera,composer,actors:[${attacker},${victims}],
-        step(dt,time){__runtime.update?.(dt,dt,time);stepParticles(dt);shake=Math.max(0,shake-dt*2.4);flashV=Math.max(0,flashV-dt*2.2);if(flashEl)flashEl.style.opacity=flashV;},
-        render(){
-          scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
-          let extent=1;const corner=new THREE.Vector3();
-          for(const actor of [${attacker},${victims}])if(actor.root.visible){const bounds=new THREE.Box3().setFromObject(actor.root);for(let mask=0;mask<8;mask++){corner.set(mask&1?bounds.max.x:bounds.min.x,mask&2?bounds.max.y:bounds.min.y,mask&4?bounds.max.z:bounds.min.z).project(camera);if(corner.z<1)extent=Math.max(extent,Math.abs(corner.x)/.9,Math.abs(corner.y)/.88);}}
-          const fov=camera.fov;if(extent>1){camera.fov=Math.min(105,2*Math.atan(Math.tan(fov*Math.PI/360)*extent)*180/Math.PI);camera.updateProjectionMatrix();}
-          composer.render();camera.fov=fov;camera.updateProjectionMatrix();}};
+        art,nodes:[],
+        step(dt,time){__runtime.update?.(dt,dt,time);stepParticles(dt);art.update(dt,time);shake=Math.max(0,shake-dt*2.4);flashV=0;if(flashEl)flashEl.style.opacity=0;},
+        render(){art.renderCamera();composer.render();}};
     `;
-    const runtime={renderer,payload:data.payload||{},update:null,get audio(){if(!sharedAudio){sharedAudio=new (window.AudioContext||window.webkitAudioContext)();audioOutput=sharedAudio.createGain();audioOutput.connect(sharedAudio.destination);}return sharedAudio;},get audioOutput(){this.audio;return audioOutput;}};
+    const runtime={renderer,art:createArt(THREE),payload:data.payload||{},update:null,ownScene(scene){const add=scene.add;scene.add=function(...objects){for(const object of objects)collect(object);return add.apply(this,objects);};},get audio(){if(!sharedAudio){sharedAudio=new (window.AudioContext||window.webkitAudioContext)();audioOutput=sharedAudio.createGain();audioOutput.connect(sharedAudio.destination);}return sharedAudio;},get audioOutput(){this.audio;return audioOutput;}};
     const listen=(type,handler,options)=>{listeners.push([type,handler,options]);window.addEventListener(type,handler,options);};
     const timeout=(fn,ms)=>{const id=setTimeout(()=>{timers.delete(id);fn();},ms);timers.add(id);return id;};
     if(audioOutput)audioOutput.gain.value=0;
+    const previousNodes=new Set(document.body.children);
     controller=new Function('THREE','EffectComposer','RenderPass','UnrealBloomPass','OutputPass','__runtime','addEventListener','setTimeout',data.costumeLib+'\n'+code+'\n'+bridge)(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,runtime,listen,timeout);
+    controller.nodes=[...document.body.children].filter(node=>!previousNodes.has(node));
+    collect(controller.scene);
     if(audioOutput)audioOutput.gain.value=0;
     resize();controller.step(0,0);controller.render();dirty=false;
   }
@@ -114,22 +145,25 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     try{
       if(data?.type==='authored-configure'){
         initialize(data);send({type:'authored-configured',id:data.id});
-        if(data.autoPlay){playing=true;last=performance.now();}
+        if(data.autoPlay){playing=true;last=performance.now();sharedAudio?.resume().catch(()=>{});}
       }else if(data?.type==='authored-time'&&controller){
         const value=Math.max(0,Math.min(configuration.duration,Number(data.time)||0));
         if(value<time-.001)initialize(configuration);
-        target=value;playing=false;
+        target=value;playing=false;audible=!!data.audible;
       }else if(data?.type==='authored-resize'){
         resize();
+      }else if(data?.type==='authored-volume'&&configuration){
+        configuration.payload.volume=Math.max(0,Math.min(1,Number(data.volume)||0));
+        if(configuration.payload.volume>0)sharedAudio?.resume().catch(()=>{});
       }else if(data?.type==='authored-stop'){
-        playing=false;if(audioOutput)audioOutput.gain.value=0;dispose();configuration=null;
+        playing=false;audible=false;if(audioOutput)audioOutput.gain.value=0;dispose();configuration=null;
       }
     }catch(error){playing=false;send({type:'authored-error',message:String(error.message),id:data?.id});}
   });
   function frame(now){
     const elapsed=Math.min((now-last)/1000,.05);last=now;
     if(controller&&configuration){
-      if(audioOutput)audioOutput.gain.value=playing?Math.max(0,Math.min(1,Number(configuration.payload?.volume)||0)):0;
+      if(audioOutput)audioOutput.gain.value=playing||audible?Math.max(0,Math.min(1,Number(configuration.payload?.volume)||0)):0;
       if(playing)target=Math.min(configuration.duration,target+elapsed);
       while(time+1e-6<target){const dt=Math.min(1/60,target-time);time+=dt;controller.step(dt,time);dirty=true;}
       if(dirty){controller.render();dirty=false;}
@@ -143,36 +177,41 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
 export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.net/npm/three@0.164.1',onDone=()=>{},onError=()=>{}}) {
   const frame=document.createElement('iframe');frame.title='役職別キル演出';frame.tabIndex=-1;frame.setAttribute('aria-hidden','true');frame.allow='autoplay';
   frame.style.cssText='color-scheme:dark;position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;pointer-events:none;visibility:hidden';
-  let ready=false,pending=null,lastTime=null,destroyed=false;
+  let ready=false,pending=null,lastTime=null,lastAudible=false,destroyed=false;
   const post=data=>frame.contentWindow?.postMessage(data,'*');
   const receive=event=>{
     if(event.source!==frame.contentWindow||destroyed)return;
     const data=event.data;
     if(data?.type==='authored-ready'){ready=true;if(pending)post(pending);}
-    if(data?.type==='authored-configured'&&pending?.id===data.id&&lastTime!==null)post({type:'authored-time',time:lastTime});
+    if(data?.type==='authored-configured'&&pending?.id===data.id&&lastTime!==null)post({type:'authored-time',time:lastTime,audible:lastAudible});
     if(data?.type==='authored-done'&&pending?.id===data.id)onDone();
     if(data?.type==='authored-error')onError(data.message);
   };
   window.addEventListener('message',receive);
   const base=cdnBase.replace(/\/$/,'');
-  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass);<\/script></body></html>`
+  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}));<\/script></body></html>`
     .replace('<script type="module">',`<script type="importmap">${JSON.stringify({imports:{three:base+'/build/three.module.js','three/addons/':base+'/examples/jsm/'}})}<\/script><script type="module">`);
   const slash=document.createElement('div');
   slash.setAttribute('aria-hidden','true');
-  slash.style.cssText='position:absolute;inset:0;overflow:hidden;pointer-events:none;visibility:hidden';
-  slash.innerHTML=`<style>@keyframes ssx-kill-sweep{from{transform:translateX(-35%) scaleX(.1);opacity:.4}to{transform:translateX(0) scaleX(1);opacity:1}}.ssx-kill-slash-on svg{animation:ssx-kill-sweep .16s cubic-bezier(.15,.8,.25,1) both}@keyframes ssx-kill-streak{from{transform:translateX(-160px)}to{transform:translateX(160px)}}.ssx-kill-slash-on .ssx-streak{animation:ssx-kill-streak .3s linear infinite}</style>
-  <svg viewBox="0 0 1600 600" preserveAspectRatio="none" style="position:absolute;width:100%;height:84%;top:8%;left:0;overflow:visible">
-    <defs><linearGradient id="ssx-kill-red" x2="0" y2="1"><stop stop-color="#ff2929"/><stop offset=".5" stop-color="#e90b1e"/><stop offset="1" stop-color="#ab0019"/></linearGradient><linearGradient id="ssx-kill-core" x2="0" y2="1"><stop stop-color="#ff6f68"/><stop offset=".5" stop-color="#ffe0cc"/><stop offset="1" stop-color="#ff7266"/></linearGradient></defs>
-    <path fill="url(#ssx-kill-red)" d="M-120 128 90 182 32 80 230 198 192 130 372 214 330 157 534 222 508 170 710 235 672 185 858 225 815 163 1024 218 969 126 1165 205 1108 90 1320 180 1260 60 1470 172 1412 101 1720 150 1640 280 1720 430 1450 408 1524 508 1307 411 1372 527 1144 417 1203 484 1010 405 1058 468 853 398 889 455 693 401 724 478 522 407 569 479 370 403 422 510 205 399 260 493 56 402 108 478-120 431Z"/>
-    <path fill="url(#ssx-kill-core)" d="M-100 238 190 255 117 225 453 272 399 236 702 277 1000 260 923 234 1290 248 1212 217 1710 232 1710 367 1330 351 1394 382 1044 338 1104 372 760 330 493 352 552 379 225 350 284 389-100 372Z"/>
-    <g class="ssx-streak" fill="#fff6e7" opacity=".8"><path d="M-100 291 580 296 410 302-100 305ZM650 285 1330 291 1044 299 691 296ZM1110 325 1710 329 1710 338 1300 332ZM-100 331 210 328 418 334-100 337Z"/></g>
-    <g fill="none" stroke="#ff3c32" stroke-width="5" opacity=".85"><path d="M60 142 191 213 294 232M382 147 510 213 612 237M1085 144 1218 218 1410 236M180 422 369 375 466 375M1030 424 1190 366 1410 395"/></g>
-  </svg>`;
+  slash.style.cssText='position:absolute;inset:0;overflow:hidden;pointer-events:none;visibility:hidden;backdrop-filter:blur(1.5px) brightness(.66);-webkit-backdrop-filter:blur(1.5px) brightness(.66)';
+  slash.innerHTML=`<style>
+    @keyframes ssx-kill-atmosphere{0%{opacity:0;transform:scale(.96)}18%{opacity:1;transform:scale(1)}100%{opacity:.8;transform:scale(1)}}
+    @keyframes ssx-kill-light{0%{transform:translateX(-28%);opacity:0}25%{opacity:.6}100%{transform:translateX(18%);opacity:0}}
+    .ssx-kill-atmosphere{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 56%,#081523aa 0%,#08152377 27%,#08152333 49%,transparent 74%)}
+    .ssx-kill-atmosphere::before,.ssx-kill-atmosphere::after{content:'';position:absolute;left:8%;width:84%;height:1px;background:linear-gradient(90deg,transparent,var(--ssx-kill-accent,#a8deee) 45%,transparent);opacity:.28;filter:drop-shadow(0 0 5px var(--ssx-kill-accent,#a8deee));transform:rotate(-3deg)}
+    .ssx-kill-atmosphere::before{top:21%}.ssx-kill-atmosphere::after{bottom:16%;transform:rotate(2deg)}
+    .ssx-kill-slash-on .ssx-kill-atmosphere{animation:ssx-kill-atmosphere .7s cubic-bezier(.2,.75,.25,1) both}
+    .ssx-kill-rim{position:absolute;inset:6% 0;background:radial-gradient(ellipse at -8% 57%,color-mix(in srgb,var(--ssx-kill-accent,#a8deee) 20%,transparent),transparent 40%),radial-gradient(ellipse at 108% 42%,color-mix(in srgb,var(--ssx-kill-accent,#a8deee) 18%,transparent),transparent 40%)}
+    .ssx-kill-light{position:absolute;left:6%;right:6%;top:21%;height:1px;background:linear-gradient(90deg,transparent,var(--ssx-kill-accent,#a8deee),transparent);opacity:0;transform:rotate(-3deg)}
+    .ssx-kill-slash-on .ssx-kill-light{animation:ssx-kill-light .75s ease-out both}
+    @media(prefers-reduced-motion:reduce){.ssx-kill-slash-on .ssx-kill-atmosphere{animation:none}.ssx-kill-slash-on .ssx-kill-light{animation:none}}
+  </style><div class="ssx-kill-atmosphere"></div><div class="ssx-kill-rim"></div><div class="ssx-kill-light"></div>`;
   mount.append(slash,frame);
   return {
     frame,
-    configure(assets,role,payload={},autoPlay=false){const spec=authoredKillSpec(assets,role);pending={...spec,type:'authored-configure',costumeLib:assets.COSTUME_LIB_SRC||'',payload,autoPlay,id:String(payload.id||crypto.randomUUID())};lastTime=null;if(ready)post(pending);return spec;},
-    seek(time){lastTime=time;if(ready&&pending)post({type:'authored-time',time});},
+    configure(assets,role,payload={},autoPlay=false){const spec=authoredKillSpec(assets,role);const accents={samurai:'#aeeeff',viper:'#9dff83',vampire:'#bf9aff',arsonist:'#ffb86c',waveCannon:'#68edff',conjurer:'#ba9cff',rocket:'#ffcf8c'};slash.style.setProperty('--ssx-kill-accent',accents[spec.role]||'#b3d7e5');pending={...spec,type:'authored-configure',costumeLib:assets.COSTUME_LIB_SRC||'',payload,autoPlay,id:String(payload.id||crypto.randomUUID())};lastTime=null;if(ready)post(pending);return spec;},
+    seek(time,audible=false){lastTime=time;lastAudible=audible;if(ready&&pending)post({type:'authored-time',time,audible});},
+    setVolume(volume){if(pending)pending.payload.volume=Math.max(0,Math.min(1,Number(volume)||0));post({type:'authored-volume',volume});},
     show(visible){const changed=(frame.style.visibility==='visible')!==visible;frame.style.visibility=visible?'visible':'hidden';slash.style.visibility=visible?'visible':'hidden';slash.classList.toggle('ssx-kill-slash-on',visible);if(visible&&changed)post({type:'authored-resize'});},
     stop(){pending=null;lastTime=null;post({type:'authored-stop'});frame.style.visibility='hidden';slash.style.visibility='hidden';slash.classList.remove('ssx-kill-slash-on');},
     destroy(){destroyed=true;window.removeEventListener('message',receive);frame.remove();slash.remove();},
