@@ -28,9 +28,12 @@ Realtime Databaseのルールは database.rules.json にあります。GitHub Pa
 | space-suspect-complete.html | 完成版HTML |
 | space-suspect-complete.docx | 完成版HTMLのWordコピー |
 | database.rules.json | Realtime Databaseルール |
+| peer-pose-network.js | 軽量モードのWebRTC移動同期と自動復帰 |
 | `.github/workflows/pages.yml` | GitHub Actionsのビルド・Pages公開設定 |
 
 ## 確認状況
+
+2026-10-18の移動同期の変更、調査元、削減率の条件、通信と復帰の検証結果は [通信軽量化ノート](NETWORK-OPTIMIZATION-2026-10-18.md) を参照してください。
 
 全HTMLコピーと埋め込みスクリプトの構文を確認し、ブラウザーでゲーム本体と隔離した3Dロビーの起動を確認しました。Firebase Emulatorでdatabase.rules.jsonの読み込みも確認しました。実Firebaseのアカウントでの複数端末ログイン・部屋参加・会議対戦は未確認です。
 

@@ -2491,6 +2491,13 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 #gameCountdown[data-kind="post-role"] #launchLineup{display:none!important}
 #meeting #meetingStatusBar,#meetingDeadCount{display:none!important}
 </style>
+<style id="pose-sync-setting-layout-v1">
+/* Keep this setting to the same two cells as other room selectors. */
+#lobby #gmSettings #gmSettingsRoomPanel label.poseSyncSetting{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(72px,1fr)!important;align-items:center!important;gap:8px!important;min-width:0!important}
+#lobby #gmSettings #gmSettingsRoomPanel .poseSyncSetting>span{min-width:0;white-space:nowrap}
+#lobby #gmSettings #gmSettingsRoomPanel .poseSyncSetting>select{grid-column:2!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;height:40px!important;min-height:40px!important;padding:5px 9px!important;border:1px solid #5a8299!important;border-radius:9px!important;background:#10283b!important;color:#eefbff!important;font:inherit!important;line-height:1.2!important}
+@media(pointer:coarse) and (max-height:500px){#lobby #gmSettings #gmSettingsRoomPanel label.poseSyncSetting{gap:4px!important}#lobby #gmSettings #gmSettingsRoomPanel .poseSyncSetting>select{height:28px!important;min-height:28px!important;padding:2px 5px!important}}
+</style>
 </head>
 <body>
   <div id="viewport"></div>
@@ -2775,6 +2782,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label><input id="botMode" type="checkbox"> BOT追加</label>
           <label id="botCountControl" class="hidden"><input id="botCount" type="range" min="1" max="10" step="1" value="1" disabled><output id="botCountOut">1人</output></label>
           <label>近アモ（部屋全体） <input id="voiceRoomEnabled" type="checkbox"></label>
+          <label class="poseSyncSetting"><span>位置同期</span><select id="positionUpdateMode" aria-label="位置同期方式"><option value="standard">標準</option><option value="light">軽量</option></select></label>
           <label>会議 <input id="meetingSeconds" type="range" min="30" max="200" step="10" value="140"><output id="meetingSecondsOut">140秒</output></label>
           <input id="impostorCount" type="hidden" min="1" step="1" value="1">
           <input id="taskCount" type="hidden" value="6">
@@ -3257,6 +3265,8 @@ window.buildAstraMap=buildAstraMap;
       throw new Error("Three.jsの読み込みに失敗しました。上の再読み込みボタンを使用してください。");
     }
     const THREE = await loadThreeWithFallback();
+
+import { PeerPoseNetwork, POSE_CHECKPOINT_MS, POSE_FALLBACK_MS } from "./peer-pose-network.js";
 
 import { initializeApp } from
       "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -7578,7 +7588,7 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       const roleRows=document.createElement("div");roleRows.id="gmSettingsRoleDetailRows";roleRows.className="gmSettingsFieldGrid";
       const emptyDetail=document.createElement("p");emptyDetail.className="roleDetailEmptySelection";emptyDetail.textContent="役職を追加すると詳細を変更できます。";const preview=document.createElement("section");preview.id="roleSettingsPreview";preview.hidden=true;roleValues.append(preview,roleRows,emptyDetail);roleRows.addEventListener("input",updateRoleSettingsPreview);roleRows.addEventListener("change",updateRoleSettingsPreview);detailLayout.append(roleNav,roleValues);detailPanel.append(detailLayout);
       const countNodes=new Set(["roleCategoryTabs","roleCapacityWarning","roleSettingsList"]);
-      const roomIds=new Set(["waveMode","botMode","botCountControl","voiceRoomEnabled","meetingSeconds","taskCount","killCooldownSeconds","sabotageCooldownSeconds","anonymousVotes","roomViewMode","roomMapMode","ejectionRevealMode","confirmEjects"]);
+      const roomIds=new Set(["waveMode","botMode","botCountControl","voiceRoomEnabled","positionUpdateMode","meetingSeconds","taskCount","killCooldownSeconds","sabotageCooldownSeconds","anonymousVotes","roomViewMode","roomMapMode","ejectionRevealMode","confirmEjects"]);
       for(const node of old){
         if(node.matches?.("[data-role-setting]"))roleRows.append(node);
         else if(countNodes.has(node.id)||node.tagName==="STRONG"||node.id==="impostorCount")countPanel.append(node);
@@ -8018,6 +8028,8 @@ let app, auth, db, uid;
 const SPACE_SUSPECT_ADMIN_UID="dUAYnvjlbvTUluFXyQkTsAFMs1c2";
 const isSpaceSuspectAdmin=()=>Boolean(uid)&&uid===SPACE_SUSPECT_ADMIN_UID;
 let botPositions={},roomRosterRaw={};
+let peerPoseNetwork=null,peerPoseJoined=false,peerPoseUiTimer=0;
+const peerPoseLastRows=new Map(),peerPoseFirebaseAt=new Map();
 let lastAppliedTeleportEventId="";
 let accountCostume="standard";
 let profileCacheUid="",profileCache=null,profileCacheAt=0,profileFetchPromise=null,profileFetchUid="";
@@ -8925,6 +8937,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
     function mergeBots(basePlayers) {
       const merged = Object.fromEntries(
         Object.entries(basePlayers).filter(([id, player]) => player?.online===true&&!player.bot&&(hasDisplayableName(player.name)||id===uid))
+          .map(([id,player])=>[id,{...player,...(roomPeerPose(id)||{})}])
       );
       // Bots live only in the active game roster. Never resurrect them in a
       // lobby from the previous round's cached game.players snapshot.
@@ -8948,6 +8961,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
             ? Number(botPositions[id].updatedAt)
             : (connectedPlayer?.updatedAt||now())
         };
+        const directPose=roomPeerPose(id);if(directPose)merged[id]={...merged[id],...directPose};
       }
       return merged;
     }
@@ -10647,7 +10661,7 @@ async function enterRoom(roomCode, room) {
       roomEnteredAt=now();
       code = roomCode;
       scheduleFrame();
-      botPositions={};lastAppliedTeleportEventId="";
+      botPositions={};peerPoseLastRows.clear();peerPoseFirebaseAt.clear();lastAppliedTeleportEventId="";
       roomRosterRaw={...(room.players||{})};
       publishedRoleSummaryKey="";
       positionedRound = -1;
@@ -10706,9 +10720,9 @@ show("setup", false);
 const base = `rooms/${code}`;
       const playerRef = ref(db, `${base}/players/${uid}`);
       presence = onDisconnect(playerRef);
-      try{await presence.update({lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartReady:null,kartRequest:null,kartFinish:null,kartSession:null,online:false,disconnectMode:"temporary",ready:false,seated:false,sitting:false,seatId:null,lobbyY:0,updatedAt:serverTimestamp()});}
+      try{await presence.update({poseNet:null,lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartReady:null,kartRequest:null,kartFinish:null,kartSession:null,online:false,disconnectMode:"temporary",ready:false,seated:false,sitting:false,seatId:null,lobbyY:0,updatedAt:serverTimestamp()});}
       catch(error){console.warn("切断時の部屋状態を登録できませんでした。入室を続行します。",error);}
-      try{await update(playerRef,{...resetLobbyKartSession(),online:true,lastSeenAt:serverTimestamp(),updatedAt:serverTimestamp()});}
+      try{await update(playerRef,{...resetLobbyKartSession(),poseNet:null,online:true,lastSeenAt:serverTimestamp(),updatedAt:serverTimestamp()});}
       catch(error){console.warn("部屋参加後の接続状態を更新できませんでした。",error);players[uid]={...(players[uid]||{}),online:true};roomRosterRaw[uid]={...(roomRosterRaw[uid]||{}),online:true};}
       roomConnectionRef=ref(db,`${base}/activeConnections/${uid}/${token()}`);
       roomConnectionDisconnect=onDisconnect(roomConnectionRef);
@@ -10735,6 +10749,7 @@ lobbyChatInitialized=true;
 const applyRosterPlayer=(id,value,removed=false)=>{
   if(currentSession!==session)return;
   const previous=roomRosterRaw[id];
+  if(value&&(!previous||["x","z","yaw","walking","lobbyY"].some(key=>value[key]!==previous[key])))peerPoseFirebaseAt.set(id,Number(value.updatedAt)||now());
   if(previous?.online===true&&(removed||value?.online===false)&&isHost()&&code){
     const messageId=token();set(ref(db,`rooms/${code}/lobbyChat/${messageId}`),{uid:"system",name:"システム",hue:.5,text:`${previous.name||"プレイヤー"}：回線落ち`,at:now()}).catch(error=>console.warn("回線落ち表示をロビーチャットへ保存できませんでした",error));
   }
@@ -10772,6 +10787,7 @@ const applyRosterPlayer=(id,value,removed=false)=>{
 const applyBotPosition=(id,value)=>{
   if(currentSession!==session)return;
   if(!value){delete botPositions[id];return;}
+  peerPoseFirebaseAt.set(id,Number(value.updatedAt)||now());
   botPositions[id]=value;
   if(game.players?.[id]?.bot)game.players[id]={...game.players[id],...value};
   players=mergeBots(players);
@@ -11057,7 +11073,7 @@ onChildAdded(query(ref(db,`${base}/lobbyChat`),orderByChild("at"),limitToLast(40
               safeRenderUI();
             }
             await presence.update({
-              lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartReady:null,kartRequest:null,kartFinish:null,kartSession:null,online: false,disconnectMode:"temporary",ready: false,seated: false,sitting: false,seatId: null,
+              poseNet:null,lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false,lobbyVehicleX:null,lobbyVehicleZ:null,kartReady:null,kartRequest:null,kartFinish:null,kartSession:null,online: false,disconnectMode:"temporary",ready: false,seated: false,sitting: false,seatId: null,
               updatedAt: serverTimestamp()
             });
             if(isHost()){
@@ -11078,6 +11094,7 @@ onChildAdded(query(ref(db,`${base}/lobbyChat`),orderByChild("at"),limitToLast(40
         })
       );
       void hydrateRoomWinStats(currentSession,roomCode);
+      peerPoseJoined=true;syncRoomPoseNetwork();
       safeRenderUI();
     }
 
@@ -11085,7 +11102,7 @@ async function leaveRoom() {
       if (!code || leaving) return false;
       clearKillSequence();show("killAnimation",false);
       closeCostumeStudio();
-      leaving = true;resetLobbyChatSend();lobbyKartRiding=false;lobbyCircuitLocation=false;lobbyVehicleSpawned=false;lobbyKartAction="";
+      leaving = true;peerPoseJoined=false;peerPoseNetwork?.stop();resetLobbyChatSend();lobbyKartRiding=false;lobbyCircuitLocation=false;lobbyVehicleSpawned=false;lobbyKartAction="";
       $("lobbyAttachedFrame").contentWindow?.postMessage({type:"lobby-kart-session-reset"},"*");
       clearInterval(roomPresenceHeartbeatTimer);roomPresenceHeartbeatTimer=null;
       await stopVoiceChat({removePresence:true,removeSignals:true,closeContext:true}).catch(error=>console.warn("退出時の通話切断に失敗しました",error));
@@ -15362,10 +15379,10 @@ if(Object.keys(movedBots).length&&currentSession===session&&isHost()){
             if(game.players?.[botId]?.bot)game.players[botId]={...game.players[botId],...pose};
           }
           Object.assign(pendingBotPose,botPoseUpdates);
-          if(now()-lastBotPoseSendAt>=BOT_POSE_SEND_MS)flushBotPose(roomCode);
+          if(now()-lastBotPoseSendAt>=(peerPoseNetwork?.canUseDirect()?POSE_CHECKPOINT_MS:BOT_POSE_SEND_MS))flushBotPose(roomCode);
           players=mergeBots(players);safeRenderUI();
         }
-        else if(Object.keys(pendingBotPose).length&&now()-lastBotPoseSendAt>=BOT_POSE_SEND_MS&&currentSession===session&&isHost())flushBotPose(roomCode);
+        else if(Object.keys(pendingBotPose).length&&now()-lastBotPoseSendAt>=(peerPoseNetwork?.canUseDirect()?POSE_CHECKPOINT_MS:BOT_POSE_SEND_MS)&&currentSession===session&&isHost())flushBotPose(roomCode);
         const waveEvents=g.waveEvents&&typeof g.waveEvents==="object"?Object.values(g.waveEvents):g.waveEvent?[g.waveEvent]:[];
         if(g.phase==="play")for(const wave of waveEvents){
           if(!wave||now()<(wave.fireAt||0)||wave.resolved)continue;
@@ -17411,7 +17428,7 @@ function ssxUpdateRoleTransformFx(avatar,id,state,player,ctx){
 const avatars = new Map();
 // Render remote poses a short time behind receipt so irregular network updates
 // can be interpolated without changing the Firebase payload or publish cadence.
-const REMOTE_POSE_DELAY_MS=110,REMOTE_POSE_BUFFER_LIMIT=6,REMOTE_POSE_SNAP_DISTANCE=4.5;
+const REMOTE_POSE_BUFFER_LIMIT=6,REMOTE_POSE_SNAP_DISTANCE=4.5;
 function captureRemotePose(avatar,player,receivedAt,wallNow){
   const x=Number(player?.x),z=Number(player?.z);
   if(!Number.isFinite(x)||!Number.isFinite(z))return null;
@@ -18798,9 +18815,55 @@ async function handleLobbyKartMessage(data){
   }catch(error){toast('カート操作を同期できませんでした：'+errorText(error));}
 }
 
-// Keep the 10 Hz movement cadence and existing interpolation. Only transmit changed
-// fields; an idle heartbeat stays well inside ROOM_PRESENCE_GRACE_MS (60 seconds).
+// Local movement stays frame-based. Smart light mode uses a 20 Hz direct lane
+// and durable checkpoints; standard and connection recovery use 5 Hz Firebase.
 const POSE_HEARTBEAT_MS=15000;
+function roomPoseUpdateMode(){
+  const configured=game.phase==="lobby"
+    ?(game.lobbySettings?.matchSettings?.positionUpdateMode||game.lobbySettings?.positionUpdateMode)
+    :(game.settings?.positionUpdateMode||game.lobbySettings?.matchSettings?.positionUpdateMode);
+  return configured==="light"?"light":"standard";
+}
+function roomPoseSendIntervalMs(){return peerPoseNetwork?.canUseDirect()?POSE_CHECKPOINT_MS:POSE_FALLBACK_MS;}
+function remotePoseInterpolationDelayMs(id){return peerPoseNetwork?.context?.scope===roomPoseScope()&&peerPoseNetwork.poseFor(id)?(game.players?.[id]?.bot?180:100):220;}
+function roomPoseScope(){return [game.round||0,game.phase||"",game.settings?.mapMode||game.lobbySettings?.mapMode||"",game.teleportEvent?.id||""].join(":");}
+function roomPeerPose(id){
+  if(id===uid)return peerPoseJoined?{x:position.x,z:position.z,yaw:lobbyFacingYaw,walking:lobbyWalking,lobbyY:lobbyElevation,updatedAt:now()}:null;
+  const scope=roomPoseScope(),fresh=peerPoseNetwork?.context?.scope===scope?peerPoseNetwork.poseFor(id):null;
+  if(fresh)return fresh;
+  const cached=peerPoseLastRows.get(id);
+  // Hold the last received position during recovery instead of rewinding to a
+  // checkpoint from seconds earlier. A newer Firebase movement replaces it.
+  return cached?.room===code&&cached.scope===scope&&Number(cached.pose.updatedAt)>Number(peerPoseFirebaseAt.get(id)||0)?cached.pose:null;
+}
+function syncRoomPoseNetwork(){
+  if(!peerPoseJoined||roomPoseUpdateMode()!=="light"||!connected||leaving){if(peerPoseNetwork?.context)peerPoseNetwork.stop();return;}
+  if(!peerPoseNetwork)peerPoseNetwork=new PeerPoseNetwork({
+    clock:now,
+    writePresence:(value,context)=>{
+      if(code!==context.room||uid!==context.uid||session!==context.session||!connected)return;
+      return update(ref(db,`rooms/${context.room}/players/${context.uid}`),{poseNet:value});
+    },
+    writeSignal:(peerId,value,context)=>{
+      if(code!==context.room||uid!==context.uid||session!==context.session||!connected)return;
+      return set(ref(db,`rooms/${context.room}/players/${context.uid}/poseNet/signals/${peerId}`),value);
+    },
+    onReset:()=>{for(const avatar of avatars.values())delete avatar.userData.remotePoseSamples;},
+    onPoses:rows=>{
+      for(const [id,pose] of Object.entries(rows))peerPoseLastRows.set(id,{pose,room:code,scope:roomPoseScope()});
+      for(const [id,pose] of Object.entries(rows))if(game.players?.[id]?.bot){botPositions[id]={...(botPositions[id]||{}),...pose};game.players[id]={...game.players[id],...pose};}
+      players=mergeBots(roomRosterRaw);
+      if(!peerPoseUiTimer)peerPoseUiTimer=setTimeout(()=>{peerPoseUiTimer=0;safeRenderUI();},100);
+    }
+  });
+  const roster={...roomRosterRaw};
+  if(!isLobbyInteractionActive())for(const [id,p] of Object.entries(game.players||{}))if(p.bot&&!p.disconnected)roster[id]={online:true,bot:true};
+  peerPoseNetwork.configure({room:code,roomKey:`${code}:${roomCreatedAt}`,session,uid,hostId,
+    enabled:peerPoseJoined&&roomPoseUpdateMode()==="light",online:connected&&!leaving,roster,scope:roomPoseScope()});
+}
+window.__ssPoseNetworkStatus=()=>({mode:roomPoseUpdateMode(),direct:peerPoseNetwork?.canUseDirect()===true,
+  connectedPeers:peerPoseNetwork?[...peerPoseNetwork.links.values()].filter(link=>peerPoseNetwork.open(link)).length:0,
+  firebaseIntervalMs:roomPoseSendIntervalMs(),stats:{...peerPoseNetwork?.stats}});
 function compactPosePatch(next,previous){
   const patch={};
   for(const [key,value] of Object.entries(next)){
@@ -18811,7 +18874,8 @@ function compactPosePatch(next,previous){
 }
 let publishBusy = false;
     setInterval(async () => {
-      if (!code || !connected || publishBusy || !players[uid]) return;
+      syncRoomPoseNetwork();
+      if (!code || !connected || !players[uid]) return;
       const moved = distance(position, lastSent) > .025;
       const lobbyMode=isLobbyInteractionActive();
       const previous=lastSent.pose||{};
@@ -18823,8 +18887,14 @@ let publishBusy = false;
         yaw:lobbyFacingYaw,walking:lobbyWalking,
         lobbyKart:lobbyMode&&lobbyKartRiding,lobbyCircuit:lobbyMode&&lobbyCircuitLocation,
         lobbyVehicle:lobbyMode&&lobbyVehicleSpawned,kartSession,circuitCourse};
+      if(peerPoseJoined)players[uid]={...players[uid],...next,updatedAt:now()};
+      peerPoseNetwork?.publishLocal(next);
+      if(isHost())peerPoseNetwork?.publishBots(botPositions);
+      peerPoseNetwork?.tick();
+      if(publishBusy)return;
       const kartChanged=["lobbyKart","lobbyCircuit","lobbyVehicle","kartSession","circuitCourse"].some(key=>next[key]!==previous[key]);
       if (!moved && !yawChanged && !walkingChanged && !heightChanged && !kartChanged && now()-lastSent.at<POSE_HEARTBEAT_MS) return;
+      if(now()-lastSent.at<roomPoseSendIntervalMs())return;
       const roomCode=code,playerId=uid,currentSession=session;
       const patch=compactPosePatch(next,previous);
       const sent={x:next.x,z:next.z,at:now(),pose:{...previous,...patch}};
@@ -18838,7 +18908,7 @@ let publishBusy = false;
         }
       } catch(error){toast(errorText(error));}
       finally{publishBusy=false;}
-    },100);
+    },50);
 
 // ---------- UI ----------
     let waveHudMatchKey="",waveHudSeenDeaths=new Set(),waveHudTimers=new Map();
@@ -19877,7 +19947,7 @@ avatar.visible = !!code && p.online &&
           (!ghost || id === uid || viewerGhost || viewerObserver || rocketAvatarVisible) &&
           (!inRound || ghost || visibleToPlayer || viewerObserver || rocketAvatarVisible) && !phantomHidden;
 
-const remotePose=id===uid?null:sampleRemotePose(avatar,poseReceivedAt-REMOTE_POSE_DELAY_MS);
+const remotePose=id===uid?null:sampleRemotePose(avatar,poseReceivedAt-remotePoseInterpolationDelayMs(id));
 let target = id === uid ? position : (remotePose||p);
 if(ventTransition&&ventProgress<1)target={x:ventTransition.fromX+(ventTransition.toX-ventTransition.fromX)*ventEase,z:ventTransition.fromZ+(ventTransition.toZ-ventTransition.fromZ)*ventEase};
 else if(ventTransition){delete avatar.userData.ventTransition;ventTransition=null;}
@@ -23169,6 +23239,19 @@ body[data-space-launch-backdrop="true"] #viewport>canvas{opacity:0!important;poi
 }
 #gameCountdown[data-kind="meeting-return"] #gameCountdownProgress{display:none!important}
 #meeting #meetingStatusBar,#meetingDeadCount{display:none!important}
+</style>
+<style id="tablet-desktop-role-list-spacing">
+@media (pointer:fine), (min-width:768px) and (min-height:600px){
+  #roundRoles.roundRolesFitsContent[data-source]:has(#roundRoleList[data-role-layout])>.card{
+    width:min(800px,calc(100vw - 64px))!important;max-width:calc(100vw - 64px)!important;
+    height:min(var(--roles-fit-height,520px),calc(100dvh - 64px))!important;max-height:calc(100dvh - 64px)!important;
+  }
+  #roundRoles.autoLaunchRoles.roundRolesFitsContent[data-source="game"]:has(#roundRoleList[data-role-layout="quality"])>.card{
+    flex:0 1 auto!important;align-self:center!important;width:min(1080px,calc(100vw - 64px))!important;
+    max-width:min(1080px,calc(100vw - 64px))!important;height:min(88dvh,900px)!important;
+    max-height:calc(100dvh - 64px)!important;
+  }
+}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
