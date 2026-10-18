@@ -9588,6 +9588,16 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         await auth.authStateReady();
         const typedPin=$("loginPinInput")?.value||"";
         const typedName=loginMode==="login"?"":($("loginNameInput")?.value.trim().slice(0,16)||"");
+        // A page-load session restore with no saved Firebase session must simply
+        // show the PIN form. Treating that empty field as a failed PIN made an
+        // error banner appear before the user had entered anything.
+        if(!typedPin&&!auth.currentUser){
+          if(connectGeneration!==firebaseConnectGeneration)return;
+          show("nameGate",true);
+          $("setupMessage").dataset.tone="hint";
+          $("setupMessage").textContent="4桁PINを入力してください。";
+          return;
+        }
         const accountApi={
           signIn:(email,password)=>signInWithEmailAndPassword(auth,email,password),
           create:(email,password)=>createUserWithEmailAndPassword(auth,email,password),
@@ -11387,6 +11397,16 @@ hostBusy = true;
     };
 
 let appliedLobbyReturnKey="";
+function makeLobbyReturnState(source=game){
+  const lobbySpawns={};
+  for(const [id,player] of Object.entries(players||{}))if(player?.online&&!player.bot)lobbySpawns[id]=findLobbyDoorSpawn(id);
+  return {phase:"lobby",round:source.round||0,lobbyReturnId:token(),lobbySpawns,
+    roundRoleSummary:source.roundRoleSummary||null,
+    lobbySettings:{...(source.lobbySettings||{viewMode:"2d",mapMode:"classic",roles:Object.fromEntries(ROLE_OPTIONS.map(role=>[role.id,0]))}),
+      bots:typeof source.lobbySettings?.bots==="boolean"?source.lobbySettings.bots:source.settings?.bots===true,
+      botCount:clamp(Number(source.lobbySettings?.botCount??source.settings?.botCount)||1,1,10),
+      matchSettings:source.settings||source.lobbySettings?.matchSettings||null}};
+}
 function applyLobbyReturnState(){
   if(!code||!uid||game.phase!=="lobby"||!game.lobbyReturnId)return;
   const key=code+":"+game.lobbyReturnId;if(appliedLobbyReturnKey===key)return;
@@ -11518,18 +11538,9 @@ $("againBtn").onclick = async event => {
       if(hostBusy)return;
       hostBusy = true;
       try {
-        const roomCode=code,reservedLobbySpawns=[],lobbySpawns={};
-        for(const [id,p] of Object.entries(players||{}))if(p?.online&&!p.bot){
-          const spawn=findLobbyDoorSpawn(id);reservedLobbySpawns.push(spawn);lobbySpawns[id]=spawn;
-        }
+        const roomCode=code;
         // The host owns game state; each participant writes only their own roster.
-        const lobbyGame={phase:"lobby",round:game.round||0,lobbyReturnId:token(),lobbySpawns,
-          roundRoleSummary:game.roundRoleSummary||null,
-          lobbySettings:{...(game.lobbySettings||{viewMode:"2d",mapMode:"classic",roles:Object.fromEntries(ROLE_OPTIONS.map(role=>[role.id,0]))}),
-            bots:typeof game.lobbySettings?.bots==="boolean"?game.lobbySettings.bots:game.settings?.bots===true,
-            botCount:clamp(Number(game.lobbySettings?.botCount??game.settings?.botCount)||1,1,10),
-            matchSettings:game.settings||game.lobbySettings?.matchSettings||null}};
-        await set(ref(db,`rooms/${roomCode}/game`),lobbyGame);
+        await set(ref(db,`rooms/${roomCode}/game`),makeLobbyReturnState(game));
       } catch (error) {
         toast(errorText(error));
       } finally {
@@ -15318,6 +15329,17 @@ if(Object.keys(movedBots).length&&currentSession===session&&isHost()){
           for(const [waveId,wave] of Object.entries(g.waveEvents))if(wave?.resolved&&Number(wave.endsAt||0)<now()-500){delete g.waveEvents[waveId];dirty=true;}
           if(g.waveEvent?.id&&g.waveEvents[g.waveEvent.id])g.waveEvent=g.waveEvents[g.waveEvent.id];
           else if(g.waveEvent?.id&&!g.waveEvents[g.waveEvent.id])g.waveEvent=null;
+        }
+        // Persist the end time so reloads do not restart the victory screen's
+        // 15-second wait. The host also performs the lobby transition after
+        // that absolute deadline, including when it reconnects later.
+        if(g.phase==="ended"){
+          if(!Number.isFinite(Number(g.endedAt))||Number(g.endedAt)<=0){g.endedAt=now();dirty=true;}
+          else if(now()>=Number(g.endedAt)+15000){
+            const lobbyState=makeLobbyReturnState(g);
+            for(const key of Object.keys(g))delete g[key];
+            Object.assign(g,lobbyState);dirty=true;
+          }
         }
         if (dirty && currentSession === session && isHost()) {
           const revision=baseRevision;g.revision=revision+1;
@@ -22973,6 +22995,51 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
 @media(max-height:500px){#emergencyTask{padding:5px max(7px,env(safe-area-inset-right)) 5px max(7px,env(safe-area-inset-left))!important}#emergencyTask>.card{height:calc(100dvh - 10px)!important;max-height:calc(100dvh - 10px)!important;padding:7px 9px!important;gap:4px!important;border-radius:12px!important}#emergencyTitle{font-size:15px!important}#emergencyCountdown{min-width:52px;padding:4px 7px;font-size:16px}#emergencyStatus{font-size:10px!important}#emergencyCloseBtn{min-height:33px!important;min-width:68px!important;padding:5px 10px!important;font-size:12px!important}#emergencyHint{font-size:10px}#emergencyMachineStage{border-radius:8px}}
 @media(max-width:500px) and (orientation:portrait){#emergencyTask>.card{height:min(680px,calc(100dvh - 24px))!important;padding:9px!important;gap:7px!important}#emergencyTitle{font-size:16px!important}#emergencyHint{font-size:10px}#emergencyStatus{font-size:11px!important}#emergencyCountdown{font-size:16px;min-width:52px}}
 
+</style>
+<style id="ssx-phone-ui-spacing-and-width-v1">
+/* Phone-only layout refinements. Verified on landscape touch screens. */
+@media (max-width:700px) and (pointer:coarse), (max-width:1000px) and (max-height:500px) and (orientation:landscape) and (pointer:coarse){
+  html body #lobby.overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles):not(#taskGame[data-machine3d="true"]):not(#emergencyTask[data-machine3d="true"])>.card{width:calc(100vw - max(8px,env(safe-area-inset-left)) - max(8px,env(safe-area-inset-right)))!important;max-width:none!important;margin:0 auto!important;padding:6px!important}
+  html body #gmSettings.settingsRedesigned .gmSettingsShell{grid-template-columns:64px minmax(0,1fr)!important;gap:4px!important}
+  html body #gmSettings.settingsRedesigned .gmSettingsNav{gap:4px!important}
+  html body #gmSettings.settingsRedesigned .gmSettingsTab{grid-template-columns:1fr!important;justify-items:center!important;gap:2px!important;min-height:43px!important;padding:4px 2px!important}
+  html body #gmSettings.settingsRedesigned .gmSettingsTab>span:last-child{font-size:8px!important;line-height:1.1!important;white-space:nowrap!important;letter-spacing:-.035em}
+  html body #gmSettings.settingsRedesigned .gmSettingsContent{padding:4px!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:3px!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleFactionColumn{min-width:0!important;padding:3px 2px!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleFactionColumn h3{gap:2px!important;padding:4px 2px!important;font-size:9px!important;line-height:1.1!important;white-space:nowrap!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleFactionTotal{font-size:8px!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingRow,
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor{grid-template-columns:minmax(0,1fr) 22px 26px 22px!important;gap:2px!important;min-height:30px!important;padding:2px!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingName{min-width:0!important;padding:0!important;font-size:9px!important;line-height:1.1!important;overflow-wrap:anywhere!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingName>.roleSettingCount{margin-left:2px!important;padding:0 2px!important;font-size:7px!important;line-height:1.1!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingRow .roleCountStep{width:22px!important;min-width:22px!important;height:27px!important;min-height:27px!important;font-size:13px!important;line-height:1!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingRow input[type=number]{width:26px!important;min-width:26px!important;min-height:27px!important;height:27px!important;padding:1px!important;font-size:11px!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor .roleCountStep:nth-of-type(1){grid-column:2!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor input[type=number]{grid-column:3!important}
+  html body #gmSettingsRoleCountPanel #roleSettingsList .roleSettingBaseImpostor .roleCountStep:nth-of-type(2){grid-column:4!important}
+
+  html body #inputSettingsDialog.overlay:not(#setup):not(#meeting):not(#roleReveal):not(#roundRoles):not(#taskGame[data-machine3d="true"]):not(#emergencyTask[data-machine3d="true"])>.inputSettingsDialogCard{width:calc(100vw - max(8px,env(safe-area-inset-left)) - max(8px,env(safe-area-inset-right)))!important;max-width:none!important;padding:5px!important}
+  html body #inputSettingsDialog .inputSettingsShell{grid-template-columns:64px minmax(0,1fr)!important;gap:4px!important}
+  html body #inputSettingsDialog #inputSettingsNav{gap:3px!important}
+  html body #inputSettingsDialog #inputSettingsNav button{min-height:36px!important;padding:4px 2px!important;text-align:center!important;font-size:9px!important;line-height:1.1!important}
+  html body #inputSettingsDialog .inputSettingsContent{padding:5px!important}
+  html body #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceGrid{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))!important;align-content:start!important;gap:4px!important;padding:4px 0 0!important}
+  html body #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceGrid>label:not(.inputPreferenceCheck){gap:2px 5px!important;margin:0!important;padding:4px 6px!important;font-size:11px!important;line-height:1.2!important}
+  html body #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceGrid>label input[type=range]{height:23px!important;min-height:23px!important;margin:0!important}
+  html body #inputSettingsDialog [data-settings-section="operation"] .inputPreferenceCheck{min-height:32px!important;gap:6px!important;font-size:11px!important}
+  html body #inputSettingsDialog [data-settings-section="operation"] .inputKeyMap{margin:2px 0!important;padding:5px!important}
+  html body #inputSettingsDialog [data-settings-section="operation"] .inputKeyMapButtons{gap:4px!important}
+  html body #inputSettingsDialog [data-settings-section="operation"] .inputKeyMapButtons button{min-width:56px!important;min-height:34px!important;padding:4px!important}
+
+  html body #lobbyRoster{width:min(38vw,210px)!important;max-width:38vw!important}
+  html body #lobbyChat{left:auto!important;right:max(6px,env(safe-area-inset-right))!important;top:auto!important;bottom:calc(122px + env(safe-area-inset-bottom))!important;width:min(58vw,300px)!important;max-width:300px!important;height:min(34dvh,260px)!important;max-height:min(34dvh,260px)!important;z-index:24!important}
+  html body #lobbyChatToggleBtn{right:max(8px,env(safe-area-inset-right))!important;bottom:calc(72px + env(safe-area-inset-bottom))!important;top:auto!important;z-index:145!important}
+  body[data-phase="lobby"] #buttons>#jumpBtn:not(.hidden){position:fixed!important;left:auto!important;right:max(8px,env(safe-area-inset-right))!important;top:auto!important;bottom:max(8px,env(safe-area-inset-bottom))!important;transform:none!important;width:72px!important;min-width:72px!important;max-width:72px!important;height:54px!important;min-height:54px!important;max-height:54px!important;padding:4px!important;font-size:12px!important;z-index:46!important}
+  body[data-phase="lobby"] #buttons>#jumpBtn:not(.hidden),#lobbyUseBtn:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;line-height:1.15!important;font-size:16px!important;font-weight:850!important;white-space:normal!important;overflow-wrap:anywhere!important}
+  body[data-phase="lobby"] #lobbyUseBtn:not(.hidden){right:calc(max(8px,env(safe-area-inset-right)) + 80px)!important;bottom:max(8px,env(safe-area-inset-bottom))!important;width:min(100px,29vw)!important;min-width:min(100px,29vw)!important;max-width:min(100px,29vw)!important;height:54px!important;min-height:54px!important;max-height:54px!important;padding:4px!important;z-index:45!important}
+  body[data-phase="play"] #buttons>#jumpBtn:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-size:16px!important;line-height:1.15!important;font-weight:850!important}
+}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
