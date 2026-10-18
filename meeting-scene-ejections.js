@@ -158,8 +158,8 @@ function createMeetingEjections(api) {
       tags: actors.map(p => p.tag.s.uuid), costumes: actors.map(p => p.costumeRoot?.uuid || null),
       appearance: actors.map(p => ({scale:p.c.root.scale.clone(),rotation:p.c.root.rotation.clone(),
         emissive:p.c.suit.emissive.clone(),intensity:p.c.suit.emissiveIntensity})),
-      deathAt: mode === 'balance' ? 2.1 : mode === 'ufo' ? 4.6 : mode === 'rocket' ? 4.25 : mode === 'beam' ? 2.9 : mode === 'meteor' || mode === 'missile' ? 2.27 : 2.8,
-      finishAt: mode === 'balance' ? 3.7 : mode === 'ufo' ? 5.5 : mode === 'rocket' ? 5.8 : mode === 'beam' ? 4.3 : 4.1};
+      deathAt: mode === 'balance' ? 2.1 : mode === 'ufo' ? 5.35 : mode === 'rocket' ? 4.25 : mode === 'beam' ? 2.9 : mode === 'meteor' || mode === 'missile' ? 2.27 : 2.8,
+      finishAt: mode === 'balance' ? 3.7 : mode === 'ufo' ? 5.7 : mode === 'rocket' ? 5.8 : mode === 'beam' ? 4.3 : 4.1};
     api.setBusy(true);api.hideOutcome();
     if (state.isMe) api.voice('start');
     for (const p of actors) {p.meetingActorBusy = true;p.ejectionStarted = true;p.dying = true;p.pinned = null;}
@@ -237,12 +237,17 @@ function createMeetingEjections(api) {
           actors.forEach(p => {p.c.root.position.y = api.top - (mode === 'meteor' ? .4 : 5 * q * q);p.c.root.rotation.z = q * .8;});
         }
       } else if (mode === 'ufo') {
-        const {root, beam} = state.prop;root.visible = t > .65 && t < 5.2;
+        const {root, beam} = state.prop;root.visible = t > .65 && t < state.deathAt;
         root.position.set(0, 6.25, -12 * (1 - ease(clamp((t - .65) / 1.1))));root.rotation.y = t * .45;
         beam.visible = t > 1.8 && t < state.deathAt;beam.material.opacity = .12 + Math.sin(t * 14) * .025;
         const lift = ease(clamp((t - 2.1) / 2.5));
-        if (t > 2.1) actors.forEach(p => {p.c.root.position.set(Math.sin(t * 4) * .08, api.top + .13 + lift * 4.5, 0);p.c.root.rotation.y = t * .7;});
-        if (t > 4.6) root.position.z -= (t - 4.6) ** 2 * 22;
+        const departure = Math.max(0, t - 4.6);
+        if (departure) root.position.z -= departure ** 2 * 22;
+        if (t > 2.1) actors.forEach(p => {
+          const carriedY = api.top + .13 + lift * 4.5 + departure ** 2 * 6;
+          p.c.root.position.set(Math.sin(t * 4) * .08, carriedY, root.position.z);
+          p.c.root.rotation.y = t * .7;
+        });
       } else if (mode === 'balance') {
         if (t > .9 && !state.broken) {
           state.broken = true;api.breakTable();
@@ -292,14 +297,17 @@ function createMeetingEjections(api) {
       const base = p.c.root.position, moving = p.meetingActorBusy || p.pinned != null;
       const anchor = v(moving ? base.x : p.x, moving ? base.y + 2.35 : 2.6, moving ? base.z : p.z);
       const ndc = anchor.clone().project(camera);
-      if (ndc.z < -1 || ndc.z > 1 || Math.abs(ndc.x) > 1.2 || Math.abs(ndc.y) > 1.2) continue;
-      const labels = [p.tag, p.roleTag, p.voteCheck, p.voteTally].filter(L => L?.s.visible);
+      // Move the real label sprites before the offscreen check. When an actor
+      // leaves with the UFO, its name must leave with it instead of freezing
+      // at the last visible screen position.
       p.tag.s.position.copy(anchor);
       if (moving) {
         if (p.roleTag) p.roleTag.s.position.copy(anchor).add(v(0,p.voted ? 1.02 : .4,0));
         if (p.voteCheck) p.voteCheck.s.position.copy(anchor).add(v(0,.54,0));
         if (p.voteTally) p.voteTally.s.position.copy(anchor).add(v(0,1.45,0));
       }
+      if (ndc.z < -1 || ndc.z > 1 || Math.abs(ndc.x) > 1.2 || Math.abs(ndc.y) > 1.2) continue;
+      const labels = [p.tag, p.roleTag, p.voteCheck, p.voteTally].filter(L => L?.s.visible);
       const screen = ndc.clone();
       let boxWidth = 0, blockTop = 0, blockBottom = 0;
       const projectedLabels = labels.map(L => {
