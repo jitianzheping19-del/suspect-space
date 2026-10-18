@@ -29,7 +29,14 @@ Realtime Databaseのルールは database.rules.json にあります。GitHub Pa
 | space-suspect-complete.docx | 完成版HTMLのWordコピー |
 | database.rules.json | Realtime Databaseルール |
 | peer-pose-network.js | 軽量モードのWebRTC移動同期と自動復帰 |
+| play-action-layout.css | iPad・PCの試合中の操作ボタン配置 |
 | `.github/workflows/pages.yml` | GitHub Actionsのビルド・Pages公開設定 |
+
+## iPad・PCの試合中のボタン配置
+
+`play-action-layout.css` に3列の配置を集約。以前の `:has()` による2列・4列指定が高い優先度で残り、PCでジャンプとキルが同じセルに入り、iPadで通報が4列目に移動していた。独立したCSSレイヤーで優先順位を決め、ボタン高64px・間隔12px・追加能力は3段目に統一した。低いPC画面では高さ52pxにする。
+
+両HTMLの実際のCSSとボタンDOMから、PC 1280×800、タッチ画面1024×768・1180×820・1366×1024の配置値を取得。市民・通常人狼・特殊能力あり・サブキルありで同一セルの競合と4列目へのはみ出しを解消した。
 
 ## 確認状況
 
