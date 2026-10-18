@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#07111f">
-  <title>SPACE SUSPECT | 被害者側キル演出プレビュー</title>
+  <title>SPACE SUSPECT | キル演出・3視点プレビュー</title>
   <style>
     :root{color-scheme:dark;--ink:#eaf7ff;--muted:#96afc3;--cyan:#79e7ed;--line:#75c5d944;--panel:#091726;--accent:#ff526a}
     *{box-sizing:border-box}
@@ -19,6 +19,10 @@
     .brand small{display:block;color:#8fa9ba;font-size:10px;letter-spacing:.14em;margin-top:2px}
     .live{display:flex;align-items:center;gap:8px;color:#a9c5d4;font-size:12px;font-weight:750;white-space:nowrap}
     .live i{width:8px;height:8px;border-radius:50%;background:#67edb8;box-shadow:0 0 12px #67edb8}
+    .viewPicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;padding:10px 18px;border-bottom:1px solid var(--line);background:#091523}
+    .viewTabs{display:flex;gap:5px;flex:none}.viewTabs button{padding:9px 13px;border:1px solid #446679;border-radius:9px;background:#0d2030;color:#acc4d4;font-size:12px;font-weight:800;cursor:pointer;touch-action:manipulation}
+    .viewTabs button[aria-selected="true"]{background:#164851;border-color:#84e8e6;color:#efffff;box-shadow:inset 0 1px #b5ffff22}
+    .viewDescription{flex:1;min-width:190px;margin:0;color:#aac4d2;font-size:11px;line-height:1.5}
     .stage{position:relative;height:min(68vh,700px);min-height:430px;background:#0a1420;overflow:hidden;isolation:isolate}
     #scene{display:block;width:100%;height:100%;touch-action:none}
     .hud{position:absolute;inset:0;pointer-events:none;z-index:2}
@@ -61,17 +65,25 @@
       .caption{top:24%;font-size:17px}.ghostNotice{top:36%;font-size:16px;padding:10px 12px}.timelineLabel{left:10px;bottom:10px;font-size:9px}
       .controls{padding:12px 11px 10px}.steps{gap:2px;margin-bottom:10px}.step{display:grid;justify-items:center;gap:4px;font-size:9px;text-align:center;line-height:1.1}.step b{width:19px;height:19px}.transport{grid-template-columns:auto minmax(0,1fr) auto;gap:7px}.controlBtn{height:40px;min-width:40px;padding:0 9px;font-size:12px}.controlBtn.primary{min-width:72px}.scrubberWrap{grid-template-columns:34px minmax(0,1fr) 34px;gap:4px;font-size:9px}.speed{min-width:58px;height:40px;padding:0 4px;font-size:11px}.foot{padding:0 11px 10px;font-size:9px}
     }
-    @media(max-height:500px) and (orientation:landscape){body{padding:4px}.app{min-height:0}.top{min-height:42px}.stage{height:calc(100svh - 143px);min-height:220px;flex:1}.controls{padding:7px 12px}.steps{margin-bottom:5px}.step{font-size:9px}.step b{width:17px;height:17px}.controlBtn,.speed{height:34px}.foot{display:none}.statePill{top:10px}}
+    @media(max-height:500px) and (orientation:landscape){body{padding:4px}.app{min-height:0}.top{min-height:36px;padding:5px 12px}.viewPicker{padding:5px 12px;gap:6px 12px}.viewTabs button{padding:6px 10px;font-size:11px}.viewDescription{font-size:10px}.stage{height:calc(100svh - 192px);min-height:170px;flex:1}.controls{padding:7px 12px}.steps{margin-bottom:5px}.step{font-size:9px}.step b{width:17px;height:17px}.controlBtn,.speed{height:34px}.foot{display:none}.statePill{top:10px}.hudTop{top:9px}.objective{width:170px}.miniPanel{font-size:9px;padding:5px 8px}.caption{top:25%}.ghostNotice{top:35%;font-size:16px}}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
   </style>
 </head>
 <body>
   <main class="app" aria-label="キルアニメーションの再生プレビュー">
     <header class="top">
-      <div class="brand"><span class="mark" aria-hidden="true">S</span><div><strong>SPACE SUSPECT</strong><small>VICTIM-SIDE DEATH PREVIEW</small></div></div>
-      <div class="live"><i aria-hidden="true"></i><span>試合中 · 被害者視点</span></div>
+      <div class="brand"><span class="mark" aria-hidden="true">S</span><div><strong>SPACE SUSPECT</strong><small>KILL PERSPECTIVES</small></div></div>
+      <div class="live"><i aria-hidden="true"></i><span id="viewLabel">殺される側</span></div>
     </header>
-    <section class="stage" aria-label="試合中の3Dシーン">
+    <section class="viewPicker" aria-label="確認する視点">
+      <div class="viewTabs" role="tablist" aria-label="キルの視点">
+        <button id="viewVictim" type="button" role="tab" aria-selected="true" aria-controls="previewStage" data-view="victim">殺される側</button>
+        <button id="viewAttacker" type="button" role="tab" aria-selected="false" aria-controls="previewStage" data-view="attacker" tabindex="-1">殺す側</button>
+        <button id="viewWitness" type="button" role="tab" aria-selected="false" aria-controls="previewStage" data-view="witness" tabindex="-1">第三者</button>
+      </div>
+      <p class="viewDescription" id="viewDescription">本人だけに、背景透過のキル演出を表示します。</p>
+    </section>
+    <section class="stage" id="previewStage" role="tabpanel" aria-labelledby="viewVictim" aria-label="試合中の3Dシーン">
       <canvas id="scene"></canvas>
       <div class="hud" aria-hidden="true">
         <div class="hudTop">
@@ -98,16 +110,19 @@
           <button class="controlBtn primary" id="playBtn" type="button">▶ 再生</button>
           <button class="controlBtn" id="replayBtn" type="button" aria-label="最初から再生">↺</button>
         </div>
-        <label class="scrubberWrap"><span id="currentTime">0.0s</span><input id="scrubber" type="range" min="0" max="7" step="0.01" value="0" aria-label="アニメーションの再生位置"><span>7.0s</span></label>
+        <label class="scrubberWrap"><span id="currentTime">0.0s</span><input id="scrubber" type="range" min="0" max="8.5" step="0.01" value="0" aria-label="アニメーションの再生位置"><span>8.5s</span></label>
         <select class="speed" id="speed" aria-label="再生速度"><option value="0.65">0.65×</option><option value="1" selected>1×</option><option value="1.35">1.35×</option></select>
       </div>
     </section>
-    <div class="foot">暗い別画面に切り替えず、試合中の背景を残したまま、キル・倒れる動き・幽霊化を続けて再生します。再生位置をドラッグして途中から確認できます。</div>
+    <div class="foot">同じキルを3つの視点で確認できます。第三者と殺す側は、キル成立と同時に死体だけを表示します。再生バーを動かすと、その瞬間を比べられます。</div>
   </main>
   <script type="module">
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
     const embedded=window.__SS_KILL_EMBED__===true;
+    const viewOptions={victim:{label:'殺される側',description:'本人だけに、本番と同じ背景透過のキル演出を表示します。'},attacker:{label:'殺す側',description:'キル演出は表示せず、相手がすぐ死体になります。操作画面はそのままです。'},witness:{label:'第三者',description:'演出・倒れる動き・幽霊の出現はなく、キル成立と同時に死体になります。'}};
+    const requestedView=new URLSearchParams(location.search).get('view');
+    let perspective=Object.hasOwn(viewOptions,requestedView)?requestedView:'victim';
     const canvas=document.querySelector('#scene'),stage=document.querySelector('.stage');
     const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:embedded,powerPreference:'high-performance'});
     renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.setSize(stage.clientWidth,stage.clientHeight,false);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
@@ -173,37 +188,73 @@
     const sparks=[];for(let i=0;i<30;i++){const mesh=new THREE.Mesh(new THREE.IcosahedronGeometry(.035+(i%3)*.012,0),new THREE.MeshBasicMaterial({color:i%3===0?'#fff2de':i%3===1?'#ff4d68':'#ffb0bf',transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending}));overlayScene.add(mesh);sparks.push({mesh,angle:i*2.3999632297,speed:.8+(i%7)*.17,up:.35+(i%5)*.13});}
     const shadow=new THREE.Mesh(new THREE.CircleGeometry(.75,36),new THREE.MeshBasicMaterial({color:'#02060a',transparent:true,opacity:.35,depthWrite:false}));shadow.position.set(.65,-1.17,.55);shadow.scale.set(1,.28,1);overlayScene.add(shadow);
 
+    // These actors remain in the playfield. Only the victim's view composites
+    // the existing kill clip over this scene; other views swap straight to a corpse.
+    const world=new THREE.Group();scene.add(world);
+    const worldVictim=makeCrew('#46c4e6','レモン'),worldKiller=makeCrew('#ee5368','ユウ'),worldWitness=makeCrew('#eacb62','ソラ');
+    for(const actor of [worldVictim,worldKiller,worldWitness]){world.add(actor);actor.scale.setScalar(.9);}
+    worldWitness.position.set(3.6,0,-1.5);worldWitness.rotation.y=-.8;
+    const corpse=new THREE.Group();world.add(corpse);corpse.position.set(.72,0,0);corpse.scale.setScalar(.9);
+    const corpseSuit=new THREE.Mesh(new THREE.CapsuleGeometry(.4,.55,4,9),mat('#46c4e6',.52));corpseSuit.rotation.z=Math.PI/2;corpseSuit.position.y=.35;corpse.add(corpseSuit);
+    const corpseBone=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.5,8),mat('#f2eadf'));corpseBone.rotation.z=Math.PI/2;corpseBone.position.set(.65,.35,0);corpse.add(corpseBone);
+    const blood=new THREE.Mesh(new THREE.CircleGeometry(.72,24),mat('#9d1c35',.7,0,{transparent:true,opacity:.78}));blood.rotation.x=-Math.PI/2;blood.position.y=.025;corpse.add(blood);
+    const corpseTag=worldVictim.userData.tag.clone();corpseTag.position.set(0,1.05,0);corpse.add(corpseTag);
+    corpse.traverse(object=>{if(object.isMesh){object.castShadow=true;object.receiveShadow=true;}});
+    world.visible=!embedded;
+
     let killRunId="",killVolume=.7;
-    const duration=7,clock=new THREE.Clock();let current=0,playing=false,playStart=0,fromTime=0,lastTime=0;
+    const killMoment=1.5,duration=embedded?7:8.5;let current=0,playing=false,playStart=0,fromTime=0,lastTime=0;
     const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)};const mix=(a,b,t)=>a+(b-a)*t;const between=(t,a,b)=>smooth((t-a)/(b-a));
     const statePill=document.querySelector('#statePill'),caption=document.querySelector('#caption'),ghostNotice=document.querySelector('#ghostNotice'),timelineLabel=document.querySelector('#timelineLabel'),flash=document.querySelector('#flash'),scrubber=document.querySelector('#scrubber'),currentTime=document.querySelector('#currentTime'),playBtn=document.querySelector('#playBtn');
-    const stages=[{at:0,label:'通常プレイ',pill:'試合中 · タスクへ移動',cap:''},{at:1.5,label:'人狼が接近',pill:'試合中 · 接近に気づいていない',cap:'背後から接近'},{at:2.45,label:'キル発生',pill:'キルされました',cap:''},{at:3.35,label:'倒れる',pill:'死亡 · 幽霊化まで',cap:''},{at:4.55,label:'ゴースト化',pill:'ゴースト · 船内を見渡す',cap:'幽霊として試合に残る'}];
-    let flashAt=-100;
+    const stages=[{at:0,label:'通常プレイ',pill:'試合中 · タスクへ移動',cap:''},{at:.65,label:'人狼が接近',pill:'試合中 · 接近',cap:''},{at:killMoment,label:'キル発生',pill:'キルされました',cap:''},{at:killMoment+3.35,label:'倒れる',pill:'死亡 · 幽霊化まで',cap:''},{at:killMoment+4.55,label:'ゴースト化',pill:'ゴースト · 船内を見渡す',cap:'幽霊として試合に残る'}];
+    document.querySelectorAll('.step').forEach((element,index)=>element.dataset.at=String(stages[index].at));
+    function updateWorld(t){
+      const dead=t>=killMoment,localGhost=perspective==='victim'&&t>=duration;
+      const approach=between(t,0,killMoment),leave=between(t,killMoment+.7,killMoment+2.2);
+      worldKiller.position.set(mix(-2.9,-.65,approach)-leave*2.1,0,.12+leave*.7);worldKiller.rotation.y=leave>0?-1.3:Math.PI/2;
+      const gait=Math.sin(t*9)*.25*((t<killMoment||leave>0&&leave<1)?1:0);
+      worldKiller.userData.legs.forEach((leg,index)=>leg.rotation.x=gait*(index?1:-1));
+      worldVictim.position.set(.72,localGhost ? .35 : 0,0);worldVictim.rotation.set(0,0,0);worldVictim.visible=!dead||localGhost;
+      worldVictim.userData.materials.forEach(material=>{material.transparent=localGhost;material.opacity=localGhost ? .48 : 1;material.depthWrite=!localGhost;});
+      worldVictim.userData.legs.forEach(leg=>leg.visible=!localGhost);
+      corpse.visible=dead;
+      // No kill pose, flash, ghost or camera cut is applied to the attacker or witness.
+      worldKiller.userData.knife.visible=false;worldWitness.userData.knife.visible=false;
+    }
     function updateAt(t){
-      current=Math.max(0,Math.min(duration,t));const approach=between(current,1.05,2.1),strike=between(current,2.22,2.46),fall=between(current,2.48,3.35),ghost=between(current,4.05,4.9),leave=between(current,3.1,4.0);const step=Math.sin(current*10);
+      current=Math.max(0,Math.min(duration,t));const clipTime=embedded?current:Math.max(0,current-killMoment);const approach=between(clipTime,1.05,2.1),strike=between(clipTime,2.22,2.46),fall=between(clipTime,2.48,3.35),ghost=between(clipTime,4.05,4.9),leave=between(clipTime,3.1,4.0);const step=Math.sin(clipTime*10);
       // The room stays on the victim's live screen. Character models are rendered
       // as a transparent center overlay, like the in-game kill animation.
-      const victimRecoil=(1-between(current,2.43,2.75))*strike;victim.visible=current>=1.48;victim.scale.setScalar(1.38);victim.position.set(.72+victimRecoil*.18-fall*.35,-1.55-fall*.08+ghost*.84,.35);victim.rotation.set(.03*Math.sin(current*4)*(1-fall),.08,-fall*1.08*(1-ghost)+ghost*.08-victimRecoil*.2);
-      const walk=current<1.05?1:1-between(current,1.05,1.5);victim.userData.legs[0].rotation.x=step*.38*walk;victim.userData.legs[1].rotation.x=-step*.38*walk;victim.userData.arms[0].rotation.x=-step*.22*walk;victim.userData.arms[1].rotation.x=step*.22*walk;
-      killer.visible=current>=1.1&&current<3.58;killer.scale.setScalar(1.38);killer.position.set(mix(-4.2,-1.05,approach)-leave*2.3,-1.55,.45);killer.rotation.set(0,.05+approach*.12,leave*.18);
-      killer.userData.legs[0].rotation.x=-step*.38*(1-approach+leave);killer.userData.legs[1].rotation.x=step*.38*(1-approach+leave);killer.userData.arms[1].rotation.x=mix(0,-1.2,strike)*(1-leave);killer.userData.knife.visible=current>2.22&&current<2.88;killer.userData.knife.rotation.x=.18+strike*.9;
-      const cut=between(current,2.32,2.48)*(1-between(current,2.82,3.02));cutGroup.scale.set(mix(.001,1.18,cut),1,1);cutGroup.position.x=mix(-1.1,0,cut);cutGroup.children.forEach(mesh=>mesh.material.opacity=mesh.userData.baseOpacity*cut);
-      const ringAge=Math.max(0,current-2.42);hitRing.position.set(.72,-.32,.8);hitRing.scale.setScalar(.45+ringAge*2.7);hitRing.material.opacity=current>2.4&&current<3.05?Math.max(0,.85-ringAge*1.3):0;
-      for(const [i,p] of sparks.entries()){const age=current-2.43;if(age>=0&&age<.75){const burst=smooth(age/.18),fade=1-smooth(age/.68),r=burst*age*p.speed;p.mesh.visible=true;p.mesh.position.set(.72+Math.cos(p.angle)*r,-.18+p.up*age*1.7+Math.sin(i*5)*.06,1.1+Math.sin(p.angle)*r);p.mesh.material.opacity=fade*.9;}else{p.mesh.visible=false;p.mesh.material.opacity=0;}}
-      const aliveOpacity=1-ghost*.48;for(const m of victim.userData.materials){m.transparent=ghost>.01;m.opacity=aliveOpacity;m.depthWrite=ghost<.05;}victim.userData.halo.visible=ghost>.08;victim.userData.halo.material.opacity=Math.min(.88,ghost*.9);victim.userData.halo.rotation.z=current*1.6;victim.userData.ghostGlow.material.opacity=ghost*.16;victim.userData.ghostGlow.scale.setScalar(1+ghost*.14);shadow.material.opacity=current>=1.48&&current<3.6?.25*(1-ghost*.8):0;
-      let stageIndex=0;for(let i=0;i<stages.length;i++)if(current>=stages[i].at)stageIndex=i;const phase=stages[stageIndex];statePill.textContent=phase.pill;statePill.classList.toggle('ghost',stageIndex>=4);caption.textContent=phase.cap;caption.classList.toggle('show',!!phase.cap&&current<phase.at+1.12);ghostNotice.classList.toggle('show',current>=4.65&&current<6.7);
+      const victimRecoil=(1-between(clipTime,2.43,2.75))*strike;victim.visible=clipTime>=1.48;victim.scale.setScalar(1.38);victim.position.set(.72+victimRecoil*.18-fall*.35,-1.55-fall*.08+ghost*.84,.35);victim.rotation.set(.03*Math.sin(clipTime*4)*(1-fall),.08,-fall*1.08*(1-ghost)+ghost*.08-victimRecoil*.2);
+      const walk=clipTime<1.05?1:1-between(clipTime,1.05,1.5);victim.userData.legs[0].rotation.x=step*.38*walk;victim.userData.legs[1].rotation.x=-step*.38*walk;victim.userData.arms[0].rotation.x=-step*.22*walk;victim.userData.arms[1].rotation.x=step*.22*walk;
+      killer.visible=clipTime>=1.1&&clipTime<3.58;killer.scale.setScalar(1.38);killer.position.set(mix(-4.2,-1.05,approach)-leave*2.3,-1.55,.45);killer.rotation.set(0,.05+approach*.12,leave*.18);
+      killer.userData.legs[0].rotation.x=-step*.38*(1-approach+leave);killer.userData.legs[1].rotation.x=step*.38*(1-approach+leave);killer.userData.arms[1].rotation.x=mix(0,-1.2,strike)*(1-leave);killer.userData.knife.visible=clipTime>2.22&&clipTime<2.88;killer.userData.knife.rotation.x=.18+strike*.9;
+      const cut=between(clipTime,2.32,2.48)*(1-between(clipTime,2.82,3.02));cutGroup.scale.set(mix(.001,1.18,cut),1,1);cutGroup.position.x=mix(-1.1,0,cut);cutGroup.children.forEach(mesh=>mesh.material.opacity=mesh.userData.baseOpacity*cut);
+      const ringAge=Math.max(0,clipTime-2.42);hitRing.position.set(.72,-.32,.8);hitRing.scale.setScalar(.45+ringAge*2.7);hitRing.material.opacity=clipTime>2.4&&clipTime<3.05?Math.max(0,.85-ringAge*1.3):0;
+      for(const [i,p] of sparks.entries()){const age=clipTime-2.43;if(age>=0&&age<.75){const burst=smooth(age/.18),fade=1-smooth(age/.68),r=burst*age*p.speed;p.mesh.visible=true;p.mesh.position.set(.72+Math.cos(p.angle)*r,-.18+p.up*age*1.7+Math.sin(i*5)*.06,1.1+Math.sin(p.angle)*r);p.mesh.material.opacity=fade*.9;}else{p.mesh.visible=false;p.mesh.material.opacity=0;}}
+      const aliveOpacity=1-ghost*.48;for(const m of victim.userData.materials){m.transparent=ghost>.01;m.opacity=aliveOpacity;m.depthWrite=ghost<.05;}victim.userData.halo.visible=ghost>.08;victim.userData.halo.material.opacity=Math.min(.88,ghost*.9);victim.userData.halo.rotation.z=clipTime*1.6;victim.userData.ghostGlow.material.opacity=ghost*.16;victim.userData.ghostGlow.scale.setScalar(1+ghost*.14);shadow.material.opacity=clipTime>=1.48&&clipTime<3.6?.25*(1-ghost*.8):0;
+      const victimView=embedded||perspective==='victim';
+      updateWorld(current);
+      let stageIndex=0;for(let i=0;i<stages.length;i++)if(current>=stages[i].at)stageIndex=i;const phase=stages[stageIndex];
+      statePill.textContent=victimView?phase.pill:current>=killMoment?(perspective==='witness'?'第三者 · 死体だけ表示':'殺す側 · キル成立 / 操作継続'):'試合中 · '+viewOptions[perspective].label;
+      statePill.classList.toggle('ghost',victimView&&stageIndex>=4);
+      caption.textContent=victimView?phase.cap:'';caption.classList.toggle('show',victimView&&!!phase.cap&&current<phase.at+1.12);
+      ghostNotice.classList.toggle('show',victimView&&clipTime>=4.65&&clipTime<6.7);
       timelineLabel.textContent=`${String(Math.floor(current/60)).padStart(2,'0')}:${(current%60).toFixed(1).padStart(4,'0')} · ${phase.label}`;
       document.querySelectorAll('.step').forEach((el,i)=>{const at=Number(el.dataset.at);el.classList.toggle('active',i===stageIndex);el.classList.toggle('past',i<stageIndex);});
       if(!scrubber.matches(':active'))scrubber.value=String(current);currentTime.textContent=current.toFixed(1)+'s';
-      if(current>=2.42&&lastTime<2.42){flash.classList.remove('hit');void flash.offsetWidth;flash.classList.add('hit');}
-      lastTime=current;renderFrame();
+      if(victimView&&clipTime>=2.42&&lastTime<2.42){flash.classList.remove('hit');void flash.offsetWidth;flash.classList.add('hit');}
+      if(!victimView)flash.classList.remove('hit');
+      lastTime=clipTime;renderFrame();
     }
-    function renderFrame(){renderer.clear();if(!embedded)renderer.render(scene,camera);renderer.clearDepth();renderer.render(overlayScene,overlayCamera);}
+    function victimOverlayVisible(){return embedded||perspective==='victim'&&current>=killMoment&&current<duration;}
+    function renderFrame(){renderer.clear();if(!embedded)renderer.render(scene,camera);if(victimOverlayVisible()){renderer.clearDepth();renderer.render(overlayScene,overlayCamera);}}
     function frame(){requestAnimationFrame(frame);if(playing){const speed=Number(document.querySelector('#speed').value)||1;updateAt(fromTime+(performance.now()-playStart)/1000*speed);if(current>=duration){playing=false;playBtn.textContent='▶ 再生';if(embedded&&killRunId){parent.postMessage({type:'ss-kill-done',id:killRunId},'*');killRunId='';}}}else renderFrame();}
     function play(){if(current>=duration)updateAt(0);playing=true;fromTime=current;playStart=performance.now();playBtn.textContent='Ⅱ 一時停止';}
     playBtn.addEventListener('click',()=>{if(playing){playing=false;playBtn.textContent='▶ 再生';}else play();});
     document.querySelector('#replayBtn').addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(0);play();});
     scrubber.addEventListener('input',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(scrubber.value));});
+    document.querySelector('#speed').addEventListener('change',()=>{fromTime=current;playStart=performance.now();});
     document.querySelectorAll('.step').forEach(el=>el.addEventListener('click',()=>{playing=false;playBtn.textContent='▶ 再生';updateAt(Number(el.dataset.at));}));
     const resize=()=>{const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();const halfWidth=Math.max(3.1,4*w/h),halfHeight=halfWidth*h/w;overlayCamera.left=-halfWidth;overlayCamera.right=halfWidth;overlayCamera.top=halfHeight;overlayCamera.bottom=-halfHeight;overlayCamera.updateProjectionMatrix();renderFrame();};window.addEventListener('resize',resize);new ResizeObserver(resize).observe(stage);
 
@@ -219,9 +270,25 @@
       applyLiveCostume(killer,data.killerCostume);applyLiveCostume(victim,data.victimCostume);
       updateAt(0);resize();play();
     });
-    window.SpaceSuspectVictimPreview={seek(value){playing=false;updateAt(value)},play,resize,getState:()=>({time:current,playing,embedded,killerVisible:killer.visible,victimVisible:victim.visible,killerColor:killer.userData.suit.color.getHexString(),victimColor:victim.userData.suit.color.getHexString()})};
+    function setPerspective(view){
+      if(embedded||!Object.hasOwn(viewOptions,view))return;
+      perspective=view;playing=false;playBtn.textContent='▶ 再生';flash.classList.remove('hit');
+      const option=viewOptions[view];document.querySelector('#viewLabel').textContent=option.label;document.querySelector('#viewDescription').textContent=option.description;
+      document.querySelectorAll('[data-view]').forEach(button=>{const active=button.dataset.view===view;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
+      stage.setAttribute('aria-labelledby',{victim:'viewVictim',attacker:'viewAttacker',witness:'viewWitness'}[view]);
+      const labels=view==='victim'?['試合中','接近','キル','倒れる','ゴースト化']:['試合中','接近','死体に切替','通常画面','そのまま'];
+      document.querySelectorAll('.step span').forEach((element,index)=>element.textContent=labels[index]);
+      if(view==='attacker')camera.position.set(-1.2,4.5,7.6);else if(view==='witness')camera.position.set(4.4,6.3,8.7);else camera.position.set(.72,4.7,8.3);
+      camera.lookAt(.5,.55,0);updateAt(current);
+      const url=new URL(location.href);url.searchParams.set('view',view);history.replaceState(null,'',url);
+    }
+    document.querySelectorAll('[data-view]').forEach(button=>{
+      button.addEventListener('click',()=>setPerspective(button.dataset.view));
+      button.addEventListener('keydown',event=>{const tabs=[...document.querySelectorAll('[data-view]')],index=tabs.indexOf(button);let next=index;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();setPerspective(tabs[next].dataset.view);tabs[next].focus();});
+    });
+    window.SpaceSuspectVictimPreview={seek(value){playing=false;playBtn.textContent='▶ 再生';updateAt(value)},play,resize,setPerspective,getState:()=>({time:current,playing,embedded,perspective,killMoment,duration,overlayVisible:victimOverlayVisible(),corpseVisible:corpse.visible,worldVictimVisible:worldVictim.visible,ghostVisible:perspective==='victim'&&current>=duration,killerVisible:victimOverlayVisible()&&killer.visible,victimVisible:victimOverlayVisible()&&victim.visible,killerColor:killer.userData.suit.color.getHexString(),victimColor:victim.userData.suit.color.getHexString()})};
 
-    resize();updateAt(0);requestAnimationFrame(frame);
+    resize();setPerspective(perspective);updateAt(0);requestAnimationFrame(frame);
   </script>
 </body>
 </html>

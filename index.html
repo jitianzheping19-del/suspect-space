@@ -19739,13 +19739,7 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         const viewRange=waveHawkVision?fullMapSightRadius():(hawkBoosted?hawkVisionRadius():lighterSightRadius(me))*(curseActive?clamp(Number(me?.revenantCurseVisionScale)||.35,.12,1):1);
         const visibleToPlayer = id === uid || viewerCanSeeRoles || waveHawkVision || hawkBoosted || viewerGhost || viewerObserver ||
           (distance(position, p) <= viewRange && !wallBetween(position, p));
-        const recentDeathAt=Number(game.deathRecords?.[id]?.at||state?.deathAt||0),deathAgeRender=now()-recentDeathAt;
-        const matchingKillEvent=game.killEvent?.victim===id&&Math.abs(Number(game.killEvent.at)-recentDeathAt)<1200;
-        const deathPosition=game.bodies?.[id]||(matchingKillEvent?game.killEvent:p);
-        const deathFall=!rocketFlightActive&&matchingKillEvent&&state?.alive===false&&recentDeathAt>0&&deathAgeRender>=0&&deathAgeRender<3000&&
-          (viewerGhost||viewerObserver);
-        if(deathFall)ghost=false;
-        if(deathFall){const killerState=game.players?.[state?.killedById]||null;playMapKillFxOnce(id,p.x,p.z,game.deathRecords?.[id]?.at||state?.deathAt||0,{role:killerState?.role||"",subrole:killerState?.subrole||""});}
+        // Death swaps directly to the corpse; other viewers get no collapse animation.
         const phantomActive = inRound && !ghost && state?.alive !== false && (state?.phantomUntil || 0) > now();
         const phantomHidden = phantomActive && id !== uid;
 
@@ -19753,10 +19747,10 @@ avatar.visible = !!code && p.online &&
           (!inRound || !!state) && ventTransitionVisible &&
           !hideDeadAvatarFromLiving && !state?.disconnected &&
           (!ghost || id === uid || viewerGhost || viewerObserver || rocketAvatarVisible) &&
-          (!inRound || ghost || visibleToPlayer || viewerObserver || deathFall || rocketAvatarVisible) && !phantomHidden;
+          (!inRound || ghost || visibleToPlayer || viewerObserver || rocketAvatarVisible) && !phantomHidden;
 
 const remotePose=id===uid?null:sampleRemotePose(avatar,poseReceivedAt-REMOTE_POSE_DELAY_MS);
-let target = id === uid ? position : deathFall ? deathPosition : (remotePose||p);
+let target = id === uid ? position : (remotePose||p);
 if(ventTransition&&ventProgress<1)target={x:ventTransition.fromX+(ventTransition.toX-ventTransition.fromX)*ventEase,z:ventTransition.fromZ+(ventTransition.toZ-ventTransition.fromZ)*ventEase};
 else if(ventTransition){delete avatar.userData.ventTransition;ventTransition=null;}
 const captiveBy=state?.rocketCapturedBy||state?.penguinCapturedBy;
@@ -19844,21 +19838,6 @@ if(movingSample){if(!(id===uid&&game.phase==="play"&&game.settings?.viewMode==="
         const jumpAt=Math.max(id===uid&&localJump?.room===code&&localJump.round===game.round?Number(localJump.at)||0:0,Number(p.jumpAt)||0,Number(p.jumpStartedAt)||0,Number(state?.jumpAt)||0);
         if(id===uid&&game.phase==="play"&&game.settings?.viewMode==="3d"&&cameraPerspective==="first")avatar.visible=false;
         applyLightJump(avatar,legs,jumpAt,now(),game.phase==="play"&&!ghost&&!state?.ventId,dt);
-        const deathAt=Number(game.deathRecords?.[id]?.at||state?.deathAt||0),killAge=now()-deathAt;
-        const isRecentVictim=deathFall&&deathAt>0&&killAge>=0&&killAge<3000&&state?.alive===false,collapse=avatar.userData.killCollapseRestore;
-        if(isRecentVictim){
-          const body=avatar.userData.body;
-          if(!collapse)avatar.userData.killCollapseRestore={bodyY:body.position.y,bodyZ:body.rotation.z,bodyScaleY:body.scale.y,legs:legs.map(leg=>leg.rotation.x)};
-          const base=avatar.userData.killCollapseRestore,fall=Math.min(1,killAge/520),settle=1-Math.pow(1-fall,3);
-          body.rotation.z=base.bodyZ+(id.charCodeAt(0)%2?1:-1)*settle*.34;
-          body.position.y=base.bodyY-settle*.42;
-          body.scale.y=base.bodyScaleY*(1-settle*.22);
-          legs.forEach((leg,index)=>{leg.rotation.x=base.legs[index]+(index?1:-1)*settle*.42;});
-        }else if(collapse){
-          avatar.userData.body.rotation.z=collapse.bodyZ;avatar.userData.body.position.y=collapse.bodyY;avatar.userData.body.scale.y=collapse.bodyScaleY;
-          legs.forEach((leg,index)=>{leg.rotation.x=collapse.legs[index];});
-          delete avatar.userData.killCollapseRestore;
-        }
         /* OCT11_ROLE_TRANSFORM_FX_HOOK: value-diffed, viewer-local role visuals. */
         ssxUpdateRoleTransformFx(avatar,id,state,p,{inRound,visible:avatar.visible,visibleToPlayer,ghost,time,desiredHue:suitHue,dt});
       }
