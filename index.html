@@ -2786,6 +2786,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label><input id="botMode" type="checkbox"> BOT追加</label>
           <label id="botCountControl" class="hidden"><input id="botCount" type="range" min="1" max="10" step="1" value="1" disabled><output id="botCountOut">1人</output></label>
           <label>近アモ（部屋全体） <input id="voiceRoomEnabled" type="checkbox"></label>
+          <label>位置同期 <select id="positionUpdateMode"><option value="standard">標準（5回/秒）</option><option value="light">軽量（2.5回/秒）</option></select><small>通信量を調整します。管理人が選び、部屋全員に適用されます。</small></label>
           <label>会議 <input id="meetingSeconds" type="range" min="30" max="200" step="10" value="140"><output id="meetingSecondsOut">140秒</output></label>
           <input id="impostorCount" type="hidden" min="1" step="1" value="1">
           <input id="taskCount" type="hidden" value="6">
@@ -17462,7 +17463,7 @@ function ssxUpdateRoleTransformFx(avatar,id,state,player,ctx){
 const avatars = new Map();
 // Render buffered remote poses behind receipt time so the lower network cadence
 // can be interpolated smoothly while local movement remains frame-based.
-const REMOTE_POSE_DELAY_MS=220,REMOTE_POSE_BUFFER_LIMIT=6,REMOTE_POSE_SNAP_DISTANCE=4.5;
+const REMOTE_POSE_BUFFER_LIMIT=6,REMOTE_POSE_SNAP_DISTANCE=4.5;
 function captureRemotePose(avatar,player,receivedAt,wallNow){
   const x=Number(player?.x),z=Number(player?.z);
   if(!Number.isFinite(x)||!Number.isFinite(z))return null;
@@ -18855,10 +18856,18 @@ async function handleLobbyKartMessage(data){
   }catch(error){toast('カート操作を同期できませんでした：'+errorText(error));}
 }
 
-// Keep local movement frame-based; cap network position updates at 5 Hz and interpolate
-// the buffered remote poses to hide the wider update interval. Only transmit changed
-// fields; an idle heartbeat stays well inside ROOM_PRESENCE_GRACE_MS (60 seconds).
+// Keep local movement frame-based. The host-selected room mode caps network pose
+// updates at 5 Hz (standard) or 2.5 Hz (light); remote poses are buffered to match.
+// Only transmit changed fields; idle heartbeats stay within the presence grace window.
 const POSE_HEARTBEAT_MS=15000;
+function roomPoseUpdateMode(){
+  const configured=game.phase==="lobby"
+    ?(game.lobbySettings?.matchSettings?.positionUpdateMode||game.lobbySettings?.positionUpdateMode)
+    :(game.settings?.positionUpdateMode||game.lobbySettings?.matchSettings?.positionUpdateMode);
+  return configured==="light"?"light":"standard";
+}
+function roomPoseSendIntervalMs(){return roomPoseUpdateMode()==="light"?400:200;}
+function remotePoseInterpolationDelayMs(){return roomPoseUpdateMode()==="light"?440:220;}
 function compactPosePatch(next,previous){
   const patch={};
   for(const [key,value] of Object.entries(next)){
@@ -18899,6 +18908,7 @@ let publishBusy = false;
         lobbyVehicle:lobbyMode&&lobbyVehicleSpawned,kartSession,circuitCourse};
       const kartChanged=["lobbyKart","lobbyCircuit","lobbyVehicle","kartSession","circuitCourse"].some(key=>next[key]!==previous[key]);
       if (!moved && !yawChanged && !walkingChanged && !heightChanged && !kartChanged && now()-lastSent.at<POSE_HEARTBEAT_MS) return;
+      if(now()-lastSent.at<roomPoseSendIntervalMs())return;
       const roomCode=code,playerId=uid,currentSession=session;
       const patch=compactPosePatch(next,previous);
       const sent={x:next.x,z:next.z,at:now(),pose:{...previous,...patch}};
@@ -18912,7 +18922,7 @@ let publishBusy = false;
         }
       } catch(error){toast(errorText(error));}
       finally{publishBusy=false;}
-    },200);
+    },100);
 
 // ---------- UI ----------
     let waveHudMatchKey="",waveHudSeenDeaths=new Set(),waveHudTimers=new Map();
@@ -19952,7 +19962,7 @@ avatar.visible = !!code && p.online &&
           (!ghost || id === uid || viewerGhost || viewerObserver || rocketAvatarVisible) &&
           (!inRound || ghost || visibleToPlayer || viewerObserver || rocketAvatarVisible) && !phantomHidden;
 
-const remotePose=id===uid?null:sampleRemotePose(avatar,poseReceivedAt-REMOTE_POSE_DELAY_MS);
+const remotePose=id===uid?null:sampleRemotePose(avatar,poseReceivedAt-remotePoseInterpolationDelayMs());
 let target = id === uid ? position : (remotePose||p);
 if(ventTransition&&ventProgress<1)target={x:ventTransition.fromX+(ventTransition.toX-ventTransition.fromX)*ventEase,z:ventTransition.fromZ+(ventTransition.toZ-ventTransition.fromZ)*ventEase};
 else if(ventTransition){delete avatar.userData.ventTransition;ventTransition=null;}
