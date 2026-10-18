@@ -10866,9 +10866,15 @@ const reconcileGameState=previousGame=>{
           updateVoiceReceiveGates();
           for(const [id,player] of Object.entries(game.players||{})){
             const previous=previousGame.players?.[id];
-            if(previous&&!!player.ventId!==!!previous.ventId){
-              const ventId=player.ventId||previous.ventId;
-              if(ventId){ventLidOpenUntil.set(ventId,performance.now()+(player.ventId?1050:800));const avatar=avatars.get(id);if(avatar&&player.alive===true)beginVentTraversal(avatar,player,!!player.ventId);}
+            if(previous&&String(player.ventId||"")!==String(previous.ventId||"")){
+              const currentVentId=String(player.ventId||""),previousVentId=String(previous.ventId||""),ventId=currentVentId||previousVentId;
+              if(currentVentId&&previousVentId){setVentLidAnimation(previousVentId,id,0);setVentLidAnimation(currentVentId,id,0);}
+              else if(ventId)setVentLidAnimation(ventId,id,currentVentId?1050:800);
+              const avatar=avatars.get(id);
+              if(avatar&&player.alive===true){
+                if(currentVentId&&previousVentId){avatar.userData.wasVented=true;avatar.userData.lastVentId=currentVentId;delete avatar.userData.ventTransition;avatar.visible=false;}
+                else beginVentTraversal(avatar,player,!!currentVentId);
+              }
             }
           }
           if(game.round!==previousGame.round || (game.phase==="lobby" && previousGame.phase!=="lobby"))resetRoundUI();
@@ -12840,7 +12846,10 @@ function setActionButtonCaption(button,fullLabel,mobileLabel){
 }
 function renderVentPanel() {
   const me=self(),vent=VENT_BY_ID.get(me?.ventId);
-  const active=game.phase==="play" && !!vent && !!me?.alive;
+  const avatar=avatars.get(uid),transition=avatar?.userData?.ventTransition;
+  const entryAnimationActive=!!me?.ventId&&transition?.entering===true&&sampleVentTraversal(transition,performance.now(),true).visible;
+  const active=game.phase==="play" && !!vent && !!me?.alive && !entryAnimationActive;
+  if(me?.ventId&&!entryAnimationActive&&avatar)avatar.visible=false;
   show("ventTravel",active);
   if(!active){ventPanelKey="";return;}
   $("ventLocation").textContent=vent.room+" ／ ベント内";
@@ -17017,9 +17026,9 @@ function label(text, color = "#edf7ff", width = 3.2, background = true) {
 function drawMicOverlayOnNameTag(sprite,name,color,muted,visible=true,speaking=false){
   if(!visible)return;
   const canvas=sprite?.material?.map?.image,ctx=canvas?.getContext("2d");if(!ctx)return;
-  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.textBaseline="middle";ctx.textAlign="left";ctx.font="900 48px sans-serif";
-  ctx.lineWidth=10;ctx.strokeStyle="#06101b";ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.lineJoin="round";ctx.strokeText(name,88,48,410);ctx.fillStyle=color;ctx.fillText(name,88,48,410);
-  ctx.textAlign="center";ctx.font="900 44px sans-serif";ctx.lineWidth=7;ctx.strokeStyle="#06101b";ctx.strokeText("🎙",44,48,74);ctx.fillStyle=muted?"#dce7ee":speaking?"#00ff78":"#c8ffe9";ctx.shadowColor=speaking?"#00ff78":"transparent";ctx.shadowBlur=speaking?22:0;ctx.fillText("🎙",44,48,74);ctx.shadowBlur=0;
+  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.textBaseline="middle";ctx.textAlign="center";ctx.font="900 48px sans-serif";
+  ctx.lineWidth=10;ctx.strokeStyle="#06101b";ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.lineJoin="round";ctx.strokeText(name,256,48,350);ctx.fillStyle=color;ctx.fillText(name,256,48,350);
+  ctx.font="900 44px sans-serif";ctx.lineWidth=7;ctx.strokeStyle="#06101b";ctx.strokeText("🎙",44,48,74);ctx.fillStyle=muted?"#dce7ee":speaking?"#00ff78":"#c8ffe9";ctx.shadowColor=speaking?"#00ff78":"transparent";ctx.shadowBlur=speaking?22:0;ctx.fillText("🎙",44,48,74);ctx.shadowBlur=0;
   if(muted){ctx.strokeStyle="#ff536b";ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(24,27);ctx.lineTo(64,69);ctx.moveTo(64,27);ctx.lineTo(24,69);ctx.stroke();}
   sprite.material.map.needsUpdate=true;sprite.scale.set(Math.min(5.1,3+name.length*.2),Math.min(5.1,3+name.length*.2)*96/512,1);
 }
@@ -17854,6 +17863,17 @@ function beginVentTraversal(avatar,state,entering,stamp=performance.now()){
   const vent=VENT_BY_ID.get(state?.ventId||avatar.userData.lastVentId),toX=Number(vent?.x??state?.x),toZ=Number(vent?.z??state?.z);
   avatar.userData.wasVented=entering;if(entering)avatar.userData.lastVentId=state.ventId;
   return avatar.userData.ventTransition={entering,startedAt:stamp,duration:entering?880:700,fromX:avatar.position.x,fromZ:avatar.position.z,toX:Number.isFinite(toX)?toX:avatar.position.x,toZ:Number.isFinite(toZ)?toZ:avatar.position.z};
+}
+function setVentLidAnimation(ventId,playerId,duration){
+  if(!ventId)return;
+  const id=String(ventId),owner=String(playerId||"");let active=ventLidOpenUntil.get(id);
+  if(duration>0){if(!active){active=new Map();ventLidOpenUntil.set(id,active);}active.set(owner,performance.now()+duration);}
+  else if(active){active.delete(owner);if(!active.size)ventLidOpenUntil.delete(id);}
+}
+function ventLidIsOpening(ventId,stamp){
+  const active=ventLidOpenUntil.get(String(ventId));if(!active)return false;let opening=false;
+  for(const [owner,until] of active){if(until<=stamp)active.delete(owner);else opening=true;}
+  if(!active.size)ventLidOpenUntil.delete(String(ventId));return opening;
 }
 function sampleVentTraversal(transition,stamp,isVented){
   if(!transition)return{progress:1,ease:1,offsetY:0,scaleY:1,visible:!isVented};
@@ -19047,27 +19067,15 @@ function renderUI() {
       show("gameCountdown", countdownVisible);
       document.body.dataset.gameCountdown=String(countdownVisible);document.body.dataset.controlsCountdown=String(countdownVisible&&!waveCountdown);
       const rolesDuringCountdown=$("roundRoles");
-      const launchRolesKey=`${code}:${game.round}:${Number(game.countdownEndsAt)||0}`;
-      const showLaunchRoles=phase==="play"&&countdownLeft>0&&game.countdownKind==="launch"&&Number(game.meetingCount||0)===0;
       const awaitingLaunchReveal=phase==="play"&&pendingRoleReveal?.room===code&&Number(pendingRoleReveal?.round)===Number(game.round);
       const launchRevealVisible=phase==="play"&&game.countdownKind==="launch"&&Number(game.meetingCount||0)===0&&
         (countdownLeft>0||awaitingLaunchReveal||roleRevealOpen||postRoleCountdown);
       document.body.dataset.spaceLaunchBackdrop=String(launchRevealVisible);
-      if(showLaunchRoles){
-        clearTimeout(window.__launchRolesCloseTimer);window.__launchRolesCloseTimer=0;
-        if(rolesDuringCountdown.dataset.autoLaunchKey!==launchRolesKey){
-          rolesDuringCountdown.dataset.autoLaunchKey=launchRolesKey;
-          if(rolesDuringCountdown.dataset.autoDismissedKey!==launchRolesKey){
-            rolesDuringCountdown.dataset.source="game";rolesDuringCountdown.dataset.returnToLobby="false";
-            renderRoundRoleList("game",lobbyRosterSettings(game.lobbySettings),game);
-            rolesDuringCountdown.classList.add("autoLaunchRoles");show("roundRoles",true);
-          }
-        }
-      }else if(rolesDuringCountdown.classList.contains("autoLaunchRoles")&&!awaitingLaunchReveal){
+      if(rolesDuringCountdown.classList.contains("autoLaunchRoles")){
         clearTimeout(window.__launchRolesCloseTimer);window.__launchRolesCloseTimer=0;
         rolesDuringCountdown.classList.remove("autoLaunchRoles");show("roundRoles",false);rolesDuringCountdown.dataset.source="";
       }
-      $("gameCountdown").classList.toggle("withAutoLaunchRoles",showLaunchRoles&&rolesDuringCountdown.classList.contains("autoLaunchRoles"));
+      $("gameCountdown").classList.remove("withAutoLaunchRoles");
       const countdownProgress=document.querySelector("#gameCountdownProgress i");
       if(countdownProgress){const duration=postRoleCountdown?3:game.settings?.waveMode&&game.settings.waveMode!=="normal"?10:5;countdownProgress.style.transform=`scaleX(${Math.max(0,Math.min(1,countdownValue/duration))})`;}
 
@@ -19616,7 +19624,7 @@ if (phase === "ended") {
       const nearbyRoleDoor=me?.subrole==="doorer"?nearestRoleShipDoor(position,game):null;
       const knownRoleActionBlocked=me?.subrole==="doorer"&&!nearbyRoleDoor||me?.subrole==="lightkeeper"&&!(game.sabotage?.type==="lights"&&Number(game.sabotage?.endsAt)>now())||me?.subrole==="navigator"&&!knownRoleHasCorpse||me?.subrole==="cupid"&&(!!me.cupidUsed||knownRoleCupidTargets<2);
       const available=phase==="play"&&special&&(me?.alive||me?.subrole==="guardianAngel"||me?.subrole==="revenant"&&me?.alive===false&&!!me?.revenantCurseReady||me?.subrole==="mirage"&&me?.alive===false)&&(me?.subrole!=="mirage"||me?.alive===false);
-      show("abilityBtn",available);
+      show("abilityBtn",available);$("buttons").dataset.impostorNoSpecialAbility=String(phase==="play"&&me?.role==="impostor"&&!available);
       let effectName="",effectUntil=0,effectTotal=0;
       if(phase==="play"&&me?.alive&&!me?.ventId){
         if(me.subrole==="phantom"){effectName="透明化";effectUntil=Number(me.phantomUntil)||0;effectTotal=7000;}
@@ -19778,7 +19786,7 @@ function frame(time) {
         else if(machine.type==="reactor-ring")machine.object.position.y=1.4+Math.sin(time*.0018+machine.phase)*.6;
       }
       if(game.phase!=="lobby")for(const [id,vent] of ventMeshes){
-        const opening=(ventLidOpenUntil.get(id)||0)>time;
+        const opening=ventLidIsOpening(id,time);
         vent.lid.rotation.x+=((opening?-.9:0)-vent.lid.rotation.x)*Math.min(1,dt*11);
       }
 
@@ -19921,8 +19929,9 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         const isVented=!!state?.ventId,ventNow=performance.now();
         let ventTransition=avatar.userData.ventTransition;
         if(state?.alive!==true||game.phase!=="play"){delete avatar.userData.ventTransition;ventTransition=null;avatar.userData.wasVented=isVented;}
-        else if(avatar.userData.wasVented===undefined)avatar.userData.wasVented=isVented;
+        else if(avatar.userData.wasVented===undefined){avatar.userData.wasVented=isVented;if(isVented){avatar.userData.lastVentId=String(state?.ventId||"");delete avatar.userData.ventTransition;}}
         else if(avatar.userData.wasVented!==isVented)ventTransition=beginVentTraversal(avatar,state,isVented,ventNow);
+        else if(isVented&&String(avatar.userData.lastVentId||"")!==String(state?.ventId||"")){setVentLidAnimation(avatar.userData.lastVentId,id,0);setVentLidAnimation(state?.ventId,id,0);avatar.userData.wasVented=true;avatar.userData.lastVentId=String(state.ventId||"");delete avatar.userData.ventTransition;ventTransition=null;}
         const ventSample=sampleVentTraversal(ventTransition,ventNow,isVented),ventProgress=ventSample.progress,ventEase=ventSample.ease;
         const ventTransitionVisible=ventSample.visible;
         const ventEntryInProgress=isVented&&ventTransition?.entering===true&&ventTransitionVisible;
@@ -20977,7 +20986,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
     new Set;
     const insertMarkup = () => {
         const rolePreview = byId("lobbyRolePreview");
-        if (rolePreview && !byId("ssxLobbyBrief")) rolePreview.insertAdjacentHTML("afterend", `\n      <section id="ssxLobbyBrief" aria-label="現在のルールとマップ設定">\n        <div class="ssx-brief-heading"><strong>今回の航海</strong><span id="ssxBalanceBadge"></span></div>\n        <div id="ssxRuleSummary"></div>\n        <p id="ssxMapLore"></p>\n        <div id="ssxBalanceMeter" aria-live="polite"></div>\n      </section>`);
+        byId("ssxLobbyBrief")?.remove();
         const gmSettings = byId("gmSettings");
         if (gmSettings && !byId("ssxResetRoomSettings")) gmSettings.insertAdjacentHTML("beforeend", `\n      <div id="ssxResetBlock"><button id="ssxResetRoomSettings" type="button">部屋設定を初期値に戻す</button><small id="ssxResetStatus" role="status"></small></div>`);
         const hud = byId("hud");
@@ -21312,7 +21321,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
   addEventListener("resize",clampStickPosition);window.visualViewport?.addEventListener("resize",clampStickPosition);
   clampStickPosition();
   const inputSettingsDialog=document.getElementById("inputSettingsDialog");
-  const openInputSettings=()=>{window.__releaseRemappedInput?.();window.__spaceInputKeys.clear();window.__spaceInputVector={x:0,z:0};inputSettingsDialog?.classList.remove("hidden");window.dispatchEvent(new CustomEvent("spacesuspect:input-settings-open"));};
+  const openInputSettings=()=>{const roles=document.getElementById("roundRoles");if(roles&&!roles.classList.contains("autoLaunchRoles")){roles.classList.add("hidden");roles.dataset.source="";roles.dataset.returnToLobby="false";}window.__releaseRemappedInput?.();window.__spaceInputKeys.clear();window.__spaceInputVector={x:0,z:0};inputSettingsDialog?.classList.remove("hidden");window.dispatchEvent(new CustomEvent("spacesuspect:input-settings-open"));};
   const closeInputSettings=()=>{window.__releaseRemappedInput?.();window.__spaceInputKeys.clear();window.__spaceInputVector={x:0,z:0};inputSettingsDialog?.classList.add("hidden");window.dispatchEvent(new CustomEvent("spacesuspect:input-settings-close"));};
   window.__openSpaceInputSettings=openInputSettings;window.__closeSpaceInputSettings=closeInputSettings;
   document.getElementById("titleInputSettingsBtn")?.addEventListener("click",openInputSettings);
@@ -23252,6 +23261,24 @@ body[data-space-launch-backdrop="true"] #viewport>canvas{opacity:0!important;poi
     max-width:min(1080px,calc(100vw - 64px))!important;height:min(88dvh,900px)!important;
     max-height:calc(100dvh - 64px)!important;
   }
+}
+</style>
+
+<style id="countdown-clean-role-layer-v1">
+body[data-space-launch-backdrop="true"] :is(#role,#roundRoleBtn,#lobbyShowRoles,#roundRoles,#titleInputSettingsBtn,#audioSettingsBtn,#mapBtn){display:none!important;visibility:hidden!important;pointer-events:none!important}
+#inputSettingsDialog,#profileSettings{z-index:1500!important}
+body:has(#inputSettingsDialog:not(.hidden)) #roundRoleBtn,
+body:has(#inputSettingsDialog:not(.hidden)) #roundRoles,
+body:has(#profileSettings:not(.hidden)) #roundRoleBtn,
+body:has(#profileSettings:not(.hidden)) #roundRoles,
+body:has(#lobby:not(.hidden)) #roundRoleBtn,
+body:has(#lobby:not(.hidden)) #roundRoles,
+body:has(#audioSettingsPanel:not(.hidden)) #roundRoleBtn,
+body:has(#audioSettingsPanel:not(.hidden)) #roundRoles{display:none!important;visibility:hidden!important;pointer-events:none!important}
+@media (pointer:fine), (min-width:900px) and (pointer:coarse){
+  #roundRoles[data-source="game"]:not(.autoLaunchRoles)>.card,
+  #roundRoles[data-source="lobby"]:not(.autoLaunchRoles)>.card{transform:translateY(-12px)!important}
+  body[data-phase="play"] #roundRoleBtn{top:max(4px,calc(env(safe-area-inset-top) + 2px))!important}
 }
 </style>
 </body>
