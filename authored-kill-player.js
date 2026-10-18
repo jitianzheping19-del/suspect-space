@@ -68,7 +68,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     code=code.replace(/new \(window.AudioContext\|\|window.webkitAudioContext\)\(\)/g,'__runtime.audio');
     const actors={impostor:['killer','victim,victimB'],jackal:['jk','vic'],sheriff:['she','tgt,crewMis'],samurai:['sam','...vics'],slugger:['sl','vic'],vampire:['vamp','vic'],viper:['viper','vic'],penguin:['peng','vic'],rocket:['rk','vic'],arsonist:['ars','...tg'],conjurer:['cj','vic'],waveCannon:['jk','vic'],suicideBomber:['bom','...vics']};
     const [attacker,victims]=actors[data.role];
-    const starts={impostor:'play("knife");',jackal:'reset();startShow(killTick,1.8);',sheriff:'startShow(shootTick(false),1.7,reset);',samurai:'startShow(slashTick,1.9,reset);',slugger:'startShow(swingTick,1.6,reset);',vampire:'startAcceptedRoleKill({...payload,mode:"death"});',viper:'startAcceptedRoleKill(payload);',penguin:'startShow(captureTick,2.6,reset);',rocket:'startShow(launchTick,3,reset);',arsonist:'reset();tg.forEach(oil);startShow(igniteTick(),4.4);',conjurer:'startShow(conjureTick,2.4,reset);',waveCannon:'startShow(blastTick,1.9,reset);',suicideBomber:'startShow(boomTick,2.6,reset);'};
+    const starts={impostor:'play("knife");',jackal:'reset();startShow(killTick,1.8);',sheriff:'startShow(shootTick(false),1.7,reset);',samurai:'startShow(slashTick,1.9,reset);',slugger:'startShow(swingTick,1.6,reset);',vampire:'startAcceptedRoleKill({...payload,mode:"death"});',viper:'startAcceptedRoleKill(payload);',penguin:'startShow(captureTick,2.6,reset);',rocket:'startShow(launchTick,3,reset);',arsonist:'reset();tg.forEach((target,index)=>{if(!payload.victims||index<payload.victims.length)oil(target);else target.root.visible=false;});startShow(igniteTick(),4.4);',conjurer:'startShow(conjureTick,2.4,reset);',waveCannon:'startShow(blastTick,1.9,reset);',suicideBomber:'startShow(boomTick,2.6,reset);'};
     // Original role-only hats are placeholders; substitute the players' outfits
     // when actual game data is available, leaving original demo outfits otherwise.
     code=code.replace(/c\.torso\.add\(g\);return g;/g,'g.userData.authoredHat=true;c.torso.add(g);return g;');
@@ -82,7 +82,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
       }
       const payload=__runtime.payload;
       dress(${attacker},payload.killerColor,payload.killerCostume);
-      for(const actor of [${victims}])dress(actor,payload.victimColor,payload.victimCostume);
+      for(const [index,actor] of [${victims}].entries())dress(actor,payload.victims?.[index]?.color||payload.victimColor,payload.victims?.[index]?.costume||payload.victimCostume);
       ${starts[data.role]}
       ${data.role==='impostor'?'':'show.after=()=>{};'}
       return {scene,camera,composer,actors:[${attacker},${victims}],
