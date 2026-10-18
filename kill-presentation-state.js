@@ -22,6 +22,7 @@ function addPlayback(game,playerId,key,role,kind,stamp){
   presentation.untilAt=Math.max(Number(presentation.untilAt)||0,stamp+duration);
   // A disconnected or outdated client cannot leave the room locked indefinitely.
   presentation.deadlineAt=Math.max(Number(presentation.deadlineAt)||0,stamp+15000);
+  if(kind==='victory')presentation.hasVictory=true;
   if(player&&!player.bot&&!player.disconnected&&(!player.observer||kind==='victory'))
     (presentation.pending||={})[playerId]={key:String(key),kind,role};
   delete presentation.completedAt;
@@ -35,7 +36,18 @@ export function registerDeathPlayback(game,event,stamp){
   return true;
 }
 export function registerWinningPlayback(game,stamp){
-  if(game.phase!=='ended'||game.winner!=='arsonist')return false;
+  if(game.phase!=='ended')return false;
+  if(game.winner!=='arsonist'){
+    const event=game.killEvent,killerId=String(event?.killer||''),victim=game.players?.[event?.victim],killer=game.players?.[killerId];
+    const endedAt=Number(game.endedAt)||stamp,eventAt=Number(event?.at)||0;
+    if(!event?.id||!killerId||!killer||killer.alive!==true||!victim||victim.alive!==false||eventAt<endedAt-2500||eventAt>stamp+1000||killer.bot||killer.disconnected)return false;
+    const key=`victory:${game.round}:last-kill:${event.id}`;
+    if(game.winningKillPlayback?.key===key)return false;
+    const role=resolveAuthoredKillRole(event.cause||victim.deathCause,killer);
+    game.winningKillPlayback={key,player:killerId,role};
+    addPlayback(game,killerId,key,role,'victory',stamp);
+    return true;
+  }
   const winner=Object.entries(game.players||{}).find(([,player])=>player?.alive&&!player.observer&&!player.disconnected&&player.subrole==='arsonist');
   if(!winner)return false;
   const [id]=winner,key=`victory:${game.round}:arsonist`;
@@ -55,7 +67,7 @@ export function presentationReadyAt(game){
   return Math.max(Number(presentation.untilAt)||0,Number(presentation.completedAt)||0,
     pendingViewers(game,presentation).length?Number(presentation.deadlineAt)||0:0);
 }
-export function killPresentationActive(game,stamp){return presentationReadyAt(game)>stamp;}
+export function killPresentationActive(game,stamp){return !!currentPresentation(game)?.hasVictory&&presentationReadyAt(game)>stamp;}
 export function completeKillPlayback(game,playerId,key,stamp){
   const presentation=currentPresentation(game),entry=presentation?.pending?.[playerId];
   if(!entry||entry.key!==String(key)||stamp>Number(presentation.deadlineAt))return false;
