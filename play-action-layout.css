@@ -159,4 +159,61 @@
   @media (pointer: fine) and (max-height: 600px) {
     body[data-phase="play"] #buttons { --play-action-height: 66px; }
   }
+
+  /* The start countdown stays visually quiet; crew are revealed on the
+     dedicated role screen, and the progress bar is not useful here. */
+  #gameCountdown #gameCountdownProgress,
+  #gameCountdown #launchLineup {
+    display: none !important;
+  }
+
+  /* Keep the Use target easy to hit while giving adjacent actions a little
+     more breathing room. */
+  body[data-phase="play"] #buttons > #taskBtn:not(.hidden) {
+    width: 92% !important;
+    max-width: 92% !important;
+    justify-self: center !important;
+    margin-inline: auto !important;
+  }
+
+  @media (pointer: coarse) and (max-width: 700px) {
+    #roleReveal { padding: 8px !important; }
+    #roleReveal > .card {
+      width: 92vw !important;
+      max-width: 92vw !important;
+      max-height: 88dvh !important;
+      padding: 14px !important;
+    }
+    #roleReveal #roleTeam { font-size: clamp(13px, 3.6vw, 18px) !important; }
+    #roleReveal #roleRevealTitle {
+      font-size: clamp(25px, 6.4vw, 42px) !important;
+      line-height: 1.12 !important;
+    }
+    #roleReveal #roleRevealName { font-size: clamp(14px, 3.7vw, 19px) !important; }
+    #roleReveal #roleRevealText {
+      max-width: 100% !important;
+      font-size: clamp(14px, 3.7vw, 17px) !important;
+      line-height: 1.4 !important;
+    }
+    #roleReveal #roleLineup {
+      min-height: 102px !important;
+      max-height: 22dvh !important;
+      gap: 10px !important;
+      margin-block: 10px !important;
+    }
+    #roleReveal .revealCrew {
+      flex-basis: 45px !important;
+      width: 45px !important;
+      height: 66px !important;
+      transform: none !important;
+      margin-inline: 0 !important;
+    }
+    #roleReveal .revealCrew::before { top: -20px !important; font-size: 20px !important; }
+    #roleReveal .revealCrew::after { right: -6px !important; top: 14px !important; width: 33px !important; height: 21px !important; }
+    #roleReveal .revealCrewName {
+      top: -35px !important;
+      max-width: 120px !important;
+      font-size: 11px !important;
+    }
+  }
 }

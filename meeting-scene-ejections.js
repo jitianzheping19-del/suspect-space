@@ -377,6 +377,10 @@ function createMeetingEjections(api) {
 export function patchMeetingRuntime(source) {
   if (!source.includes('function mrStartEjection(')) throw new Error('Meeting ejection entry point is missing');
   let html = source.replace(/^const MR_EJECTION_ASSET=.*;\s*$/m, '');
+  // The vote numbers were anchored well above the seated actors, which made
+  // them appear at the ceiling in the results view. Keep them near the names.
+  html = html.replaceAll('p.voteTally.s.position.set(p.x,4.45,p.z)', 'p.voteTally.s.position.set(p.x,3.28,p.z)');
+  html = html.replaceAll('p.voteTally.s.position.set(b.x,b.y+4.22,b.z)', 'p.voteTally.s.position.set(b.x,b.y+3.16,b.z)');
   const factory = `\nconst createMeetingEjections=${createMeetingEjections.toString()};\nlet liveMeetingEjections=null;
 function getLiveMeetingEjections(){return liveMeetingEjections||(liveMeetingEjections=createMeetingEjections({
  THREE,scene,camera,top:TOP,now:()=>NOW,me:()=>me,getSeats:()=>seats,stand:standPose,
@@ -404,7 +408,7 @@ function mrStartEjection(ids,result,forcedMode){
   if (!frameEnd.test(html)) throw new Error('Meeting animation loop is missing');
   html = html.replace(frameEnd, '\n  getLiveMeetingEjections().tick(dt);');
   const css = `<style id="live-meeting-result-readability">
- #meetingOutcome[data-kind="result"]{box-sizing:border-box;max-width:calc(100vw - 32px);width:max-content!important;padding:14px 28px;border-radius:16px;background:linear-gradient(90deg,#06101cda,#06101cf2 20%,#06101cf2 80%,#06101cda);box-shadow:0 8px 32px #0004;font-size:clamp(18px,2.6vw,34px)!important;line-height:1.4!important;overflow-wrap:anywhere}
+ #meetingOutcome[data-kind="result"]{left:calc((100% + var(--meeting-chat-width,190px))/2)!important;box-sizing:border-box;max-width:calc(100vw - var(--meeting-chat-width,190px) - 32px);width:min(88vw,calc(100vw - var(--meeting-chat-width,190px) - 32px))!important;padding:14px 28px;border-radius:16px;background:linear-gradient(90deg,#06101cda,#06101cf2 20%,#06101cf2 80%,#06101cda);box-shadow:0 8px 32px #0004;font-size:clamp(18px,2.6vw,34px)!important;line-height:1.4!important;overflow-wrap:anywhere}
  #meetingOutcome[data-kind="result"]>div:first-child>div{max-width:100%;}
  @media(max-height:500px){#meetingOutcome[data-kind="result"]{max-width:84vw;padding:10px 20px;font-size:clamp(16px,2.5vw,25px)!important;border-radius:12px}#meetingOutcome>div+div{margin-top:8px!important}}
  </style>`;
