@@ -2845,7 +2845,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2 id="meetingTitle">緊急会議</h2><div class="meetingHeaderTools"><button id="meetingCountdown" disabled>残り -- 秒</button><button id="meetingMapBtn">マップ [M]</button><button id="meeting3DBtn" type="button">3D会議室</button></div></div>
       <div id="meetingHeadline"><p id="meetingInfo"></p><p id="meetingFeedback" aria-live="polite"></p></div><div id="meetingPhase" class="phaseLabel"></div>
-      <div id="votePlayers"></div><div id="meetingStatusBar" class="hidden" role="status" aria-live="polite"><span>死亡者 <b id="meetingDeadCount">0</b>人</span><span id="meetingWolfStatus">人狼残り <b id="meetingWolfCount">0</b>人</span></div><iframe id="meeting3D" class="hidden" title="3D会議室" style="display:block;width:100%;height:min(48dvh,440px);border:0;border-radius:12px;background:#0a0d18"></iframe>
+      <div id="votePlayers"></div><iframe id="meeting3D" class="hidden" title="3D会議室" style="display:block;width:100%;height:min(48dvh,440px);border:0;border-radius:12px;background:#0a0d18"></iframe>
       <div id="meetingChat">
         <div id="chatMessages" aria-live="off"></div>
         <button id="chatReturnLatest" type="button" data-visible="false" aria-label="最新の会議チャットへ移動">↓ 最新へ <span class="chatUnreadCount hidden" id="chatUnreadCount">0</span></button>
@@ -3210,6 +3210,8 @@ window.buildAstraMap=buildAstraMap;
     import {createAuthoredKillPlayer,resolveAuthoredKillRole,authoredKillSpec} from "./authored-kill-player.js";
     import {useConjurerAbility,resetConjurerMarkers,canSeeConjurerMarkers} from "./conjurer-ability.js";
     import {createWorldRoleEffect,worldDeathAnimating} from "./role-world-cinematics.js";
+    import {patchMeetingRuntime} from "./meeting-scene-ejections.js";
+    import {matchResumePose,repairableOwnPresence,isHostConnectionNotice} from "./room-resume-state.js";
     import {registerDeathPlayback,registerWinningPlayback,presentationReadyAt,killPresentationActive,completeKillPlayback,victoryPresentationAt} from "./kill-presentation-state.js";
     const THREE_VERSION = "0.164.1";
     const THREE_CDN_BASES = [
@@ -5892,12 +5894,13 @@ function flushBotPose(roomCode){
   if(sentBotPoseRoom!==poseKey){sentBotPoseRoom=poseKey;sentBotPoses={};}
   const payload={},sent={};
   for(const [id,pose] of Object.entries(batch)){
-    const previous=sentBotPoses[id]||{},next={x:pose.x,z:pose.z};
+    if(!pose||!Number.isFinite(Number(pose.x))||!Number.isFinite(Number(pose.z)))continue;
+    const previous=sentBotPoses[id]||{},next={x:Number(pose.x),z:Number(pose.z)};
     const patch=compactPosePatch(next,previous);
     if(!Object.keys(patch).length)continue;
     sent[id]={...previous,...patch};
     for(const [key,value] of Object.entries(patch))payload[`${id}/${key}`]=value;
-    payload[`${id}/updatedAt`]=pose.updatedAt;
+    payload[`${id}/updatedAt`]=Number.isFinite(Number(pose.updatedAt))&&Number(pose.updatedAt)>0?Number(pose.updatedAt):now();
   }
   if(!Object.keys(payload).length)return;
   botPoseWriteBusy=true;
@@ -6016,7 +6019,7 @@ function openNicknameDialog(targetId,realName){
   box.querySelector("#nickSave").onclick=async()=>{const v=input.value.trim().slice(0,12);if(!v){toast("ニックネームを入力してください。");return;}
     try{await set(ref(db,`nicknames/${uid}/${targetId}`),v);nicknameMap[targetId]=v;toast("ニックネームをFirebaseに保存しました。");close();safeRenderUI();}catch(err){toast("保存できませんでした: "+(err?.message||err));}};
 }
-const MEETING_3D_SRCDOC=EMBEDDED_ASSETS.MEETING_3D_SRCDOC;
+const MEETING_3D_SRCDOC=patchMeetingRuntime(EMBEDDED_ASSETS.MEETING_3D_SRCDOC);
 const COSTUME_LIB_SRC=EMBEDDED_ASSETS.COSTUME_LIB_SRC;
 let meeting3DOn=false,latest3D=null,latest3DResult=null,latest3DResultMeetingId="";
 async function reportMeetingResultReveal(resultId,meetingId){
@@ -7362,7 +7365,7 @@ function modCombatAbility(ctx){
     if((Number(p.abilityReadyAt)||0)>now){setResult(false,"侍のクールダウン中です。");return true;}
     const radius=modCombatClamp(g.settings?.samuraiRange??5,1,10),hits=[];
     for(const [id,v] of Object.entries(g.players||{})){if(id===actor||v.role!=="crew"||!modCombatAlive(v))continue;const pose=modCombatPose(id,ctx);if(pose&&Math.hypot(pose.x-origin.x,pose.z-origin.z)<=radius&&!wallBetween(origin,pose)&&modCombatKill(g,id,actor,"samurai",pose))hits.push({id,x:pose.x,z:pose.z});}
-    p.samuraiUsed=true;p.abilityReadyAt=now+modCombatClamp(g.settings?.samuraiCooldownSeconds??40,5,180)*1000;p.readyAt=Math.max(Number(p.readyAt)||0,p.abilityReadyAt);p.abilityEvent=token();
+    p.samuraiUsed=true;p.abilityReadyAt=now+modCombatClamp(g.settings?.samuraiCooldownSeconds??40,5,180)*1000;p.readyAt=Math.max(Number(p.readyAt)||0,now+killCooldownFor(p,g.settings));p.abilityEvent=token();
     emitModRoleEvent(g,"samuraiSlash",actor,{x:origin.x,z:origin.z,radius,targets:hits,at:now});markDirty();setResult(true,hits.length?hits.length+"人を斬りました。":"居合を放ちました。");return true;
   }
   if(a==="suicideBomber"){
@@ -8222,6 +8225,7 @@ if(typeof module!=='undefined')module.exports=KartRaceProtocol;
     let reactorAudioContext = null;
     let hostBusy = false, uiStamp = 0, toastTimer;
     let roleRevealTimer = null;
+    let pendingRoleReveal=null;
 let botLastMove = 0;
 const BOT_MOVE_INTERVAL_MS=150;
 let botLobbyChatRoomKey="",botLobbyChatNextAt=0;
@@ -8237,7 +8241,8 @@ const botMeetingChatSent=new Set();
     function resetRoundUI() {
       winningKillPlaybackKey="";
       stopBallotWatch();
-      clearTimeout(revealDelayTimer); clearTimeout(roleRevealTimer);
+      clearTimeout(revealDelayTimer); clearTimeout(roleRevealTimer);pendingRoleReveal=null;
+      $("roundRoles").classList.remove("autoLaunchRoles");$("gameCountdown").classList.remove("withAutoLaunchRoles");
       for (const timer of effectTimers.values()) clearTimeout(timer);
       effectTimers.clear(); deathPauseUntil = 0;
       botBrains.clear();botLastMove=0;
@@ -8927,6 +8932,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
 let toastPriority=0;
 function toast(message,kind=""){
   const text=String(message??"");
+  if(isHostConnectionNotice(text))return;
   const important=kind==="ready"||kind==="error"||kind==="command-error"||kind==="name-error"||/(エラー|失敗|できません|できない|拒否|未接続|許可されていません)/.test(text);
   if(!important)return;
   const node=$("toast");
@@ -9023,6 +9029,14 @@ function viewerKnowsImpostors(p,settings=game.settings){
   const required=clamp(Number(settings?.blackCatRecognizeTasks)||3,1,6),tasks=p?.assignedTasks||[];
   return tasks.filter(id=>p?.tasks?.[id]).length>=required;
 }
+function flushPendingRoleReveal(){
+  const pending=pendingRoleReveal;if(!pending)return false;
+  if(pending.room!==code||pending.round!==Number(game.round)||game.phase!=="play"){
+    pendingRoleReveal=null;clearTimeout(roleRevealTimer);return false;
+  }
+  if(now()<pending.at)return false;
+  pendingRoleReveal=null;clearTimeout(roleRevealTimer);pending.start();return true;
+}
 function showRoleReveal(player) {
       if (!player?.role) return;
       const impostor = player.role === "impostor";
@@ -9035,7 +9049,7 @@ function showRoleReveal(player) {
       const impostorAllies=(impostor||canSeeImpostors)?Object.entries(game.players||{}).filter(([id,ally])=>id!==uid&&ally?.role==="impostor"&&!ally.disconnected):[];
       const impostorAllyText=impostorAllies.length?"味方のインポスター\n"+impostorAllies.map(([,ally])=>ally.name||"プレイヤー").join("\n"):"味方のインポスターはいません。";
       $("roleRevealTitle").textContent = factionTitle;
-      if(game.settings?.waveMode&&game.settings.waveMode!=="normal"){clearTimeout(roleRevealTimer);show("roleReveal",false);return;}
+      if(game.settings?.waveMode&&game.settings.waveMode!=="normal"){clearTimeout(roleRevealTimer);pendingRoleReveal=null;show("roleReveal",false);return;}
       const look=roleLook(player),panel=$("roleReveal");
       panel.style.setProperty("--role-color",factionColor);panel.dataset.theme=impostor||madmate?"danger":neutral?"wave":"crew";
       $("roleRevealTitle").style.color=factionColor;
@@ -9054,7 +9068,7 @@ function showRoleReveal(player) {
       const launchWait=game.countdownKind==="launch"?Math.max(0,(game.countdownEndsAt||0)-now()):0;
       show("roleReveal",launchWait<=0);
       clearTimeout(roleRevealTimer);
-      roleRevealTimer=setTimeout(()=>{
+      const startReveal=()=>{
         $("roleRevealTitle").textContent=roleName;
         $("roleIcon").textContent=look.icon;
         $("roleTeam").textContent=faction;
@@ -9065,10 +9079,21 @@ function showRoleReveal(player) {
           :madmate?player.subrole==="blackCat"?(viewerKnowsImpostors(player)?"あなたは人狼陣営の協力者です。\n味方のインポスター\n"+impostorAllies.map(([,ally])=>ally.name||"プレイヤー").join("\n"):"あなたは人狼陣営の協力者です。\n設定されたタスクを完了するとインポスターを認識します。"):"あなたは人狼陣営の協力者です。\n人狼はあなたの正体を知りません。\n"+impostorAllies.map(([,ally])=>ally.name||"プレイヤー").join("\n")
           :"役職能力とタスクを使ってインポスターを探しましょう。";
         if(player.lover){const partner=Object.values(game.players||{}).find(other=>other!==player&&other.loverPairId===player.loverPairId);$("roleRevealText").textContent+="\n恋人："+(partner?.name||"ペアの相手")+"\n2人で生き残ると勝利します。";}
+        // Reveal becomes opaque before the countdown/list is removed, in this same task.
         show("roleReveal",true);
+        const launchRoles=$("roundRoles");
+        if(launchRoles?.classList.contains("autoLaunchRoles")){
+          const launchKey=launchRoles.dataset.autoLaunchKey||"";
+          if(launchKey)launchRoles.dataset.autoDismissedKey=launchKey;
+          launchRoles.classList.remove("autoLaunchRoles");launchRoles.dataset.source="";show("roundRoles",false);
+        }
+        $("gameCountdown").classList.remove("withAutoLaunchRoles");show("gameCountdown",false);
+        document.body.dataset.gameCountdown="false";document.body.dataset.controlsCountdown="false";
         $("roleRevealTitle").style.animation="none";void $("roleRevealTitle").offsetWidth;$("roleRevealTitle").style.animation="";
-         roleRevealTimer=setTimeout(()=>show("roleReveal",false),5000);
-      },launchWait+1900);
+        roleRevealTimer=setTimeout(()=>show("roleReveal",false),5000);
+      };
+      pendingRoleReveal={room:code,round:Number(game.round),at:now()+launchWait,start:startReveal};
+      if(launchWait>0)roleRevealTimer=setTimeout(flushPendingRoleReveal,launchWait);else flushPendingRoleReveal();
     }
 
 /* ROLE_ABILITY_PRESENTATION_V1 */
@@ -9151,7 +9176,7 @@ function fitRoundRoleList(){
   const columns=[...list.querySelectorAll(":scope>.roleFactionColumn")];
   const naturalColumns=Math.max(132,...columns.map(column=>{const cards=column.querySelector(".roleFactionCards"),heading=column.querySelector(".roleFactionHeading"),cs=getComputedStyle(column);const children=[...(cards?.children||[])],cardStyle=cards?getComputedStyle(cards):null,content=children.reduce((sum,node)=>{const st=getComputedStyle(node);return sum+node.offsetHeight+(parseFloat(st.marginTop)||0)+(parseFloat(st.marginBottom)||0);},0)+Math.max(0,children.length-1)*(parseFloat(cardStyle?.rowGap)||0);return Math.max(132,content)+(heading?.offsetHeight||0)+(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0)+14;}));
   const detail=list.querySelector(".roleDetailPane:not([hidden])"),detailNatural=detail?Math.max(140,detail.scrollHeight):0;
-  const height=Math.min(maximum,Math.max(Math.min(420,maximum),fixed+naturalColumns+(detail?gap+detailNatural:0))),available=Math.max(80,height-fixed);
+  const height=Math.min(maximum,Math.max(Math.min(260,maximum),fixed+naturalColumns+(detail?gap+detailNatural:0))),available=Math.max(80,height-fixed);
   const top=detail?Math.min(naturalColumns,Math.max(132,(available-gap)*.48)):available;
   const rows=detail?`${top.toFixed(1)}px minmax(0,1fr)`:"minmax(0,1fr)";
   card.style.setProperty("--roles-fit-height",height.toFixed(1)+"px");list.style.setProperty("--roles-fit-rows",rows);
@@ -9901,7 +9926,7 @@ function placeLobbyEntry(player,roomPlayers={},playerId=uid){
   return player;
 }
 
-    function applyAccountCostume(player,roomPlayers={},playerId=uid){
+    function applyAccountCostume(player,roomPlayers={},playerId=uid,matchPlayer=null){
   const profileName=(readStored("space-suspect-name")||player?.name||"宇宙クルー").slice(0,16);
   const profileColor=readStored("space-suspect-color")||"#42c8f5";
   const cleanPlayer={
@@ -9912,8 +9937,17 @@ function placeLobbyEntry(player,roomPlayers={},playerId=uid){
     z:Number.isFinite(player?.z)?player.z:CENTER.z+2,
     online:true,ready:false,updatedAt:serverTimestamp()
   };
-  const placed=placeLobbyEntry(cleanPlayer,roomPlayers,playerId);
-  return placed;
+  if(matchPlayer){
+    // A running match keeps its identity and live position. Lobby placement
+    // would otherwise put a refreshed player outside the current camera view.
+    return {...player,...cleanPlayer,
+      name:player?.name||matchPlayer.name||cleanPlayer.name,
+      hue:Number.isFinite(player?.hue)?player.hue:Number.isFinite(matchPlayer.hue)?matchPlayer.hue:cleanPlayer.hue,
+      costume:player?.costume||matchPlayer.costume||cleanPlayer.costume,
+      ...matchResumePose(player,matchPlayer,0,{x:CENTER.x,z:CENTER.z+2}),
+      seated:false,sitting:false,seatId:null,lobbyY:0,lobbyKart:false,lobbyCircuit:false,lobbyVehicle:false};
+  }
+  return placeLobbyEntry(cleanPlayer,roomPlayers,playerId);
 }
 
 let roomOperationBusy=false;
@@ -10035,7 +10069,7 @@ const online = liveRoomOccupants(room.players);
         throw new Error("満員です");
       }
 
-const player = applyAccountCostume(room.players?.[uid] || makePlayer(),room.players||{});
+const player = applyAccountCostume(room.players?.[uid] || makePlayer(),room.players||{},uid,room.game?.phase!=="lobby"?room.game?.players?.[uid]:null);
       player.online = true;
       player.disconnectMode = null;
       player.updatedAt = serverTimestamp();
@@ -10102,7 +10136,7 @@ async function joinRoomByCode(roomCode){
   online=liveRoomOccupants(room.players).length;
   if(online>=20&&!room.players?.[uid])throw new Error("この部屋は満員です");
   if(invite)await update(ref(db,`rooms/${roomCode}/game/invites/${uid}`),{accepted:true,acceptedAt:now()});
-  const player=applyAccountCostume(room.players?.[uid]||makePlayer(),room.players||{});player.online=true;player.disconnectMode=null;player.updatedAt=serverTimestamp();
+  const player=applyAccountCostume(room.players?.[uid]||makePlayer(),room.players||{},uid,room.game?.phase!=="lobby"?room.game?.players?.[uid]:null);player.online=true;player.disconnectMode=null;player.updatedAt=serverTimestamp();
   await set(ref(db,`rooms/${roomCode}/players/${uid}`),player);
   room.players={...room.players,[uid]:player};await enterRoom(roomCode,room);
 }
@@ -10524,7 +10558,7 @@ async function reconnectPreviousRoom({preserveOnFailure=false}={}) {
              (room.game?.phase !== "lobby" || online >= 20)) {
           throw new Error("前回の部屋には再接続できません");
         }
-        const player = applyAccountCostume(room.players?.[uid] || makePlayer(),room.players||{});
+        const player = applyAccountCostume(room.players?.[uid] || makePlayer(),room.players||{},uid,room.game?.phase!=="lobby"?room.game?.players?.[uid]:null);
         player.online = true;
         player.disconnectMode = null;
         player.updatedAt = serverTimestamp();
@@ -10608,6 +10642,9 @@ async function enterRoom(roomCode, room) {
         const initialGameSnapshot=await get(ref(db,`rooms/${roomCode}/game`));
         game=initialGameSnapshot.val()||game;
       }
+      const resumingMatch=["play","meeting","results"].includes(game.phase)&&!!game.players?.[uid];
+      if(resumingMatch){positionedRound=Number(game.round)||0;rosterPositionedRound=positionedRound;}
+      inputCameraPoseKey="";manualCameraZoom=1;touchLookYaw=Number(players[uid]?.yaw)||null;
       setMapMode(isLobbyInteractionActive()?game.lobbySettings?.mapMode:game.settings?.mapMode);
       voiceEnabledByRoom=(isLobbyInteractionActive()?game?.lobbySettings?.voiceEnabled:game?.settings?.voiceEnabled)===true;refreshVoiceUI();
       commands = {};commandInboxRows={};commandInboxPlayerVersions.clear();commandCleanupAttempted.clear();
@@ -10621,14 +10658,14 @@ async function enterRoom(roomCode, room) {
       closeUploadTask();
       closeFuelTask();
 
-      position = {
-        x: players[uid]?.x ?? 0,
-        z: players[uid]?.z ?? CENTER.z + 2
-      };
+      position = resumingMatch
+        ?matchResumePose(players[uid],game.players?.[uid],game.startedAt,{x:CENTER.x,z:CENTER.z+2})
+        :{x:Number(players[uid]?.x??CENTER.x),z:Number(players[uid]?.z??CENTER.z+2)};
       const otherPositions=Object.entries(players||{}).filter(([id,p])=>id!==uid&&p?.online===true).map(([,p])=>({x:Number(p.x),z:Number(p.z)}));
       const overlapping=otherPositions.some(p=>Number.isFinite(p.x)&&Number.isFinite(p.z)&&Math.hypot(position.x-p.x,position.z-p.z)<.78);
-      const invalidPosition=game.phase==="lobby"?lobbyPositionOutOfBounds(position):(!Number.isFinite(position.x)||!Number.isFinite(position.z)||collision(position.x,position.z));
-      if(game.phase==="lobby"||invalidPosition||overlapping){
+      const resumePlayer=game.players?.[uid],ignoreResumeCollision=resumingMatch&&(resumePlayer?.alive===false||resumePlayer?.observer||resumePlayer?.ventId);
+      const invalidPosition=game.phase==="lobby"?lobbyPositionOutOfBounds(position):(!Number.isFinite(position.x)||!Number.isFinite(position.z)||(!ignoreResumeCollision&&collision(position.x,position.z)));
+      if(game.phase==="lobby"||invalidPosition||(!resumingMatch&&overlapping)){
         const spawnSeed=[...String(uid||"")].reduce((sum,char)=>sum+char.charCodeAt(0),0);
         const spawn=game.phase==="lobby"?findLobbyDoorSpawn(uid):findOpenSpawn(spawnSeed,otherPositions);
         position={x:spawn.x,z:spawn.z};
@@ -10639,7 +10676,7 @@ async function enterRoom(roomCode, room) {
           .catch(error=>console.warn("入室時の安全な位置を同期できませんでした",error));
       }
       voicePositionOverride=null;
-      lobbyElevation=Number(players[uid]?.lobbyY)||0;
+      lobbyElevation=Number(players[uid]?.lobbyY)||0;lobbyFacingYaw=Number(players[uid]?.yaw)||0;
       lastSent = { x: 999, z: 999, at: 0 };
 
 show("setup", false);
@@ -10684,6 +10721,13 @@ const applyRosterPlayer=(id,value,removed=false)=>{
   }
   if(removed){delete roomRosterRaw[id];delete players[id];const avatar=avatars.get(id);if(avatar){disposeObject(avatar);avatars.delete(id);}}
   else if(value&&typeof value==="object"){
+    // An old tab's onDisconnect can arrive after the new tab has rejoined.
+    // Keep this live connection's actor and reclaim only temporary presence.
+    if(repairableOwnPresence({id,uid,profile:value,connected,leaving,disconnected:game.players?.[uid]?.disconnected})){
+      value={...value,online:true,disconnectMode:null};
+      update(playerRef,{online:true,disconnectMode:null,lastSeenAt:serverTimestamp(),updatedAt:serverTimestamp()})
+        .catch(error=>console.warn("再参加後の接続状態を再同期します",error));
+    }
     roomRosterRaw[id]=value;
     if(id===hostId&&value.online===true)hostOfflineNoticeShown=false;
     if(!hasDisplayableName(value.name)){
@@ -10979,12 +11023,13 @@ onChildAdded(query(ref(db,`${base}/lobbyChat`),orderByChild("at"),limitToLast(40
               ]);
               const roomPlayers=roomPlayersSnapshot.val()||{},roomPhase=roomPhaseSnapshot.val();
               const onlineCount=Object.values(roomPlayers).filter(player=>player?.online===true).length;
-              if(!roomPhase||roomPhase!=="lobby"||
-                  (onlineCount>=20&&!roomPlayers[uid]?.online)){
+              const canRestoreMatch=roomPhase!=="lobby"&&game.players?.[uid]&&!game.players[uid].disconnected;
+              if(!roomPhase||(roomPhase!=="lobby"&&!canRestoreMatch)||
+                  (onlineCount>=20&&!roomPlayers[uid]?.online&&!canRestoreMatch)){
                 await leaveRoom();
                 return;
               }
-              const restored=applyAccountCostume(players[uid]||makePlayer(),roomPlayers,uid);
+              const restored=applyAccountCostume(players[uid]||makePlayer(),roomPlayers,uid,canRestoreMatch?game.players[uid]:null);
               if(roomPhase==="lobby")Object.assign(restored,findLobbyRespawn(Object.entries(roomPlayers).filter(([id,p])=>id!==uid&&p?.online===true).map(([,p])=>({x:Number(p.x),z:Number(p.z)}))),{lobbyY:0});
               Object.assign(restored,{online:true,disconnectMode:null,ready:false,seated:false,sitting:false,seatId:null,updatedAt:serverTimestamp()});
               await set(playerRef,restored);
@@ -11268,9 +11313,9 @@ hostBusy = true;
         for(const player of Object.values(roster)){
           const roleCooldown=initialRoleCooldown(player,initialClockSettings);
           const normalKillCooldown=(player.role==="impostor"||player.role==="jackal"||player.subrole==="sheriff")?killCooldownFor({...player,bountyCooldownMs:0},initialClockSettings):0;
-          const sharedCooldown=Math.max(roleCooldown,normalKillCooldown);
+          const sharedCooldown=player.subrole==="samurai"?normalKillCooldown:Math.max(roleCooldown,normalKillCooldown);
           if(sharedCooldown){player.readyAt=waveSetup.playStartsAt+sharedCooldown;
-            if(roleCooldown||player.subrole==="vampire")player.abilityReadyAt=Math.max(Number(player.abilityReadyAt)||0,player.readyAt);
+            if(roleCooldown||player.subrole==="vampire")player.abilityReadyAt=player.subrole==="samurai"?waveSetup.playStartsAt+roleCooldown:Math.max(Number(player.abilityReadyAt)||0,player.readyAt);
             const roleReadyField={rocket:"rocketReadyAt",necromancer:"necromancerReadyAt",waveCannon:"waveCannonReadyAt",waveCannonJackal:"waveCannonReadyAt",jackalWaveCannon:"waveCannonReadyAt"}[player.subrole];
             if(roleReadyField)player[roleReadyField]=player.abilityReadyAt||player.readyAt;
           }
@@ -11301,6 +11346,7 @@ hostBusy = true;
             ? `テストBotを${botCount}体追加しました。待機場から出航します。`
             : "出航しました。自分の役職を確認してください。",
           settings: {
+            ...matchSettingsSnapshot,
             ...roleCooldownSettingsFromInputs(),
             waveMode:waveModeSelected,
             viewMode:$("roomViewMode").value||game.lobbySettings?.viewMode||"2d",
@@ -14577,10 +14623,10 @@ if (!players[id]?.online) {
                 const lethalCooldown=lethalCooldownByRole[player.subrole]||upgradedRoleCooldownMs(player.subrole,g.settings);
                 if(lethalCooldown){
                   const canNormalKill=player.role==="impostor"||player.role==="jackal"||player.subrole==="sheriff";
-                  const sharedCooldown=Math.max(lethalCooldown,canNormalKill?killCooldownFor({...player,bountyCooldownMs:0},g.settings):0);
+                  const sharedCooldown=player.subrole==="samurai"?killCooldownFor(player,g.settings):Math.max(lethalCooldown,canNormalKill?killCooldownFor({...player,bountyCooldownMs:0},g.settings):0);
                   const readyAt=actionStart+sharedCooldown;
                   player.readyAt=Math.max(Number(player.readyAt)||0,readyAt);
-                  player.abilityReadyAt=Math.max(Number(player.abilityReadyAt)||0,readyAt);
+                  player.abilityReadyAt=Math.max(Number(player.abilityReadyAt)||0,player.subrole==="samurai"?actionStart+lethalCooldown:readyAt);
                   const roleReadyField={rocket:"rocketReadyAt",necromancer:"necromancerReadyAt",waveCannon:"waveCannonReadyAt",waveCannonJackal:"waveCannonReadyAt",jackalWaveCannon:"waveCannonReadyAt"}[player.subrole];
                   if(roleReadyField)player[roleReadyField]=Math.max(Number(player[roleReadyField])||0,Number(player.abilityReadyAt)||0,readyAt);
                 }
@@ -18402,6 +18448,15 @@ function startVoteEjection3D(players,resultId){
           for(const [key,value] of Object.entries({x1:wall.ax,y1:wall.az,x2:wall.bx,y2:wall.bz,stroke:"#d8e9f2","stroke-width":.17}))line.setAttribute(key,value);
           svg.appendChild(line);
         }
+        const labels=document.createElementNS(ns,"g");labels.dataset.mapRoomLabels="true";labels.setAttribute("pointer-events","none");
+        for(const room of ROOMS){
+          const name=String(room.label||room.name||room.id||"").trim();if(!name)continue;
+          const text=document.createElementNS(ns,"text"),font=Math.max(.7,Math.min(2,Number(room.w||6)/(Math.max(3,[...name].length)*.64)));
+          const x=Number(room.x),upper=Number(room.z)-Number(room.d||4)*.2,z=regionContainsPoint(x,upper,room)?upper:Number(room.z);
+          for(const [key,value]of Object.entries({x,y:z,"text-anchor":"middle","dominant-baseline":"central","font-size":font,"font-weight":800,fill:"#f4fbff",stroke:"#081522","stroke-width":.22,"paint-order":"stroke","stroke-linejoin":"round"}))text.setAttribute(key,String(value));
+          text.textContent=name;labels.append(text);
+        }
+        svg.append(labels);
       }
       const me = self();
       if (!me) {removeStaleMarkers();return;}
@@ -18833,6 +18888,7 @@ function bountyTargetInView(target){
 function renderUI() {
       renderRoomPlayerSettings();
       if (!code){document.body.dataset.killPresentation="false";return;}
+      flushPendingRoleReveal();
       refreshVoiceUI();
       if(game.phase==="lobby"){window.SpaceSuspect.runtime.waitingLobbyForRunningMatch=false;window.SpaceSuspect.runtime.waitingLobbyRollback=null;}
       const waitingLobbyForRunningMatch=isWaitingLobbyForRunningMatch();
@@ -19149,7 +19205,7 @@ const personalAssigned = roleCanDoTasks(me,game.settings)
 $("status").textContent = !connected
         ? "接続が切れています。再接続を待っています…"
         : !hostOnline()
-          ? "ホストが切断しました。復帰しない場合は退出してください。"
+          ? ""
           : phase === "lobby"
             ? `${online.length}/20人`
             : `人狼 ${Object.values(game.players||{}).filter(player=>player?.role==="impostor"&&!player.observer).length}人 · 全体タスク ${tasks.done}/${tasks.total}` +
@@ -19217,9 +19273,6 @@ if (phase === "meeting" && game.meeting) {
         $("meetingInfo").textContent="";
         $("meetingCountdown").textContent=(voting?"投票終了まで ":"投票開始まで ")+seconds+" 秒";
         show("meetingCountdown",!allVoted);
-        const meetingDeadCount=Number.isFinite(Number(meeting.deadAtStart))?Number(meeting.deadAtStart):Object.values(game.players||{}).filter(p=>p&&!p.observer&&!p.alive).length;
-        const meetingWolfCount=Object.values(game.players||{}).filter(p=>p&&!p.observer&&!p.disconnected&&p.alive&&typeof isImpostorTeamPlayer==="function"&&isImpostorTeamPlayer(p)).length;
-        $("meetingDeadCount").textContent=String(meetingDeadCount);$("meetingWolfCount").textContent=String(meetingWolfCount);show("meetingStatusBar",false);
         $("meeting").classList.toggle("criticalMeeting",voting&&seconds<=10&&seconds>0&&!ownVoted&&!allVoted);
         if(phase!=="meeting"||meeting.scalesVote)show("abilityTargetSelect",false);
         const urgencyBox=$("meetingChat"),urgencyId="meetingUrgencyLine";
@@ -19751,9 +19804,10 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         if (!p || p.online !== true || !hasDisplayableName(p.name)) continue;
         let avatar = avatars.get(id);
         if (!avatar || avatar.userData.costume!==(p.costume||"standard")) {
+          const restoredYaw=Number.isFinite(avatar?.rotation.y)?avatar.rotation.y:Number(p.yaw)||0;
           if(avatar)disposeObject(avatar);
           avatar = makeAstronaut(p.name, p.hue, p.costume||"standard");
-          avatar.position.set(p.x, 0, p.z);
+          avatar.position.set(p.x, 0, p.z);avatar.rotation.y=restoredYaw;avatar.userData.lastFacingYaw=restoredYaw;
           avatars.set(id, avatar);
         }
 
@@ -23044,6 +23098,40 @@ body:has(#costumeStudio:not(.hidden)) .unifiedSettingsTrigger,body:has(#costumeS
 }
 </style>
 
+<style id="phone-role-settings-and-reveal-oct18">
+#roundRoles[data-source]:not(.hidden) #roundRoleList[data-role-layout="quality"]{
+  grid-template-rows:var(--roles-fit-rows,minmax(0,1fr))!important;min-height:0!important;height:100%!important;align-items:stretch!important;
+}
+#roundRoles[data-source]:not(.hidden) #roundRoleList[data-role-layout="quality"]>.roleFactionColumn{
+  display:flex!important;flex-direction:column!important;height:100%!important;min-height:0!important;overflow:hidden!important;
+}
+#roundRoles[data-source]:not(.hidden) #roundRoleList[data-role-layout="quality"] .roleFactionCards{
+  flex:1 1 0!important;min-height:0!important;height:auto!important;max-height:none!important;overflow:auto!important;align-content:start!important;
+}
+#roundRoles.autoLaunchRoles.roundRolesFitsContent[data-source="game"]:has(#roundRoleList[data-role-layout="quality"]){display:flex!important;align-items:stretch!important;justify-content:center!important;inset:0!important;padding:8px!important}
+#roundRoles.autoLaunchRoles.roundRolesFitsContent[data-source="game"]:has(#roundRoleList[data-role-layout="quality"])>.card{display:grid!important;grid-template-rows:auto minmax(0,1fr)!important;align-self:stretch!important;box-sizing:border-box!important;height:100%!important;max-height:100%!important;min-height:0!important;width:min(1180px,calc(100vw - 32px))!important;max-width:calc(100vw - 32px)!important;margin:0 auto!important;padding:72px 12px 8px!important}
+#roleReveal:not(.hidden){z-index:1500!important;opacity:1!important;background:radial-gradient(ellipse at center,#081321,#03060d 72%)!important}
+@media (max-width:1000px) and (max-height:500px) and (orientation:landscape) and (pointer:coarse){
+  #roundRoles.autoLaunchRoles.roundRolesFitsContent[data-source="game"]:has(#roundRoleList[data-role-layout="quality"])>.card{width:min(720px,calc(100vw - 40px))!important;max-width:calc(100vw - 40px)!important;padding:68px 8px 6px!important}
+  #gmSettingsRoleDetailPanel .roleDetailValues{display:flex!important;flex-direction:column!important;gap:6px!important}
+  #gmSettingsRoleDetailPanel #gmSettingsRoleDetailRows{order:0;flex:0 0 auto;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important}
+  #gmSettingsRoleDetailRows>[data-role-setting]{min-width:0!important}
+  #gmSettingsRoleDetailPanel #roleSettingsPreview{order:1;flex:0 0 auto;margin:0!important}
+  #roleReveal{place-items:center!important;align-items:center!important;justify-content:center!important;padding:8px!important}
+  #roleReveal>.card{box-sizing:border-box!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:5px!important;width:min(480px,76vw)!important;max-width:76vw!important;min-height:0!important;max-height:calc(100dvh - 18px)!important;margin:auto!important;padding:8px 12px!important;overflow:auto!important}
+  #roleReveal #roleIcon{font-size:30px!important;line-height:1!important}
+  #roleReveal #roleTeam{font-size:9px!important;line-height:1.15!important;letter-spacing:.15em!important}
+  #roleReveal #roleRevealTitle{animation:none!important;margin:0!important;font-size:clamp(20px,3.5vw,30px)!important;line-height:1.12!important;letter-spacing:.04em!important}
+  #roleReveal #roleRevealName{margin:0!important;font-size:11px!important;line-height:1.3!important}
+  #roleReveal #roleRevealText{margin:0!important;max-width:100%!important;font-size:11px!important;line-height:1.3!important}
+  #roleReveal #roleLineup{box-sizing:border-box!important;align-items:flex-end!important;justify-content:center!important;width:100%!important;min-height:88px!important;height:auto!important;max-height:none!important;gap:14px!important;margin:0!important;padding:28px 10px 5px!important;overflow:visible!important;flex-wrap:wrap!important}
+  #roleReveal .revealCrew{animation:none!important;opacity:1!important;box-sizing:border-box!important;flex:0 0 35px!important;width:35px!important;height:52px!important;border-width:2px!important;margin:0!important;transform:none!important;box-shadow:inset -7px -4px #0003,0 4px 6px #0007!important}
+  #roleReveal .revealCrew::before{top:-17px!important;font-size:17px!important}
+  #roleReveal .revealCrew::after{right:-5px!important;top:11px!important;width:26px!important;height:16px!important;border-width:2px!important}
+  #roleReveal .revealCrewName{top:-29px!important;width:max-content!important;min-width:0!important;max-width:100px!important;padding:1px 3px!important;font-size:9px!important;line-height:1.1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  #roleReveal button{min-height:28px!important;padding:4px 9px!important;font-size:10px!important}
+}
+</style>
 <style id="kill-presentation-action-lock">
 body[data-kill-presentation="true"] #buttons button,
 body[data-kill-presentation="true"] #mapBtn,
