@@ -77,3 +77,26 @@
     max-width: min(48vw, 280px) !important;
   }
 }
+
+/* Tablets use a wider CSS viewport than phones, so keep their action keys
+   compact too. Extend the existing important cascade layer used by the HUD. */
+@layer play-action-layout {
+  @media (max-width: 1400px) {
+    body[data-phase="play"] #controls > div:has(>#buttons):last-child {
+      width: min(42vw, 420px) !important;
+      max-width: min(42vw, 420px) !important;
+      min-width: 0 !important;
+    }
+
+    body[data-phase="play"] #buttons {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+    }
+
+    body[data-phase="play"] #buttons > :is(button, select):not(.hidden) {
+      min-width: 0 !important;
+      max-width: 100% !important;
+    }
+  }
+}
