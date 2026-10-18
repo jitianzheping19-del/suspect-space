@@ -8445,9 +8445,14 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       const icon=document.createElement("span");icon.className="playerMicIcon";icon.textContent="🎙";icon.dataset.state=state.mic?(state.speaking?"speaking":"on"):"muted";
       icon.setAttribute("aria-label",state.mic?(state.speaking?"マイクで発話中":"マイクオン"):"ミュート");icon.title=icon.getAttribute("aria-label");return icon;
     }
-    function setPlayerNameWithMic(element,playerId,name){
-      if(!element)return;const text=nicknameFor(playerId)||name||"プレイヤー",state=voiceDisplayState(playerId),key=`${text}|${state?`${state.mic}:${state.speaking}`:"off"}`;if(element.dataset.micLabelKey===key)return;
+    function compactMeetingName(value,maxChars=6){
+      const full=String(value||"プレイヤー"),chars=Array.from(full);
+      return chars.length>maxChars?chars.slice(0,maxChars-1).join("")+"…":full;
+    }
+    function setPlayerNameWithMic(element,playerId,name,options={}){
+      if(!element)return;const fullText=nicknameFor(playerId)||name||"プレイヤー",text=options.maxChars?compactMeetingName(fullText,options.maxChars):fullText,state=voiceDisplayState(playerId),key=`${fullText}|${text}|${state?`${state.mic}:${state.speaking}`:"off"}`;if(element.dataset.micLabelKey===key)return;
       element.dataset.micLabelKey=key;element.replaceChildren();const icon=makeMicIcon(playerId);if(icon)element.append(icon);element.append(document.createTextNode(text));
+      if(options.maxChars){element.title=fullText;element.setAttribute("aria-label",fullText);}
     }
     function setLobbyRosterName(element,playerId,name,ready){
       if(!element)return;const text=nicknameFor(playerId)||name||"プレイヤー",state=voiceDisplayState(playerId),key=`${text}|${ready?1:0}|${state?`${state.mic}:${state.speaking}`:"off"}`;if(element.dataset.micLabelKey===key)return;
@@ -9071,7 +9076,7 @@ function showRoleReveal(player) {
       const startReveal=()=>{
         $("roleRevealTitle").textContent=roleName;
         $("roleIcon").textContent=look.icon;
-        $("roleTeam").textContent=faction;
+        $("roleTeam").textContent="陣営："+faction;
         $("roleRevealName").textContent=roleDescription;
         $("roleRevealText").textContent=player.subrole==="jester"
           ?"会議で追放された瞬間に勝利します。疑われるように立ち回りましょう。"
@@ -9090,7 +9095,10 @@ function showRoleReveal(player) {
         $("gameCountdown").classList.remove("withAutoLaunchRoles");show("gameCountdown",false);
         document.body.dataset.gameCountdown="false";document.body.dataset.controlsCountdown="false";
         $("roleRevealTitle").style.animation="none";void $("roleRevealTitle").offsetWidth;$("roleRevealTitle").style.animation="";
-        roleRevealTimer=setTimeout(()=>show("roleReveal",false),5000);
+        roleRevealTimer=setTimeout(()=>{
+          show("roleReveal",false);
+          if(game.phase==="play"&&game.countdownKind==="launch"&&now()>=(Number(game.countdownEndsAt)||0))document.body.dataset.spaceLaunchBackdrop="false";
+        },5000);
       };
       pendingRoleReveal={room:code,round:Number(game.round),at:now()+launchWait,start:startReveal};
       if(launchWait>0)roleRevealTimer=setTimeout(flushPendingRoleReveal,launchWait);else flushPendingRoleReveal();
@@ -13843,7 +13851,7 @@ function waveEndTitle(g){
 }
 function waveModeSetup(mode,roundStartedAt){
   const enabled=mode==="battleRoyale"||mode==="team",start=Number(roundStartedAt)||0;
-  return {waveMode:enabled?mode:"normal",countdownEndsAt:start+(enabled?3000:5000),playStartsAt:start+(enabled?3000:12000),
+  return {waveMode:enabled?mode:"normal",countdownEndsAt:start+(enabled?3000:5000),playStartsAt:start+(enabled?3000:10000),
     waveShieldUntil:enabled?start+13000:0,waveCannonChargeSeconds:enabled?1:2,waveCannonCooldownSeconds:enabled?10:45,
     killCooldownSeconds:enabled?10:35,sabotageCooldownSeconds:enabled?0:30};
 }
@@ -16027,7 +16035,7 @@ function ssxRoleAbility(ctx){
       if(p.rocketLaunchPending){ssxSpecialResult(ctx,false,"ロケットはすでに発射準備中です。");return true;}
       p.rocketLaunchPending=true;p.rocketLaunchStartedAt=now;p.rocketLaunchLockUntil=now+2400;p.abilityEvent=token();
       const targetPositions=Object.fromEntries(captives.map(([id,q])=>[id,{x:Number(q.rocketCaptureX??q.x)||0,z:Number(q.rocketCaptureZ??q.z)||0}]));
-      ssxEmit(g,"rocket-launch",actor,{x:Number(loc?.x)||0,z:Number(loc?.z)||0,targets:captives.map(([id])=>id),targetPositions,startedAt:now,fireAt:now+900,endsAt:now+5200,stage:"charging"});
+      ssxEmit(g,"rocket-launch",actor,{x:Number(loc?.x)||0,z:Number(loc?.z)||0,targets:captives.map(([id])=>id),targetPositions,startedAt:now,fireAt:now+900,endsAt:now+6200,stage:"charging"});
       ssxSpecialResult(ctx,true,"ロケットを発射します。");ssxSpecialDirty(ctx);return true;
     }
   }
@@ -16133,7 +16141,7 @@ function ssxSpecialTick(ctx){
       if(!p.alive||p.disconnected||!captives.length){ssxRocketRelease(g,id);changed=true;continue;}
       p.rocketPendingAfterMeeting=false;p.rocketLaunchPending=true;p.rocketLaunchStartedAt=now;p.rocketLaunchLockUntil=now+2400;
       const targetPositions=Object.fromEntries(captives.map(([targetId,q])=>[targetId,{x:Number(q.rocketCaptureX??q.x)||0,z:Number(q.rocketCaptureZ??q.z)||0}]));
-      ssxEmit(g,"rocket-launch",id,{x:Number(p.x)||0,z:Number(p.z)||0,targets:captives.map(([targetId])=>targetId),targetPositions,startedAt:now,fireAt:now+900,endsAt:now+5200,stage:"charging"});changed=true;
+      ssxEmit(g,"rocket-launch",id,{x:Number(p.x)||0,z:Number(p.z)||0,targets:captives.map(([targetId])=>targetId),targetPositions,startedAt:now,fireAt:now+900,endsAt:now+6200,stage:"charging"});changed=true;
     }
     if(p.rocketLaunchPending&&(!p.alive||p.disconnected||g.phase!=="play")){ssxRocketRelease(g,id);changed=true;}
     else if(p.rocketLaunchPending&&g.phase==="play"&&now>=Number(p.rocketLaunchStartedAt||0)+2400){
@@ -16238,7 +16246,7 @@ function ssxCreateRocketLaunchEffect({THREE,scene,event,ownerId,stamp}){
   });
   const flashMat=M(0xfff0d5,.9),burstFlash=new THREE.Mesh(G(new THREE.SphereGeometry(.4,12,8)),flashMat);group.add(burstFlash);burstFlash.visible=false;
   const sparks=[];for(let i=0;i<particleBudget.count;i++){const spark=new THREE.Mesh(sparkGeo,sparkMats[i%palette.length]);spark.visible=false;group.add(spark);const targetIndex=i%targetsFx.length,seed=(i+1)*(targetIndex+3)*12.9898,angle=(seed%6283)/1000,y=-.65+((seed*7)%1300)/1000,flat=Math.sqrt(Math.max(.05,1-y*y));sparks.push({mesh:spark,targetIndex,dir:new THREE.Vector3(Math.cos(angle)*flat,y,Math.sin(angle)*flat)});}
-  const started=Number(event.startedAt||event.at||stamp),fire=Number(event.fireAt||started+900),flightMs=1500,burstAt=fire+flightMs,ends=Number(event.endsAt||burstAt+2800);
+  const started=Number(event.startedAt||event.at||stamp),fire=Number(event.fireAt||started+900),flightMs=2600,flightHeight=72,burstAt=fire+flightMs,ends=Number(event.endsAt||burstAt+2700);
   group.position.set(0,0,0);
   return ssxFxLifecycle(THREE,scene,event,group,materials,geometries,nowStamp=>{
     const t=nowStamp-started;if(t>=ends-started)return false;
@@ -16247,15 +16255,15 @@ function ssxCreateRocketLaunchEffect({THREE,scene,event,ownerId,stamp}){
       const {origin,index,id}=fx,phase=(index%3)*.04;
       fx.ring.position.set(origin.x,.08,origin.z);fx.inner.position.set(origin.x,.1,origin.z);
       fx.ring.scale.setScalar(.55+charge*.7);fx.inner.scale.setScalar(.32+charge*.52);fx.ringMat.opacity=burst?Math.max(0,1-burstProgress)*.65:.42+.36*charge;
-      fx.trailMat.opacity=flight>0&&!burst?Math.max(0,1-flight)*.75:0;fx.trail.position.set(origin.x,Math.max(.25,flight*2+phase),origin.z);fx.trail.scale.set(1,Math.max(.01,flight*7),1);fx.trail.visible=flight>0&&!burst;
+      fx.trailMat.opacity=flight>0&&!burst?Math.max(0,1-flight)*.75:0;fx.trail.position.set(origin.x,Math.max(.25,flight*flightHeight*.5+phase),origin.z);fx.trail.scale.set(1,Math.max(.01,flight*flightHeight),1);fx.trail.visible=flight>0&&!burst;
       const avatar=avatars?.get?.(id);
-      if(avatar&&nowStamp<ends){avatar.visible=!burst;avatar.position.x=origin.x;avatar.position.z=origin.z;avatar.position.y=4*(reduced?flight:flight*flight*(3-2*flight));if(!reduced)avatar.rotation.z=Math.sin((nowStamp-fire)*.009+index)*.035*(1-flight);avatar.scale.setScalar(.76);}
+      if(avatar&&nowStamp<ends){avatar.visible=!burst;avatar.position.x=origin.x;avatar.position.z=origin.z;avatar.position.y=flightHeight*(reduced?flight:flight*flight*(3-2*flight));if(!reduced)avatar.rotation.z=Math.sin((nowStamp-fire)*.009+index)*.035*(1-flight);avatar.scale.setScalar(.76);if(avatar.userData.nameTag){avatar.userData.nameTag.position.set(0,2.15,0);avatar.userData.nameTag.visible=!burst;}}
     }
-    burstFlash.visible=burst&&sinceBurst<280;if(burstFlash.visible){const origin=targetsFx[0].origin;burstFlash.position.set(origin.x,4,origin.z);burstFlash.scale.setScalar(1+sinceBurst/90);flashMat.opacity=Math.max(0,1-sinceBurst/280);}
+    burstFlash.visible=burst&&sinceBurst<280;if(burstFlash.visible){const origin=targetsFx[0].origin;burstFlash.position.set(origin.x,flightHeight,origin.z);burstFlash.scale.setScalar(1+sinceBurst/90);flashMat.opacity=Math.max(0,1-sinceBurst/280);}
     for(const item of sparks){
       const fx=targetsFx[item.targetIndex],spark=item.mesh;spark.visible=burst&&burstProgress<1&&sinceBurst>item.targetIndex*45;
       if(!spark.visible)continue;
-      const age=clamp((sinceBurst-item.targetIndex*45)/2500,0,1),radius=age*(2.5+(item.targetIndex%3)*.35),originY=4.0;
+      const age=clamp((sinceBurst-item.targetIndex*45)/2500,0,1),radius=age*(2.5+(item.targetIndex%3)*.35),originY=flightHeight;
       spark.position.set(fx.origin.x+item.dir.x*radius,originY+item.dir.y*radius-2.5*age*age,fx.origin.z+item.dir.z*radius);spark.scale.setScalar(.65+Math.sin(age*Math.PI)*.9);spark.material.opacity=Math.max(0,(1-age)*.98);
     }
     return true;
@@ -17848,8 +17856,17 @@ function sampleVentTraversal(transition,stamp,isVented){
       const waveHawkVision=game.phase==="play"&&!viewer?.observer&&Number(viewer?.waveHawkUntil)>now();
       const worldBounds=WORLD||{};
       const mapCenter={x:((Number(worldBounds.minX)||0)+(Number(worldBounds.maxX)||0))/2,z:((Number(worldBounds.minZ)||0)+(Number(worldBounds.maxZ)||0))/2};
-      const target = waveHawkVision?mapCenter:spectator ? {x:spectatorSmoothed.x,z:spectatorSmoothed.z} : self() && (game.phase === "play"||game.phase==="ended"&&waitForKillPresentation()) ? position :
-        { x: CENTER.x, z: CENTER.z };
+      const rocketLaunchEvent=[...(game.modRoleEvents||[])].reverse().find(event=>event?.type==="rocket-launch"&&Number(event.endsAt||0)>now());
+      let rocketCameraTarget=null;
+      if(rocketLaunchEvent){
+        const targetIds=Array.isArray(rocketLaunchEvent.targets)?rocketLaunchEvent.targets:[],positions=rocketLaunchEvent.targetPositions||{};
+        const points=targetIds.map(id=>positions[id]||game.players?.[id]).filter(point=>Number.isFinite(Number(point?.x))&&Number.isFinite(Number(point?.z)));
+        if(points.length){const x=points.reduce((sum,point)=>sum+Number(point.x),0)/points.length,z=points.reduce((sum,point)=>sum+Number(point.z),0)/points.length;
+          const fireAt=Number(rocketLaunchEvent.fireAt)||Number(rocketLaunchEvent.startedAt)+900,progress=clamp((now()-fireAt)/2600,0,1),rise=progress*progress*(3-2*progress);
+          rocketCameraTarget={x,z,y:.82+72*rise};}
+      }
+      const target = waveHawkVision?mapCenter:rocketCameraTarget|| (spectator ? {x:spectatorSmoothed.x,z:spectatorSmoothed.z} : self() && (game.phase === "play"||game.phase==="ended"&&waitForKillPresentation()) ? position :
+        { x: CENTER.x, z: CENTER.z });
       manualCameraZoom=clampManualCameraZoom(manualCameraZoom);
       const use3D=!waveHawkVision&&game.settings?.viewMode==="3d";
       const firstPerson=use3D&&cameraPerspective==="first";
@@ -17861,7 +17878,7 @@ function sampleVentTraversal(transition,stamp,isVented){
       const nextCameraFar=viewer?.alive===false||viewer?.observer||waveHawkVision ? 240 : hawkVision ? 90 : 70;if(camera3D.far!==nextCameraFar){camera3D.far=nextCameraFar;camera3D.updateProjectionMatrix();}
       camera=use3D?camera3D:camera2D;
       const ownAvatar=avatars.get(spectator?spectatorTargetId:uid);
-      const centerY=.82+Math.max(0,Number(ownAvatar?.position.y)||0);
+      const centerY=rocketCameraTarget?.y??(.82+Math.max(0,Number(ownAvatar?.position.y)||0));
       if(ownAvatar)ownAvatar.visible=!firstPerson;
       if(use3D){
         const yaw=ownAvatar?.rotation.y||0;
@@ -18956,6 +18973,10 @@ function renderUI() {
       const rolesDuringCountdown=$("roundRoles");
       const launchRolesKey=`${code}:${game.round}:${Number(game.countdownEndsAt)||0}`;
       const showLaunchRoles=phase==="play"&&countdownLeft>0&&game.countdownKind==="launch"&&Number(game.meetingCount||0)===0;
+      const awaitingLaunchReveal=phase==="play"&&pendingRoleReveal?.room===code&&Number(pendingRoleReveal?.round)===Number(game.round);
+      const launchRevealVisible=phase==="play"&&game.countdownKind==="launch"&&Number(game.meetingCount||0)===0&&
+        (countdownLeft>0||awaitingLaunchReveal||!$("roleReveal").classList.contains("hidden"));
+      document.body.dataset.spaceLaunchBackdrop=String(launchRevealVisible);
       if(showLaunchRoles){
         clearTimeout(window.__launchRolesCloseTimer);window.__launchRolesCloseTimer=0;
         if(rolesDuringCountdown.dataset.autoLaunchKey!==launchRolesKey){
@@ -18966,7 +18987,7 @@ function renderUI() {
             rolesDuringCountdown.classList.add("autoLaunchRoles");show("roundRoles",true);
           }
         }
-      }else if(rolesDuringCountdown.classList.contains("autoLaunchRoles")){
+      }else if(rolesDuringCountdown.classList.contains("autoLaunchRoles")&&!awaitingLaunchReveal){
         clearTimeout(window.__launchRolesCloseTimer);window.__launchRolesCloseTimer=0;
         rolesDuringCountdown.classList.remove("autoLaunchRoles");show("roundRoles",false);rolesDuringCountdown.dataset.source="";
       }
@@ -19040,6 +19061,8 @@ function renderUI() {
       show("lobby", phase === "lobby" && lobbyPanelOpen);
       show("lobbyOpenBtn", phase === "lobby" && isHost() && !lobbyPanelOpen && $("roundRoles").classList.contains("hidden"));
       show("lobbyAttachedFrame", phase === "lobby");
+      // A match transition disables the embedded lobby; restore its buttons when the lobby returns.
+      $("lobbyAttachedFrame").inert=phase!=="lobby"||leaving;
       if(phase!=="lobby")lobbyChatOpen=false;
       show("lobbyChat", phase === "lobby" && lobbyChatOpen);
       show("lobbyChatToggleBtn",phase==="lobby");
@@ -19310,7 +19333,7 @@ if (phase === "meeting" && game.meeting) {
         if(voting&&votingBannerId!==meeting.id){
           votingBannerId=meeting.id;
         }
-        latest3D={meeting,seatsList:participants.map(([id,p])=>({id,name:p.name||"",hue:typeof p.hue==="number"?p.hue:0,alive:!!p.alive,isMe:id===uid,costume:p.costume||"",nick:nicknameFor(id),boosted:!!(meeting.id&&p.mayorBoostMeeting===meeting.id)})),ownVoted:ownBallot?.meeting===meeting.id?ownBallot.target:"",meetingId:meeting.id,me:uid,guessMode,guessableIds:guessMode&&canGuess?participants.filter(([id,p])=>id!==uid&&p.alive&&!p.observer&&!p.disconnected&&!guessTargetRestriction(id)).map(([id])=>id):[],guessColor:me?.subrole==="evilGuesser"?0xff526b:0x58eaff,selfAlive:!!self()?.alive,anonymous:!!game.settings?.anonymousVotes,swaps:(meeting.voteSwaps||[]).map(pr=>[...pr]),partnerId:self()?.loverPartnerId||""};
+        latest3D={meeting,seatsList:participants.map(([id,p])=>({id,name:compactMeetingName(nicknameFor(id)||p.name||""),fullName:nicknameFor(id)||p.name||"",hue:typeof p.hue==="number"?p.hue:0,alive:!!p.alive,isMe:id===uid,costume:p.costume||"",nick:compactMeetingName(nicknameFor(id)||p.name||""),boosted:!!(meeting.id&&p.mayorBoostMeeting===meeting.id)})),ownVoted:ownBallot?.meeting===meeting.id?ownBallot.target:"",meetingId:meeting.id,me:uid,guessMode,guessableIds:guessMode&&canGuess?participants.filter(([id,p])=>id!==uid&&p.alive&&!p.observer&&!p.disconnected&&!guessTargetRestriction(id)).map(([id])=>id):[],guessColor:me?.subrole==="evilGuesser"?0xff526b:0x58eaff,selfAlive:!!self()?.alive,anonymous:!!game.settings?.anonymousVotes,swaps:(meeting.voteSwaps||[]).map(pr=>[...pr]),partnerId:self()?.loverPartnerId||""};
         trackOwnVoteFlight(meeting,ownBallot?.meeting===meeting.id?ownBallot.target:"",uid,!!game.settings?.anonymousVotes,game.players?.[uid]?.hue);
         const voteList=$("votePlayers"),layoutKey=JSON.stringify([meeting.id,scalesActive?scalePair:[]]);
         if(voteList.dataset.layoutKey!==layoutKey){voteList.getAnimations().forEach(animation=>animation.cancel());closeVoteConfirm();voteList.dataset.layoutKey=layoutKey;voteList.dataset.scales=String(scalesActive);}
@@ -19322,7 +19345,7 @@ if (phase === "meeting" && game.meeting) {
             const avatar=document.createElement("span");avatar.className="voteAvatar";
             avatar.style.background=new THREE.Color().setHSL(p.hue,.72,.52).getStyle();
             addCostumeHeadIcon(avatar,p.costume);
-            const name=document.createElement("span");name.className="voteName";setPlayerNameWithMic(name,id,p.name);
+            const name=document.createElement("span");name.className="voteName";setPlayerNameWithMic(name,id,p.name,{maxChars:6});
             const badge=document.createElement("small");badge.className="voteBadge";
             badge.textContent=[id===uid?"あなた":"",id===hostId?"ホスト":"",id===meeting.reporter?"📣":""].filter(Boolean).join(" · ");
             const role=document.createElement("small");role.className="voteRole";
@@ -19341,7 +19364,7 @@ if (phase === "meeting" && game.meeting) {
           button.classList.toggle("impostorReveal",impostorVisible);
           button.classList.toggle("neutralReveal",neutralVisible);
           const roleBadge=button.querySelector(".voteRole");if(roleBadge){roleBadge.textContent=revealRole?roleText:"";roleBadge.hidden=!revealRole;}
-          const nameLabel=button.querySelector(".voteName");if(nameLabel){setPlayerNameWithMic(nameLabel,id,p.name);nameLabel.style.color=starVisible?"#ffd65c":isAlly?"#ff526b":"";}
+          const nameLabel=button.querySelector(".voteName");if(nameLabel){setPlayerNameWithMic(nameLabel,id,p.name,{maxChars:6});nameLabel.style.color=starVisible?"#ffd65c":isAlly?"#ff526b":"";}
           button.classList.toggle("dead",!p.alive||p.disconnected);
           button.style.order=String(index);
           button.classList.toggle("voted",!!voted[id]||(id===uid&&!!ownVoted));const scaleTargets=meeting.scalesVote?.targets||[],scaleBlocksVote=scaleTargets.length&&!scaleTargets.includes(id),guessTargetOK=guessMode&&canGuess&&!guessTargetRestriction(id),mayorTargetOK=canVote&&self()?.subrole==="mayor"&&self()?.mayorBoostMeeting===meeting.id;button.classList.toggle("ssx-guessable",guessTargetOK);button.classList.toggle("ssx-mayor-target",!!mayorTargetOK);const disabled=(!canVote||scaleBlocksVote)&&!guessTargetOK||!p.alive||p.disconnected;button.classList.toggle("disabled",disabled);button.setAttribute("aria-disabled",String(disabled));button.tabIndex=disabled?-1:0;button.hidden=scalesActive&&!scalePair.includes(id);
@@ -19800,8 +19823,11 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         }
       }
 
-      const poseReceivedAt=performance.now(),poseWallNow=now(),rocketFlightEvents=new Map();
-      for(const event of game.modRoleEvents||[])if(event?.type==="rocket-launch"){const fireAt=Number(event.fireAt)||Number(event.startedAt)||Number(event.at)||0,endsAt=Number(event.endsAt)||fireAt+2200;if(poseWallNow<=endsAt)for(const targetId of event.targets||[])rocketFlightEvents.set(String(targetId),{event,fireAt,endsAt});}
+      const poseReceivedAt=performance.now(),poseWallNow=now(),rocketFlightEvents=new Map(),launchedRocketTargets=new Set();
+      for(const event of game.modRoleEvents||[])if(event?.type==="rocket-launch"){
+        const fireAt=Number(event.fireAt)||Number(event.startedAt)||Number(event.at)||0,endsAt=Number(event.endsAt)||fireAt+6200;
+        for(const targetId of event.targets||[]){if(poseWallNow>=fireAt)launchedRocketTargets.add(String(targetId));if(poseWallNow<=endsAt)rocketFlightEvents.set(String(targetId),{event,fireAt,endsAt});}
+      }
       for (const [id, p] of Object.entries(players)) {
         if (!p || p.online !== true || !hasDisplayableName(p.name)) continue;
         let avatar = avatars.get(id);
@@ -19823,6 +19849,8 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         else if(avatar.userData.wasVented!==isVented)ventTransition=beginVentTraversal(avatar,state,isVented,ventNow);
         const ventSample=sampleVentTraversal(ventTransition,ventNow,isVented),ventProgress=ventSample.progress,ventEase=ventSample.ease;
         const ventTransitionVisible=ventSample.visible;
+        const ventEntryInProgress=isVented&&ventTransition?.entering===true&&ventTransitionVisible;
+        const ventBodyVisible=!isVented||ventEntryInProgress;
         const rocketAvatarVisible=rocketFlightActive&&state?.alive!==false;
         let ghost = inRound && state && (!state.alive||state.observer) && (id!==uid || performance.now()>=deathPauseUntil) && !rocketAvatarVisible;
         const viewerGhost = game.players?.[uid]?.alive === false && !game.players?.[uid]?.observer;
@@ -19839,7 +19867,7 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         const phantomHidden = phantomActive && id !== uid;
 
 avatar.visible = !!code && p.online &&
-          (!inRound || !!state) && ventTransitionVisible &&
+          (!inRound || !!state) && ventTransitionVisible && ventBodyVisible &&
           !hideDeadAvatarFromLiving && !state?.disconnected &&
           (!ghost || id === uid || viewerGhost || viewerObserver || rocketAvatarVisible) &&
           (!inRound || ghost || visibleToPlayer || viewerObserver || rocketAvatarVisible) && !phantomHidden;
@@ -19940,6 +19968,8 @@ if(movingSample){if(!(id===uid&&game.phase==="play"&&game.settings?.viewMode==="
 updateModRoleEffects(game,THREE,scene,uid,now());
 updateRolePublicProps(THREE,scene,game,avatars,dt,now());
 updateSupportRoleProps(THREE,scene,game,avatars,dt,now());
+for(const id of launchedRocketTargets){const avatar=avatars.get(id),state=game.players?.[id];if(avatar&&state?.alive===false&&!rocketFlightEvents.has(id))avatar.visible=false;}
+for(const [id,avatar] of avatars){const state=game.players?.[id];if(state?.ventId&&!(avatar.userData.ventTransition?.entering&&sampleVentTraversal(avatar.userData.ventTransition,performance.now(),true).visible))avatar.visible=false;}
 for(const beam of waveBeams.values())beam.updateWeapon?.(now());
 updateLiveVitalsConsole(detailedVitalsConsole,game,players,position,now());
 for (const [id, body] of corpses) {
@@ -23150,6 +23180,32 @@ body[data-kill-presentation="true"] #settingsBtn,
 body[data-kill-presentation="true"] #againBtn{pointer-events:none!important;opacity:.35!important}
 body[data-kill-presentation="true"] #ending,
 body[data-kill-presentation="true"] #victoryFx{display:none!important}
+</style>
+<style id="oct18-meeting-mobile-text">
+@media(pointer:coarse) and (max-width:1000px){
+  #meeting #chatMessages .chatText{font-size:10px!important;line-height:1.24!important}
+  #meeting #chatMessages .chatAuthor{font-size:10px!important;line-height:1.15!important}
+  #meeting #chatMessages .chatMeta,#meeting #chatMessages time{font-size:8px!important;line-height:1.1!important}
+  #meeting #chatMessages .chatBubble{padding:4px 7px!important}
+  #meeting #chatMessages .chatLine{gap:4px!important;margin:2px 0!important}
+  #meeting .voteName{font-size:clamp(10px,2.2vw,13px)!important;line-height:1.12!important}
+}
+</style>
+<style id="oct18-space-launch-stage">
+body[data-space-launch-backdrop="true"] #viewport{background:radial-gradient(ellipse at 52% 44%,#183653 0%,#0a1a30 43%,#030712 78%,#01030a 100%)!important}
+body[data-space-launch-backdrop="true"] #viewport::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background-image:radial-gradient(1px 1px at 8% 13%,#fff 65%,transparent 100%),radial-gradient(1px 1px at 33% 29%,#c9edff 65%,transparent 100%),radial-gradient(1px 1px at 71% 18%,#fff 65%,transparent 100%),radial-gradient(1.5px 1.5px at 88% 67%,#bceaff 60%,transparent 100%),radial-gradient(1px 1px at 19% 76%,#fff 65%,transparent 100%),radial-gradient(1px 1px at 57% 83%,#d3eaff 65%,transparent 100%);background-size:173px 149px,227px 193px,281px 239px,317px 263px,193px 211px,251px 181px;opacity:.8}
+body[data-space-launch-backdrop="true"] #viewport>canvas{opacity:0!important;pointer-events:none!important}
+#gameCountdown:not([data-kind="meeting-return"]){background:radial-gradient(ellipse at 50% 38%,#17415cF2 0%,#0a1b30F5 48%,#020611FA 100%)!important}
+#gameCountdown.withAutoLaunchRoles{background:linear-gradient(150deg,#0a2034f5,#06101df5)!important;border:1px solid #68cbe099!important;box-shadow:0 7px 28px #000b,inset 0 1px #d8f8ff20!important}
+@media (max-width:900px) and (pointer:coarse),(max-height:540px) and (pointer:coarse){
+ #ventTravel{top:max(64px,calc(env(safe-area-inset-top) + 54px))!important;right:max(8px,env(safe-area-inset-right))!important;bottom:auto!important;width:min(232px,calc(100vw - 16px))!important;max-height:min(42dvh,240px)!important;overflow:auto!important;padding:7px!important;border-radius:11px!important}
+ #ventTravel h3{margin:0 0 3px!important;font-size:13px!important;line-height:1.2!important}#ventRemaining{margin:3px 0 5px!important;font-size:10px!important;line-height:1.2!important}
+ #ventChoices{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important}#ventChoices button{grid-template-columns:28px minmax(0,1fr)!important;gap:4px!important;min-height:38px!important;padding:4px!important;border-radius:8px!important}
+ #ventChoices .ventRouteArrow{width:27px!important;height:27px!important;border-radius:7px!important;font-size:18px!important}#ventChoices strong{font-size:10px!important;line-height:1.1!important}#ventChoices small{margin-top:1px!important;font-size:8px!important;line-height:1.1!important}
+ #ventExitBtn{width:100%!important;min-height:34px!important;margin-top:5px!important;padding:4px 7px!important;font-size:11px!important}
+}
+#roleReveal #roleTeam{display:block!important;visibility:visible!important;opacity:1!important;color:var(--role-color,#a5f3eb)!important;font-size:clamp(13px,2.3vw,18px)!important;line-height:1.2!important;letter-spacing:.08em!important;font-weight:950!important;text-shadow:0 0 12px color-mix(in srgb,var(--role-color,#a5f3eb) 45%,transparent)!important}
+@media(pointer:coarse) and (max-width:1000px){#roleReveal #roleTeam{font-size:clamp(12px,3.2vw,16px)!important}}
 </style>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
