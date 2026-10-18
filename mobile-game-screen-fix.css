@@ -112,10 +112,6 @@
     ):not(.hidden) {
       width: 90% !important;
       max-width: 90% !important;
-      height: 100% !important;
-      min-height: 0 !important;
-      max-height: 100% !important;
-      align-self: stretch !important;
       justify-self: center !important;
       margin-inline: auto !important;
     }

@@ -11,13 +11,14 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['rocket','collapse','beam
  let source=patchMeetingRuntime(assets.MEETING_3D_SRCDOC);
  assert(!source.includes('frame.srcdoc=MR_EJECTION_ASSET'));
  assert(!source.includes('const MR_EJECTION_ASSET='));
+ assert(source.includes('tween(landT+1.8,.01,()=>{},()=>mrStartEjection(ejectedIds,r));'),'ejection should wait a little longer after vote reveal');
  const diagnostic=`
  window.__meetingPaused=false;renderer.setPixelRatio(.8);
  window.__meetingQA={
  init(costumeSource,n=12,scale=false){
   window.__meetingPaused=false;
   libCostumeSource=costumeSource;libCostume=new Function('THREE','clamp',costumeSource+';return {buildLightCostume:buildLightCostume};')(THREE,clamp);
-  const list=Array.from({length:n},(_,i)=>({id:'p'+i,name:i===2?'レモンかす':'テストBot '+(i+1),hue:i/n,alive:true,voted:true,role:i===2?'侍':'',costume:['standard','captain','crown','suit'][i%4]}));
+  const list=Array.from({length:n},(_,i)=>({id:'p'+i,name:i===0?'ものすごく長いプレイヤーの名前1234567890':i===2?'レモンかす':'テストBot '+(i+1),hue:i/n,alive:true,voted:true,role:i===2?'侍':'',costume:['standard','captain','crown','suit'][i%4]}));
   applyState({meetingId:'qa-'+Math.random(),me:'p2',seats:list,voting:false,ownVoted:'',allVoted:true,scalesTargets:scale?['p2','p5']:[]});
   chatPanel.style.display='none';timerBar.style.display='none';
  },
@@ -40,6 +41,10 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['rocket','collapse','beam
  if(shots)fs.mkdirSync(shots,{recursive:true});
  for(const mode of modes){
   await page.evaluate(([src,mode])=>window.__meetingQA.init(src,12,mode==='balance'),[assets.COSTUME_LIB_SRC,mode]);await page.waitForTimeout(250);
+  const fittedNames=await page.evaluate(()=>window.__meetingQA.state().actors.filter(p=>p.id==='p0'||p.id==='p2'));
+  const longName=fittedNames.find(p=>p.id==='p0'),shortName=fittedNames.find(p=>p.id==='p2');
+  assert.equal(longName.name,'ものすごく長いプレイヤーの名前1234567890','meeting scene must keep the full long name');
+  assert(longName.font<shortName.font,'long meeting names must shrink to fit instead of being truncated');
   await page.evaluate(mode=>{window.__meetingQA.pause();window.__meetingQA.start(mode,mode==='balance'?['p2','p5']:['p2']);},mode);
   for(const t of [0,1.35,2.25,3.5,4.4,5.9]){
    const s=await page.evaluate(t=>window.__meetingQA.at(t),t);await page.waitForTimeout(35);

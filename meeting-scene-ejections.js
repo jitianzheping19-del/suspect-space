@@ -377,6 +377,9 @@ function createMeetingEjections(api) {
 export function patchMeetingRuntime(source) {
   if (!source.includes('function mrStartEjection(')) throw new Error('Meeting ejection entry point is missing');
   let html = source.replace(/^const MR_EJECTION_ASSET=.*;\s*$/m, '');
+  const ejectionStart = 'tween(landT+1.0,.01,()=>{},()=>mrStartEjection(ejectedIds,r));';
+  if (!html.includes(ejectionStart)) throw new Error('Meeting ejection timing hook is missing');
+  html = html.replace(ejectionStart, 'tween(landT+1.8,.01,()=>{},()=>mrStartEjection(ejectedIds,r));');
   // The vote numbers were anchored well above the seated actors, which made
   // them appear at the ceiling in the results view. Keep them near the names.
   html = html.replaceAll('p.voteTally.s.position.set(p.x,4.45,p.z)', 'p.voteTally.s.position.set(p.x,3.28,p.z)');
@@ -399,9 +402,10 @@ function mrStartEjection(ids,result,forcedMode){
   html = html.replace('getAbilityState:()=>(', 'getEjectionState:()=>getLiveMeetingEjections().getState(),getAbilityState:()=>(');
   // The former collision fix repeatedly shrank names to a few pixels. Choose
   // readable metrics once; layoutNames resolves overlaps by moving the sprites.
+  html = html.replace(/nameTag\(p\.tag,micTxt\+meetingName,p\.ally\?"#ff526b":\(s\.mic==="speaking"\?"#7dffb0":"#ffffff"\)\);/, 'delete p.tag.fixedFontSize;nameTag(p.tag,micTxt+meetingName,p.ally?"#ff526b":(s.mic==="speaking"?"#7dffb0":"#ffffff"));p.tag.fixedFontSize=p.tag.renderedFontSize||56;');
   html = html.replace(/function updateCrewLabelLayout\(\)\{[\s\S]*?(?=\/\/ Only the beginning of a meeting)/, `function updateCrewLabelLayout(){
  const n=seats.length,nameScale=n<=3?3.2:n<=5?3.0:n<=8?2.8:2.55,roleScale=n<=8?2.1:1.9,fontScale=n<=5?1.7:1.55;
- for(const p of seats){for(const [L,scale] of [[p.tag,nameScale],[p.roleTag,roleScale]])if(L){L.s.scale.set(scale,scale*L.h/L.w,1);L.fontScale=fontScale;L.fixedFontSize=(n>6?50:56)*fontScale;nameTag(L,L.text||'',L.color||'#fff');}}
+ for(const p of seats){for(const [L,scale] of [[p.tag,nameScale],[p.roleTag,roleScale]])if(L){L.s.scale.set(scale,scale*L.h/L.w,1);L.fontScale=fontScale;delete L.fixedFontSize;nameTag(L,L.text||'',L.color||'#fff');L.fixedFontSize=L.renderedFontSize||56;}}
 }
 `);
   const frameEnd = /(?=\n\}\);\s*<\/script>)/;

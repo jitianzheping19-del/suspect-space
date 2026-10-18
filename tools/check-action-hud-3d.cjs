@@ -16,7 +16,7 @@ window.__actionsQA={
   game.settings.killCooldownSeconds=10;game.settings.samuraiCooldownSeconds=10;safeRenderUI();actionHud3D.invalidate();
  },
  state(){const context=document.createElement('canvas').getContext('2d');const rect=id=>{const b=$(id),r=b.getBoundingClientRect(),style=getComputedStyle(b),text=(b.querySelector('#abilityCaption,#rocketLaunchCaption')||b).textContent;context.font=style.fontWeight+' '+style.fontSize+' '+style.fontFamily;return {id,x:r.x,y:r.y,w:r.width,h:r.height,disabled:b.disabled,text:b.textContent,textWidth:context.measureText(text).width,availableWidth:r.width-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)-parseFloat(style.borderLeftWidth)-parseFloat(style.borderRightWidth),visible:!b.closest('.hidden')&&r.width>0&&r.height>0&&style.visibility!=='hidden'};};
-  return {hud:actionHud3D.getStats(),buttons:[...$("buttons").querySelectorAll(':scope>button')].map(b=>rect(b.id)),top:['role','taskProgressHud','roundRoleBtn','mapBtn','titleInputSettingsBtn'].map(rect),
+  return {hud:actionHud3D.getStats(),buttonPanel:rect('buttons'),buttons:[...$("buttons").querySelectorAll(':scope>button')].map(b=>rect(b.id)),top:['role','taskProgressHud','roundRoleBtn','mapBtn','titleInputSettingsBtn'].map(rect),
     stick:rect('stick'),joystick:{...joystick},pointerId,canvasCount:document.querySelectorAll('#viewport canvas').length,
     hit:document.elementFromPoint($('stick').getBoundingClientRect().x+$('stick').getBoundingClientRect().width*.7,$('stick').getBoundingClientRect().y+$('stick').getBoundingClientRect().height/2)?.id,modal:modalVisible(),touch:joystickTouchId,fallback:joystickTouchFallback,
     errors:$("uiRecoveryMessage").textContent,recoveryVisible:!$("uiRecoveryBanner").classList.contains('hidden'),writes:window.__qaWrites.filter(w=>w.path.includes('/commands/')).length,trace:window.__touchTrace};},
@@ -48,6 +48,8 @@ window.__actionsQA={
     await page.screenshot({path:path.join(out,width+'-'+height+'-'+role+'.png')});
     const buttons=s.buttons.filter(b=>b.visible&&b.id!=='mapBtn');
     for(const b of buttons){assert(b.x>=0&&b.y>=0&&b.x+b.w<=width+1&&b.y+b.h<=height+1,'offscreen '+JSON.stringify(b));if(height>=600)assert.equal(b.h,82,'tablet/desktop buttons must be taller');assert(b.textWidth<=b.availableWidth+2,'caption overflow '+JSON.stringify(b));}
+    const useButton=s.buttons.find(b=>b.id==='taskBtn'&&b.visible),killButton=s.buttons.find(b=>b.id==='killBtn'&&b.visible);
+    if(useButton&&killButton){assert(Math.abs(useButton.w-killButton.w)<=1,'use and kill buttons must share the same width');assert(useButton.w<s.buttonPanel.w*.96,'use and kill buttons must be slightly narrower than their action row');}
     for(let a=0;a<buttons.length;a++)for(let b=a+1;b<buttons.length;b++){const x=buttons[a],y=buttons[b];assert(x.x+x.w<=y.x+1||y.x+y.w<=x.x+1||x.y+x.h<=y.y+1||y.y+y.h<=x.y+1,'overlapping buttons '+x.id+' / '+y.id+' at '+width);}
     const top=s.top.filter(b=>b.visible);
     for(let a=0;a<top.length;a++)for(let b=a+1;b<top.length;b++){const x=top[a],y=top[b];assert(x.x+x.w<=y.x+1||y.x+y.w<=x.x+1||x.y+x.h<=y.y+1||y.y+y.h<=x.y+1,'overlapping top controls '+x.id+' / '+y.id+' at '+width);}
