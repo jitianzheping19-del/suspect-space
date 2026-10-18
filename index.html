@@ -17460,9 +17460,9 @@ function ssxUpdateRoleTransformFx(avatar,id,state,player,ctx){
 }
 
 const avatars = new Map();
-// Render remote poses a short time behind receipt so irregular network updates
-// can be interpolated without changing the Firebase payload or publish cadence.
-const REMOTE_POSE_DELAY_MS=110,REMOTE_POSE_BUFFER_LIMIT=6,REMOTE_POSE_SNAP_DISTANCE=4.5;
+// Render buffered remote poses behind receipt time so the lower network cadence
+// can be interpolated smoothly while local movement remains frame-based.
+const REMOTE_POSE_DELAY_MS=220,REMOTE_POSE_BUFFER_LIMIT=6,REMOTE_POSE_SNAP_DISTANCE=4.5;
 function captureRemotePose(avatar,player,receivedAt,wallNow){
   const x=Number(player?.x),z=Number(player?.z);
   if(!Number.isFinite(x)||!Number.isFinite(z))return null;
@@ -18855,7 +18855,8 @@ async function handleLobbyKartMessage(data){
   }catch(error){toast('カート操作を同期できませんでした：'+errorText(error));}
 }
 
-// Keep the 10 Hz movement cadence and existing interpolation. Only transmit changed
+// Keep local movement frame-based; cap network position updates at 5 Hz and interpolate
+// the buffered remote poses to hide the wider update interval. Only transmit changed
 // fields; an idle heartbeat stays well inside ROOM_PRESENCE_GRACE_MS (60 seconds).
 const POSE_HEARTBEAT_MS=15000;
 function compactPosePatch(next,previous){
@@ -18911,7 +18912,7 @@ let publishBusy = false;
         }
       } catch(error){toast(errorText(error));}
       finally{publishBusy=false;}
-    },100);
+    },200);
 
 // ---------- UI ----------
     let waveHudMatchKey="",waveHudSeenDeaths=new Set(),waveHudTimers=new Map();
