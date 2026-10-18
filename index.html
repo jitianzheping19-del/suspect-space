@@ -739,7 +739,6 @@
     #setupMessage { white-space: pre-wrap; color: #ffc18e; }
     @media (max-width: 600px) {
       .card { padding: 18px; }
-      #viewport { inset: 92px 0 155px; }
       #hud { padding: 10px; }
       #controls { left: 10px; right: 10px; }
       #stick { flex-basis: var(--stick-size,150px); width:var(--stick-size,150px); height:var(--stick-size,150px); }
@@ -1049,7 +1048,7 @@
     .roundRoleCount{color:#ffdf8a;font-weight:800}
     #bountyHud{position:fixed;left:50%;top:106px;transform:translateX(-50%);z-index:15;padding:7px 13px;border:1px solid #dfb36e;background:#111a26ef;color:#ffe6ae;font-weight:800;letter-spacing:.06em;pointer-events:none}
     /* Three.js owns the full viewport; HUD and menus float above it. */
-    #viewport{inset:0!important}
+    #viewport{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important}
     #lobbyAttachedFrame{inset:0!important;width:100vw!important;height:100dvh!important}
     #onlineIndicator,#lobbyConnectionStatus{display:none!important}
     #hint{display:none!important}
@@ -2512,6 +2511,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 <link rel="stylesheet" href="./play-action-layout.css">
 <link rel="stylesheet" href="./play-action-3d.css">
 <link rel="stylesheet" href="./ui-surfaces.css">
+<link rel="stylesheet" href="./mobile-game-screen-fix.css">
 </head>
 <body>
   <div id="viewport"></div>
@@ -18049,6 +18049,7 @@ function sampleVentTraversal(transition,stamp,isVented){
 const ssxNavigatorArrow=document.createElement("div");ssxNavigatorArrow.id="ssxNavigatorArrow";ssxNavigatorArrow.setAttribute("aria-label","最寄りの死体の方向");ssxNavigatorArrow.textContent="➤";Object.assign(ssxNavigatorArrow.style,{position:"fixed",zIndex:"28",left:"50%",top:"20%",transform:"translate(-50%,-50%)",fontSize:"46px",fontWeight:"1000",color:"#8ceaff",textShadow:"0 0 14px #26bde8",pointerEvents:"none",display:"none"});document.body.append(ssxNavigatorArrow);
 setInterval(()=>{const me=self(),active=me?.subrole==="navigator"&&Number(me.navigatorUntil)>now()&&game.phase==="play";ssxNavigatorArrow.style.display=active?"block":"none";if(!active)return;const origin=players[uid]||position;let nearest=null,best=Infinity;for(const [bodyId,body] of Object.entries(game.bodies||{})){if(!body||body.removed===true||body.dissolved===true||!game.players?.[bodyId]||game.players[bodyId].alive!==false)continue;const dx=Number(body.x)-Number(origin?.x),dz=Number(body.z)-Number(origin?.z),d=Math.hypot(dx,dz);if(Number.isFinite(d)&&d<best){best=d;nearest={dx,dz};}}if(nearest){const yaw=Math.atan2(nearest.dx,nearest.dz)-(Number(avatars.get(uid)?.rotation.y)||0);ssxNavigatorArrow.style.transform=`translate(-50%,-50%) rotate(${yaw+Math.PI/2}rad)`;ssxNavigatorArrow.title=`最寄りの死体まで ${best.toFixed(0)} m`; }else ssxNavigatorArrow.style.display="none";},250);
 window.addEventListener("resize", resize);
+window.visualViewport?.addEventListener("resize", resize, { passive: true });
     resize();
 
 // ---------- 入力 ----------
