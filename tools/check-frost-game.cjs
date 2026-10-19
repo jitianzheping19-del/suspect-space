@@ -38,6 +38,30 @@ window.__frostGameQA={
   toast:$('toast').textContent,meeting:game.meeting?.id,canSabotage:canUseSabotage(),
   avatar:avatars.get(uid)?.visible,position:{...position},calls:renderer.info.render.calls};},
  layout(){return frostGameLayout;},
+ async frostTask(id,ghost=false){
+  this.switchMap('frost');const station=TASKS.find(t=>t.id===id),g=clone(game),pose={x:station.approach[0],z:-station.approach[1]};
+  g.phase='play';delete g.meeting;delete g.sabotage;delete g.winner;
+  delete g.killPresentation;delete g.killEvent;delete g.deathRecords;delete g.lastVoteResult;
+  g.playStartsAt=now()-50000;g.countdownEndsAt=now()-50000;g.meetingReadyAt=0;
+  Object.assign(g.players[uid],pose,{role:'crew',subrole:'crewmate',alive:!ghost,observer:false,disconnected:false,assignedTasks:[id,'dome-circuit'],tasks:{}});
+  for(const p of Object.values(g.players))if(p!==g.players[uid])p.assignedTasks=[];
+  hostId=uid;connected=true;position={...pose};window.__qaEmitPlayer('5291',uid,{...players[uid],...pose,online:true,updatedAt:now()});
+  // A restored ghost is already past its death presentation. This fixture
+  // tests terminal access rather than manufacturing an incomplete kill event.
+  if(ghost){game.players[uid].alive=false;clearVictimDeathOverlays();}
+  await window.__qaSetGame(g);if(ghost)clearVictimDeathOverlays();safeRenderUI();startTask();return this.frostTaskState();
+ },
+ frostTaskState(){return{open:!!taskGame,mode:taskGame?.mode,task:taskGame?.station.id,finished:taskGame?.frostRun?.state.finished,completed:window.__qaDatabase.rooms['5291'].game.players[uid].tasks,lock:taskInteractionLock,ready:canPlay(),nearest:nearestTask()?.id,position:{...position},alive:self()?.alive,phase:game.phase,toast:$('toast').textContent,connected,host:hostOnline(),killLocked:killActionsLocked(),deathPause:deathPauseUntil-performance.now(),reveal:!$('roleReveal').classList.contains('hidden'),assigned:self()?.assignedTasks};},
+ useTask(){if(!taskGame&&canPlay())startTask();return !!taskGame;},
+ frostControl(id){const m=taskMachine3D,o=m.controls.find(o=>o.userData.taskControl.id===id),p=o.getWorldPosition(new THREE.Vector3()).project(m.camera),r=m.canvas.getBoundingClientRect();return{x:r.x+(p.x+1)*r.width/2,y:r.y+(1-p.y)*r.height/2};},
+ async processTask(){await flushCommandQueue();await hostTick();return this.frostTaskState();},
+ async frostOxygen(){
+  closeTaskGame();const g=clone(game),panel=EMERGENCY_PANELS.find(p=>p.id==='oxygen-habitat'),pose={x:panel.approach[0],z:-panel.approach[1]};
+  g.phase='play';g.players[uid].alive=true;g.sabotage={id:'qa-oxygen',type:'oxygen',code:'123456',endsAt:now()+90000,startedAt:now(),panels:{}};
+  Object.assign(g.players[uid],pose);position={...pose};window.__qaEmitPlayer('5291',uid,{...players[uid],...pose,online:true,updatedAt:now()});
+  await window.__qaSetGame(g);startTask();return{panel:emergencyPanelOpen?.panelId,mode:emergencyTaskMachineState()?.mode};
+ },
+ oxygenState(){return window.__qaDatabase.rooms['5291'].game.sabotage?.panels||{};},
  paths(){return ${JSON.stringify(require('../frost-map-data.json').routes.map((r) => r.points))}.map(points=>points.every((p,i)=>!i||Array.from({length:31},(_,j)=>({x:points[i-1][0]+(p[0]-points[i-1][0])*j/30,z:-(points[i-1][1]+(p[1]-points[i-1][1])*j/30)})).every(p=>!collision(p.x,p.z,true))));},
  async malformedMeeting(){const g=clone(game);g.phase='meeting';delete g.meeting;await window.__qaSetGame(g);await hostTick();return this.state();},
  async meeting(){const g=clone(game);g.phase='play';delete g.meeting;const ok=beginMeeting(g,uid,'緊急会議');await window.__qaSetGame(g);await hostTick();return{ok,...this.state()};},
@@ -90,7 +114,7 @@ window.__frostGameQA={
         await page.waitForFunction(() => window.__frostGameQA.state().avatar === true);
         const s = await page.evaluate(() => window.__frostGameQA.state());
         assert.equal(s.map, 'frost'); assert.equal(s.rooms, 11); assert.equal(s.vents, 10); assert.equal(s.doors, 30);
-        assert.equal(s.tasks, 0); assert.equal(s.panels, 0); assert.equal(s.canSabotage, false);
+        assert.equal(s.tasks, 22); assert.equal(s.panels, 9); assert.equal(s.canSabotage, false);
         assert(s.roots.frost && !s.roots.classic && !s.roots.astra);
         const routes = await page.evaluate(() => window.__frostGameQA.paths());
         assert(routes.every(Boolean), 'A FROST corridor is blocked');
@@ -106,6 +130,27 @@ window.__frostGameQA={
         assert.equal(s.map, map); assert.equal(s.roots.frost, map === 'frost');
         if (map === 'classic') assert(s.tasks > 0 && s.panels > 0, 'Existing tasks were lost after switching back');
       }
+      if(width===844){
+        for(const ghost of [false,true]){
+          let task=await page.evaluate(ghost=>window.__frostGameQA.frostTask('power-overcurrent',ghost),ghost);
+          if(!task.open){console.log('WAIT FOR TASK READINESS',{ghost,task});await page.waitForFunction(()=>window.__frostGameQA.useTask());task=await page.evaluate(()=>window.__frostGameQA.frostTaskState());}
+          assert.equal(task.mode,'frost');assert(task.open&&task.lock);
+          await page.screenshot({path:path.join(out,ghost?'frost-ghost-task.png':'frost-live-task.png')});
+          const control=await page.evaluate(()=>window.__frostGameQA.frostControl('breaker:2'));
+          await page.touchscreen.tap(control.x,control.y);
+          await page.evaluate(()=>window.__frostGameQA.processTask());
+          try{await page.waitForFunction(()=>window.__frostGameQA.frostTaskState().completed['power-overcurrent']===true);}
+          catch(error){console.error('TASK HOST FAILURE',await page.evaluate(()=>window.__frostGameQA.frostTaskState()));throw error;}
+          await page.waitForFunction(()=>!window.__frostGameQA.frostTaskState().open);
+          assert.equal((await page.evaluate(()=>window.__frostGameQA.frostTaskState())).lock,false);
+        }
+        const emergency=await page.evaluate(()=>window.__frostGameQA.frostOxygen());
+        assert.equal(emergency.panel,'oxygen-habitat');assert.equal(emergency.mode,'emergency-oxygen');
+        await page.keyboard.type('123456');await page.keyboard.press('Enter');
+        await page.evaluate(()=>window.__frostGameQA.processTask());
+        await page.waitForFunction(()=>Boolean(window.__frostGameQA.oxygenState()['oxygen-habitat']));
+        console.log('PASS live FROST task completion, ghost tasks, input unlock and oxygen host validation');
+      }
       await page.evaluate(() => { window.__frostGameQA.hostReset(); window.__frostGameQA.task('air'); });
       await page.waitForFunction(() => window.__frostGameQA.taskState().three);
       const task = await page.evaluate(() => window.__frostGameQA.taskState());
@@ -117,10 +162,10 @@ window.__frostGameQA={
       assert(close.x < 42 && close.y + close.height <= height && close.y > stage.y + stage.height, 'Close button is not outside the machine area');
       assert.equal(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id,
         { x: close.x + close.width / 2, y: close.y + close.height / 2 }), 'taskGameCloseBtn', 'Another HUD covers the close button');
-      await page.locator('#taskGameCloseBtn').click();
-      assert.equal(await page.evaluate(() => window.__frostGameQA.taskState().open), false);
+      if(touch)await page.locator('#taskGameCloseBtn').tap();else await page.locator('#taskGameCloseBtn').click();
+      await page.waitForFunction(()=>!window.__frostGameQA.taskState().open,null,{timeout:5000});
       assert.deepEqual(errors, []);
-      results.push({ width, height, touch, meeting: true, emptyTasks: true, taskStage: stage, close, errors });
+      results.push({ width, height, touch, meeting: true, tasks:22, emergencyPanels:9, taskStage: stage, close, errors });
       console.log('PASS', width, height, 'saved map setting, both cameras, 19 routes, meeting safety, map switch and task UI');
       await page.close();
     }

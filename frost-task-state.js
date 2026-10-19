@@ -1,16 +1,18 @@
+import { createFrostTaskRun } from './frost-task-rules.js';
 const randomTarget = () => 20 + Math.floor(Math.random() * 61);
-const normalTotals = { filter: 6, shields: 6, sample: 3, engine: 3, convert: 1, upload: 100, sort: 6 };
 export const sabotageNames = { oxygen: '酸素供給停止', reactor: '冷却炉異常', lights: '停電', comms: '通信障害' };
 
-// Local preview state. The geometry and task IDs can later be passed to the
-// multiplayer game; this preview never writes completion or sabotage to RTDB.
+// The standalone preview never writes completion or sabotage to RTDB. The
+// multiplayer game uses the same normal mechanisms with host validation.
 export function createFrostTaskState(tasks, onChange = () => {}, clock = () => Date.now()) {
   const completed = new Set();
   let sabotage = null;
   let serial = 0;
   let session = null;
+  let normalRun = null;
 
   function activate(type) {
+    normalRun?.release(); normalRun = null;
     session = null;
     sabotage = sabotageNames[type] ? {
       id: ++serial, type, panels: new Set(),
@@ -48,16 +50,22 @@ export function createFrostTaskState(tasks, onChange = () => {}, clock = () => D
   function open(id) {
     const task = tasks.find((task) => task.id === id);
     if (!task || !available(task)) return null;
+    normalRun?.release(); normalRun = null;
+    if (!task.sabotage) {
+      normalRun = createFrostTaskRun(task, () => { completed.add(task.id); onChange(); });
+      session = normalRun.state;
+      return session;
+    }
     session = {
       task, incident: sabotage, mode: task.mode, machineLabel: task.instrument, accepting: true, finished: false,
-      selected: new Set(), done: 0, total: normalTotals[task.mode] || 1,
-      target: task.mode === 'sample' ? Math.floor(Math.random() * 4) : randomTarget(),
+      selected: new Set(), done: 0, total: 1, target: randomTarget(),
       value: 0, input: '', startedAt: null, feedback: '', error: false,
     };
     return session;
   }
 
   function state() {
+    if (normalRun) return normalRun.state;
     const run = session;
     if (!run) return null;
     const incident = run.incident;
@@ -80,6 +88,7 @@ export function createFrostTaskState(tasks, onChange = () => {}, clock = () => D
   }
 
   function action(index) {
+    if (normalRun) return false;
     const run = session;
     if (!run?.accepting || !Number.isInteger(index)) return false;
     run.error = false;
@@ -99,30 +108,7 @@ export function createFrostTaskState(tasks, onChange = () => {}, clock = () => D
     } else if (run.mode === 'emergency-lights' || run.mode === 'emergency-comms') {
       if (index !== 0 || (run.mode === 'emergency-comms' && Math.abs(run.value - run.target) > 3)) return wrong();
       finish(run);
-    } else if (run.mode === 'filter' || run.mode === 'shields') {
-      if (index < 0 || index >= 6 || run.selected.has(index)) return false;
-      run.selected.add(index);
-      run.done = run.selected.size;
-    } else if (run.mode === 'sample') {
-      if (index !== run.target) return wrong();
-      run.done++;
-      if (run.done < run.total) run.target = (run.target + 1 + Math.floor(Math.random() * 3)) % 4;
-    } else if (run.mode === 'sort') {
-      if (index !== run.done % 2) return wrong();
-      run.done++;
-    } else if (run.mode === 'engine') {
-      if (index !== 0 || Math.abs(run.value - run.target) > 5) return wrong();
-      run.done++;
-      if (run.done < run.total) run.target = run.value < 50 ? 65 + Math.floor(Math.random() * 16) : 20 + Math.floor(Math.random() * 16);
-    } else if (run.mode === 'convert') {
-      if (index !== 0 || run.value < 95) return wrong();
-      run.done = 1;
-    } else if (run.mode === 'upload') {
-      if (index !== 0) return false;
-      run.startedAt = clock();
-      run.accepting = false;
-    }
-    if (!run.task.sabotage && run.done >= run.total) finish(run);
+    } else return false;
     if (!run.error && !run.finished) run.feedback = '';
     return true;
   }
@@ -134,11 +120,8 @@ export function createFrostTaskState(tasks, onChange = () => {}, clock = () => D
       if (run?.task.sabotage) { run.accepting = false; run.feedback = '復旧時間が終了しました'; }
       onChange();
     }
-    if (!run || run.finished || run.startedAt === null || run.incident?.failed) return;
-    if (run.mode === 'upload') {
-      run.done = Math.min(100, (clock() - run.startedAt) / 50);
-      if (run.done >= 100) finish(run);
-    } else if (run.mode === 'emergency-reactor' && clock() - run.startedAt >= 1000) {
+    if (normalRun || !run || run.finished || run.startedAt === null || run.incident?.failed) return;
+    if (run.mode === 'emergency-reactor' && clock() - run.startedAt >= 1000) {
       run.done = 1;
       finish(run);
     }
@@ -146,9 +129,10 @@ export function createFrostTaskState(tasks, onChange = () => {}, clock = () => D
 
   return {
     completed, activate, available, status, open, state, action, tick,
-    close() { session = null; },
+    close() { normalRun?.release(); normalRun = null; session = null; },
     setValue(value) { if (session?.accepting && Number.isFinite(value)) session.value = Math.max(0, Math.min(100, Math.round(value))); },
     get sabotage() { return sabotage; },
     get session() { return session; },
+    get run() { return normalRun; },
   };
 }

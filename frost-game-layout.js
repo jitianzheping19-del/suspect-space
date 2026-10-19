@@ -24,9 +24,12 @@ export function createFrostGameLayout(data) {
         w: Math.hypot(dx, dz), d: data.wallThickness, angle: -Math.atan2(dz, dx) });
     });
   }
-  // Task designs are under review. Do not bring the repeated preview puzzles or
-  // their invisible console colliders into an actual match before approval.
-  const tasks = [], emergencyPanels = [];
+  const tasks = data.tasks.filter((task) => !task.sabotage).map((task) => ({
+    ...task, ...point(task.position), room: task.roomId, mapMode: 'frost',
+  }));
+  const emergencyPanels = data.tasks.filter((task) => task.sabotage).map((task) => ({
+    ...task, ...point(task.position), room: task.sabotage, mapMode: 'frost',
+  }));
   const vents = data.vents.map((vent) => ({ ...vent, ...point(vent.position), room: vent.roomName,
     rotationY: Math.atan2(vent.facing[0], -vent.facing[1]), exitPoint: point(vent.exit) }));
   const doors = data.doors.map((door) => {
@@ -36,6 +39,10 @@ export function createFrostGameLayout(data) {
       ax: a.x, az: a.z, bx: b.x, bz: b.z, tx: (b.x - a.x) / door.width, tz: (b.z - a.z) / door.width };
   });
   const colliders = [{ ...point(data.meeting.position), radius: data.meeting.radius }];
+  for (const task of data.tasks) {
+    const points = task.footprint.outline.map(point), xs = points.map((p) => p.x), zs = points.map((p) => p.z);
+    colliders.push({ ...point(task.position), w: Math.max(...xs) - Math.min(...xs), d: Math.max(...zs) - Math.min(...zs) });
+  }
   const spawnPoints = [];
   for (const radius of [2.8, 4.1, 4.8]) {
     for (let i = 0; i < 18; i++) {

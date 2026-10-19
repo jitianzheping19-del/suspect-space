@@ -20,8 +20,8 @@ button:focus-visible, select:focus-visible { outline: 2px solid #8fe8de; outline
 .walk-tools { position: absolute; top: max(86px, calc(env(safe-area-inset-top) + 64px)); right: max(28px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 8px; }
 .room-picker { display: none; }
 [data-mode="walk"] .room-picker { display: block; }
-.room-picker select, .sabotage-picker select, #fullscreen { height: 38px; border: 1px solid #4c67756b; border-radius: 10px; background: #0d1c2de8; }
-.room-picker select, .sabotage-picker select { max-width: 180px; padding: 0 28px 0 14px; font-size: 13px; }
+.room-picker select, .sabotage-picker select, .task-picker select, #fullscreen { height: 38px; border: 1px solid #4c67756b; border-radius: 10px; background: #0d1c2de8; }
+.room-picker select, .sabotage-picker select, .task-picker select { max-width: 180px; padding: 0 28px 0 14px; font-size: 13px; }
 #fullscreen { font-size: 23px; line-height: 1; width: 40px; color: #acbfcc; }
 .caption { position: absolute; bottom: max(25px, env(safe-area-inset-bottom)); left: max(28px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; text-shadow: 0 1px 7px #000; }
 #location { font-size: 13px; color: #c3d7e5; letter-spacing: 0.1em; }
@@ -89,8 +89,8 @@ noscript { position: absolute; top: 40%; width: 100%; text-align: center; }
   .views { border-radius: 11px; padding: 3px; }
   .views button { padding: 9px 18px; font-size: 12px; }
   .walk-tools { top: max(65px, calc(env(safe-area-inset-top) + 54px)); right: max(20px, env(safe-area-inset-right)); }
-  .room-picker select, .sabotage-picker select, #fullscreen { height: 34px; }
-  .room-picker select, .sabotage-picker select { font-size: 12px; max-width: 150px; padding-left: 10px; }
+  .room-picker select, .sabotage-picker select, .task-picker select, #fullscreen { height: 34px; }
+  .room-picker select, .sabotage-picker select, .task-picker select { font-size: 12px; max-width: 150px; padding-left: 10px; }
   #sabotageStatus { top: max(65px, calc(env(safe-area-inset-top) + 54px)); left: max(20px, env(safe-area-inset-left)); font-size: 11px; padding: 8px 10px; }
   #taskAction { right: max(20px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); gap: 7px; }
   #useTask { width: 84px; height: 56px; font-size: 17px; }

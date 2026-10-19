@@ -6324,10 +6324,10 @@
   ],
   "tasks": [
     {
-      "id": "dome-pump",
+      "id": "dome-circuit",
       "roomId": "dome",
-      "name": "循環ポンプを接続",
-      "mode": "convert",
+      "name": "基地回線を復旧",
+      "mode": "circuit",
       "position": [
         -3.3,
         5.25
@@ -6336,7 +6336,7 @@
         0,
         -1
       ],
-      "instrument": "HEAT CIRCULATION",
+      "instrument": "BASE CIRCUIT ROUTING",
       "roomName": "中央ドーム",
       "footprint": {
         "outline": [
@@ -6365,10 +6365,10 @@
       ]
     },
     {
-      "id": "dome-sync",
+      "id": "dome-clocks",
       "roomId": "dome",
-      "name": "基地データを同期",
-      "mode": "upload",
+      "name": "基準時計を同期",
+      "mode": "clocks",
       "position": [
         3.3,
         -5.25
@@ -6377,7 +6377,7 @@
         0,
         1
       ],
-      "instrument": "BASE DATA SYNC",
+      "instrument": "MASTER CLOCK SYNCHRONIZATION",
       "roomName": "中央ドーム",
       "footprint": {
         "outline": [
@@ -6406,10 +6406,10 @@
       ]
     },
     {
-      "id": "hangar-filter",
+      "id": "hangar-cargo",
       "roomId": "hangar",
-      "name": "換気フィルターを清掃",
-      "mode": "filter",
+      "name": "貨物の重心を調整",
+      "mode": "cargo",
       "position": [
         -31.25,
         19.5
@@ -6418,7 +6418,7 @@
         1,
         0
       ],
-      "instrument": "VENTILATION FILTERS",
+      "instrument": "CARGO BALANCE PLATFORM",
       "roomName": "格納庫",
       "footprint": {
         "outline": [
@@ -6447,10 +6447,10 @@
       ]
     },
     {
-      "id": "hangar-output",
+      "id": "hangar-drone",
       "roomId": "hangar",
-      "name": "輸送機の出力を調整",
-      "mode": "engine",
+      "name": "ドローンを着陸誘導",
+      "mode": "drone",
       "position": [
         -22,
         24.75
@@ -6459,7 +6459,7 @@
         0,
         -1
       ],
-      "instrument": "CRAFT POWER CALIBRATION",
+      "instrument": "DRONE LANDING CONTROL",
       "roomName": "格納庫",
       "footprint": {
         "outline": [
@@ -6488,10 +6488,10 @@
       ]
     },
     {
-      "id": "observatory-align",
+      "id": "observatory-stars",
       "roomId": "observatory",
-      "name": "望遠鏡の軸を較正",
-      "mode": "engine",
+      "name": "星図を照合",
+      "mode": "stars",
       "position": [
         24.25,
         19.4
@@ -6500,7 +6500,7 @@
         -1,
         0
       ],
-      "instrument": "TELESCOPE ALIGNMENT",
+      "instrument": "CONSTELLATION MATCH",
       "roomName": "観測室",
       "footprint": {
         "outline": [
@@ -6529,10 +6529,10 @@
       ]
     },
     {
-      "id": "observatory-data",
+      "id": "observatory-defrost",
       "roomId": "observatory",
-      "name": "観測データを送信",
-      "mode": "upload",
+      "name": "望遠鏡の霜を除去",
+      "mode": "defrost",
       "position": [
         16.2,
         17.75
@@ -6541,7 +6541,7 @@
         0,
         1
       ],
-      "instrument": "OBSERVATION DATA",
+      "instrument": "OPTICAL LENS DEFROST",
       "roomName": "観測室",
       "footprint": {
         "outline": [
@@ -6570,10 +6570,10 @@
       ]
     },
     {
-      "id": "comms-upload",
+      "id": "comms-triangulate",
       "roomId": "comms",
-      "name": "送信データを転送",
-      "mode": "upload",
+      "name": "救難信号を測位",
+      "mode": "triangulate",
       "position": [
         21.25,
         8.25
@@ -6582,7 +6582,7 @@
         0,
         -1
       ],
-      "instrument": "SIGNAL TRANSMISSION",
+      "instrument": "DISTRESS SIGNAL TRIANGULATION",
       "roomName": "通信室",
       "footprint": {
         "outline": [
@@ -6611,10 +6611,10 @@
       ]
     },
     {
-      "id": "comms-power",
+      "id": "comms-waveform",
       "roomId": "comms",
-      "name": "通信電源を接続",
-      "mode": "convert",
+      "name": "欠損した信号を復元",
+      "mode": "waveform",
       "position": [
         14.9,
         1.75
@@ -6623,7 +6623,7 @@
         0,
         1
       ],
-      "instrument": "TRANSMITTER POWER",
+      "instrument": "SIGNAL RECONSTRUCTION",
       "roomName": "通信室",
       "footprint": {
         "outline": [
@@ -6652,10 +6652,10 @@
       ]
     },
     {
-      "id": "medical-sample",
+      "id": "medical-tubing",
       "roomId": "medical",
-      "name": "血液サンプルを検査",
-      "mode": "sample",
+      "name": "採血ラインを固定",
+      "mode": "tubing",
       "position": [
         -22.25,
         2.3
@@ -6664,7 +6664,7 @@
         1,
         0
       ],
-      "instrument": "BLOOD SAMPLE ANALYZER",
+      "instrument": "STERILE TUBING ASSEMBLY",
       "roomName": "医療室",
       "footprint": {
         "outline": [
@@ -6693,10 +6693,10 @@
       ]
     },
     {
-      "id": "medical-equipment",
+      "id": "medical-medicine",
       "roomId": "medical",
-      "name": "医療機器を較正",
-      "mode": "engine",
+      "name": "治療薬を調合",
+      "mode": "medicine",
       "position": [
         -22.25,
         -0.8
@@ -6705,7 +6705,7 @@
         1,
         0
       ],
-      "instrument": "MEDICAL CALIBRATION",
+      "instrument": "MEDICINE DOSING STATION",
       "roomName": "医療室",
       "footprint": {
         "outline": [
@@ -6734,10 +6734,10 @@
       ]
     },
     {
-      "id": "habitat-filter",
+      "id": "habitat-irrigation",
       "roomId": "habitat",
-      "name": "空調フィルターを清掃",
-      "mode": "filter",
+      "name": "温室の散水を管理",
+      "mode": "irrigation",
       "position": [
         -5,
         21.25
@@ -6746,7 +6746,7 @@
         0,
         -1
       ],
-      "instrument": "AIR PURIFICATION",
+      "instrument": "GREENHOUSE IRRIGATION",
       "roomName": "居住区",
       "footprint": {
         "outline": [
@@ -6775,10 +6775,10 @@
       ]
     },
     {
-      "id": "habitat-waste",
+      "id": "habitat-fins",
       "roomId": "habitat",
-      "name": "廃棄物を分別",
-      "mode": "sort",
+      "name": "放熱フィンを組み直す",
+      "mode": "fins",
       "position": [
         -1.4,
         21.25
@@ -6787,7 +6787,7 @@
         0,
         -1
       ],
-      "instrument": "WASTE PROCESSOR",
+      "instrument": "RADIATOR FIN DEPLOYMENT",
       "roomName": "居住区",
       "footprint": {
         "outline": [
@@ -6818,8 +6818,8 @@
     {
       "id": "laboratory-core",
       "roomId": "laboratory",
-      "name": "氷床コアを分析",
-      "mode": "sample",
+      "name": "氷コアの地層を採取",
+      "mode": "core",
       "position": [
         -30.25,
         -11.5
@@ -6828,7 +6828,7 @@
         1,
         0
       ],
-      "instrument": "ICE CORE ANALYZER",
+      "instrument": "ICE CORE STRATUM EXTRACTION",
       "roomName": "研究室",
       "footprint": {
         "outline": [
@@ -6857,10 +6857,10 @@
       ]
     },
     {
-      "id": "laboratory-results",
+      "id": "laboratory-centrifuge",
       "roomId": "laboratory",
-      "name": "分析結果を送信",
-      "mode": "upload",
+      "name": "遠心分離機を安定化",
+      "mode": "centrifuge",
       "position": [
         -30.25,
         -14.8
@@ -6869,7 +6869,7 @@
         1,
         0
       ],
-      "instrument": "ANALYSIS DATA",
+      "instrument": "CENTRIFUGE STABILIZATION",
       "roomName": "研究室",
       "footprint": {
         "outline": [
@@ -6898,10 +6898,10 @@
       ]
     },
     {
-      "id": "specimen-color",
+      "id": "specimen-sterile",
       "roomId": "specimen",
-      "name": "検体の変色を確認",
-      "mode": "sample",
+      "name": "検体を無菌移送",
+      "mode": "sterile",
       "position": [
         -16.25,
         -26
@@ -6910,7 +6910,7 @@
         1,
         0
       ],
-      "instrument": "SAMPLE INSPECTION",
+      "instrument": "SEALED SPECIMEN TRANSFER",
       "roomName": "検体室",
       "footprint": {
         "outline": [
@@ -6939,10 +6939,10 @@
       ]
     },
     {
-      "id": "specimen-cooling",
+      "id": "specimen-freezer",
       "roomId": "specimen",
-      "name": "保冷電源を接続",
-      "mode": "convert",
+      "name": "冷凍保管庫を調整",
+      "mode": "freezer",
       "position": [
         -16.25,
         -28.2
@@ -6951,7 +6951,7 @@
         1,
         0
       ],
-      "instrument": "COLD STORAGE POWER",
+      "instrument": "CRYOGENIC STORAGE REGULATION",
       "roomName": "検体室",
       "footprint": {
         "outline": [
@@ -6980,10 +6980,10 @@
       ]
     },
     {
-      "id": "power-grid",
+      "id": "power-overcurrent",
       "roomId": "power",
-      "name": "配電先を切り替え",
-      "mode": "shields",
+      "name": "過電流の原因を遮断",
+      "mode": "overcurrent",
       "position": [
         0,
         -21.25
@@ -6992,7 +6992,7 @@
         0,
         1
       ],
-      "instrument": "POWER DISTRIBUTION",
+      "instrument": "OVERCURRENT ISOLATION",
       "roomName": "電力室",
       "footprint": {
         "outline": [
@@ -7021,10 +7021,10 @@
       ]
     },
     {
-      "id": "power-output",
+      "id": "power-battery",
       "roomId": "power",
-      "name": "発電出力を調整",
-      "mode": "engine",
+      "name": "蓄電池を交換",
+      "mode": "battery",
       "position": [
         4.6,
         -21.25
@@ -7033,7 +7033,7 @@
         0,
         1
       ],
-      "instrument": "GENERATOR CALIBRATION",
+      "instrument": "BATTERY REPLACEMENT",
       "roomName": "電力室",
       "footprint": {
         "outline": [
@@ -7062,10 +7062,10 @@
       ]
     },
     {
-      "id": "drill-speed",
+      "id": "drill-release",
       "roomId": "drill",
-      "name": "ドリル回転数を調整",
-      "mode": "engine",
+      "name": "ドリルの噛み込みを解消",
+      "mode": "drill",
       "position": [
         31.25,
         -9.8
@@ -7074,7 +7074,7 @@
         -1,
         0
       ],
-      "instrument": "DRILL SPEED CONTROL",
+      "instrument": "DRILL TORQUE RELEASE",
       "roomName": "掘削区",
       "footprint": {
         "outline": [
@@ -7103,10 +7103,10 @@
       ]
     },
     {
-      "id": "drill-coolant",
+      "id": "drill-seal",
       "roomId": "drill",
-      "name": "冷却弁を開放",
-      "mode": "shields",
+      "name": "岩盤の亀裂を封止",
+      "mode": "seal",
       "position": [
         31.25,
         -13.9
@@ -7115,7 +7115,7 @@
         -1,
         0
       ],
-      "instrument": "COOLANT VALVES",
+      "instrument": "FRACTURE FOAM SEALANT",
       "roomName": "掘削区",
       "footprint": {
         "outline": [
@@ -7144,10 +7144,10 @@
       ]
     },
     {
-      "id": "deep-seismic",
+      "id": "deep-radar",
       "roomId": "deep",
-      "name": "地震計を較正",
-      "mode": "engine",
+      "name": "地中レーダーを走査",
+      "mode": "radar",
       "position": [
         24.25,
         -24.9
@@ -7156,7 +7156,7 @@
         -1,
         0
       ],
-      "instrument": "SEISMOMETER ALIGNMENT",
+      "instrument": "SUBSURFACE RADAR SCAN",
       "roomName": "地底調査室",
       "footprint": {
         "outline": [
@@ -7185,10 +7185,10 @@
       ]
     },
     {
-      "id": "deep-data",
+      "id": "deep-rover",
       "roomId": "deep",
-      "name": "地層データを送信",
-      "mode": "upload",
+      "name": "探査ローバーを回収",
+      "mode": "rover",
       "position": [
         24.25,
         -28.2
@@ -7197,7 +7197,7 @@
         -1,
         0
       ],
-      "instrument": "STRATUM DATA",
+      "instrument": "ROVER RECOVERY WINCH",
       "roomName": "地底調査室",
       "footprint": {
         "outline": [

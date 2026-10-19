@@ -1,12 +1,10 @@
 import * as THREE from 'three';
 import { createFrostTaskState, sabotageNames } from './frost-task-state.js';
 import { createFrostTaskStations } from './frost-task-stations.js';
+import { createFrostTaskMachine } from './frost-task-machine.js';
+import { taskInstructions } from './frost-task-rules.js';
 
 const hints = {
-  filter: '汚れの付いたフィルターをすべて清掃', sample: '他と色の違う検体を3回選ぶ',
-  engine: 'ダイヤルの針を緑の範囲に合わせて確定', convert: 'レバーを上まで動かして接続',
-  upload: '送信を開始してデータ転送を待つ', shields: '6つのバルブ・スイッチを操作',
-  sort: 'ごみを可燃・金属の回収口に分別',
   'emergency-oxygen': '表示された6桁のコードを入力して送信',
   'emergency-lights': 'この部屋のブレーカーを上げる',
   'emergency-reactor': '手形に触れて安全認証',
@@ -48,7 +46,7 @@ export function createFrostTasks(data, { onDirty, onModal }) {
     const token = ++generation;
     $('taskTitle').textContent = run.task.name;
     $('taskRoom').textContent = run.task.roomName;
-    $('taskHint').textContent = hints[run.mode];
+    $('taskHint').textContent = taskInstructions[run.mode] || hints[run.mode];
     $('taskFeedback').textContent = '';
     $('taskProgressFill').style.width = '0%';
     $('taskStage').textContent = '端末を起動中…';
@@ -56,7 +54,15 @@ export function createFrostTasks(data, { onDirty, onModal }) {
     isOpen = true;
     onModal(true);
     try {
-      const { createInteractiveTaskMachine } = await import(/* @vite-ignore */ `${import.meta.env.BASE_URL}task-machines.js`);
+      if (!run.task.sabotage) {
+        machine = createFrostTaskMachine($('taskStage'), manager.run, {
+          onClose: close,
+          onUnavailable() { close(); $('location').textContent = '端末を開き直してください'; },
+        });
+        machine.canvas.focus({ preventScroll: true });
+        return true;
+      }
+      const { createInteractiveTaskMachine } = await import(/* @vite-ignore */ `${import.meta.env.BASE_URL}task-machines.js?v=rotary-2`);
       if (token !== generation) return false;
       machine = createInteractiveTaskMachine(THREE, $('taskStage'), () => manager.state(),
         (index) => { manager.action(index); refreshModal(); },
@@ -92,7 +98,7 @@ export function createFrostTasks(data, { onDirty, onModal }) {
     if (!run || !isOpen) return;
     $('taskFeedback').textContent = run.feedback;
     $('taskFeedback').dataset.error = String(run.error);
-    const progress = run.mode === 'convert' ? run.value / 100 : run.done / run.total;
+    const progress = !run.task.sabotage ? run.progress : run.done / run.total;
     $('taskProgressFill').style.width = `${Math.min(100, Math.round(progress * 100))}%`;
     if (run.finished && !closeAt) closeAt = Date.now() + (run.mode === 'emergency-reactor' ? 1100 : 800);
   }

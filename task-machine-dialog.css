@@ -1,6 +1,6 @@
 /* Give the task model the available space. Titles remain accessible to screen
    readers; the visible interaction instructions live on the machine itself. */
-#taskModal {
+html body #taskModal {
   width: min(1280px, calc(100vw - 16px));
   height: min(900px, calc(100dvh - 16px));
   border-radius: 14px;

@@ -93,6 +93,13 @@ async function start() {
     },
   });
   map.root.add(taskSystem.root);
+  for (const task of data.tasks.filter((task) => !task.sabotage)) {
+    const option = document.createElement('option'); option.value = task.id;
+    option.textContent = `${task.roomName}：${task.name}`; $('taskPicker').append(option);
+  }
+  $('taskPicker').addEventListener('change', async (event) => {
+    const id = event.target.value; if (id) await taskSystem.open(id); event.target.value = '';
+  });
   const meetingView = createFrostMeetingButton(data.meeting, () => {
     meetingSignalUntil = performance.now() + 2200;
     $('meetingSignal').hidden = false;
@@ -537,7 +544,7 @@ async function start() {
       if (!machine) return [];
       const rect = machine.canvas.getBoundingClientRect();
       machine.scene.updateMatrixWorld(true);
-      return machine.controls.map((object) => {
+      return machine.controls.filter((object) => { for (let node = object; node; node = node.parent) if (!node.visible) return false; return true; }).map((object) => {
         const point = object.getWorldPosition(new THREE.Vector3()).project(machine.camera);
         return { ...object.userData.taskControl, x: rect.x + (point.x + 1) * rect.width / 2,
           y: rect.y + (1 - point.y) * rect.height / 2 };
