@@ -1318,15 +1318,18 @@ function buildLightCostume(THREE,code){
   batch(root);const used=new Set(),usedMaterials=new Set();root.traverse(m=>{if(m.isMesh){used.add(m.geometry);usedMaterials.add(m.material);}});for(const g of Object.values(geometry))retired.add(g);for(const g of retired)if(!used.has(g))g.dispose();for(const m of Object.values(materials))if(!usedMaterials.has(m))m.dispose();
   return root;
 }
-function applyLightJump(root,legs,startedAt,stamp,allowed){
+function applyLightJump(root,legs,startedAt,stamp,allowed,applyRootLift=true){
   const age=(stamp-Number(startedAt))/1000,active=allowed&&Number(startedAt)>0&&age>=0&&age<.78;
   if(!active)return;
-  // Lift begins on the first rendered frame; avoid the old wind-up pause.
+  // The lobby's physical jump already moves the character root and is synced
+  // as lobbyY. Add the lift only for legacy poses without that world height.
   const t=age/.78,flight=Math.max(0,Math.sin(Math.PI*Math.min(1,Math.max(0,t))));
-  root.position.y+=flight*1.22;
+  if(applyRootLift)root.position.y+=flight*1.22;
   const squash=t>.86?Math.sin((t-.86)/.14*Math.PI)*.08:0;
-  root.scale.y*=1-squash;root.scale.x*=1+squash*.5;root.scale.z*=1+squash*.5;
-  for(let i=0;i<legs.length;i++){legs[i].rotation.x=legs[i].rotation.x*(1-flight)+(i?1:-1)*flight*.32;legs[i].rotation.x-=squash*.9;}
+  root.scale.y*=1+flight*.075-squash;root.scale.x*=1-flight*.025+squash*.5;root.scale.z*=1-flight*.025+squash*.5;
+  for(let i=0;i<legs.length;i++){legs[i].rotation.x=legs[i].rotation.x*(1-flight)+(i?1:-1)*flight*.42;legs[i].rotation.x-=squash*.9;}
+  const arms=root.userData.walkArms||[],armRest=root.userData.walkArmRest;
+  if(armRest)arms.forEach((arm,index)=>{arm.rotation.copy(armRest[index]);arm.rotation.x-=flight*.52;arm.rotation.z+=(index?1:-1)*flight*.12;});
 }
 
 function updateWalkCycle(root,legs,body,travel,dt,walking,allowed=true){
@@ -1569,7 +1572,11 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
         if(isSelf){if(!data.lobbyHeightInitialized){root.position.y=targetY;data.lobbyHeightInitialized=true;}if(sitting||data.wasSitting)root.position.y=0;}
         root.scale.set(1,1,1);
         if(blend<.002)updateWalkCycle(root,crew.legs,crew.body,travelled,dt,walking,!window.__lobbyStudioOpen&&stamp-jumping>780);
-        if(!Number.isFinite(Number(state.lobbyY)))applyLightJump(root,crew.legs,jumping,stamp,!sitting);
+        const isInVehicle=state.lobbyKart===true||state.lobbyVehicle===true||state.lobbyCircuit===true;
+        // lobbyY is normally present for every player, so the old conditional
+        // skipped their jump pose entirely. Height comes from the synced pose;
+        // the animation adds only body and limb motion to avoid a double lift.
+        applyLightJump(root,crew.legs,jumping,stamp,!sitting&&!isInVehicle,!Number.isFinite(Number(state.lobbyY)));
         updateLobbyLandingPose(crew,stamp,dt);
         data.hadVisualPose=blend>0||(jumping>0&&stamp-jumping<780);
       }

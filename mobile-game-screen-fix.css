@@ -167,6 +167,22 @@ body:has(#deathIntro:not(.hidden)) [role="button"] {
   min-width: 0 !important;
 }
 
+/* Slightly enlarge the role reveal on touch screens without reducing its safe height. */
+@media (pointer: coarse) and (max-width: 1000px) {
+  html body #roleReveal > .card {
+    width: min(580px, 88vw) !important;
+    max-width: 88vw !important;
+    padding: 12px 16px !important;
+  }
+  html body #roleReveal #roleIcon { font-size: 37px !important; }
+  html body #roleReveal #roleTeam { font-size: clamp(13px, 3.4vw, 17px) !important; }
+  html body #roleReveal #roleRevealTitle {
+    font-size: clamp(24px, 5.4vw, 41px) !important;
+  }
+  html body #roleReveal #roleRevealName { font-size: clamp(13px, 3.4vw, 18px) !important; }
+  html body #roleReveal #roleRevealText { font-size: clamp(13px, 3.2vw, 16px) !important; }
+}
+
 /* Tablets use a wider CSS viewport than phones, so keep their action keys
    compact too. Extend the existing important cascade layer used by the HUD. */
 @layer play-action-layout {
