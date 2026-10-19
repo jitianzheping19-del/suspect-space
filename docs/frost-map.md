@@ -5,7 +5,20 @@ contains the approved eleven rooms, nineteen corridor segments, continuous
 walls, floors and thirty automatic sliding doors. Each room has two normal task
 stations, with nine emergency panels across oxygen, lights, cooling and comms.
 It does not connect to the live game or Firebase; completion and sabotage are
-local preview state. Multiplayer integration is later work.
+local preview state. The live game uses the separate adapter described below.
+
+The game entries now expose **フロスト** in room settings (`mapMode: frost`).
+`frost-game-layout.js` converts this same floorplan into the game's room, wall,
+spawn, door, vent and minimap coordinates. `frost-game-map.js` reuses the rendered
+floor/walls and central meeting button. Existing host-authoritative door and
+vent rules remain responsible for actual matches.
+
+Tasks are intentionally **not enabled on the live FROST map** while the distinct
+task designs in `docs/frost-task-concepts-v1.md` are reviewed. It assigns no
+legacy task IDs, shows no old preview consoles or invisible task colliders, and
+does not start emergency sabotage without repair panels. The independent
+architectural preview retains its earlier interactive demonstrations. Other
+maps keep their existing tasks.
 
 The central dome has a protected red meeting button. In the preview it presses,
 lights up and shows a meeting signal; it does not start a multiplayer meeting.

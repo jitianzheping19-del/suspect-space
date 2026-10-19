@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import data from './frost-map-data.json';
+const response = await fetch(new URL('./frost-map-data.json', import.meta.url));
+if (!response.ok) throw new Error('フロストのマップデータを読み込めませんでした');
+const data = await response.json();
 
 export { data as frostMapData };
 
@@ -88,17 +90,20 @@ export function createFrostMap() {
   root.name = 'FROST / approved layout 07';
   const labels = new THREE.Group();
   labels.name = 'Floor wayfinding';
+  const wallLayer = new THREE.Group();
+  wallLayer.name = 'FROST wall presentation';
+  root.add(wallLayer);
   const textures = [];
   const tileTexture = floorTexture();
   const panelTexture = wallTexture();
   textures.push(tileTexture, panelTexture);
 
-  function mesh(name, geometry, material, y = 0) {
+  function mesh(name, geometry, material, y = 0, parent = root) {
     const object = new THREE.Mesh(geometry, material);
     object.name = name;
     object.position.y = y;
     object.receiveShadow = true;
-    root.add(object);
+    parent.add(object);
     return object;
   }
 
@@ -130,14 +135,14 @@ export function createFrostMap() {
     color: '#9eafbf', map: panelTexture, roughness: 0.67, metalness: 0.12,
   });
   const walls = mesh('All exterior and courtyard walls',
-    extrudedGeometry(data.walls, data.wallHeight), wallMaterial);
+    extrudedGeometry(data.walls, data.wallHeight), wallMaterial, 0, wallLayer);
   walls.castShadow = true;
 
   mesh('Wall base', extrudedGeometry(data.walls, 0.18),
     new THREE.MeshStandardMaterial({ color: '#344b5f', roughness: 0.68,
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 0.006);
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 0.006, wallLayer);
   mesh('Wall cap', extrudedGeometry(data.walls, 0.075),
-    new THREE.MeshStandardMaterial({ color: '#d6e7ef', roughness: 0.4, metalness: 0.2 }), data.wallHeight);
+    new THREE.MeshStandardMaterial({ color: '#d6e7ef', roughness: 0.4, metalness: 0.2 }), data.wallHeight, wallLayer);
 
   // An integral wall trim follows the same footprint, so there are no beams
   // or thresholds across a doorway. It remains subtle at eye level.
@@ -145,12 +150,12 @@ export function createFrostMap() {
     new THREE.MeshStandardMaterial({
       color: '#70c8cd', emissive: '#4eb3bf', emissiveIntensity: 0.65, roughness: 0.45,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-    }), data.wallHeight - 0.22);
+    }), data.wallHeight - 0.22, wallLayer);
 
   const edges = new THREE.LineSegments(new THREE.EdgesGeometry(walls.geometry, 32),
     new THREE.LineBasicMaterial({ color: '#8fa8ba', transparent: true, opacity: 0.22 }));
   edges.name = 'Wall corners';
-  root.add(edges);
+  wallLayer.add(edges);
 
   function dispose() {
     const geometries = new Set();
@@ -164,5 +169,5 @@ export function createFrostMap() {
     for (const texture of textures) texture.dispose();
   }
 
-  return { root, floor, walls, labels, dispose };
+  return { root, floor, walls, wallLayer, labels, dispose };
 }

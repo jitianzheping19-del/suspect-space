@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"}}</script>
   <meta charset="UTF-8">
   <base target="_top">
   <meta name="viewport"
@@ -2501,6 +2502,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 <link rel="stylesheet" href="./play-action-3d.css">
 <link rel="stylesheet" href="./ui-surfaces.css">
 <link rel="stylesheet" href="./mobile-game-screen-fix.css">
+<link rel="stylesheet" href="./task-machine-dialog.css">
 </head>
 <body>
   <div id="viewport"></div>
@@ -2824,7 +2826,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label data-role-setting="doubleKiller">サブキル最大回数 <input id="doubleSecondMaxUses" type="range" min="1" max="10" step="1" value="1"><output>1回</output></label>
           <label data-role-setting="doubleKiller">ベントを使用できる <input id="doubleKillerCanVent" type="checkbox"></label>
           <label data-role-setting="doubleKiller">サボタージュを使用できる <input id="doubleKillerCanSabotage" type="checkbox"></label>
-          <label>視点 <select id="roomViewMode"><option value="2d">2.5D（斜め見下ろし）</option><option value="3d">3D（三人称・後方追尾）</option></select></label><label>マップ <select id="roomMapMode"><option value="classic">The Skeld</option><option value="astra">Airship</option></select></label>
+          <label>視点 <select id="roomViewMode"><option value="2d">2.5D（斜め見下ろし）</option><option value="3d">3D（三人称・後方追尾）</option></select></label><label>マップ <select id="roomMapMode"><option value="classic">The Skeld</option><option value="astra">Airship</option><option value="frost">フロスト</option></select></label>
           <label data-role-setting="bountyHunter">賞金ターゲット変更 <input id="bountyChangeSeconds" type="range" min="20" max="120" step="10" value="60"><output id="bountyChangeSecondsOut">60秒</output></label>
           <label data-role-setting="bountyHunter">賞金ターゲット矢印 <input id="bountyArrowEnabled" type="checkbox" checked></label>
           <label data-role-setting="morphing">モーフィング持続時間 <input id="morphDurationSeconds" type="range" min="5" max="40" step="1" value="20"><output>20秒</output></label>
@@ -2989,7 +2991,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
     <div class="card">
       <div class="row reactorHeader">
         <h2 id="taskGameTitle">タスク</h2>
-        <button id="taskGameCloseBtn">中止</button>
+        <button id="taskGameCloseBtn">閉じる</button>
       </div>
       <p id="taskGameStatus">表示された順番に操作してください。</p>
       <div id="taskMachineStage"></div>
@@ -3244,6 +3246,8 @@ window.buildAstraMap=buildAstraMap;
     import {patchMeetingRuntime} from "./meeting-scene-ejections.js";
     import {SightPolygonSolver} from "./sight-polygon.js";
     import {createActionHud3D} from "./action-hud-3d.js";
+    import {buildFrostGameMap,frostGameLayout} from "./frost-game-map.js";
+    import {requiredTaskIdsFor} from "./frost-game-layout.js";
     import {matchResumePose,repairableOwnPresence,isHostConnectionNotice} from "./room-resume-state.js";
     import {registerDeathPlayback,registerWinningPlayback,presentationReadyAt,killPresentationActive,completeKillPlayback,victoryPresentationAt} from "./kill-presentation-state.js";
     const THREE_VERSION = "0.164.1";
@@ -7735,12 +7739,14 @@ for(const type of ["stuntmanBlocked","serialKillerTimer","serialKillerDeath","te
       updateRoleCategoryCounts();
     }
     function flushLobbySettingsSave(){if(!lobbySettingsWriteTimer||!isHost()||!code)return lobbySettingsWritePromise;clearTimeout(lobbySettingsWriteTimer);lobbySettingsWriteTimer=0;const roomCode=code,settings=snapshotMatchSettingsFromInputs();lobbySettingsWritePromise=update(ref(db,`rooms/${roomCode}/game/lobbySettings`),lobbySettingsPayload(settings)).catch(error=>toast(errorText(error)));return lobbySettingsWritePromise;}
+    function hasPendingLobbySettingsEdit(){return game.phase==="lobby"&&isHost()&&(!!lobbySettingsWriteTimer||Date.now()-lobbySettingsLocalEditAt<1500);}
     function queueLobbySettingsSave(){if(applyingSavedMatchSettings)return;lobbySettingsLocalEditAt=Date.now();
       syncRoleDependentSettings();
       updateRoleCategoryCounts();
       renderLobbyRolePreview({roles:selectedRoleCounts(),viewMode:$("roomViewMode").value,mapMode:$("roomMapMode").value,impostorCount:Number($("impostorCount").value),bots:$("botMode").checked===true,botCount:Number($("botCount").value)||1});
       if(!isHost()||!code||game.phase!=="lobby")return;
       const settings=snapshotMatchSettingsFromInputs();
+      if(currentMapMode!==settings.mapMode)setMapMode(settings.mapMode);
       saveLastMatchSettings(settings);
       clearTimeout(lobbySettingsWriteTimer);
       const roomCode=code;
@@ -7849,12 +7855,12 @@ let shipDoorVisualRoot=null,shipDoorVisualMap='',shipDoorVisualRound='',shipDoor
 let shipDoorStateRows=null,shipDoorStateIndex=new Map(),shipDoorWallsCache={rows:null,stamp:-1,phase:'',round:-1,mode:'',walls:[]};
 const shipDoorProgressMarkers=new Map();
 const SHIP_DOOR_OPEN_MS=650,SHIP_DOOR_CLOSE_MS=850,SHIP_DOOR_HOLD_MS=12000,SHIP_DOOR_UNLOCK_MS=3000;
-function shipDoorMapKey(g=game){return (g?.settings?.mapMode||g?.lobbySettings?.mapMode)==='astra'?'astra':'classic';}
+function shipDoorMapKey(g=game){const mode=g?.phase==='lobby'?g?.lobbySettings?.mapMode:g?.settings?.mapMode||g?.lobbySettings?.mapMode;return ['astra','frost'].includes(mode)?mode:'classic';}
 function shipDoorContains(p,r){return regionContainsPoint(p.x,p.z,r);}
 function shipDoorLayout(g=game){
  const map=shipDoorMapKey(g);if(shipDoorLayouts.has(map))return shipDoorLayouts.get(map);
- const layout=map==='astra'?window.createAirshipLayout():{rooms:SKELD_ROOMS,corridors:SKELD_CORRIDORS};
- if(map==='astra'&&Array.isArray(layout.doors)&&layout.doors.length){
+ const layout=map==='frost'?frostGameLayout:map==='astra'?window.createAirshipLayout():{rooms:SKELD_ROOMS,corridors:SKELD_CORRIDORS};
+ if(map!=='classic'&&Array.isArray(layout.doors)&&layout.doors.length){
   const groupMap=new Map(),roomName=id=>layout.rooms.find(room=>room.id===id)?.name||id;
   const labelFor=(id,roomIds)=>id==='astra-door-lounge-stalls'?'トイレ個室':roomIds.map(roomName).join('・')||'通路';
   for(const door of layout.doors){for(const groupId of door.groupIds||[door.groupId]){let group=groupMap.get(groupId);if(!group){group={id:groupId,roomIds:[],doorIds:[],x:0,z:0,label:''};groupMap.set(groupId,group);}if(!group.doorIds.includes(door.id))group.doorIds.push(door.id);for(const roomId of door.roomIds||[])if(!group.roomIds.includes(roomId))group.roomIds.push(roomId);}}
@@ -10906,8 +10912,8 @@ const reconcileGameState=previousGame=>{
                 .catch(error=>{publishedRoleSummaryKey="";console.warn("役職結果をチャットに保存できませんでした",error);});
             }
           }
-          if(game.lobbySettings){syncLobbyRoleInputs(game.lobbySettings);$("ejectionRevealMode").value=["role","faction","none"].includes(game.lobbySettings.ejectionRevealMode)?game.lobbySettings.ejectionRevealMode:"role";$("confirmEjects").checked=$("ejectionRevealMode").value==="role";$("roomViewMode").value=game.lobbySettings.viewMode||"2d";$("roomMapMode").value=game.lobbySettings.mapMode||"classic";$("waveMode").value=["battleRoyale","team"].includes(game.lobbySettings.waveMode)?game.lobbySettings.waveMode:"normal";$("voiceRoomEnabled").checked=game.lobbySettings.voiceEnabled===true;$("botMode").checked=game.lobbySettings.bots===true;$("botCount").value=String(clamp(Number(game.lobbySettings.botCount)||1,1,10));syncBotSettingsUI();setMapMode(game.lobbySettings.mapMode);renderLobbyRolePreview(game.lobbySettings);}
-          if(game.settings?.mapMode&&!isWaitingLobbyForRunningMatch())setMapMode(game.settings.mapMode);
+          if(game.lobbySettings&&!hasPendingLobbySettingsEdit()){syncLobbyRoleInputs(game.lobbySettings);$("ejectionRevealMode").value=["role","faction","none"].includes(game.lobbySettings.ejectionRevealMode)?game.lobbySettings.ejectionRevealMode:"role";$("confirmEjects").checked=$("ejectionRevealMode").value==="role";$("roomViewMode").value=game.lobbySettings.viewMode||"2d";$("roomMapMode").value=game.lobbySettings.mapMode||"classic";$("waveMode").value=["battleRoyale","team"].includes(game.lobbySettings.waveMode)?game.lobbySettings.waveMode:"normal";$("voiceRoomEnabled").checked=game.lobbySettings.voiceEnabled===true;$("botMode").checked=game.lobbySettings.bots===true;$("botCount").value=String(clamp(Number(game.lobbySettings.botCount)||1,1,10));syncBotSettingsUI();if(isLobbyInteractionActive()||!game.settings?.mapMode)setMapMode(game.lobbySettings.mapMode);renderLobbyRolePreview(game.lobbySettings);}
+          if(game.phase!=="lobby"&&game.settings?.mapMode&&!isWaitingLobbyForRunningMatch())setMapMode(game.settings.mapMode);
           updateVoiceRoomGate();
           if(voiceJoined)void publishVoicePresence();
           updateVoiceReceiveGates();
@@ -11278,6 +11284,7 @@ $("startBtn").onclick = async () => {
 
 hostBusy = true;
       try {
+        setMapMode($("roomMapMode").value||game.lobbySettings?.mapMode||"classic");
         const waveModeSelected=["battleRoyale","team"].includes($("waveMode")?.value)?$("waveMode").value:"normal";
         const waveSetup=waveModeSetup(waveModeSelected,now());
         const roleCounts = waveModeSelected==="normal"?selectedRoleCounts():Object.fromEntries(ROLE_OPTIONS.map(role=>[role.id,0]));
@@ -11325,7 +11332,7 @@ hostBusy = true;
         for (const id of ids) {
           const isBot = id.startsWith("bot-");
           const botHue = (ids.indexOf(id) * .17 + .08) % 1;
-          const requiredTaskIds = ["power", "numbers", "card"];
+          const requiredTaskIds = requiredTaskIdsFor(TASKS);
           const optionalCount=Math.max(0,selectedTaskCount-requiredTaskIds.length);
           const optionalPool=TASKS.filter(task=>!requiredTaskIds.includes(task.id));
           const eastPool=shuffled(optionalPool.filter(task=>task.x>0.8));
@@ -12480,7 +12487,12 @@ if(mode==="emergency-oxygen"){
   if(["emergency-reactor","emergency-lights"].includes(mode)&&["Enter"," "].includes(event.key)){event.preventDefault();event.stopPropagation();if(!event.repeat)press(0);return;}
   if(["engine","convert","emergency-comms"].includes(mode)&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Enter"," "].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==="Enter"||event.key===" ")press(0);else value(Number(getState()?.value||0)+(["ArrowUp","ArrowRight"].includes(event.key)?1:-1)*(event.shiftKey?5:1));}}
  canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);canvas.addEventListener("pointerup",up);canvas.addEventListener("pointercancel",cancel);canvas.addEventListener("keydown",key);canvas.addEventListener("contextmenu",e=>e.preventDefault());
- function resize(){const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);if(w===lastWidth&&h===lastHeight)return;lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);const aspect=w/h,v=Math.max(2.96,4.79/aspect);camera.left=-v*aspect;camera.right=v*aspect;camera.top=v;camera.bottom=-v;camera.updateProjectionMatrix();}
+ function resize(){const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight);if(w===lastWidth&&h===lastHeight)return;lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);const aspect=w/h;camera.updateMatrixWorld(true);
+ const bounds=new THREE.Box3().setFromObject(scene),viewBounds=new THREE.Box3();
+ for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z])viewBounds.expandByPoint(new THREE.Vector3(x,y,z).applyMatrix4(camera.matrixWorldInverse));
+ const cx=(viewBounds.min.x+viewBounds.max.x)/2,cy=(viewBounds.min.y+viewBounds.max.y)/2;
+ const v=Math.max((viewBounds.max.y-viewBounds.min.y)/2,(viewBounds.max.x-viewBounds.min.x)/2/aspect)*1.08;
+ camera.left=cx-v*aspect;camera.right=cx+v*aspect;camera.top=cy+v;camera.bottom=cy-v;camera.updateProjectionMatrix();}
  const observer=new ResizeObserver(resize);observer.observe(host);let previous=performance.now();
  function tick(t){if(disposed)return;raf=requestAnimationFrame(tick);if(document.hidden)return;const s=getState();if(!s)return;const dt=Math.min(.05,(t-previous)/1000);previous=t;resize();for(const update of updates)update(s,t,dt);scene.updateMatrixWorld(true);renderer.render(scene,camera);}
  const lost=event=>{event.preventDefault();dispose();onUnavailable?.();};canvas.addEventListener("webglcontextlost",lost);
@@ -12736,7 +12748,7 @@ function canOpenSabotageMap(me=self()){
     me?.role==="impostor"&&!me.disconnected&&!me.observer&&(!game.settings?.waveMode||game.settings.waveMode==="normal");
 }
 function sharedSabotageReadyAt(g=game){const shared=Number(g?.sabotageReadyAt)||0;if(shared)return shared;return Math.max(0,...Object.values(g?.players||{}).filter(player=>player?.role==="impostor").map(player=>Number(player?.sabotageAt)||0));}
-function canUseSabotage(me=self()){return canOpenSabotageMap(me)&&canPlay()&&roleAllowsSabotage(me,game.settings)&&sharedSabotageReadyAt()<=now()&&!activeShipSabotage();}
+function canUseSabotage(me=self()){return EMERGENCY_PANELS.length>0&&canOpenSabotageMap(me)&&canPlay()&&roleAllowsSabotage(me,game.settings)&&sharedSabotageReadyAt()<=now()&&!activeShipSabotage();}
 function canUseDoorSabotage(me=self()){return canOpenSabotageMap(me)&&canPlay()&&roleAllowsSabotage(me,game.settings);}
 function sabotageMapPoint(type){
   const rows=(EMERGENCY_PANELS||[]).filter(panel=>panel.room===type);
@@ -13267,7 +13279,7 @@ function useRoleAbility(){
       window.__ssxVoteSelection?.(null,null);
     }
     function confirmVote(target){
-      if(game.phase!=="meeting"||now()<(game.meeting.votingAt||0)||ownBallot?.meeting===game.meeting?.id||!self()?.alive)return;
+      if(game.phase!=="meeting"||!game.meeting?.id||now()<(game.meeting.votingAt||0)||ownBallot?.meeting===game.meeting?.id||!self()?.alive)return;
       const scaleTargets=game.meeting?.scalesVote?.targets;
       if(scaleTargets?.length&&target!=="skip"&&!scaleTargets.includes(target))return toast("天秤で選ばれた2人のどちらかに投票してください。");
       if(target!=="skip"&&(!game.players?.[target]?.alive||game.players[target]?.observer||game.players[target]?.disconnected))return;
@@ -13808,6 +13820,7 @@ function resolveMeetingAbilityEjection(g,id,reason,killerId=""){
 }
 
 function finishMeeting(g, ballots) {
+      if(g.phase!=="meeting"||!g.meeting?.id)return false;
       const eligible = Object.entries(g.players)
         .filter(([, p]) => p.alive && !p.disconnected && !p.observer)
         .map(([id]) => id);
@@ -14289,7 +14302,7 @@ function runBots(g) {
     }
     let task=(bot.assignedTasks||[]).map(taskId=>TASKS.find(t=>t.id===taskId)).filter(t=>t&&!bot.tasks?.[t.id])
       .sort((a,b)=>botTaskPriority(g,id,bot,a,brain.personality)-botTaskPriority(g,id,bot,b,brain.personality))[0];
-    let target=task||TASKS[(id.charCodeAt(id.length-1)+Math.floor(stamp/18000))%TASKS.length];
+    let target=task||TASKS[(id.charCodeAt(id.length-1)+Math.floor(stamp/18000))%TASKS.length]||ROOMS[(id.charCodeAt(id.length-1)+Math.floor(stamp/18000))%ROOMS.length]||CENTER;
     if((bot.role==="impostor"||bot.role==="jackal")&&bot.alive&&!usedJackalAbility){
       const victims=Object.entries(g.players).filter(([other,p])=>other!==id&&p.role!==(bot.role)&&p.alive&&!p.observer&&!p.disconnected&&!p.ventId&&(bot.role==="jackal"||p.role==="crew"))
             .map(([other,p])=>({id:other,p,loc:p.bot?p:players[other]})).filter(t=>t.loc)
@@ -14303,7 +14316,7 @@ function runBots(g) {
         if(bot.subrole==="bountyHunter"){const baseCooldown=clamp(Number(g.settings?.killCooldownSeconds)||35,5,60)*1000;bot.bountyCooldownMs=killed?(victim.id===bot.bountyTarget?Math.round(baseCooldown*.5):Math.round(baseCooldown*1.5)):baseCooldown;}
         bot.readyAt=stamp+killCooldownFor(bot);dirty=true;
       }
-      if(bot.role==="impostor"&&!g.sabotage&&sharedSabotageReadyAt(g)<=stamp){
+      if(EMERGENCY_PANELS.length&&bot.role==="impostor"&&!g.sabotage&&sharedSabotageReadyAt(g)<=stamp){
         const type=chooseBotSabotageType(g,bot,brain.personality,victims,stamp);
         g.sabotage=createSabotage(type,id,stamp);startSabotageCooldown(g,stamp);
         g.notice={lights:"照明が故障しました。",comms:"通信が妨害されています。",oxygen:"酸素が減少しています。緊急修理してください！",reactor:"リアクターが不安定です。緊急修理してください！"}[type];dirty=true;
@@ -14758,7 +14771,7 @@ if(g.phase==="play"&&(g.settings?.waveMode==="battleRoyale"||g.settings?.waveMod
 if (g.phase === "play" && now() >= (g.playStartsAt || g.countdownEndsAt || 0)) {
   const botStep=runBots(g);dirty=dirty||botStep.dirty;movedBots=botStep.moved||{};
 }
-if(g.phase==="meeting"&&maybeAddBotMeetingChat(g)){dirty=true;meetingChatProduced=g.meeting.id;}
+if(g.phase==="meeting"&&g.meeting?.id&&maybeAddBotMeetingChat(g)){dirty=true;meetingChatProduced=g.meeting.id;}
         {
           for (const [bodyId, body] of Object.entries(g.bodies || {})) {
             if (body.dissolveAt && body.dissolveAt <= now()) {
@@ -15132,6 +15145,7 @@ if (g.phase !== "play") {
           }
 
       if (cmd.type === "sabotage") {
+            if(!EMERGENCY_PANELS.length){setCommandResult(g,actor,cmd,false,"このマップの緊急タスクは未配置です。");continue;}
             const sharedReadyAt=sharedSabotageReadyAt(g),cooldownLeft=Math.max(0,Math.ceil((sharedReadyAt-now())/1000));
             const blockedByRole=(p.subrole==="serialKiller"&&g.settings?.serialKillerCanSabotage===false)||(p.subrole==="samurai"&&g.settings?.samuraiCanSabotage!==true)||(p.subrole==="doubleKiller"&&g.settings?.doubleKillerCanSabotage!==true);
             const sabotage=g.sabotage,lethalSabotage=sabotage&&["oxygen","reactor"].includes(sabotage.type);
@@ -15394,14 +15408,14 @@ if (checkWin(g)) {
           }
         }
 
-        if (g.phase === "meeting") {
-          const meetingId=g.meeting.id,ballots={...privateBallots};
+        if (g.phase === "meeting" && g.meeting?.id) {
+          const meeting=g.meeting,meetingId=meeting.id,ballots={...privateBallots};
           for (const [botId, bot] of Object.entries(g.players)) {
             const existing=ballots[botId];
             if(existing?.meeting===meetingId&&existing?.round===g.round)continue;
-            if (!bot.bot || !bot.alive || bot.disconnected || now()<(g.meeting.votingAt||g.meeting.startedAt||0)+2000+Object.keys(g.players).indexOf(botId)*700) continue;
-          const scaleCandidates=(g.meeting.scalesVote?.targets||[]).filter(id=>g.players[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected);
-            const choices = (g.meeting.scalesVote?.targets?.length?scaleCandidates:Object.keys(g.players)).filter(id =>
+            if (!bot.bot || !bot.alive || bot.disconnected || now()<(meeting.votingAt||meeting.startedAt||0)+2000+Object.keys(g.players).indexOf(botId)*700) continue;
+          const scaleCandidates=(meeting.scalesVote?.targets||[]).filter(id=>g.players[id]?.alive&&!g.players[id].observer&&!g.players[id].disconnected);
+            const choices = (meeting.scalesVote?.targets?.length?scaleCandidates:Object.keys(g.players)).filter(id =>
               g.players[id].alive && !g.players[id].observer && !g.players[id].disconnected
             );
             const target=chooseBotMeetingVote(g,botId,choices);
@@ -15413,17 +15427,17 @@ if (checkWin(g)) {
           const voters = Object.entries(g.players)
             .filter(([, p]) => p.alive && !p.observer && !p.disconnected)
             .map(([id]) => id);
-          const scaleTargets=g.meeting.scalesVote?.targets||[];
+          const scaleTargets=meeting.scalesVote?.targets||[];
           const validBallots=Object.fromEntries(Object.entries(ballots).filter(([id,ballot])=>
             voters.includes(id)&&ballot?.meeting===meetingId&&ballot?.round===g.round&&
             (scaleTargets.length?scaleTargets.includes(ballot.target):ballot.target==="skip"||voters.includes(ballot.target))
           ));
           const voted=Object.fromEntries(Object.keys(validBallots).map(id=>[id,true]));
-          if(JSON.stringify(g.meeting.voted||{})!==JSON.stringify(voted)){g.meeting.voted=voted;dirty=true;}
+          if(JSON.stringify(meeting.voted||{})!==JSON.stringify(voted)){meeting.voted=voted;dirty=true;}
 
-if (now()>=Number(g.meeting.abilityResolveUntil||0)&&(now() >= g.meeting.endsAt ||
-              (now()>=(g.meeting.votingAt||0) && voters.every(id => !!validBallots[id])))) {
-            finishedMeetingId=meetingId;finishedPriorMeetingId=g.meeting.previousId||"";
+if (now()>=Number(meeting.abilityResolveUntil||0)&&(now() >= meeting.endsAt ||
+              (now()>=(meeting.votingAt||0) && voters.every(id => !!validBallots[id])))) {
+            finishedMeetingId=meetingId;finishedPriorMeetingId=meeting.previousId||"";
             finishMeeting(g,validBallots);
             dirty = true;
           }
@@ -16811,20 +16825,21 @@ corridorGeometry.setAttribute("uv",new THREE.Float32BufferAttribute(corridorUvs,
 corridorGeometry.computeVertexNormals();
 const classicStructureRoot=new THREE.Group();classicStructureRoot.name="Classic map structure";shipRoot.add(classicStructureRoot);
 const classicWallsRoot=new THREE.Group();classicWallsRoot.name="Classic map walls";classicStructureRoot.add(classicWallsRoot);
-let astraMap=null,astraMapFailed=false;
+let astraMap=null,astraMapFailed=false,frostMap=null;
 let stationMeshes=new Map(),stationMeshPool=[],emergencyPanelMeshes=new Map(),ventMeshes=new Map(),ventMeshPool=[],ventLidOpenUntil=new Map();
 let meetingHousing=null,emergencyButton=null,centerLabel=null;
 let roomLabelSprites=[];
-function updateWallPresentation(){const wallHeight=(game.settings?.viewMode||game.lobbySettings?.viewMode)==="3d" ? .72 : .32;classicWallsRoot.visible=true;classicWallsRoot.scale.y=wallHeight;if(astraMap?.layers?.walls){astraMap.layers.walls.visible=true;astraMap.layers.walls.scale.y=wallHeight;}}
+function updateWallPresentation(){const wallHeight=(game.settings?.viewMode||game.lobbySettings?.viewMode)==="3d" ? .72 : .32;classicWallsRoot.visible=true;classicWallsRoot.scale.y=wallHeight;if(astraMap?.layers?.walls){astraMap.layers.walls.visible=true;astraMap.layers.walls.scale.y=wallHeight;}if(frostMap)frostMap.layers.walls.scale.y=wallHeight;}
 let currentMapMode="classic";
 function setMapMode(mode){
-  let selected=mode==="astra"?"astra":"classic";
+  let selected=["astra","frost"].includes(mode)?mode:"classic";
+  if(selected==="frost"&&!frostMap){frostMap=buildFrostGameMap();shipRoot.add(frostMap.root);}
   if(selected==="astra"&&!astraMap&&!astraMapFailed){try{astraMap=window.buildAstraMap(THREE,{mat});shipRoot.add(astraMap.root);}catch(error){astraMapFailed=true;selected="classic";console.error("Airshipマップを読み込めませんでした。The Skeldを表示します。",error);}}
   const mapChanged=currentMapMode!==selected;
   currentMapMode=selected;
-  if(selected==="astra"&&astraMap?.layout){
-    const layout=astraMap.layout;ROOMS=layout.rooms;CORRIDORS=layout.corridors;WALLS=layout.walls;TASKS=layout.tasks;VENTS=layout.vents;CENTER=layout.meetingPoint;
-    WALKABLE_REGIONS=[...ROOMS,...CORRIDORS];WORLD={...layout.bounds};SPAWN_POINTS=layout.spawnPoints;PROP_COLLIDERS=astraMap.colliders||[];SOLID_RECTS=PROP_COLLIDERS;
+  if(selected==="frost"||selected==="astra"&&astraMap?.layout){
+    const selectedMap=selected==="frost"?frostMap:astraMap,layout=selectedMap.layout;ROOMS=layout.rooms;CORRIDORS=layout.corridors;WALLS=layout.walls;TASKS=layout.tasks;VENTS=layout.vents;CENTER=layout.meetingPoint;
+    WALKABLE_REGIONS=[...ROOMS,...CORRIDORS];WORLD={...layout.bounds};SPAWN_POINTS=layout.spawnPoints;PROP_COLLIDERS=selectedMap.colliders||[];SOLID_RECTS=PROP_COLLIDERS;
     EMERGENCY_PANELS=layout.emergencyPanels;
     VENT_BY_ID=new Map(VENTS.map(vent=>[vent.id,vent]));
   }else{
@@ -16836,7 +16851,7 @@ function setMapMode(mode){
     const reserved=Object.entries(players||{}).filter(([id,p])=>id!==uid&&p.online).map(([,p])=>p);
     const spawn=findOpenSpawn(Math.max(0,Object.keys(players||{}).indexOf(uid)),reserved);position={x:spawn.x,z:spawn.z};lobbyElevation=0;
   }
-  navCells.clear();classicStructureRoot.visible=selected==="classic";if(astraMap)astraMap.root.visible=selected==="astra";
+  navCells.clear();classicStructureRoot.visible=selected==="classic";if(astraMap)astraMap.root.visible=selected==="astra";if(frostMap)frostMap.root.visible=selected==="frost";
   if(stationMeshPool.length)while(stationMeshPool.length<TASKS.length){
     const base=box(1.2,.7,.8,mat('#16273d'),0,.35,0);
     const screen=box(1,.13,.65,mat('#5cf2cf',{emissive:'#158866',emissiveIntensity:.8}),0,.79,0);
@@ -16845,10 +16860,11 @@ function setMapMode(mode){
     stationMeshPool.push({base,screen,ring,label:text,warning,fade:0});
   }
   if(stationMeshPool.length){stationMeshes.clear();stationMeshPool.forEach((station,index)=>{const task=TASKS[index],objects=[station.base,station.screen,station.ring,station.label,station.warning].filter(Boolean);objects.forEach(object=>object.visible=!!task);if(!task)return;for(const obj of objects){obj.position.x=task.x;obj.position.z=task.z;}if(station.screen)station.screen.position.y=station.base ? .765 : .085;if(station.base)station.base.position.y=.35;if(station.ring)station.ring.position.y=.035;if(station.label){station.label.position.y=2;updateLabelSpriteText(station.label,task.name,"#9fffe4");}stationMeshes.set(task.id,station);});}
+  for(const visual of emergencyPanelMeshes.values())visual.root.visible=false;
   if(emergencyPanelMeshes.size)for(const panel of EMERGENCY_PANELS){const visual=emergencyPanelMeshes.get(panel.id);if(visual){visual.root.position.set(panel.x,0,panel.z);updateLabelSpriteText(visual.caption,panel.name,"#ffe59a");}}
-  if(ventMeshPool.length){ventMeshes.clear();ventMeshPool.forEach(item=>item.group.visible=false);VENTS.forEach((vent,index)=>{const item=ventMeshPool[index];if(!item)return;item.group.visible=true;item.group.position.set(vent.x,.015,vent.z);ventMeshes.set(vent.id,item);});}
-  if(meetingHousing)meetingHousing.position.set(CENTER.x,0,CENTER.z);
-  if(emergencyButton)emergencyButton.position.set(CENTER.x,1.34,CENTER.z);
+  if(ventMeshPool.length){ventMeshes.clear();ventMeshPool.forEach(item=>item.group.visible=false);VENTS.forEach((vent,index)=>{const item=ventMeshPool[index];if(!item)return;item.group.visible=true;item.group.position.set(vent.x,.015,vent.z);item.group.rotation.y=Number(vent.rotationY)||0;ventMeshes.set(vent.id,item);});}
+  if(meetingHousing){meetingHousing.position.set(CENTER.x,0,CENTER.z);meetingHousing.visible=selected!=="frost";}
+  if(emergencyButton){emergencyButton.position.set(CENTER.x,1.34,CENTER.z);emergencyButton.visible=selected!=="frost";}
   if(centerLabel){centerLabel.position.set(CENTER.x,2,CENTER.z-.2);updateLabelSpriteText(centerLabel,"緊急会議","#ffb7c4");}
   if(mapChanged||wallGrid.size===0)rebuildWallGrid();
   updateRoomLabels();
@@ -17634,7 +17650,7 @@ function findOpenSpawn(index, reserved = []) {
 }
 
 function findCafeteriaSpawn(index,reserved=[]){
-  const room=ROOMS.find(room=>/^(caf|cafeteria|kitchen)$/.test(String(room.id))||/カフェテリア|食堂/.test(String(room.label||room.name||"")));
+  const room=ROOMS.find(room=>/^(caf|cafeteria|kitchen|dome)$/.test(String(room.id))||/カフェテリア|食堂/.test(String(room.label||room.name||"")));
   if(!room)return findSafeTeleportOffset(CENTER,index,reserved);
   const candidates=[],w=Math.max(3,Number(room.w)||10),d=Math.max(3,Number(room.d)||10);
   for(let ring=0;ring<10;ring++){const radius=.5+ring*.42,count=Math.max(8,Math.ceil(radius*8));for(let step=0;step<count;step++){const angle=step/count*Math.PI*2+index*.73;candidates.push({x:room.x+Math.cos(angle)*radius,z:room.z+Math.sin(angle)*radius});}}
@@ -19409,7 +19425,7 @@ $("status").textContent = !connected
       if (phase === "lobby") {
         const sharedSettings=lobbySettingsSnapshot(game.lobbySettings||{});
         const resolvedSettings=isHost()?mergeMatchSettings(readLastMatchSettings(),sharedSettings):sharedSettings;
-        applySavedMatchSettings(resolvedSettings);
+        if(!hasPendingLobbySettingsEdit())applySavedMatchSettings(resolvedSettings);
         const sharedStamp=code+":"+JSON.stringify(sharedSettings);
         if(!isHost()&&Object.keys(game.lobbySettings?.matchSettings||{}).length>0&&sharedStamp!==lastSharedSettingsSaveStamp){lastSharedSettingsSaveStamp=sharedStamp;saveLastMatchSettings(sharedSettings);}
         if(isHost()){
@@ -20731,7 +20747,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
       profileCloseBtn: 'プレイヤー設定を閉じる', lobbyCloseBtn: 'ロビー設定を閉じる',
       leaveConfirmCancel: '退出確認をキャンセルする', reactorCloseBtn: 'リアクタータスクを中止する',
       numberCloseBtn: '番号入力を中止する', uploadCloseBtn: 'アップロードを中止する',
-      fuelCloseBtn: '燃料補給を中止する', taskGameCloseBtn: 'タスクを中止する',
+      fuelCloseBtn: '燃料補給を中止する', taskGameCloseBtn: 'タスクを閉じる',
       cardCloseBtn: 'カードタスクを中止する', wireCloseBtn: '配線タスクを中止する',
       emergencyCloseBtn: '緊急修理を閉じる', costumeDone: 'コスチューム選択を完了する',
       ssxPracticeClose: '練習を閉じる', ssxTutorialClose: 'チュートリアルを閉じる',
@@ -21059,7 +21075,8 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
         astra: {
             name: "Airship",
             story: "高高度の調査飛行船。貨物室やアーカイブ、昇降機が離れているため、移動にかかった時間も証言を見極める材料になります。"
-        }
+        },
+        frost: { name: "フロスト", story: "氷衛星の研究基地。中央ドームから研究区と居住区へ通路が巡り、3系統のベントがつながります。" }
     };
     let experienceState = null;
     let recapStamp = "";
