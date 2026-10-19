@@ -102,15 +102,15 @@ export function createFrostMap() {
     return object;
   }
 
-  const foundation = mesh('Continuous floor slab', extrudedGeometry([data.floor], 0.22),
+  const foundation = mesh('Continuous floor slab', extrudedGeometry([data.renderFloor || data.floor], 0.22),
     new THREE.MeshStandardMaterial({ color: '#172c3e', roughness: 0.85 }), -0.22);
   foundation.castShadow = true;
 
-  const floor = mesh('Walkable floor', flatGeometry(data.floor),
+  const floor = mesh('Walkable floor', flatGeometry(data.renderFloor || data.floor),
     new THREE.MeshStandardMaterial({ color: '#3d596b', map: tileTexture, roughness: 0.82 }), 0.016);
 
   for (const room of data.rooms) {
-    mesh(room.name + ' / floor', flatGeometry(room), new THREE.MeshStandardMaterial({
+    mesh(room.name + ' / floor', flatGeometry(room.renderFloor || room), new THREE.MeshStandardMaterial({
       color: new THREE.Color(room.color).lerp(new THREE.Color('#6e8c9c'), 0.26),
       map: tileTexture,
       roughness: 0.8,

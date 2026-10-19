@@ -1,4 +1,4 @@
-"""Draw a review-only vent proposal; this never modifies runtime map data."""
+"""Draw the approved vent layout without modifying runtime map data."""
 from pathlib import Path
 import json
 import math
@@ -13,8 +13,8 @@ from shapely.geometry.polygon import orient
 
 ROOT = Path(__file__).resolve().parents[1]
 data = json.loads((ROOT / "frost-map-data.json").read_text())
-proposal = json.loads((ROOT / "docs/frost-vent-proposal-v1.json").read_text())
-assert proposal["status"] == "proposal-only" and "vents" not in data
+proposal = json.loads((ROOT / "assets-source/frost-vent-layout-v1.json").read_text())
+assert proposal["status"] == "approved"
 font = FontProperties(fname="/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
 bold = FontProperties(fname="/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc")
 plt.rcParams["svg.fonttype"] = "path"
@@ -109,9 +109,9 @@ ax.annotate("", xy=(-33, 27), xytext=(-33, 23), arrowprops=dict(arrowstyle="-|>"
 ax.text(-33, 28, "N", ha="center", color="#9ab7c8", fontsize=10)
 
 fig.text(.07, .94, "F R O S T", fontproperties=bold, fontsize=28, color="#e9f6ff")
-fig.text(.07, .902, "ベント配置案 01", fontproperties=font, fontsize=15, color="#9cbcca")
+fig.text(.07, .902, "ベント配置 01", fontproperties=font, fontsize=15, color="#9cbcca")
 fig.text(.94, .94, "10 VENTS / 3 NETWORKS", fontsize=12, color="#9dded7", ha="right", fontweight="bold")
-fig.text(.94, .906, "位置と接続先の確認用", fontproperties=font, fontsize=11, color="#a9bfcd", ha="right")
+fig.text(.94, .906, "承認済み・3Dプレビュー実装", fontproperties=font, fontsize=11, color="#a9bfcd", ha="right")
 fig.add_artist(plt.Line2D([.07, .94], [.882, .882], transform=fig.transFigure, color="#294357", lw=1))
 
 legend = fig.add_axes([.745, .16, .22, .68])
@@ -131,7 +131,7 @@ for network in proposal["networks"]:
 
 fig.add_artist(plt.Line2D([.07, .94], [.12, .12], transform=fig.transFigure, color="#294357", lw=1))
 fig.text(.07, .087, "中央ドームは会議ボタンのある、徒歩で集まる場所に。", fontproperties=bold, fontsize=12.5, color="#e1edf6")
-fig.text(.07, .057, "色付き破線＝ベント接続案　／　隣のベントへ移動・別系統へは徒歩", fontproperties=font, fontsize=10, color="#9cbcca")
+fig.text(.07, .057, "色付き破線＝ベント接続　／　隣のベントへ移動・別系統へは徒歩", fontproperties=font, fontsize=10, color="#9cbcca")
 fig.text(.835, .087, "■ 通常タスク", fontproperties=font, fontsize=10, color="#68c6ba", ha="right")
 fig.text(.94, .087, "■ 緊急端末", fontproperties=font, fontsize=10, color="#f0b476", ha="right")
 fig.text(.94, .057, "出入口・端末から離れた壁際に配置", fontproperties=font, fontsize=10, color="#9cbcca", ha="right")
@@ -142,4 +142,4 @@ for extension in ["png", "svg"]:
         metadata={"Date": None} if extension == "svg" else None)
     if extension == "svg":
         target.write_text("\n".join(line.rstrip() for line in target.read_text().splitlines()) + "\n")
-print("Proposal only: 10 vents, 3 separate chains, 7 links. Doors and tasks remain clear.")
+print("Approved: 10 vents, 3 separate chains, 7 links. Doors and tasks remain clear.")

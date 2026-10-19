@@ -5,6 +5,8 @@ import { createFrostNavigation } from './frost-navigation.js';
 import { createFrostDoors } from './frost-doors.js';
 import { createFrostTasks } from './frost-tasks.js';
 import { createFrostMeetingButton } from './frost-meeting.js';
+import { createFrostVentState } from './frost-vent-state.js';
+import { createFrostVents } from './frost-vents.js';
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -41,7 +43,12 @@ async function start() {
   fill.position.set(24, 18, -35);
   scene.add(fill);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(280, 280),
+  const terrainShape = new THREE.Shape([[-140, -140], [140, -140], [140, 140], [-140, 140]]
+    .map(([x, y]) => new THREE.Vector2(x, y)));
+  for (const vent of data.vents) {
+    terrainShape.holes.push(new THREE.Path(vent.opening.outline.map(([x, y]) => new THREE.Vector2(x, y))));
+  }
+  const ground = new THREE.Mesh(new THREE.ShapeGeometry(terrainShape),
     new THREE.MeshStandardMaterial({ color: '#132334', roughness: 1 }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.3;
@@ -92,9 +99,81 @@ async function start() {
     dirty = true;
   });
   map.root.add(meetingView.root);
+  const ventState = createFrostVentState(data.vents);
+  const ventView = createFrostVents(data.vents, ventState);
+  map.root.add(ventView.root);
+  let ventPanelId = '';
+  let ventUIPhase = '';
+
+  function updateVentUI() {
+    if (ventState.phase === ventUIPhase && ventState.activeId === ventPanelId) return;
+    ventUIPhase = ventState.phase;
+    app.dataset.vented = String(ventState.vented);
+    $('ventShade').hidden = !ventState.vented;
+    $('ventShade').dataset.traveling = String(ventState.phase === 'traveling');
+    if (ventState.pose) $('ventShade').style.opacity = String(THREE.MathUtils.clamp((.6 - ventState.pose.height) / 1.1, 0, 1));
+    $('ventPanel').hidden = !ventState.vented;
+    $('ventPanel').setAttribute('aria-busy', String(ventState.vented && ventState.phase !== 'inside'));
+    if (ventState.vented && ventState.activeId !== ventPanelId) {
+      const current = data.vents.find((vent) => vent.id === ventState.activeId);
+      ventPanelId = current.id;
+      $('ventLocation').textContent = current.roomName;
+      const buttons = ventState.destinations.map((vent) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.ventId = vent.id;
+        const arrow = document.createElement('span');
+        arrow.textContent = '→';
+        arrow.setAttribute('aria-hidden', 'true');
+        button.append(arrow, document.createTextNode(vent.roomName));
+        button.addEventListener('click', () => {
+          if (ventState.travel(vent.id, performance.now())) { resetInput(); updateVentUI(); dirty = true; }
+        });
+        return button;
+      });
+      $('ventDestinations').replaceChildren(...buttons);
+    }
+    if (!ventState.vented) ventPanelId = '';
+    for (const button of $('ventPanel').querySelectorAll('button')) button.disabled = ventState.phase !== 'inside';
+  }
+
+  function resetVent() {
+    if (ventState.vented) {
+      const vent = data.vents.find((item) => item.id === ventState.activeId);
+      walker.x = vent.exit[0]; walker.z = -vent.exit[1];
+    }
+    ventState.reset();
+    if (ventView.sync()) renderer.shadowMap.needsUpdate = true;
+    updateVentUI();
+  }
+
+  function enterVent(vent) {
+    if (ventState.vented || taskSystem.isOpen) return false;
+    if (mode !== 'walk') {
+      walker.x = vent.exit[0]; walker.z = -vent.exit[1];
+      walker.yaw = Math.atan2(vent.facing[0], -vent.facing[1]);
+      walker.pitch = -.78;
+      setMode('walk');
+    }
+    if (navigation.roomAt(walker.x, walker.z)?.id !== vent.roomId
+      || Math.hypot(walker.x - vent.position[0], walker.z + vent.position[1]) > 2.25) return false;
+    if (!ventState.enter(vent.id, walker, performance.now())) return false;
+    resetInput();
+    updateVentUI();
+    dirty = true;
+    return true;
+  }
+
+  function exitVent() {
+    if (!ventState.exit(performance.now())) return false;
+    resetInput(); updateVentUI(); dirty = true;
+    return true;
+  }
+  $('ventExit').addEventListener('click', exitVent);
 
   function useAction(action) {
-    if (!action) return;
+    if (!action || ventState.vented) return;
+    if (action.kind === 'vent') { enterVent(action); return; }
     if (action.id === data.meeting.id) meetingView.press();
     else taskSystem.open(action.id);
   }
@@ -154,7 +233,7 @@ async function start() {
 
   function applyWalkCamera() {
     camera.up.set(0, 1, 0);
-    camera.position.set(walker.x, 1.65, walker.z);
+    camera.position.set(walker.x, ventState.vented ? ventState.pose.height : 1.65, walker.z);
     camera.rotation.set(walker.pitch, walker.yaw, 0, 'YXZ');
     const room = navigation.roomAt(walker.x, walker.z);
     const name = room?.name || '通路';
@@ -163,23 +242,27 @@ async function start() {
       $('location').textContent = name;
       if (room) $('roomPicker').value = room.id;
     }
-    let task = taskSystem.nearest(walker);
+    let task = ventState.vented ? null : taskSystem.nearest(walker);
     const meetingDistance = Math.hypot(walker.x - data.meeting.position[0], walker.z + data.meeting.position[1]);
-    if (meetingDistance < 2.5 && (!task
+    if (!ventState.vented && meetingDistance < 2.5 && (!task
       || meetingDistance < Math.hypot(walker.x - task.position[0], walker.z + task.position[1]))) task = data.meeting;
+    const vent = ventView.nearest(walker, room?.id);
+    if (vent && (!task || Math.hypot(walker.x - vent.position[0], walker.z + vent.position[1])
+      < Math.hypot(walker.x - task.position[0], walker.z + task.position[1]))) task = vent;
     if (task?.id !== nearestTask?.id) {
       nearestTask = task;
       $('taskAction').hidden = !task;
       $('useTask').disabled = !task;
       $('nearbyTask').textContent = task?.name || '';
-      $('useTask').textContent = task?.id === data.meeting.id ? '会議' : '使用';
-      $('useTask').dataset.kind = task?.id === data.meeting.id ? 'meeting' : 'task';
+      $('useTask').textContent = task?.kind === 'vent' ? 'ベント' : task?.id === data.meeting.id ? '会議' : '使用';
+      $('useTask').dataset.kind = task?.kind === 'vent' ? 'vent' : task?.id === data.meeting.id ? 'meeting' : 'task';
     }
   }
 
   function setMode(nextMode) {
     if (!['overview', 'top', 'walk'].includes(nextMode)) return;
     if (taskSystem.isOpen) taskSystem.close();
+    if (ventState.vented) resetVent();
     resetInput();
     mode = nextMode;
     camera.fov = mode === 'walk' ? 70 : 43;
@@ -211,6 +294,7 @@ async function start() {
   function teleport(roomId) {
     const room = data.rooms.find((item) => item.id === roomId);
     if (!room) return false;
+    resetVent();
     walker.x = room.spawn[0];
     walker.z = -room.spawn[1];
     walker.pitch = 0;
@@ -249,6 +333,13 @@ async function start() {
 
   window.addEventListener('keydown', (event) => {
     if (mode !== 'walk' || taskSystem.isOpen || /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
+    if (ventState.vented) {
+      if (event.code === 'KeyF' && !event.repeat) { event.preventDefault(); exitVent(); }
+      return;
+    }
+    if (event.code === 'KeyF' && nearestTask?.kind === 'vent' && !event.repeat) {
+      event.preventDefault(); enterVent(nearestTask); return;
+    }
     if (event.code === 'KeyE' && nearestTask && !event.repeat) {
       event.preventDefault();
       useAction(nearestTask);
@@ -294,14 +385,15 @@ async function start() {
   renderer.domElement.addEventListener('pointerup', (event) => {
     const candidate = tap;
     tap = null;
-    if (!candidate || candidate.id !== event.pointerId || candidate.moved || taskSystem.isOpen) return;
+    if (!candidate || candidate.id !== event.pointerId || candidate.moved || taskSystem.isOpen || ventState.vented) return;
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.far = 350;
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
     const taskHit = taskSystem.pick(raycaster);
     const meetingHit = meetingView.pick(raycaster);
-    const hit = meetingHit && (!taskHit || meetingHit.distance < taskHit.distance) ? meetingHit : taskHit;
+    const ventHit = ventView.pick(raycaster);
+    const hit = [taskHit, meetingHit, ventHit].filter(Boolean).sort((a, b) => a.distance - b.distance)[0];
     if (!hit) return;
     const wall = raycaster.intersectObject(map.walls, false)[0];
     if (wall && wall.distance < hit.distance - 0.1) return;
@@ -322,7 +414,7 @@ async function start() {
     $('stickThumb').style.transform = `translate(${x}px, ${y}px)`;
   }
   $('joystick').addEventListener('pointerdown', (event) => {
-    if (stick.pointer !== null) return;
+    if (stick.pointer !== null || ventState.vented) return;
     event.preventDefault();
     stick.pointer = event.pointerId;
     $('joystick').setPointerCapture(event.pointerId);
@@ -379,7 +471,22 @@ async function start() {
     if (contextLost || taskSystem.isOpen) { previousTime = 0; return; }
     const dt = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0;
     previousTime = time;
-    const doorsChanged = navigation.updateDoors(mode === 'walk' ? walker : null, dt);
+    const previousVentPhase = ventState.phase;
+    if (ventState.update(time)) {
+      const pose = ventState.pose;
+      walker.x = pose.x; walker.z = pose.z;
+      $('ventShade').style.opacity = String(THREE.MathUtils.clamp((.6 - pose.height) / 1.1, 0, 1));
+      if (previousVentPhase === 'entering' && ventState.phase === 'inside') walker.pitch = .9;
+      if (ventState.phase === 'outside') {
+        const room = navigation.roomAt(walker.x, walker.z);
+        walker.yaw = Math.atan2(walker.x - room.label[0], walker.z + room.label[1]);
+        walker.pitch = 0;
+      }
+      updateVentUI();
+      dirty = true;
+    }
+    if (ventView.sync()) { dirty = true; renderer.shadowMap.needsUpdate = true; }
+    const doorsChanged = navigation.updateDoors(mode === 'walk' && !ventState.vented ? walker : null, dt);
     if (doorsChanged) {
       doorView.sync();
       renderer.shadowMap.needsUpdate = true;
@@ -389,7 +496,7 @@ async function start() {
       let x = stick.x + Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft'));
       let forward = -stick.y + Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown'));
       const length = Math.hypot(x, forward);
-      if (length > 0.08) {
+      if (!ventState.vented && length > 0.08) {
         if (length > 1) { x /= length; forward /= length; }
         const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 7 : 4.4;
         const dx = (x * Math.cos(walker.yaw) - forward * Math.sin(walker.yaw)) * speed * dt;
@@ -415,7 +522,11 @@ async function start() {
   // Inspection hooks for this standalone architectural preview. No game state,
   // Firebase connection, account or multiplayer data is loaded here.
   window.__frostPreview = {
-    data, navigation, setMode, teleport, tasks: taskSystem,
+    data, navigation, setMode, teleport, tasks: taskSystem, vents: ventState,
+    approachVent(id) {
+      const vent = data.vents.find((item) => item.id === id);
+      return vent ? this.setPose(vent.exit[0], -vent.exit[1], Math.atan2(vent.facing[0], -vent.facing[1]), -.78) : false;
+    },
     approachMeeting() { return this.setPose(data.meeting.approach[0], -data.meeting.approach[1], 0, -0.28); },
     approachTask(id) {
       const task = data.tasks.find((task) => task.id === id);
@@ -434,6 +545,7 @@ async function start() {
     },
     setPose(x, z, yaw = 0, pitch = 0) {
       if (!navigation.canStand(x, z)) return false;
+      resetVent();
       Object.assign(walker, { x, z, yaw, pitch });
       setMode('walk');
       return true;
@@ -442,6 +554,7 @@ async function start() {
       return {
         mode, walker: { ...walker }, stick: { ...stick }, contextLost, renderedFrames,
         currentRoom, meetingPressed: meetingView.pressed, meetingPressCount: meetingView.pressCount, taskOpen: taskSystem.isOpen, nearestTask: nearestTask?.id || '', aspect: camera.aspect, calls: renderer.info.render.calls,
+        vent: ventState.snapshot(), cameraHeight: camera.position.y,
         triangles: renderer.info.render.triangles, memory: { ...renderer.info.memory },
         doors: navigation.doors.map(({ id, open, target }) => ({ id, open, target })),
       };

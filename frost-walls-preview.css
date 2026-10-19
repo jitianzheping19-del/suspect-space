@@ -40,6 +40,23 @@ button:focus-visible, select:focus-visible { outline: 2px solid #8fe8de; outline
 #useTask { width: 90px; height: 60px; border: 1px solid #73cdbd; border-radius: 12px; background: #216a62; color: #ebfffa; font-size: 18px; font-weight: 700; box-shadow: 0 5px 20px #07131b66; }
 #useTask:disabled { opacity: .4; }
 #useTask[data-kind="meeting"] { background: #91394d; border-color: #f0a0ac; }
+#useTask[data-kind="vent"] { background: #345d78; border-color: #9dbed4; }
+#ventShade { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 40%, #02091160 0%, #020911d9 65%, #010710f7 100%); pointer-events: none; }
+#ventShade[data-traveling="true"] { background: #020911f5; }
+#ventPanel { position: absolute; z-index: 2; right: max(28px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); width: 310px; padding: 14px; border: 1px solid #7eb3c2; border-radius: 14px; background: #0b2130f5; box-shadow: 0 12px 40px #0008; }
+#ventPanel[hidden], #ventShade[hidden] { display: none; }
+#ventPanel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+#ventLocation { color: #def8f4; font-size: 16px; }
+#ventPanel header span { color: #93b6c6; font-size: 12px; }
+#ventDestinations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#ventDestinations button, #ventExit { height: 44px; min-width: 0; border: 1px solid #547d93; border-radius: 8px; background: #21485c; color: #e5f4f9; font-size: 14px; font-weight: 600; }
+#ventDestinations button:only-child { grid-column: 1 / -1; }
+#ventDestinations button { display: flex; align-items: center; justify-content: center; gap: 8px; }
+#ventDestinations button span { color: #a2e2dd; font-size: 19px; }
+#ventExit { width: 100%; margin-top: 8px; background: #30465c; }
+#ventPanel button:disabled { opacity: .5; cursor: default; }
+#ventPanel button:focus-visible { outline: 2px solid #c4fff0; outline-offset: 2px; }
+#app[data-vented="true"] #joystick, #app[data-vented="true"] #taskAction, #app[data-vented="true"] .reticle, #app[data-vented="true"] .caption { display: none; }
 #meetingSignal { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); padding: 14px 28px; border: 1px solid #ea9ca9; border-radius: 12px; background: #2d1c2be8; color: #ffb8c1; font-size: 23px; font-weight: 700; letter-spacing: .12em; pointer-events: none; }
 #app[data-task-open="true"] #joystick { display: none; }
 #taskModal { width: min(1080px, calc(100vw - 40px)); height: min(740px, calc(100dvh - 40px)); max-width: none; max-height: none; border: 1px solid #658c9b; border-radius: 18px; padding: 0; background: #0b1929; color: #e7f3f8; box-shadow: 0 24px 100px #0009; overflow: hidden; }
@@ -78,6 +95,13 @@ noscript { position: absolute; top: 40%; width: 100%; text-align: center; }
   #taskAction { right: max(20px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); gap: 7px; }
   #useTask { width: 84px; height: 56px; font-size: 17px; }
   #nearbyTask { max-width: 185px; padding: 9px; font-size: 11px; }
+  #ventPanel { right: max(20px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); width: 264px; padding: 10px; border-radius: 12px; }
+  #ventPanel header { margin-bottom: 7px; }
+  #ventLocation { font-size: 14px; }
+  #ventPanel header span { font-size: 11px; }
+  #ventDestinations { gap: 7px; }
+  #ventDestinations button, #ventExit { height: 38px; font-size: 12px; }
+  #ventExit { margin-top: 7px; }
   #taskModal { width: calc(100vw - 20px); height: calc(100dvh - 16px); border-radius: 12px; }
   .task-header { padding: 8px 16px; gap: 12px; }
   #taskRoom { font-size: 10px; }

@@ -63,7 +63,7 @@ async function testBrowser() {
       await page.waitForFunction(() => window.__frostPreview?.state().renderedFrames > 0, { timeout: 60000 });
       await page.screenshot({ path: path.join(out, `${width}-overview.png`) });
       const original = await page.evaluate(() => window.__frostPreview.state());
-      assert(original.calls < 60 && original.triangles < 30000, 'Unexpectedly expensive map');
+      assert(original.calls < 75 && original.triangles < 35000, 'Unexpectedly expensive map');
 
       for (const view of ['真上', '全体', '歩く']) {
         await page.getByRole('button', { name: view, exact: true }).click();
@@ -159,7 +159,7 @@ async function testBrowser() {
       const meetingButton = page.getByRole('button', { name: '会議', exact: true });
       if (touch) await meetingButton.tap(); else await meetingButton.click();
       assert.equal(await page.evaluate(() => window.__frostPreview.state().meetingPressCount), 1);
-      assert.equal(await page.evaluate(() => Object.hasOwn(window.__frostPreview.data, 'vents')), false, 'Unapproved vents reached the runtime');
+      assert.equal(await page.evaluate(() => window.__frostPreview.data.vents.length), 10, 'Approved vent count changed');
       await page.getByRole('button', { name: '全体', exact: true }).click();
       const framing = await page.evaluate(() => {
         const api = window.__frostPreview;

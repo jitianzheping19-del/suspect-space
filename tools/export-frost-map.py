@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "assets-source/frost-layout-v7.json"
 OUTPUT = ROOT / "frost-map-data.json"
 TASK_SOURCE = ROOT / "assets-source/frost-task-layout.json"
+VENT_SOURCE = ROOT / "assets-source/frost-vent-layout-v1.json"
 
 
 def ring_coordinates(ring):
@@ -128,6 +129,52 @@ def build():
                     "width": round(width, 6),
                 })
 
+    vent_source = json.loads(VENT_SOURCE.read_text())
+    assert vent_source["status"] == "approved"
+    assert vent_source["mapRevision"] == source["revision"]
+    vents, openings = [], []
+    for network in vent_source["networks"]:
+        nodes = network["nodes"]
+        assert len(network["routes"]) == len(nodes) - 1
+        for index, route_id in enumerate(network["routes"]):
+            route = next(route for route in source["routes"] if route["id"] == route_id)
+            assert set(route["rooms"]) == {nodes[index]["roomId"], nodes[index + 1]["roomId"]}
+        for index, node in enumerate(nodes):
+            room_index = next(i for i, r in enumerate(source["rooms"]) if r["id"] == node["roomId"])
+            room = source["rooms"][room_index]
+            x, y = node["position"]
+            dx, dy = room["label"][0] - x, room["label"][1] - y
+            length = math.hypot(dx, dy)
+            nx, ny = dx / length, dy / length
+            def vent_polygon(width, depth):
+                return Polygon([
+                    (x - ny * u + nx * v, y + nx * u + ny * v)
+                    for u, v in [(-width / 2, -depth / 2), (width / 2, -depth / 2),
+                                 (width / 2, depth / 2), (-width / 2, depth / 2)]
+                ])
+            footprint = vent_polygon(1.26, 1.08)
+            opening = vent_polygon(1.04, .84)
+            assert rooms[room_index].contains(footprint), (node["id"], "Vent outside room")
+            assert all(footprint.distance(shape) >= .85 for shape in footprints), (node["id"], "Vent too close to task")
+            assert all(footprint.distance(LineString([door["a"], door["b"]])) >= 1.05 for door in doors), (node["id"], "Vent too close to door")
+            exit_position = [round(x + nx * 1.4, 6), round(y + ny * 1.4, 6)]
+            assert navigation.contains(Point(exit_position)), (node["id"], "Vent exit blocked")
+            assert navigation.covers(LineString([node["position"], exit_position])), (node["id"], "Vent exit crosses obstacle")
+            assert all(not footprint.intersects(other) for other in openings)
+            openings.append(opening)
+            vents.append({
+                **node, "kind": "vent", "name": "ベント", "roomName": room["name"],
+                "network": network["id"], "color": network["color"],
+                "facing": [round(nx, 9), round(ny, 9)], "exit": exit_position,
+                "links": [nodes[i]["id"] for i in [index - 1, index + 1] if 0 <= i < len(nodes)],
+                "footprint": polygon_data(footprint), "opening": polygon_data(opening),
+            })
+    # Closed grates stay walkable. Only rendered floor/slab meshes have holes;
+    # the vent state machine controls entry instead of ordinary floor collision.
+    vent_openings = unary_union(openings)
+    render_floor = floor.difference(vent_openings)
+    assert render_floor.is_valid and render_floor.geom_type == "Polygon"
+
     data = {
         "id": source["id"],
         "revision": source["revision"],
@@ -140,13 +187,16 @@ def build():
         "bounds": list(floor.bounds),
         "area": round(floor.area, 6),
         "floor": polygon_data(floor),
+        "renderFloor": polygon_data(render_floor),
         "walls": polygons_data(walls),
         "navigation": polygon_data(navigation),
         "doors": doors,
         "tasks": tasks,
         "meeting": meeting,
+        "vents": vents,
         "rooms": [
-            {**room, "spawn": list(room.get("spawn", shape.representative_point().coords[0]))}
+            {**room, "spawn": list(room.get("spawn", shape.representative_point().coords[0])),
+             "renderFloor": polygon_data(shape.difference(vent_openings))}
             for room, shape in zip(source["rooms"], rooms)
         ],
         "routes": [

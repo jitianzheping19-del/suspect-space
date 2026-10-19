@@ -11,11 +11,23 @@ The central dome has a protected red meeting button. In the preview it presses,
 lights up and shows a meeting signal; it does not start a multiplayer meeting.
 The pedestal has walking collision and room spawns remain clear of it.
 
-`docs/frost-vent-proposal-v1.json` and `public/frost-vent-proposal-v1.{png,svg}`
-are review-only plans for ten vents in three separate chains. The map runtime
-does not import them. Reproduce the drawings with
-`python tools/draw-frost-vent-proposal.py`; it checks room containment, task/door
-clearance and that each proposed connection follows the approved floorplan.
+The approved ten vents form three independent chains: hangar–habitat–observatory,
+medical–laboratory–specimen, and comms–drill–deep–power. There is no central dome
+vent. `assets-source/frost-vent-layout-v1.json` is the approved position/connection
+source; the exporter validates room containment, clearance from consoles and
+doors, and a walkable exit toward the room interior. The metal grates have real
+openings through the floor slab, while closed grates remain walkable.
+
+`frost-vent-state.js` separates entry, occupancy, travel and exit. Entry opens only
+the source hatch, travel keeps every hatch closed, and exit opens only the current
+hatch. The player stays hidden throughout occupancy and travel. The first-person
+preview lowers the camera into the shaft; it has no multiplayer avatar. Ten world
+vents use five visible instanced batches in `frost-vents.js`. The compact vent
+panel updates only on a phase/destination change and shows adjacent destinations.
+
+Reproduce `public/frost-vent-proposal-v1.{png,svg}` with
+`python tools/draw-frost-vent-proposal.py`. The drawing checks that the connecting
+duct paths follow the approved floorplan as well as task/door clearance.
 
 ## Editing the map
 
@@ -57,6 +69,11 @@ requires both panels, lights all four circuits, and cooling both hand scanners.
 In this single-user placement preview, the two scanners are inspected in turn;
 this does not simulate a multiplayer partner or change the live game's rules.
 
+Click a grate in the overview, or approach it in walking mode and press `ベント`
+or F/E. The panel allows travel to adjacent vents in the same chain. Press `出る`
+or F to exit. Walking, meeting and task input are blocked while underground;
+changing the preview view or room safely resets vent occupancy.
+
 With Playwright installed, run `node tools/check-frost-walls.cjs`. It walks every
 route in both directions, checks collisions and rendered door openings, and
 captures desktop, iPad and landscape phone views, including multitouch and
@@ -66,3 +83,9 @@ artifact directory.
 `node tools/check-frost-tasks.cjs` completes every task rule, checks invalid and
 expired input, and operates all seven 3D task types plus the four emergency
 systems through mouse/keyboard. It also checks touch completion on a phone.
+
+`node tools/check-frost-vents.cjs` checks all ten entries/exits and fourteen
+directed links, including invalid moves, hidden state and animation isolation.
+It then uses actual buttons/keyboard/touch in desktop, iPad and landscape phone
+WebGL views to traverse all three chains and verify stable panel placement and
+walkable exits. `FROST_QA_SIMULATION_ONLY=1` runs the plain state checks alone.

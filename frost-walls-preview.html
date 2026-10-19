@@ -33,6 +33,12 @@
       <div id="joystick" aria-label="移動ジョイスティック" role="group"><div class="stick-ring"></div><div id="stickThumb"></div></div>
       <div class="reticle" aria-hidden="true"></div>
       <div id="taskAction" hidden><span id="nearbyTask"></span><button id="useTask" type="button" disabled>使用</button></div>
+      <div id="ventShade" aria-hidden="true" hidden></div>
+      <section id="ventPanel" aria-label="ベント" hidden>
+        <header><strong id="ventLocation"></strong><span>ベント内</span></header>
+        <div id="ventDestinations"></div>
+        <button id="ventExit" type="button">出る</button>
+      </section>
       <dialog id="taskModal" aria-labelledby="taskTitle" aria-describedby="taskHint">
         <header class="task-header"><div><span id="taskRoom"></span><h2 id="taskTitle"></h2></div><p id="taskHint"></p></header>
         <div id="taskStage"></div>
