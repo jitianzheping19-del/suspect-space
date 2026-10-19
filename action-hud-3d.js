@@ -2,11 +2,11 @@
 // controls into the game's existing renderer after the world/visibility pass.
 // There is no extra WebGL context, readback, or animation loop.
 const ACTIONS = {
-  taskBtn: {kind:'use', color:0x68dddc}, jumpBtn: {kind:'jump', color:0x87cefa},
-  killBtn: {kind:'knife', color:0xff526a}, killSecondBtn: {kind:'knife', color:0xff7984},
-  sabotageBtn: {kind:'bolt', color:0xbe94ff}, abilityBtn: {kind:'ability', color:0x72e7cf},
-  reportBtn: {kind:'report', color:0xffbe6d}, rocketLaunchBtn: {kind:'rocket', color:0xffac72},
-  waveHawkBtn: {kind:'eye', color:0x8fe8f7},
+  taskBtn: {kind:'use', color:0x68dddc, faceColor:0x07584e}, jumpBtn: {kind:'jump', color:0x87cefa, faceColor:0x124b70},
+  killBtn: {kind:'knife', color:0xff526a, faceColor:0x81162d}, killSecondBtn: {kind:'knife', color:0xff7984, faceColor:0x74182b},
+  sabotageBtn: {kind:'bolt', color:0xbe94ff, faceColor:0x4b1b70}, abilityBtn: {kind:'ability', color:0x72e7cf, faceColor:0x075747},
+  reportBtn: {kind:'report', color:0xffbe6d, faceColor:0x71410e}, rocketLaunchBtn: {kind:'rocket', color:0xffac72, faceColor:0x763316},
+  waveHawkBtn: {kind:'eye', color:0x8fe8f7, faceColor:0x124b58},
   roundRoleBtn: {kind:'roles', color:0x78e0d9, utility:true},
   mapBtn: {kind:'map', color:0x8ac9ef, utility:true},
   titleInputSettingsBtn: {kind:'gear', color:0x9bb9d2, utility:true, symbolOnly:true},
@@ -97,7 +97,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   }
   function build(button,spec) {
     const group=new THREE.Group(),cap=new THREE.Group();group.name='action:'+button.id;group.add(cap);scene.add(group);
-    const shellMat=material(0x172534,{roughness:.48}),edgeMat=material(spec.color,{emissive:spec.color,emissiveIntensity:.34}),faceMat=material(0x102130,{metalness:.3,roughness:.46});
+    const shellMat=material(0x172534,{roughness:.48}),edgeMat=material(spec.color,{emissive:spec.color,emissiveIntensity:.34}),faceMat=material(spec.faceColor||0x102130,{metalness:.3,roughness:.46});
     const shell=mesh(group,cube,shellMat),edge=mesh(cap,cube,edgeMat,0,0,2),face=mesh(cap,cube,faceMat,0,0,4);
     const symbol=icon(spec.kind,spec.color);cap.add(symbol);
     const arcGeometry=ring.clone();geometries.add(arcGeometry);
@@ -167,7 +167,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
       }
       r.shellMat.color.setHex(r.disabled?0x172432:0x273e51);
       r.edgeMat.color.setHex(r.disabled?0x425363:r.spec.color);r.edgeMat.emissive.setHex(r.disabled?0x152333:r.spec.color);r.edgeMat.emissiveIntensity=r.disabled?.12:.34;
-      r.faceMat.color.setHex(r.disabled?0x152333:0x142c3e);
+      r.faceMat.color.setHex(r.disabled?0x152333:(r.spec.faceColor||0x142c3e));
     }
     // A window resize replaces tile sizes; retain only geometry still in use.
     const used=new Set();for(const r of records.values())for(const m of [r.shell,r.edge,r.face])used.add(m.geometry);

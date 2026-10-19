@@ -8484,7 +8484,8 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       return game?.phase==="play"&&player?.alive===true&&!player.disconnected&&!player.observer&&["shapeshifter","morphing"].includes(player.subrole)&&Number(player.disguise?.until)>now();
     }
     function voiceForcedMuteReason(){
-      if(deathAnimationVoiceMute?.session===session&&deathAnimationVoiceMute.player===uid&&game.players?.[uid]?.alive===false)return "死亡演出中";
+      // A meeting immediately restores a dead player's microphone for ghost chat.
+      if(game?.phase!=="meeting"&&deathAnimationVoiceMute?.session===session&&deathAnimationVoiceMute.player===uid&&game.players?.[uid]?.alive===false)return "死亡演出中";
       if(!code||!["play","meeting","results"].includes(game?.phase))return "";
       if(game.phase==="meeting")return "";
       if(game.phase==="play"&&document.getElementById("ssSecurityModal")?.classList.contains("open"))return "監視カメラ視聴中";
@@ -8693,7 +8694,9 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         const doorLeakGain=!cameraMonitoring&&!meeting&&!remoteComms&&blockedByWall&&positionsKnown?voiceDoorLeakGain({x:ox,z:oz},{x:px,z:pz}):0;
         const nearby=cameraMonitoring?cameraPlayerVisible:meeting||remoteComms||doorLeakGain>0||(gap<=6.4&&!blockedByWall&&playerOnScreen);
         const rangeGain=cameraMonitoring?(cameraPlayerVisible?1:0):(meeting||remoteComms)?1:doorLeakGain>0?doorLeakGain*(gap>=6.4?0:Math.min(1,Math.max(0,(6.4-gap)/1.8))):(blockedByWall||gap>=6.4||!playerOnScreen?0:Math.min(1,Math.max(0,(6.4-gap)/1.8)));
-        const audible=connected&&voiceRoomIsEnabled()&&!receiveMuted&&!voiceCamouflageActive()&&!voiceIdentitySuppressed(peerId)&&voiceJoined&&players?.[peerId]?.online===true&&remote?.joined===true&&remote.mic===true&&sameSabotageFaction&&nearby&&(meeting?(localGhost===voicePlayerIsGhost(peerId)):(localGhost||!voicePlayerIsGhost(peerId)));
+        // Ghost listeners hear all meeting voices; living listeners never hear ghost mics.
+        const canHearPeer=localGhost||!voicePlayerIsGhost(peerId);
+        const audible=connected&&voiceRoomIsEnabled()&&!receiveMuted&&!voiceCamouflageActive()&&!voiceIdentitySuppressed(peerId)&&voiceJoined&&players?.[peerId]?.online===true&&remote?.joined===true&&remote.mic===true&&sameSabotageFaction&&nearby&&canHearPeer;
         const individual=voicePlayerPreference(peerId),targetGain=audible&&!individual.muted?rangeGain*individual.volume:0;
         try{peer.gain.gain.setTargetAtTime(targetGain,time,targetGain > peer.gain.gain.value ? .08 : .14);}catch{peer.gain.gain.value=targetGain;}
       }
@@ -12887,21 +12890,28 @@ function setActionButtonCaption(button,fullLabel,mobileLabel){
   fitActionButtonCaption(button);
  }else if(changed)fitActionButtonCaption(button);
 }
+function localVentEntryInProgress(me=self()) {
+  if(!me?.ventId)return false;
+  const avatar=avatars.get(uid),transition=avatar?.userData?.ventTransition;
+  if(transition?.entering===true)return sampleVentTraversal(transition,performance.now(),true).visible;
+  return !!avatar&&avatar.userData?.wasVented!==true;
+}
 function renderVentPanel() {
   const me=self(),vent=VENT_BY_ID.get(me?.ventId);
-  const avatar=avatars.get(uid),transition=avatar?.userData?.ventTransition;
-  const entryAnimationActive=!!me?.ventId&&transition?.entering===true&&sampleVentTraversal(transition,performance.now(),true).visible;
-  const active=game.phase==="play" && !!vent && !!me?.alive && !entryAnimationActive;
+  const entryAnimationActive=localVentEntryInProgress(me);
+  const active=game.phase==="play" && !!vent && !!me?.alive;
+  const avatar=avatars.get(uid);
   if(me?.ventId&&!entryAnimationActive&&avatar)avatar.visible=false;
   show("ventTravel",active);
   if(!active){ventPanelKey="";return;}
-  $("ventLocation").textContent=vent.room+" ／ ベント内";
-  $("ventRemaining").textContent="自動退出まで "+Math.max(0,Math.ceil(((me.ventUntil||0)-now())/1000))+" 秒";
+  $("ventLocation").textContent=entryAnimationActive?vent.room+" ／ ベントに入っています…":vent.room+" ／ ベント内";
+  $("ventRemaining").textContent=entryAnimationActive?"侵入アニメーション中":("自動退出まで "+Math.max(0,Math.ceil(((me.ventUntil||0)-now())/1000))+" 秒");
   if(ventPanelKey!==vent.id){
     ventPanelKey=vent.id;$("ventChoices").replaceChildren();
     for(const id of vent.links){
       const target=VENT_BY_ID.get(id);if(!target)continue;
       const direction=ventRouteDirection(vent,target,me),button=document.createElement("button");button.type="button";
+      button.disabled=entryAnimationActive;
       button.setAttribute("aria-label",direction.label+"へ移動、"+target.room);
       const arrow=document.createElement("span");arrow.className="ventRouteArrow";arrow.setAttribute("aria-hidden","true");arrow.textContent=direction.arrow;
       const label=document.createElement("span"),room=document.createElement("strong"),hint=document.createElement("small");
@@ -12909,7 +12919,8 @@ function renderVentPanel() {
       button.onclick=()=>sendCommand("ventMove",{vent:id});$("ventChoices").appendChild(button);
     }
   }
-  setActionButtonCaption($("taskBtn"),"ベントから出る [F]","出る");$("taskBtn").disabled=!connected;
+  for(const button of $("ventChoices").querySelectorAll("button"))button.disabled=entryAnimationActive;
+  $("ventExitBtn").disabled=entryAnimationActive;
 }
 $("ventExitBtn").onclick=()=>sendCommand("ventExit");
 function useNearbyAction() {
@@ -19602,15 +19613,17 @@ if (phase === "ended") {
       const openingShipDoor=ready&&me?.alive&&!me?.ventId&&!me?.rocketCapturedBy&&!me?.penguinCapturedBy?nearestOpeningShipDoor():null;
       const doorNearby=!!nearbyShipDoor,doorOpening=!!openingShipDoor;
       const actionNearby = doorNearby || doorOpening || meetingNearby || taskNearby || ventNearby || terminalNearby;
+      const vented=phase==="play"&&!!me?.ventId&&me?.alive===true&&!me?.disconnected;
+      const ventEntryActive=vented&&localVentEntryInProgress(me);
       const waveHudModeActive=game.settings?.waveMode==="team"||game.settings?.waveMode==="battleRoyale";
       show("taskProgressHud",phase==="play"&&!!me&&!waveHudModeActive&&!countdownVisible&&now()>=playStartsAt&&$("roleReveal").classList.contains("hidden"));
       show("taskBtn", phase === "play" && !!me && !me.disconnected && !waveHudModeActive);
-      $("taskBtn").disabled = !ready ||
+      $("taskBtn").disabled = vented ? (!connected||ventEntryActive) : (!ready ||
         (!doorNearby && !meetingNearby && !taskNearby && !ventNearby && !terminalNearby) ||
         !actionNearby ||
         doorOpening || !!taskWork || !!document.getElementById("ssTaskTerminalHost")?.classList.contains("active") || !!reactorGame || !!taskGame || !!wireGame ||
-        !!numberTask || !!uploadTask || !!fuelTask || !!cardTask || taskInteractionLock;
-      const taskFullLabel = doorOpening ? "扉を開放中" : doorNearby ? "扉を開く [F]" : meetingNearby
+        !!numberTask || !!uploadTask || !!fuelTask || !!cardTask || taskInteractionLock);
+      const taskFullLabel = ventEntryActive?"ベントに入っています…":vented?"ベントから出る [F]":doorOpening ? "扉を開放中" : doorNearby ? "扉を開く [F]" : meetingNearby
         ? "緊急会議を開く [B]"
         : atMeetingButton&&emergencyMeetingUsed&&!taskNearby&&!ventNearby
         ? "緊急会議は使用済み"
@@ -19635,7 +19648,7 @@ if (phase === "ended") {
         : station
           ? `${station.name}${me?.tasks?.[station.id] ? " ✓" : " [F]"}`
           : "使用 [F]";
-      const taskShortLabel=doorOpening?"開放中":doorNearby?"開ける":meetingNearby||atMeetingButton&&emergencyMeetingUsed&&!taskNearby&&!ventNearby||atMeetingButton&&meetingCooldown>0?"会議":terminalNearby?(Object.entries(TERMINAL_ANCHORS).find(([,p])=>distance(position,p)<1.65&&!wallBetween(position,p))?.[0]==="security"?"カメラ":"バイタル"):ventNearby?"入る":emergencyNearby?(String(emergencyPanel.name).includes("会議")?"会議":"作業"):"作業";
+      const taskShortLabel=ventEntryActive?"侵入中":vented?"出る":doorOpening?"開放中":doorNearby?"開ける":meetingNearby||atMeetingButton&&emergencyMeetingUsed&&!taskNearby&&!ventNearby||atMeetingButton&&meetingCooldown>0?"会議":terminalNearby?(Object.entries(TERMINAL_ANCHORS).find(([,p])=>distance(position,p)<1.65&&!wallBetween(position,p))?.[0]==="security"?"カメラ":"バイタル"):ventNearby?"入る":emergencyNearby?(String(emergencyPanel.name).includes("会議")?"会議":"作業"):"作業";
       setActionButtonCaption($("taskBtn"),taskFullLabel,taskShortLabel);
       const meetingSpent=atMeetingButton&&emergencyMeetingUsed&&!taskNearby&&!ventNearby&&!terminalNearby&&!doorNearby&&!doorOpening;
       $("taskBtn").dataset.exhausted=String(meetingSpent);if(meetingSpent){const mark=document.createElement("span");mark.className="abilityExhaustedMark";mark.textContent="×";mark.setAttribute("aria-hidden","true");$("taskBtn").append(mark);}
@@ -19826,7 +19839,7 @@ $("uiRecoveryRetry")?.addEventListener("click",safeRenderUI);
 function scheduleFrame(){if(frameScheduled||renderContextLost)return;frameScheduled=true;frameRequestId=requestAnimationFrame(frame);}
 
 const reducedMotionQuery=window.matchMedia("(prefers-reduced-motion: reduce)");
-const actionHud3D=createActionHud3D({THREE,renderer,root:$("buttons"),reducedMotion:()=>reducedMotionQuery.matches,isObscured:modalVisible,
+const actionHud3D=createActionHud3D({THREE,renderer,root:$("buttons"),reducedMotion:()=>reducedMotionQuery.matches,isObscured:()=>modalVisible()||!$("killAnimation").classList.contains("hidden")||!$("deathIntro").classList.contains("hidden"),
   isActive:()=>game.phase==="play"&&!isWaitingLobbyForRunningMatch()&&!$("controls").classList.contains("hidden")&&
     document.body.dataset.controlsCountdown!=="true"&&$("roleReveal").classList.contains("hidden")});
 window.addEventListener("pagehide",event=>{if(!event.persisted)actionHud3D.dispose();});
