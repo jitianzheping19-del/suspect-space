@@ -6,6 +6,9 @@ const start = html.indexOf(marker);
 const end = html.indexOf('/* INTERACTIVE_TASK_MACHINES_V1_END */', start);
 if (start < 0 || end < 0) throw new Error('Original interactive task machine not found');
 let source = html.slice(start, end);
+const heading = 'label(({filter:';
+if (!source.includes(heading)) throw new Error('Original task machine heading changed');
+source = source.replace(heading, 'label(state.machineLabel||({filter:');
 // These labels in the original omit their local group and stack at the scene
 // origin. Restore group ownership for the preview without duplicating the art.
 for (const call of [

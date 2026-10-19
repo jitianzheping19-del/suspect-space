@@ -49,7 +49,7 @@ export function createFrostTaskState(tasks, onChange = () => {}, clock = () => D
     const task = tasks.find((task) => task.id === id);
     if (!task || !available(task)) return null;
     session = {
-      task, incident: sabotage, mode: task.mode, accepting: true, finished: false,
+      task, incident: sabotage, mode: task.mode, machineLabel: task.instrument, accepting: true, finished: false,
       selected: new Set(), done: 0, total: normalTotals[task.mode] || 1,
       target: task.mode === 'sample' ? Math.floor(Math.random() * 4) : randomTarget(),
       value: 0, input: '', startedAt: null, feedback: '', error: false,
