@@ -196,9 +196,12 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     const ref = starPoints.slice(0, 5).map(([x, y]) => [-2.9 + x * .68, y * .68 + .1, .3]);
     line(ref); ref.forEach(([x, y], i) => { ball(.065, white, x, y, .35); label(String(i + 1), x + .15, y + .14, .5, .25); });
     const spots = starPoints.map(([x, y], i) => {
-      const px = 1.3 + (Math.cos(s.rotation) * x - Math.sin(s.rotation) * y), py = Math.sin(s.rotation) * x + Math.cos(s.rotation) * y;
-      const star = ball(.09, white, px, py, .35); ring(.18, .014, glow('#b8e5f4', .15), px, py, .3);
-      hit('star:' + i, px, py, .7, .7); return star;
+      const px = 1.3 + x * 1.3, py = y;
+      const star = ball(i < 5 ? .12 : .065, i < 5 ? white : metal, px, py, .35);
+      const guide = ring(.25, .025, cyan, px, py, .3);
+      if (i < 5) label(String(i + 1), px, py + .3, .55, .4, '#dceff3', scene, .34);
+      updates.push(() => { guide.visible = i === s.selected.length && !s.finished; guide.scale.setScalar(1 + Math.sin(s.elapsed * 4) * .1); });
+      hit('star:' + i, px, py, .8, .8); return star;
     });
     const connections = line([[0, 0, .4], [0, 0, .4]]);
     let count = -1;
@@ -370,7 +373,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     for (const x of [-.4, .4]) for (const y of [-.32, .32]) disc(.18, .2, rubber, x, y, .12, rover);
     const tether = box(5, .035, .035, brass, -.5, .4, .25); const snag = mesh(new THREE.DodecahedronGeometry(.28), metal, .5, .35, .3);
     button('巻く', 'wind', -.9, -1.15, 1.8, blue); button('緩める', 'unwind', 1.35, -1.15, 1.8);
-    label('張力', -.4, 1.25, .5, .9); gauge(1.65, 1.25, 3.3, () => s.tension, [.28, .8]);
+    label('張力', -.4, 1.25, .5, .9); gauge(1.65, 1.25, 3.3, () => s.tension, [.1, .95]);
     updates.push(() => { rover.position.x = 2.5 - s.recovered * 4; wheel.rotation.z = s.wheel; tether.scale.x = (rover.position.x + 3) / 5; tether.position.x = (-3 + rover.position.x) / 2; snag.material = s.snagged ? red : metal; });
   }
 
@@ -428,7 +431,8 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     // preserve collision/temperature stability instead of slowing the task.
     for (let remaining = dt; remaining > 0; remaining -= .02) run.step(Math.min(.02, remaining));
     for (const fn of updates) fn();
-    const message = s.finished ? 'タスク完了' : s.feedback || '';
+    const roverPrompt = mode === 'rover' ? s.snagged ? '引っ掛かり！「緩める」を長押し' : s.tension > .95 ? '張りすぎ！「緩める」を長押し' : '「巻く」を長押しで回収' : '';
+    const message = s.finished ? 'タスク完了' : s.feedback || roverPrompt;
     statusScreen.setVisible(!!message);
     statusScreen(message, (ctx, w, h) => { ctx.fillStyle = s.errorUntil > s.elapsed ? '#ff9ba5' : '#8df1c7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 30px system-ui,sans-serif'; ctx.fillText(message, w / 2, h / 2, w - 10); });
     progressLight.scale.x = Math.max(.3, Math.min(1, s.progress) * 18); progressLight.material = s.finished ? green : cyan;

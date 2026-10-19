@@ -159,6 +159,7 @@ window.__frostGameQA={
       console.log('TASK BOUNDS', { width, height, stage, close });
       await page.screenshot({ path: path.join(out, `${width}-task-expanded.png`) });
       assert(stage.width > width * .85 && stage.height > height * .7, 'Task display did not grow');
+      assert(close.width <= 68 && close.height <= 34, 'Task close button is still too large');
       assert(close.x < 42 && close.y + close.height <= height && close.y > stage.y + stage.height, 'Close button is not outside the machine area');
       assert.equal(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id,
         { x: close.x + close.width / 2, y: close.y + close.height / 2 }), 'taskGameCloseBtn', 'Another HUD covers the close button');

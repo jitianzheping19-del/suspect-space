@@ -9,7 +9,7 @@ export const FROST_TASK_MODES = [
 export const taskInstructions = {
   circuit: '回路を回して、3つの区画へつなぐ', clocks: '針が光る目盛りに来たら止める',
   cargo: '貨物を動かして、台を水平にする', drone: '右のパッドで誘導。着陸枠でゆっくり止まる',
-  stars: '左の星図と同じ星を、順番につなぐ', defrost: 'レンズをなぞって霜を落とす',
+  stars: '光る星を、1から5の順番に押す', defrost: 'レンズをなぞって霜を落とす',
   triangulate: 'アンテナを回し、3本とも信号を最大にする', waveform: '波形がつながる順に断片を並べる',
   tubing: 'チューブの先を、光る固定具へ順に通す', medicine: '＋を押して注入。入れすぎたら−で吸い戻す',
   irrigation: '苗床を押して給水。3つとも緑の湿度へ', fins: 'ぶつからない順にフィンを開き、固定する',
@@ -17,7 +17,7 @@ export const taskInstructions = {
   sterile: '右のパッドでトレーを傾け、汚染壁を避けて右下へ', freezer: '温度変化の遅れを見ながら、−18℃に保つ',
   overcurrent: '電流計を見て、過電流の回線だけを切る', battery: '−端子から外し、固定具を解除して電池を交換',
   drill: '矢印の向きへ工具を回す。力をかけすぎない', seal: '亀裂をなぞり、発泡材で隙間を埋める',
-  radar: '探査ヘッドを左右へ走査。見つけた空洞を押す', rover: '巻く・緩めるで張力を保ち、引っ掛かりを外す',
+  radar: '探査ヘッドを左右へ走査。見つけた空洞を押す', rover: '巻くを長押し。引っ掛かったら、緩めるを長押し',
 };
 export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 export const angleDelta = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -68,7 +68,7 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
     clocks: () => ({ angles: [-1.1, .1, 3.7], locked: [false, false, false] }),
     cargo: () => ({ cargo: [-2.4, -.3, 1.6], weights: [1, 2, 3], torque: 1.8 }),
     drone: () => ({ x: -2.8, y: 1.05, vx: 0, vy: 0, control: [0, 0] }),
-    stars: () => ({ selected: [], rotation: .7 }),
+    stars: () => ({ selected: [], rotation: 0 }),
     defrost: () => ({ clear: frostPixels.map(() => false), previous: null }),
     triangulate: () => ({ angles: [.6, 1.9, 2.55], strength: [0, 0, 0] }),
     waveform: () => ({ order: [2, 0, 3, 1], dragging: -1, dragX: 0 }),
@@ -85,7 +85,7 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
     drill: () => ({ direction: -1, turns: 0, angle: 0, torque: 0, swings: 0 }),
     seal: () => ({ fill: crackPoints.map(() => 0) }),
     radar: () => ({ head: -3, scanned: Array(25).fill(false), cavity: [.85, -.5] }),
-    rover: () => ({ recovered: 0, tension: .38, winch: 0, snagged: false, unhooked: false, wheel: 0 }),
+    rover: () => ({ recovered: 0, tension: .38, winch: 0, snagged: false, unhooked: false, releaseTime: 0, wheel: 0 }),
   };
   Object.assign(s, initializers[mode]());
   const error = (message) => { s.feedback = message; s.errorUntil = s.elapsed + 1.4; };
@@ -125,9 +125,11 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
         if (Math.abs(angleDelta(s.angles[n], Math.PI / 2)) < .3) s.locked[n] = true;
         else error('光る目盛りでもう一度');
       }
-      if (mode === 'stars' && n >= 0 && n < 8) {
-        if (n === s.selected.length) { s.selected.push(n); if (s.selected.length === 5) complete(); }
-        else { s.selected = []; error('左の星図と同じ順番でつなぐ'); }
+      if (mode === 'stars' && id.startsWith('star:') && Number.isInteger(n) && n >= 0 && n < 8) {
+        if (n === s.selected.length) {
+          s.feedback = ''; s.errorUntil = 0;
+          s.selected.push(n); if (s.selected.length === 5) complete();
+        } else if (!s.selected.includes(n)) error('次に光っている星を押す');
       }
       if (mode === 'waveform' && n >= 0 && n < 4) { s.dragging = n; s.dragX = -2.7 + s.order.indexOf(n) * 1.8; }
       if (mode === 'irrigation' && n >= 0 && n < 3) s.water = n;
@@ -220,7 +222,7 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
       case 'drill': s.progress = (s.swings + s.turns / .9) / 4; break;
       case 'seal': s.progress = s.fill.reduce((a, b) => a + b, 0) / s.fill.length; if (s.fill.every((v) => v >= .85)) complete(); break;
       case 'radar': s.progress = s.scanned.filter(Boolean).length / 26; break;
-      case 'rover': s.progress = s.recovered; if (s.recovered >= 1 && s.tension < .85) complete(); break;
+      case 'rover': s.progress = s.recovered; if (s.recovered >= 1) complete(); break;
     }
   }
   function step(seconds) {
@@ -287,12 +289,15 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
     if (mode === 'drill') s.torque = Math.max(0, s.torque - dt * .3);
     if (mode === 'seal' && s.pointer) crackPoints.forEach((p, i) => { if (Math.hypot(p[0] - s.pointer[0], p[1] - s.pointer[1]) < .47) s.fill[i] = Math.min(1, s.fill[i] + dt * 2.8); });
     if (mode === 'rover') {
-      s.tension = clamp(s.tension + (s.winch > 0 ? .29 : s.winch < 0 ? -.55 : -.045) * dt, 0, 1.1);
+      s.tension = clamp(s.tension + (s.winch > 0 ? .1 : s.winch < 0 ? -.9 : -.08) * dt, 0, 1);
       if (!s.unhooked && s.recovered >= .44) s.snagged = true;
-      if (s.snagged && s.tension < .22) { s.unhooked = true; s.snagged = false; }
-      if (s.winch > 0 && s.tension >= .28 && s.tension <= .8 && !s.snagged) s.recovered = Math.min(1, s.recovered + dt * .22);
-      if (s.winch < 0) s.recovered = Math.max(0, s.recovered - dt * .018);
-      if (s.tension > 1) { s.tension = .36; s.recovered = Math.max(0, s.recovered - .15); error('張力が強すぎます。緩める'); }
+      // A short, deliberate unwind clears the obstacle. Mistakes pause the
+      // recovery instead of throwing away distance already pulled in.
+      if (s.snagged) {
+        s.releaseTime = s.winch < 0 ? s.releaseTime + dt : 0;
+        if (s.releaseTime >= .4) { s.unhooked = true; s.snagged = false; }
+      }
+      if (s.winch > 0 && s.tension >= .1 && s.tension <= .95 && !s.snagged) s.recovered = Math.min(1, s.recovered + dt * .28);
       s.wheel += s.winch * dt * 3;
     }
     evaluate();

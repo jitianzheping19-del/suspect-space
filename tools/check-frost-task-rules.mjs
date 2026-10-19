@@ -36,7 +36,13 @@ for (const task of tasks) {
     case 'drone':
       for (let i = 0; i < 1500 && !s.finished; i++) { pad((.65 - s.x) * 1.8 - s.vx * 1.6, (-.85 - s.y) * 1.8 - s.vy * 1.6); step(.02); }
       break;
-    case 'stars': press('star:3'); assert.equal(s.selected.length, 0); for (let i = 0; i < 5; i++) press('star:' + i); break;
+    case 'stars':
+      press('star:3'); assert.equal(s.selected.length, 0);
+      press('star:0'); press('star:1');
+      for (const wrong of ['star:7', 'star:4', 'star:1', 'star:1.5', 'tile:2']) press(wrong);
+      assert.deepEqual(s.selected, [0, 1], 'A wrong or repeated tap must preserve the connected stars');
+      for (let i = 2; i < 5; i++) press('star:' + i);
+      break;
     case 'defrost':
       press('wipe', -3, -1.5); for (let row = 0; row < 7; row++) { const y = -1.5 + row * .5; drag('wipe', row % 2 ? 3 : -3, y); drag('wipe', row % 2 ? -3 : 3, y); } release();
       assert(s.clear.length === frostPixels.length); break;
@@ -77,12 +83,19 @@ for (const task of tasks) {
       break;
     case 'seal': for (const point of crackPoints) { press('foam', ...point); step(.34); release(); } break;
     case 'radar': press('mark', ...s.cavity); assert(!s.finished); drag('head', -3, 1.3); drag('head', 3, 1.3); press('mark', -2, -.5); assert(!s.finished); press('mark', ...s.cavity); break;
-    case 'rover':
-      for (let i = 0; i < 3000 && !s.finished; i++) {
-        if (s.snagged) press('unwind'); else if (s.tension > .73) press('unwind'); else press('wind');
-        step(.02);
-      }
+    case 'rover': {
+      press('wind'); step(2);
+      assert(s.snagged && !s.finished, 'The obstacle must still need an unwind');
+      const distance = s.recovered;
+      step(10);
+      assert.equal(s.recovered, distance, 'Over-tension must not lose recovered distance or clear the obstacle');
+      press('unwind'); step(.6); release();
+      assert(s.unhooked && !s.snagged, 'A brief unwind should clear the obstacle');
+      assert.equal(s.recovered, distance, 'Unwinding must not lose progress');
+      step(1); assert.equal(s.recovered, distance, 'Releasing must stop the winch');
+      press('wind'); step(4);
       break;
+    }
   }
   assert(s.finished, task.mode + ' not completable: ' + JSON.stringify(s));
   assert.equal(s.progress, 1, task.mode); assert.equal(completions, 1, task.mode);

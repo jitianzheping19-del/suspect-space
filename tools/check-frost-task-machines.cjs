@@ -59,7 +59,11 @@ async function play(page, task, touch = false) {
       break;
     case 'cargo': await drag('cargo:2', [[1, 0]]); break;
     case 'drone': await drive(() => [.65, -.85], 'drone'); break;
-    case 'stars': for (let i = 0; i < 5; i++) await click('star:' + i); break;
+    case 'stars':
+      await click('star:0'); await click('star:1'); await click('star:7');
+      assert.deepEqual((await current()).selected, [0, 1], 'Wrong touch lost the connected stars');
+      for (let i = 2; i < 5; i++) await click('star:' + i);
+      break;
     case 'defrost': {
       await down(await control('wipe'));
       for (let row = 0; row < 7; row++) { const y = -1.5 + row * .5; await move(await point(row % 2 ? 3 : -3, y)); await move(await point(row % 2 ? -3 : 3, y)); }
@@ -114,13 +118,14 @@ async function play(page, task, touch = false) {
     }
     case 'radar': await drag('head', [[-3, 1.37], [3, 1.37]]); { const p = await point(.85, -.5); if (touch) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y); } break;
     case 'rover': {
-      const deadline = Date.now() + 40000; let held = '';
-      while (!(await current()).finished) {
-        const s = await current(), desired = s.snagged || s.tension > .73 ? 'unwind' : 'wind';
-        if (desired !== held) { if (held) await up(); await down(await control(desired)); held = desired; }
-        if (Date.now() > deadline) throw Error('Rover did not return: ' + JSON.stringify(s)); await pause(page);
-      }
-      if (held) await up(); break;
+      // Three holds, with no tension-balancing controller: wind, clear, wind.
+      await down(await control('wind')); await wait((s) => s.snagged); await up();
+      const recovered = (await current()).recovered;
+      await page.screenshot({ path: path.join(out, `${touch ? 844 : 1280}-rover-snag.png`) });
+      await down(await control('unwind')); await wait((s) => s.unhooked); await up();
+      assert.equal((await current()).recovered, recovered, 'Unwinding lost recovered distance');
+      await down(await control('wind')); await wait((s) => s.finished); await up();
+      break;
     }
   }
   await wait((s) => s.finished, 6000);
@@ -138,7 +143,7 @@ async function play(page, task, touch = false) {
       const errors = []; page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(url); await page.waitForFunction(() => window.__frostPreview?.state().renderedFrames > 0, null, { timeout: 90000 });
       const tasks = await page.evaluate(() => window.__frostPreview.data.tasks.filter((t) => !t.sabotage));
-      const touchModes = ['circuit', 'cargo', 'stars', 'defrost', 'waveform', 'tubing', 'medicine', 'core', 'drill', 'radar'];
+      const touchModes = ['circuit', 'cargo', 'stars', 'defrost', 'waveform', 'tubing', 'medicine', 'core', 'drill', 'radar', 'rover'];
       for (const task of tasks) {
         if (touch && !touchModes.includes(task.mode)) continue;
         if (process.env.FROST_TASK_QA_MODE && !process.env.FROST_TASK_QA_MODE.split(',').includes(task.mode)) continue;
@@ -147,6 +152,9 @@ async function play(page, task, touch = false) {
         const bounds = await page.locator('#taskModal').boundingBox();
         assert(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= width + 1 && bounds.y + bounds.height <= height + 1);
         assert((await page.locator('#taskStage').boundingBox()).height > height * .7);
+        const close = await page.locator('#taskClose').boundingBox(), stage = await page.locator('#taskStage').boundingBox();
+        assert(close.width <= 68 && close.height <= 34, 'Task close button is still too large');
+        assert(close.y >= stage.y + stage.height && close.y + close.height <= height, 'Close button overlaps the task');
         await page.screenshot({ path: path.join(out, `${width}-${task.mode}.png`) });
         try { await play(page, task, touch); }
         catch (error) { await page.screenshot({ path: path.join(out, `${width}-${task.mode}-failure.png`) }); throw error; }
@@ -165,6 +173,10 @@ async function play(page, task, touch = false) {
       assert.deepEqual(await page.evaluate(() => window.__frostPreview.tasks.manager.state().levels), [0, 0, 0]);
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('#taskModal').evaluate((m) => m.open), false);
+      await page.selectOption('#taskPicker', 'deep-rover');
+      if (touch) await page.locator('#taskClose').tap(); else await page.locator('#taskClose').click();
+      await page.waitForFunction(() => !document.querySelector('#taskModal').open);
+      assert.equal(await page.locator('canvas').count(), 1, 'Closing retained a WebGL canvas');
       assert.deepEqual(errors, []); await page.close();
     }
   } finally { await browser.close(); }
