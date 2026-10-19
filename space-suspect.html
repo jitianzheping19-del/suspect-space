@@ -8673,13 +8673,16 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       if(removeBranch&&code&&uid&&peer.path)void remove(ref(db,peer.path)).catch(()=>{});
     }
     function closeAllVoicePeers(removeBranches=false){for(const id of [...voicePeers.keys()])closeVoicePeer(id,removeBranches);}
+    function voiceDistanceProfile(){
+      return game?.phase==="lobby"?{range:20,fade:5,reference:8}:{range:6.4,fade:1.8,reference:2.5};
+    }
     function updateVoiceSpatialAudio(){
-      if(!voiceContext)return;const t=voiceContext.currentTime,listener=voiceContext.listener;
+      if(!voiceContext)return;const t=voiceContext.currentTime,listener=voiceContext.listener,distance=voiceDistanceProfile();
       const override=voicePositionOverride,cameraMonitoring=game?.phase==="play"&&!!document.getElementById("ssSecurityModal")?.classList.contains("open"),cameraVoiceView=cameraMonitoring?window.__ssCameraVoiceView:null;
       const selfX=Number(cameraVoiceView?.x??override?.x??position.x)||0,selfZ=Number(cameraVoiceView?.z??override?.z??position.z)||0;
       const ownYaw=Number(cameraVoiceView?.yaw??players?.[uid]?.yaw??lobbyFacingYaw)||0,fx=Math.sin(ownYaw),fz=Math.cos(ownYaw);
       try{listener.positionX.setTargetAtTime(selfX,t,.06);listener.positionY.setTargetAtTime(0,t,.06);listener.positionZ.setTargetAtTime(selfZ,t,.06);listener.forwardX.setTargetAtTime(fx,t,.06);listener.forwardY.setTargetAtTime(0,t,.06);listener.forwardZ.setTargetAtTime(fz,t,.06);listener.upX.setTargetAtTime(0,t,.06);listener.upY.setTargetAtTime(1,t,.06);listener.upZ.setTargetAtTime(0,t,.06);}catch{}
-      for(const [peerId,peer] of voicePeers){const p=players?.[peerId];if(!p||p.online!==true)continue;const x=Number(p.x)||0,z=Number(p.z)||0;try{peer.panner?.positionX.setTargetAtTime(x,t,.08);peer.panner?.positionY.setTargetAtTime(0,t,.08);peer.panner?.positionZ.setTargetAtTime(z,t,.08);const bypass=cameraMonitoring||game?.phase==="meeting"||voiceSabotageActive()&&voiceIsImpostor(uid)&&voiceIsImpostor(peerId);peer.panner.distanceModel=bypass?"linear":"inverse";peer.panner.maxDistance=bypass?1000000:6.4;peer.panner.rolloffFactor=bypass?0:1.15;}catch{}}
+      for(const [peerId,peer] of voicePeers){const p=players?.[peerId];if(!p||p.online!==true)continue;const x=Number(p.x)||0,z=Number(p.z)||0;try{peer.panner?.positionX.setTargetAtTime(x,t,.08);peer.panner?.positionY.setTargetAtTime(0,t,.08);peer.panner?.positionZ.setTargetAtTime(z,t,.08);const bypass=cameraMonitoring||game?.phase==="meeting"||voiceSabotageActive()&&voiceIsImpostor(uid)&&voiceIsImpostor(peerId);peer.panner.distanceModel=bypass?"linear":"inverse";peer.panner.refDistance=distance.reference;peer.panner.maxDistance=bypass?1000000:distance.range;peer.panner.rolloffFactor=bypass?0:1.15;}catch{}}
     }
     function voiceDoorLeakGain(a,b){
       if(game?.phase!=="play"||!a||!b)return 0;
@@ -8693,6 +8696,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       return .22;
     }
     function updateVoiceReceiveGates(){
+      const lobby=game?.phase==="lobby",distance=voiceDistanceProfile();
       const localGhost=voicePlayerIsGhost(uid),time=voiceContext?.currentTime||0,cameraMonitoring=game?.phase==="play"&&!!document.getElementById("ssSecurityModal")?.classList.contains("open"),cameraVoiceVisibleIds=window.__ssCameraVoiceVisibleIds||[],forcedReason=voiceForcedMuteReason(),receiveMuted=!!forcedReason&&!["死亡演出中","変身中"].includes(forcedReason)&&!(cameraMonitoring&&forcedReason==="監視カメラ視聴中");
       for(const [peerId,peer] of voicePeers){
         if(!peer.gain)continue;
@@ -8705,13 +8709,13 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         const positionsKnown=[ox,oz,px,pz].every(Number.isFinite);
         const gap=positionsKnown?Math.hypot(ox-px,oz-pz):Infinity;
         let blockedByWall=false,playerOnScreen=false,cameraPlayerVisible=cameraMonitoring&&cameraVoiceVisibleIds.includes(peerId);
-        if(positionsKnown)try{blockedByWall=wallBetween({x:ox,z:oz},{x:px,z:pz});}catch{}
-        const visionException=localGhost||ownState?.observer===true||Number(ownState?.hawkUntil)>now()||Number(ownState?.waveHawkUntil)>now();
+        if(!lobby&&positionsKnown)try{blockedByWall=wallBetween({x:ox,z:oz},{x:px,z:pz});}catch{}
+        const visionException=lobby||localGhost||ownState?.observer===true||Number(ownState?.hawkUntil)>now()||Number(ownState?.waveHawkUntil)>now();
         playerOnScreen=visionException;
         if(!cameraMonitoring&&!visionException){const avatar=avatars.get(peerId);try{if(avatar&&camera){camera.updateMatrixWorld(true);avatar.updateWorldMatrix(true,false);const point=avatar.getWorldPosition(new THREE.Vector3());point.y+=.9;point.project(camera);playerOnScreen=point.z>=-1&&point.z<=1&&Math.abs(point.x)<=1&&Math.abs(point.y)<=1;}}catch{playerOnScreen=false;}}
         const doorLeakGain=!cameraMonitoring&&!meeting&&!remoteComms&&blockedByWall&&positionsKnown?voiceDoorLeakGain({x:ox,z:oz},{x:px,z:pz}):0;
-        const nearby=cameraMonitoring?cameraPlayerVisible:meeting||remoteComms||doorLeakGain>0||(gap<=6.4&&!blockedByWall&&playerOnScreen);
-        const rangeGain=cameraMonitoring?(cameraPlayerVisible?1:0):(meeting||remoteComms)?1:doorLeakGain>0?doorLeakGain*(gap>=6.4?0:Math.min(1,Math.max(0,(6.4-gap)/1.8))):(blockedByWall||gap>=6.4||!playerOnScreen?0:Math.min(1,Math.max(0,(6.4-gap)/1.8)));
+        const nearby=cameraMonitoring?cameraPlayerVisible:meeting||remoteComms||doorLeakGain>0||(gap<=distance.range&&!blockedByWall&&playerOnScreen);
+        const rangeGain=cameraMonitoring?(cameraPlayerVisible?1:0):(meeting||remoteComms)?1:doorLeakGain>0?doorLeakGain*(gap>=distance.range?0:Math.min(1,Math.max(0,(distance.range-gap)/distance.fade))):(blockedByWall||gap>=distance.range||!playerOnScreen?0:Math.min(1,Math.max(0,(distance.range-gap)/distance.fade)));
         const audible=connected&&voiceRoomIsEnabled()&&!receiveMuted&&!voiceCamouflageActive()&&!voiceIdentitySuppressed(peerId)&&voiceJoined&&players?.[peerId]?.online===true&&remote?.joined===true&&remote.mic===true&&sameSabotageFaction&&nearby&&(meeting?(localGhost===voicePlayerIsGhost(peerId)):(localGhost||!voicePlayerIsGhost(peerId)));
         const individual=voicePlayerPreference(peerId),targetGain=audible&&!individual.muted?rangeGain*individual.volume:0;
         try{peer.gain.gain.setTargetAtTime(targetGain,time,targetGain > peer.gain.gain.value ? .08 : .14);}catch{peer.gain.gain.value=targetGain;}
