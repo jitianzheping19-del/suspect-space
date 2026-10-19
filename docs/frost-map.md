@@ -7,6 +7,16 @@ stations, with nine emergency panels across oxygen, lights, cooling and comms.
 It does not connect to the live game or Firebase; completion and sabotage are
 local preview state. Multiplayer integration is later work.
 
+The central dome has a protected red meeting button. In the preview it presses,
+lights up and shows a meeting signal; it does not start a multiplayer meeting.
+The pedestal has walking collision and room spawns remain clear of it.
+
+`docs/frost-vent-proposal-v1.json` and `public/frost-vent-proposal-v1.{png,svg}`
+are review-only plans for ten vents in three separate chains. The map runtime
+does not import them. Reproduce the drawings with
+`python tools/draw-frost-vent-proposal.py`; it checks room containment, task/door
+clearance and that each proposed connection follows the approved floorplan.
+
 ## Editing the map
 
 - `assets-source/frost-layout-v7.json`: room outlines and corridor centrelines in

@@ -39,6 +39,8 @@ button:focus-visible, select:focus-visible { outline: 2px solid #8fe8de; outline
 #nearbyTask { color: #d2eee9; font-size: 13px; padding: 12px; border-radius: 8px; background: #0d1c2de8; max-width: 240px; }
 #useTask { width: 90px; height: 60px; border: 1px solid #73cdbd; border-radius: 12px; background: #216a62; color: #ebfffa; font-size: 18px; font-weight: 700; box-shadow: 0 5px 20px #07131b66; }
 #useTask:disabled { opacity: .4; }
+#useTask[data-kind="meeting"] { background: #91394d; border-color: #f0a0ac; }
+#meetingSignal { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); padding: 14px 28px; border: 1px solid #ea9ca9; border-radius: 12px; background: #2d1c2be8; color: #ffb8c1; font-size: 23px; font-weight: 700; letter-spacing: .12em; pointer-events: none; }
 #app[data-task-open="true"] #joystick { display: none; }
 #taskModal { width: min(1080px, calc(100vw - 40px)); height: min(740px, calc(100dvh - 40px)); max-width: none; max-height: none; border: 1px solid #658c9b; border-radius: 18px; padding: 0; background: #0b1929; color: #e7f3f8; box-shadow: 0 24px 100px #0009; overflow: hidden; }
 #taskModal[open] { display: flex; flex-direction: column; }

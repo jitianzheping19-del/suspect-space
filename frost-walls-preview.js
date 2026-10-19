@@ -4,6 +4,7 @@ import { createFrostMap, frostMapData as data } from './frost-map.js';
 import { createFrostNavigation } from './frost-navigation.js';
 import { createFrostDoors } from './frost-doors.js';
 import { createFrostTasks } from './frost-tasks.js';
+import { createFrostMeetingButton } from './frost-meeting.js';
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -54,7 +55,8 @@ async function start() {
   scene.add(map.root);
 
   const camera = new THREE.PerspectiveCamera(43, 1, 0.08, 350);
-  const walker = { x: 0, z: 0, yaw: 0, pitch: 0 };
+  const initialSpawn = data.rooms.find((room) => room.id === 'dome').spawn;
+  const walker = { x: initialSpawn[0], z: -initialSpawn[1], yaw: 0, pitch: 0 };
   const keys = new Set();
   const stick = { x: 0, y: 0, pointer: null };
   const look = { pointer: null, x: 0, y: 0 };
@@ -73,6 +75,7 @@ async function start() {
   let renderedFrames = 0;
   let nearestTask = null;
   let tap = null;
+  let meetingSignalUntil = 0;
   const taskSystem = createFrostTasks(data, {
     onDirty() { dirty = true; renderer.shadowMap.needsUpdate = true; },
     onModal(open) {
@@ -83,6 +86,18 @@ async function start() {
     },
   });
   map.root.add(taskSystem.root);
+  const meetingView = createFrostMeetingButton(data.meeting, () => {
+    meetingSignalUntil = performance.now() + 2200;
+    $('meetingSignal').hidden = false;
+    dirty = true;
+  });
+  map.root.add(meetingView.root);
+
+  function useAction(action) {
+    if (!action) return;
+    if (action.id === data.meeting.id) meetingView.press();
+    else taskSystem.open(action.id);
+  }
 
   for (const room of data.rooms) {
     const option = document.createElement('option');
@@ -148,12 +163,17 @@ async function start() {
       $('location').textContent = name;
       if (room) $('roomPicker').value = room.id;
     }
-    const task = taskSystem.nearest(walker);
+    let task = taskSystem.nearest(walker);
+    const meetingDistance = Math.hypot(walker.x - data.meeting.position[0], walker.z + data.meeting.position[1]);
+    if (meetingDistance < 2.5 && (!task
+      || meetingDistance < Math.hypot(walker.x - task.position[0], walker.z + task.position[1]))) task = data.meeting;
     if (task?.id !== nearestTask?.id) {
       nearestTask = task;
       $('taskAction').hidden = !task;
       $('useTask').disabled = !task;
       $('nearbyTask').textContent = task?.name || '';
+      $('useTask').textContent = task?.id === data.meeting.id ? '会議' : '使用';
+      $('useTask').dataset.kind = task?.id === data.meeting.id ? 'meeting' : 'task';
     }
   }
 
@@ -217,7 +237,7 @@ async function start() {
     button.addEventListener('click', () => setMode(button.dataset.view));
   });
   $('roomPicker').addEventListener('change', (event) => teleport(event.target.value));
-  $('useTask').addEventListener('click', () => { if (nearestTask) taskSystem.open(nearestTask.id); });
+  $('useTask').addEventListener('click', () => useAction(nearestTask));
   $('fullscreen').addEventListener('click', async () => {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
@@ -231,7 +251,7 @@ async function start() {
     if (mode !== 'walk' || taskSystem.isOpen || /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
     if (event.code === 'KeyE' && nearestTask && !event.repeat) {
       event.preventDefault();
-      taskSystem.open(nearestTask.id);
+      useAction(nearestTask);
       return;
     }
     if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
@@ -279,12 +299,14 @@ async function start() {
     raycaster.far = 350;
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-    const hit = taskSystem.pick(raycaster);
+    const taskHit = taskSystem.pick(raycaster);
+    const meetingHit = meetingView.pick(raycaster);
+    const hit = meetingHit && (!taskHit || meetingHit.distance < taskHit.distance) ? meetingHit : taskHit;
     if (!hit) return;
     const wall = raycaster.intersectObject(map.walls, false)[0];
     if (wall && wall.distance < hit.distance - 0.1) return;
     if (mode === 'walk' && Math.hypot(walker.x - hit.task.position[0], walker.z + hit.task.position[1]) > 2.5) return;
-    taskSystem.open(hit.task.id);
+    useAction(hit.task);
   });
   renderer.domElement.addEventListener('pointercancel', () => { tap = null; });
 
@@ -352,6 +374,8 @@ async function start() {
   function animate(time) {
     if (document.hidden) { previousTime = 0; return; }
     taskSystem.tick();
+    if (meetingView.update(time)) { dirty = true; renderer.shadowMap.needsUpdate = true; }
+    if (meetingSignalUntil && time > meetingSignalUntil) { $('meetingSignal').hidden = true; meetingSignalUntil = 0; }
     if (contextLost || taskSystem.isOpen) { previousTime = 0; return; }
     const dt = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0;
     previousTime = time;
@@ -392,6 +416,7 @@ async function start() {
   // Firebase connection, account or multiplayer data is loaded here.
   window.__frostPreview = {
     data, navigation, setMode, teleport, tasks: taskSystem,
+    approachMeeting() { return this.setPose(data.meeting.approach[0], -data.meeting.approach[1], 0, -0.28); },
     approachTask(id) {
       const task = data.tasks.find((task) => task.id === id);
       return task ? this.setPose(task.approach[0], -task.approach[1], Math.atan2(task.facing[0], -task.facing[1]), -0.1) : false;
@@ -416,7 +441,7 @@ async function start() {
     state() {
       return {
         mode, walker: { ...walker }, stick: { ...stick }, contextLost, renderedFrames,
-        currentRoom, taskOpen: taskSystem.isOpen, nearestTask: nearestTask?.id || '', aspect: camera.aspect, calls: renderer.info.render.calls,
+        currentRoom, meetingPressed: meetingView.pressed, meetingPressCount: meetingView.pressCount, taskOpen: taskSystem.isOpen, nearestTask: nearestTask?.id || '', aspect: camera.aspect, calls: renderer.info.render.calls,
         triangles: renderer.info.render.triangles, memory: { ...renderer.info.memory },
         doors: navigation.doors.map(({ id, open, target }) => ({ id, open, target })),
       };
@@ -441,6 +466,7 @@ async function start() {
     renderer.setAnimationLoop(null);
     controls?.dispose();
     taskSystem.dispose();
+    meetingView.dispose();
     map.dispose();
     ground.geometry.dispose();
     ground.material.dispose();

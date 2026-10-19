@@ -77,6 +77,13 @@ def build():
     navigation = navigation.difference(unary_union([
         shape.buffer(source["walkerRadius"], join_style=2) for shape in footprints
     ]))
+    meeting = source["meeting"].copy()
+    meeting_footprint = Point(meeting["position"]).buffer(meeting["radius"], quad_segs=12)
+    assert rooms[0].covers(meeting_footprint)
+    assert all(not meeting_footprint.intersects(shape) for shape in footprints)
+    meeting["footprint"] = polygon_data(meeting_footprint)
+    navigation = navigation.difference(meeting_footprint.buffer(source["walkerRadius"], join_style=2))
+    assert navigation.contains(Point(meeting["approach"])), "Meeting button cannot be reached"
     assert walls.is_valid and not walls.is_empty
     assert navigation.is_valid and navigation.geom_type == "Polygon", "Narrow doorway"
     assert floor.intersection(walls).area < 1e-8, "Walls inside the floor"
@@ -84,7 +91,8 @@ def build():
         assert navigation.contains(Point(task["approach"])), (task["id"], "Terminal cannot be reached")
 
     for index, room in enumerate(rooms):
-        assert navigation.contains(room.representative_point())
+        spawn = Point(source["rooms"][index].get("spawn", room.representative_point().coords[0]))
+        assert navigation.contains(spawn)
         for other in rooms[index + 1:]:
             assert room.distance(other) >= 5 - 1e-6, "Room spacing changed"
 
@@ -136,8 +144,9 @@ def build():
         "navigation": polygon_data(navigation),
         "doors": doors,
         "tasks": tasks,
+        "meeting": meeting,
         "rooms": [
-            {**room, "spawn": list(shape.representative_point().coords[0])}
+            {**room, "spawn": list(room.get("spawn", shape.representative_point().coords[0]))}
             for room, shape in zip(source["rooms"], rooms)
         ],
         "routes": [

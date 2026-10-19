@@ -48,7 +48,11 @@
       ],
       "label": [
         0,
-        0
+        2.6
+      ],
+      "spawn": [
+        -2.5,
+        -2.6
       ]
     },
     {
@@ -1105,5 +1109,18 @@
       ],
       "width": 2.8
     }
-  ]
+  ],
+  "meeting": {
+    "id": "emergency-meeting",
+    "name": "緊急会議",
+    "position": [
+      0,
+      0
+    ],
+    "radius": 1.02,
+    "approach": [
+      0,
+      -2.3
+    ]
+  }
 }

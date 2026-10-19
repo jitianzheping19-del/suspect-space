@@ -40,10 +40,11 @@ async function testNavigation() {
   const stopped = { x: 1, z: -4 };
   closed.move(stopped, 0, -4);
   assert(stopped.z > -5.55 && stopped.z < -5.2, 'Walker crossed a closed door');
-  const wall = { x: 0, z: 0 };
+  const wall = { x: 0, z: 3 };
   closed.move(wall, 20, 0);
   assert(wall.x > 6 && wall.x < 6.55, 'Long movement crossed a wall');
   assert(!closed.canStand(-8, -5), 'Courtyard hole became walkable');
+  assert(!closed.canStand(0, 0), 'Meeting pedestal is not solid');
   console.log('PASS', traversals, 'route traversals, closed door, wall and courtyard collision');
   return { traversals, rooms: data.rooms.length, doors: data.doors.length };
 }
@@ -154,6 +155,11 @@ async function testBrowser() {
         await page.screenshot({ path: path.join(out, `${width}-walk.png`) });
       }
 
+      assert(await page.evaluate(() => window.__frostPreview.approachMeeting()));
+      const meetingButton = page.getByRole('button', { name: '会議', exact: true });
+      if (touch) await meetingButton.tap(); else await meetingButton.click();
+      assert.equal(await page.evaluate(() => window.__frostPreview.state().meetingPressCount), 1);
+      assert.equal(await page.evaluate(() => Object.hasOwn(window.__frostPreview.data, 'vents')), false, 'Unapproved vents reached the runtime');
       await page.getByRole('button', { name: '全体', exact: true }).click();
       const framing = await page.evaluate(() => {
         const api = window.__frostPreview;

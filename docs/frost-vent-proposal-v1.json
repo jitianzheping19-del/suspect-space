@@ -1,0 +1,126 @@
+{
+  "status": "proposal-only",
+  "mapRevision": 7,
+  "meetingRoom": "dome",
+  "networks": [
+    {
+      "id": "A",
+      "name": "北側",
+      "color": "#71dce9",
+      "nodes": [
+        {
+          "id": "A1",
+          "roomId": "hangar",
+          "position": [
+            -20,
+            16.1
+          ]
+        },
+        {
+          "id": "A2",
+          "roomId": "habitat",
+          "position": [
+            1.65,
+            14.55
+          ]
+        },
+        {
+          "id": "A3",
+          "roomId": "observatory",
+          "position": [
+            22.7,
+            23.5
+          ]
+        }
+      ],
+      "routes": [
+        "hangar-habitat",
+        "habitat-observatory"
+      ]
+    },
+    {
+      "id": "B",
+      "name": "西側",
+      "color": "#b7a7ff",
+      "nodes": [
+        {
+          "id": "B1",
+          "roomId": "medical",
+          "position": [
+            -15.1,
+            -1.25
+          ]
+        },
+        {
+          "id": "B2",
+          "roomId": "laboratory",
+          "position": [
+            -21.3,
+            -15.6
+          ]
+        },
+        {
+          "id": "B3",
+          "roomId": "specimen",
+          "position": [
+            -11.4,
+            -29.55
+          ]
+        }
+      ],
+      "routes": [
+        "laboratory-medical",
+        "specimen-laboratory"
+      ]
+    },
+    {
+      "id": "C",
+      "name": "東・南側",
+      "color": "#ffc58b",
+      "nodes": [
+        {
+          "id": "C1",
+          "roomId": "comms",
+          "position": [
+            15.2,
+            7.4
+          ]
+        },
+        {
+          "id": "C2",
+          "roomId": "drill",
+          "position": [
+            29.4,
+            -16.1
+          ]
+        },
+        {
+          "id": "C3",
+          "roomId": "deep",
+          "position": [
+            16.8,
+            -24.65
+          ]
+        },
+        {
+          "id": "C4",
+          "roomId": "power",
+          "position": [
+            5.3,
+            -15.8
+          ]
+        }
+      ],
+      "routes": [
+        "comms-drill",
+        "drill-deep",
+        "deep-power"
+      ]
+    }
+  ],
+  "rules": [
+    "各系統の隣のベントへ移動。別系統は徒歩で移動。",
+    "中央ドームは会議ボタンのある、徒歩で集まる場所。",
+    "ベントの位置・接続を確認してから実装。"
+  ]
+}
