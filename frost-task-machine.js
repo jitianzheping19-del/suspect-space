@@ -178,7 +178,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     });
     gauge(0, 1.2, 5, () => .5 + s.torque / 20, [.48, .52]);
     label('重心', -3.8, 1.2, .5, .9);
-    updates.push(() => { platform.rotation.z = clamp(s.torque * .025, -.18, .18); crates.forEach(({ g }, i) => { g.position.x = s.cargo[i]; g.position.y = -.12 + s.cargo[i] * platform.rotation.z; g.rotation.z = platform.rotation.z; }); });
+    updates.push(() => { platform.rotation.z = clamp(-s.torque * .025, -.18, .18); crates.forEach(({ g }, i) => { g.position.x = s.cargo[i]; g.position.y = -.12 + s.cargo[i] * platform.rotation.z; g.rotation.z = platform.rotation.z; }); });
   } else if (mode === 'drone') {
     grid(-.85, .05, 5.4, 3.2); ring(.48, .045, green, .65, -.85, .1); box(.5, .035, .02, green, .65, -.85, .13);
     const drone = group(s.x, s.y, .55); const body = ball(.24, white, 0, 0, 0, drone); body.scale.set(1, .65, 1);
@@ -339,7 +339,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     hit('wrench', -.85, 0, 3.7, 3.6, 'rotate');
     const left = label('↶', 2.75, .65, .65, 1.4, '#ffd58b', scene, .9), right = label('↷', 2.75, .65, .65, 1.4, '#ffd58b', scene, .9);
     label('トルク', 2.75, -.25, .6, 1.6); gauge(2.75, -.8, 2.3, () => s.torque, [.15, .8]);
-    updates.push(() => { wrench.rotation.z = s.angle; left.visible = s.direction < 0; right.visible = s.direction > 0; });
+    updates.push(() => { wrench.rotation.z = s.angle; left.visible = s.direction > 0; right.visible = s.direction < 0; });
   } else if (mode === 'seal') {
     const rock = material('#526572', { metalness: .1, roughness: 1 }); plate(7.4, 3.3, .2, rock, 0, 0, .03);
     for (let i = 0; i < crackPoints.length; i++) {

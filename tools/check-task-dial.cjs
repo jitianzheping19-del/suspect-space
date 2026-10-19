@@ -47,6 +47,7 @@ window.__dialQA.open('engine');</script></body></html>`;
         let p = await page.evaluate(() => window.__dialQA.point(0));
         await pointer('down', p); assert.equal((await page.evaluate(() => window.__dialQA.state())).value, 50, 'Dial jumped on contact');
         for (let i = 1; i <= 12; i++) { p = await page.evaluate((a) => window.__dialQA.point(a), -i / 12 * Math.PI / 2); await pointer('move', p); }
+        await page.waitForFunction(()=>Math.abs(window.__dialQA.state().value-83)<=2);
         assert(Math.abs((await page.evaluate(() => window.__dialQA.state())).value - 83) <= 2, 'Quarter turn did not track the pointer');
         await pointer('up');
         await page.evaluate((mode) => window.__dialQA.open(mode), mode);
@@ -65,17 +66,24 @@ window.__dialQA.open('engine');</script></body></html>`;
       const initial = await page.evaluate(() => window.__embeddedDialQA.state());
       const point = (angle, radius) => page.evaluate(({ angle, radius }) => window.__embeddedDialQA.point(256 + Math.cos(angle) * radius, 250 + Math.sin(angle) * radius), { angle, radius });
       let p = await point(-2.7, 90); await pointer('down', p);
-      console.log('EMBEDDED DOWN', await page.evaluate(() => window.__embeddedDialQA.state()));
+      await page.waitForFunction(()=>window.__embeddedDialQA.state().dragging&&window.__embeddedDialQA.state().focus===3);
+      const contact = await page.evaluate(() => window.__embeddedDialQA.state());
+      assert(contact.dragging && contact.focus === 3, 'An invisible terminal stole the dial contact');
       assert(Math.abs((await page.evaluate(() => window.__embeddedDialQA.state())).ang - initial.ang) < .035, 'Embedded dial jumped on contact');
       for (let i = 1; i <= 10; i++) { p = await point(-2.7 + i * .06, 90); await pointer('move', p); }
       const after = await page.evaluate(() => window.__embeddedDialQA.state());
-      console.log('EMBEDDED GESTURE', { touch, initial, after });
       assert(Math.abs(after.ang - initial.ang - .6) < .12, 'Embedded dial did not follow rotation');
-      // Beyond the screen edge: pointer capture projects onto the same plane.
-      p = await point(-1.9, 245); await pointer('move', p);
+      // Outside the terminal's right edge, while remaining in the browser.
+      // A point beyond the phone viewport would instead be cancelled by the OS.
+      p = await point(0, 300);
+      const viewport = page.viewportSize();
+      assert(p.x > 0 && p.x < viewport.width && p.y > 0 && p.y < viewport.height, 'Drag probe left the browser viewport');
+      await pointer('move', p);
+      await page.waitForFunction(before=>window.__embeddedDialQA.state().ang>before+.08,after.ang,{timeout:5000});
       const outside = await page.evaluate(() => window.__embeddedDialQA.state());
       assert(outside.ang > after.ang + .08, 'Embedded dial stopped tracking outside the screen');
       await pointer('up');
+      await page.waitForFunction(()=>!window.__embeddedDialQA.state().dragging);
       const up = await page.evaluate(() => window.__embeddedDialQA.state()); assert.equal(up.dragging, false);
       await page.screenshot({ path: path.join(out, touch ? 'dial-phone.png' : 'dial-desktop.png') });
       assert.deepEqual(errors, []);
