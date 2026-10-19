@@ -1,6 +1,7 @@
 node_modules/
 dist/
 public/kill-originals.json
+public/task-machines.js
 tmp/
 .env
 .env.*

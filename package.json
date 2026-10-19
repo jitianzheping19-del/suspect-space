@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node tools/export-kill-preview-assets.mjs && vite build"
+    "build": "node tools/export-kill-preview-assets.mjs && node tools/export-task-machine.mjs && vite build"
   },
   "devDependencies": {
     "@skyway-sdk/room": "2.5.1",
