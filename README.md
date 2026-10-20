@@ -27,8 +27,12 @@ Realtime Databaseのルールは database.rules.json にあります。GitHub Pa
 | index.docx | HTMLソースを収録したWordファイル |
 | space-suspect-complete.html | 完成版HTML |
 | space-suspect-complete.docx | 完成版HTMLのWordコピー |
+| space-suspect-final.docx | 最終版HTMLのWordコピー |
+| space-suspect-update-notes-2026-10-20.docx | 2026年10月20日時点の更新ノート |
 | database.rules.json | Realtime Databaseルール |
 | peer-pose-network.js | 軽量モードのWebRTC移動同期と自動復帰 |
+| game-ui-polish.js | タッチ操作表示と幽霊UIの位置調整 |
+| responsive-game-ui.css | 端末別の画面配置 |
 | play-action-layout.css | iPad・PCの試合中の操作ボタン配置 |
 | `.github/workflows/pages.yml` | GitHub Actionsのビルド・Pages公開設定 |
 
