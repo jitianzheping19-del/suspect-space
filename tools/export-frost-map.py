@@ -19,6 +19,7 @@ SOURCE = ROOT / "assets-source/frost-layout-v7.json"
 OUTPUT = ROOT / "frost-map-data.json"
 TASK_SOURCE = ROOT / "assets-source/frost-task-layout.json"
 VENT_SOURCE = ROOT / "assets-source/frost-vent-layout-v1.json"
+INTERIOR_SOURCE = ROOT / "assets-source/frost-interior-layout-v1.json"
 
 
 def ring_coordinates(ring):
@@ -175,6 +176,45 @@ def build():
     render_floor = floor.difference(vent_openings)
     assert render_floor.is_valid and render_floor.geom_type == "Polygon"
 
+    interior_source = json.loads(INTERIOR_SOURCE.read_text())
+    assert interior_source["mapRevision"] == source["revision"]
+    props, prop_shapes = [], []
+    for item in interior_source["props"]:
+        room_index = next(i for i, room in enumerate(source["rooms"]) if room["id"] == item["roomId"])
+        x, y = item["position"]
+        assert item["rotation"] == 0, "Rotated prop footprints require a matching collision proxy"
+        w, d = item["width"], item["depth"]
+        shape = Polygon([(x-w/2, y-d/2), (x+w/2, y-d/2), (x+w/2, y+d/2), (x-w/2, y+d/2)])
+        assert rooms[room_index].covers(shape.buffer(.15)), (item["id"], "Prop crosses a wall")
+        assert all(shape.distance(other) >= .28 for other in prop_shapes), (item["id"], "Props overlap")
+        assert all(shape.distance(other) >= .35 for other in footprints), (item["id"], "Prop overlaps a terminal")
+        assert all(shape.distance(LineString([door["a"], door["b"]])) >= .6 for door in doors), (item["id"], "Doorway obstructed")
+        for vent in vents:
+            assert shape.distance(Polygon(vent["footprint"]["outline"])) >= .25, (item["id"], "Vent covered")
+            assert shape.distance(LineString([vent["position"], vent["exit"]])) >= .6, (item["id"], "Vent exit obstructed")
+        prop_shapes.append(shape)
+        props.append({**item, "footprint": polygon_data(shape)})
+    navigation = navigation.difference(unary_union([
+        shape.buffer(source["walkerRadius"], join_style=2) for shape in prop_shapes
+    ]))
+    if navigation.geom_type == "MultiPolygon":
+        components = sorted(navigation.geoms, key=lambda part: part.area, reverse=True)
+        # Tiny spaces behind a cabinet are not destinations. Never strand a
+        # room, and never include an inaccessible nook in preview teleporting.
+        assert max(part.area for part in components[1:]) < 2, "Furniture isolated a playable area"
+        assert sum(part.area for part in components[1:]) < 8, "Too much floor lost behind furniture"
+        navigation = components[0]
+    assert navigation.is_valid and navigation.geom_type == "Polygon", "Furniture divided the walking floor"
+    for route in source["routes"]:
+        assert navigation.covers(LineString(route["points"])), (route["id"], "Furniture blocks a route")
+    for task in tasks:
+        assert navigation.contains(Point(task["approach"])), (task["id"], "Furniture blocks a task")
+    for vent in vents:
+        assert navigation.covers(LineString([vent["position"], vent["exit"]])), (vent["id"], "Furniture blocks vent travel")
+    for room, shape in zip(source["rooms"], rooms):
+        assert navigation.contains(Point(room.get("spawn", shape.representative_point().coords[0]))), (room["id"], "Furniture blocks room spawn")
+    assert navigation.contains(Point(meeting["approach"]))
+
     data = {
         "id": source["id"],
         "revision": source["revision"],
@@ -194,6 +234,7 @@ def build():
         "tasks": tasks,
         "meeting": meeting,
         "vents": vents,
+        "props": props,
         "rooms": [
             {**room, "spawn": list(room.get("spawn", shape.representative_point().coords[0])),
              "renderFloor": polygon_data(shape.difference(vent_openings))}

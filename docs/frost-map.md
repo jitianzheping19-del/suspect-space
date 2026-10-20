@@ -13,12 +13,25 @@ spawn, door, vent and minimap coordinates. `frost-game-map.js` reuses the render
 floor/walls and central meeting button. Existing host-authoritative door and
 vent rules remain responsible for actual matches.
 
-Tasks are intentionally **not enabled on the live FROST map** while the distinct
-task designs in `docs/frost-task-concepts-v1.md` are reviewed. It assigns no
-legacy task IDs, shows no old preview consoles or invisible task colliders, and
-does not start emergency sabotage without repair panels. The independent
-architectural preview retains its earlier interactive demonstrations. Other
-maps keep their existing tasks.
+The live map has 22 distinct normal tasks, two in every room, plus nine emergency
+stations. Their close-up procedural Three.js machines and rules are shared with
+the standalone preview. See `docs/frost-task-concepts-v1.md` for the mechanisms.
+
+The base is furnished with 29 solid room-specific equipment groups: a snowcat
+and cargo in the hangar, the observatory telescope, medical bed, hydroponic rack,
+bunks, laboratory benches, cryopods, generator, drilling rig and survey rover.
+`assets-source/frost-interior-layout-v1.json` owns their positions and footprints.
+The exporter checks wall/door/console/vent clearance, keeps every corridor and
+interaction approach reachable, and excludes tiny inaccessible spaces behind
+cabinets from preview navigation. The game adapter uses the same footprints for
+host and client collision; the furniture never adds network state.
+
+`frost-interiors.js` builds the equipment and modular insulated wall faces using
+shared instanced shapes/materials. Room colours, floor inlays, corridor grates,
+window scenery and the exterior ice shelf distinguish the frozen research base.
+Furniture screens share one atlas, observation glazing another, with no remote
+model or texture download. Architectural panels follow the wall presentation
+layer, so the game's shorter walls keep their panels aligned in both cameras.
 
 The central dome has a protected red meeting button. In the preview it presses,
 lights up and shows a meeting signal; it does not start a multiplayer meeting.
@@ -55,6 +68,8 @@ duct paths follow the approved floorplan as well as task/door clearance.
   independent of render objects. Door collision follows the sliding panels.
 - `assets-source/frost-task-layout.json`: room-specific task types, positions
   and facing directions. The exporter checks footprints, approaches and routes.
+- `assets-source/frost-interior-layout-v1.json`: solid furniture footprints.
+- `frost-interiors.js`: batched equipment, wall finishes, glazing and ice shelf.
 - `frost-task-state.js`, `frost-task-stations.js`, `frost-tasks.js`: local task
   rules, batched world consoles, and task dialog integration.
 - `tools/export-task-machine.mjs`: extracts the original game's interactive 3D
@@ -93,9 +108,9 @@ captures desktop, iPad and landscape phone views, including multitouch and
 WebGL context recovery. `FROST_QA_URL` and `FROST_QA_OUT` override the URL and
 artifact directory.
 
-`node tools/check-frost-tasks.cjs` completes every task rule, checks invalid and
-expired input, and operates all seven 3D task types plus the four emergency
-systems through mouse/keyboard. It also checks touch completion on a phone.
+`node tools/check-frost-tasks.cjs` completes all 22 task rules, checks invalid and
+expired input, and operates the 3D machines and four emergency systems through
+mouse/keyboard. It also checks touch completion on a phone.
 
 `node tools/check-frost-vents.cjs` checks all ten entries/exits and fourteen
 directed links, including invalid moves, hidden state and animation isolation.

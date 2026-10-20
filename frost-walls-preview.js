@@ -563,8 +563,17 @@ async function start() {
         currentRoom, meetingPressed: meetingView.pressed, meetingPressCount: meetingView.pressCount, taskOpen: taskSystem.isOpen, nearestTask: nearestTask?.id || '', aspect: camera.aspect, calls: renderer.info.render.calls,
         vent: ventState.snapshot(), cameraHeight: camera.position.y,
         triangles: renderer.info.render.triangles, memory: { ...renderer.info.memory },
+        props: map.interiors.propCount, interiorBatches: map.interiors.root.userData.drawBatches,
         doors: navigation.doors.map(({ id, open, target }) => ({ id, open, target })),
       };
+    },
+    inspectRoom(id) {
+      const room = data.rooms.find(room => room.id === id); if (!room) return false;
+      setMode('overview');
+      const centre = new THREE.Vector3(room.label[0], .5, -room.label[1]);
+      controls.target.copy(centre); camera.position.copy(centre).add(new THREE.Vector3(8, 12, 12));
+      camera.lookAt(centre); controls.update(); dirty = true;
+      return true;
     },
     project(x, y, z) {
       const point = new THREE.Vector3(x, y, z).project(camera);

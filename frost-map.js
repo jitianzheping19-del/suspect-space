@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createFrostInteriors, frostRoomFinishes } from './frost-interiors.js';
 const response = await fetch(new URL('./frost-map-data.json', import.meta.url));
 if (!response.ok) throw new Error('フロストのマップデータを読み込めませんでした');
 const data = await response.json();
@@ -34,14 +35,23 @@ function floorTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;
   const context = canvas.getContext('2d');
-  context.fillStyle = '#e6edf3';
+  context.fillStyle = '#e0e7e9';
   context.fillRect(0, 0, 256, 256);
-  context.strokeStyle = '#adbcc9';
+  context.strokeStyle = '#8399a5';
   context.lineWidth = 2;
   context.strokeRect(1, 1, 254, 254);
-  context.strokeStyle = '#dbe4eb';
+  context.strokeStyle = '#c3d0d6';
   context.lineWidth = 1;
   context.strokeRect(5, 5, 246, 246);
+  context.fillStyle = '#728b99';
+  for (const x of [12, 244]) for (const y of [12, 244]) {
+    context.beginPath(); context.arc(x, y, 2, 0, Math.PI * 2); context.fill();
+  }
+  context.strokeStyle = '#d4dfe3';
+  for (let i = 0; i < 22; i++) {
+    const x = (i * 71) % 224 + 16, y = (i * 107) % 224 + 16;
+    context.beginPath(); context.moveTo(x, y); context.lineTo(x + 6, y + 2); context.stroke();
+  }
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(0.5, 0.5);
@@ -54,12 +64,16 @@ function wallTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;
   const context = canvas.getContext('2d');
-  context.fillStyle = '#e6edf3';
+  context.fillStyle = '#d7e2e9';
   context.fillRect(0, 0, 256, 256);
   context.fillStyle = '#d5dfe7';
   context.fillRect(0, 0, 3, 256);
   context.fillStyle = '#f3f7fa';
   context.fillRect(4, 0, 1, 256);
+  context.strokeStyle = '#bdcdd7'; context.lineWidth = 2;
+  context.strokeRect(12, 22, 232, 206);
+  context.fillStyle = '#a8bdca';
+  for (let i = 0; i < 6; i++) context.fillRect(28 + i * 7, 186, 3, 18);
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(0.4, 1);
@@ -112,13 +126,13 @@ export function createFrostMap() {
   foundation.castShadow = true;
 
   const floor = mesh('Walkable floor', flatGeometry(data.renderFloor || data.floor),
-    new THREE.MeshStandardMaterial({ color: '#3d596b', map: tileTexture, roughness: 0.82 }), 0.016);
+    new THREE.MeshStandardMaterial({ color: '#526e7c', map: tileTexture, roughness: 0.76 }), 0.016);
 
   for (const room of data.rooms) {
     mesh(room.name + ' / floor', flatGeometry(room.renderFloor || room), new THREE.MeshStandardMaterial({
-      color: new THREE.Color(room.color).lerp(new THREE.Color('#6e8c9c'), 0.26),
+      color: frostRoomFinishes[room.id] || '#859fac',
       map: tileTexture,
-      roughness: 0.8,
+      roughness: 0.64, metalness: 0.13,
     }), 0.03);
     const texture = labelTexture(room);
     textures.push(texture);
@@ -126,7 +140,7 @@ export function createFrostMap() {
       new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false }));
     label.name = room.name;
     label.rotation.x = -Math.PI / 2;
-    label.position.set(room.label[0], 0.045, -room.label[1]);
+    label.position.set(room.label[0], 0.09, -room.label[1]);
     labels.add(label);
   }
   root.add(labels);
@@ -157,10 +171,15 @@ export function createFrostMap() {
   edges.name = 'Wall corners';
   wallLayer.add(edges);
 
+  const interiors = createFrostInteriors(data, wallLayer);
+  root.add(interiors.root);
+  textures.push(...interiors.textures);
+
   function dispose() {
     const geometries = new Set();
     const materials = new Set();
     root.traverse((object) => {
+      if (object.isInstancedMesh) object.dispose();
       if (object.geometry) geometries.add(object.geometry);
       for (const material of [].concat(object.material || [])) materials.add(material);
     });
@@ -169,5 +188,5 @@ export function createFrostMap() {
     for (const texture of textures) texture.dispose();
   }
 
-  return { root, floor, walls, wallLayer, labels, dispose };
+  return { root, floor, walls, wallLayer, labels, interiors, dispose };
 }

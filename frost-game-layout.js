@@ -43,6 +43,10 @@ export function createFrostGameLayout(data) {
     const points = task.footprint.outline.map(point), xs = points.map((p) => p.x), zs = points.map((p) => p.z);
     colliders.push({ ...point(task.position), w: Math.max(...xs) - Math.min(...xs), d: Math.max(...zs) - Math.min(...zs) });
   }
+  for (const prop of data.props || []) {
+    colliders.push({ id: prop.id, roomId: prop.roomId, kind: prop.kind,
+      ...point(prop.position), w: prop.width, d: prop.depth });
+  }
   const spawnPoints = [];
   for (const radius of [2.8, 4.1, 4.8]) {
     for (let i = 0; i < 18; i++) {

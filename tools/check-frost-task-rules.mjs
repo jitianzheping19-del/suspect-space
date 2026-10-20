@@ -9,7 +9,7 @@ assert.equal(tasks.length, 22); assert.equal(new Set(tasks.map((t) => t.mode)).s
 assert.deepEqual([...tasks.map((t) => t.mode)].sort(), [...FROST_TASK_MODES].sort());
 assert(data.rooms.every((room) => tasks.filter((t) => t.roomId === room.id).length === 2));
 const layout = createFrostGameLayout(data);
-assert.equal(layout.tasks.length, 22); assert.equal(layout.emergencyPanels.length, 9); assert.equal(layout.colliders.length, 32);
+assert.equal(layout.tasks.length, 22); assert.equal(layout.emergencyPanels.length, 9); assert.equal(layout.colliders.length, 32 + data.props.length);
 
 const results = [];
 for (const task of tasks) {

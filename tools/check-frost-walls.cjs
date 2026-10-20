@@ -40,13 +40,29 @@ async function testNavigation() {
   const stopped = { x: 1, z: -4 };
   closed.move(stopped, 0, -4);
   assert(stopped.z > -5.55 && stopped.z < -5.2, 'Walker crossed a closed door');
-  const wall = { x: 0, z: 3 };
+  const wall = { x: 0, z: -3 };
   closed.move(wall, 20, 0);
   assert(wall.x > 6 && wall.x < 6.55, 'Long movement crossed a wall');
   assert(!closed.canStand(-8, -5), 'Courtyard hole became walkable');
   assert(!closed.canStand(0, 0), 'Meeting pedestal is not solid');
+  let furnitureProbes = 0;
+  for (const prop of data.props) {
+    assert(!closed.canStand(prop.position[0], -prop.position[1]), 'Furniture is not solid: ' + prop.id);
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const halfSize = dx ? prop.width / 2 : prop.depth / 2;
+      const start = { x: prop.position[0] + dx * (halfSize + 1), z: -prop.position[1] + dz * (halfSize + 1) };
+      if (!closed.canStand(start.x, start.z)) continue;
+      closed.move(start, -dx * (halfSize + 2), -dz * (halfSize + 2));
+      assert(dx ? Math.abs(start.x - prop.position[0]) > prop.width / 2 : Math.abs(start.z + prop.position[1]) > prop.depth / 2,
+        'Movement crossed furniture: ' + prop.id);
+      furnitureProbes++;
+    }
+  }
+  assert(furnitureProbes >= data.props.length, 'Furniture collision did not get enough approach probes');
+  for (const task of data.tasks) assert(closed.canStand(task.approach[0], -task.approach[1]), 'Task approach blocked: ' + task.id);
+  for (const vent of data.vents) assert(closed.canStand(vent.exit[0], -vent.exit[1]), 'Vent exit blocked: ' + vent.id);
   console.log('PASS', traversals, 'route traversals, closed door, wall and courtyard collision');
-  return { traversals, rooms: data.rooms.length, doors: data.doors.length };
+  return { traversals, rooms: data.rooms.length, doors: data.doors.length, props: data.props.length, furnitureProbes };
 }
 
 async function testBrowser() {
@@ -63,7 +79,7 @@ async function testBrowser() {
       await page.waitForFunction(() => window.__frostPreview?.state().renderedFrames > 0, { timeout: 60000 });
       await page.screenshot({ path: path.join(out, `${width}-overview.png`) });
       const original = await page.evaluate(() => window.__frostPreview.state());
-      assert(original.calls < 75 && original.triangles < 35000, 'Unexpectedly expensive map');
+      assert(original.calls < 100 && original.triangles < 100000, 'Unexpectedly expensive furnished map');
 
       for (const view of ['真上', '全体', '歩く']) {
         await page.getByRole('button', { name: view, exact: true }).click();
