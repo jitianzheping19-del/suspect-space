@@ -35,6 +35,18 @@
         ".validate": "newData.hasChildren(['online','name','hue','updatedAt']) && newData.child('online').isBoolean() && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('hue').isNumber() && newData.child('hue').val() >= 0 && newData.child('hue').val() <= 1 && newData.child('updatedAt').isNumber()",
         "$other": {
           ".validate": false
+        },
+        "online": {
+          ".validate": true
+        },
+        "name": {
+          ".validate": true
+        },
+        "hue": {
+          ".validate": true
+        },
+        "updatedAt": {
+          ".validate": true
         }
       }
     },
@@ -60,6 +72,30 @@
           ".validate": "newData.hasChildren(['hostId','hostName','roomCode','roomCreatedAt','phase','accepted','mirrorReady','createdAt']) && newData.child('hostId').isString() && newData.child('hostId').val().length <= 128 && newData.child('hostName').isString() && newData.child('hostName').val().length <= 16 && newData.child('roomCode').isString() && newData.child('roomCode').val().matches(/^[0-9]{4}$/) && newData.child('roomCreatedAt').isNumber() && newData.child('phase').isString() && newData.child('phase').val().length <= 16 && newData.child('accepted').isBoolean() && newData.child('mirrorReady').isBoolean() && newData.child('createdAt').isNumber()",
           "$other": {
             ".validate": false
+          },
+          "hostId": {
+            ".validate": true
+          },
+          "hostName": {
+            ".validate": true
+          },
+          "roomCode": {
+            ".validate": true
+          },
+          "roomCreatedAt": {
+            ".validate": true
+          },
+          "phase": {
+            ".validate": true
+          },
+          "accepted": {
+            ".validate": true
+          },
+          "mirrorReady": {
+            ".validate": true
+          },
+          "createdAt": {
+            ".validate": true
           }
         }
       }
@@ -301,6 +337,64 @@
         "$target": {
           ".write": "auth != null && auth.uid === $uid",
           ".validate": "newData.isString() && newData.val().length <= 12"
+        }
+      }
+    },
+    "notificationSignals": {
+      "$to": {
+        ".read": "auth != null && auth.uid === $to",
+        "$from": {
+          ".write": "auth != null && ((newData.val() === null && (auth.uid === $from || auth.uid === $to)) || (auth.uid === $from && root.child('onlineUsers').child($to).child('online').val() === true))",
+          ".validate": "newData.hasChildren(['kind','id','sdp','createdAt']) && newData.child('id').isString() && newData.child('id').val().length <= 64 && newData.child('sdp').isString() && newData.child('sdp').val().length <= 32768 && newData.child('createdAt').isNumber() && newData.child('createdAt').val() >= now - 30000 && newData.child('createdAt').val() <= now + 10000 && (newData.child('kind').val() === 'answer' || (newData.child('kind').val() === 'offer' && newData.child('inviteId').isString() && newData.child('inviteId').val().length <= 256 && newData.child('invite').child('hostId').val() === $from && root.child('rooms').child(newData.child('invite').child('roomCode').val()).child('hostId').val() === $from && root.child('rooms').child(newData.child('invite').child('roomCode').val()).child('createdAt').val() === newData.child('invite').child('roomCreatedAt').val()))",
+          ".read": "auth != null && (auth.uid === $from || auth.uid === $to)",
+          "kind": {
+            ".validate": true
+          },
+          "id": {
+            ".validate": true
+          },
+          "sdp": {
+            ".validate": true
+          },
+          "createdAt": {
+            ".validate": true
+          },
+          "inviteId": {
+            ".validate": true
+          },
+          "invite": {
+            ".validate": "newData.hasChildren(['hostId','hostName','roomCode','roomCreatedAt','phase','accepted','mirrorReady','createdAt']) && newData.child('hostId').isString() && newData.child('hostId').val().length <= 128 && newData.child('hostName').isString() && newData.child('hostName').val().length <= 16 && newData.child('roomCode').isString() && newData.child('roomCode').val().matches(/^[0-9]{4}$/) && newData.child('roomCreatedAt').isNumber() && newData.child('phase').isString() && newData.child('phase').val().length <= 16 && newData.child('accepted').isBoolean() && newData.child('mirrorReady').isBoolean() && newData.child('createdAt').isNumber()",
+            "$other": {
+              ".validate": false
+            },
+            "hostId": {
+              ".validate": true
+            },
+            "hostName": {
+              ".validate": true
+            },
+            "roomCode": {
+              ".validate": true
+            },
+            "roomCreatedAt": {
+              ".validate": true
+            },
+            "phase": {
+              ".validate": true
+            },
+            "accepted": {
+              ".validate": true
+            },
+            "mirrorReady": {
+              ".validate": true
+            },
+            "createdAt": {
+              ".validate": true
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }

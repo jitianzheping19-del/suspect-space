@@ -75,7 +75,7 @@ async def main():
                     h.net.tick();
                     const cadence=h.net.canUseDirect()?POSE_CHECKPOINT_MS:POSE_FALLBACK_MS;
                     if(Date.now()-h.lastWrite>=cadence){h.writes++;h.lastWrite=Date.now();}
-                  },50);
+                  },1000/60);
                 }''', {'uid': uid, 'index': index})
 
             async def pump(seconds):
@@ -87,7 +87,7 @@ async def main():
 
             async def status():
                 return dict(zip(pages, await asyncio.gather(*(page.evaluate('''()=>({direct:h.net.canUseDirect(),
-                  links:h.net.links.size,received:h.received,writes:h.writes,scope:h.net.context?.scope,
+                  links:h.net.links.size,received:h.received,writes:h.writes,localSeq:h.net.localSeq,scope:h.net.context?.scope,
                   states:[...h.net.links.values()].map(l=>({id:l.peerId,pc:l.pc.connectionState,ice:l.pc.iceConnectionState,signal:l.pc.signalingState,data:l.data?.readyState,control:l.control?.readyState,localCandidates:(l.pc.localDescription?.sdp||'').split('\\r\\n').filter(s=>s.includes('candidate:'))})),positions:Object.keys(h.positions),fresh:Object.keys(h.roster).filter(id=>h.net.poseFor(id)),stats:h.net.stats})''') for page in pages.values()))))
 
             async def ready(timeout=20):
@@ -122,7 +122,7 @@ async def main():
             assert all(item['writes'] <= 2 for item in steady.values()), steady
             assert all('bot-a' in steady[uid]['positions'] for uid in ids[1:]), steady
             assert sum(len(row.get('poseNet', {}).get('signals', {})) for row in roster.values()) == 0, 'SDPs must be cleaned after connection'
-            print('five real browsers: connected; 20 Hz direct motion; checkpoints <= 2 per 10 seconds', flush=True)
+            print('five real browsers: connected; up to 60 Hz direct motion; checkpoints <= 2 per 10 seconds', flush=True)
 
             # An old client must keep everyone on the compatible database path.
             roster['legacy'] = {'online': True}

@@ -99,7 +99,7 @@ window.__frostGameQA={
       await page.goto('http://127.0.0.1:' + server.address().port + '/space-suspect-complete.html', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.__frostGameQA, null, { timeout: 90000 });
       await page.evaluate(() => window.__frostGameQA.boot());
-      assert.equal(await page.locator('#roomMapMode option[value="frost"]').textContent(), 'フロスト');
+      assert.equal(await page.locator('#roomMapMode option[value="frost"]').textContent(), 'FROST');
       await page.selectOption('#roomMapMode', 'frost', { force: true });
       try {
         await page.waitForFunction(() => window.__frostGameQA.state().map === 'frost' && window.__frostGameQA.state().saved === 'frost');

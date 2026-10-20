@@ -159,6 +159,7 @@ function createMeetingEjections(api) {
       appearance: actors.map(p => ({scale:p.c.root.scale.clone(),rotation:p.c.root.rotation.clone(),
         emissive:p.c.suit.emissive.clone(),intensity:p.c.suit.emissiveIntensity})),
       deathAt: mode === 'balance' ? 2.1 : mode === 'ufo' ? 5.35 : mode === 'rocket' ? 4.25 : mode === 'beam' ? 2.9 : mode === 'meteor' || mode === 'missile' ? 2.27 : 2.8,
+      cameraFocus: api.orbit.target.clone(),
       finishAt: mode === 'balance' ? 3.7 : mode === 'ufo' ? 5.7 : mode === 'rocket' ? 5.8 : mode === 'beam' ? 4.3 : 4.1};
     api.setBusy(true);api.hideOutcome();
     if (state.isMe) api.voice('start');
@@ -201,7 +202,7 @@ function createMeetingEjections(api) {
         const {root, flame, light} = state.prop;root.visible = t > .65 && t < state.deathAt;
         root.position.set(0, api.top + .1 - 5 * (1 - ease(clamp((t - .65) / .75))), -.2);
         // Keep the burst inside the meeting room's visible volume while the
-        // player's chosen camera stays untouched.
+        // camera follows the actor while preserving the player's viewing angle.
         const lift = Math.max(0, t - 2.45);root.position.y += lift * lift;
         if (t > 1.45) actors.forEach(p => {p.c.root.position.set(0, root.position.y + .55, .55);p.c.root.rotation.y = 0;});
         flame.visible = t > 2.25;flame.scale.y = .7 + Math.sin(t * 53) * .12 + lift * .6;light.intensity = flame.visible ? 9 : 0;
@@ -267,6 +268,12 @@ function createMeetingEjections(api) {
           p.c.root.rotation.y = 0;p.c.root.rotation.z = q * (i ? -.25 : .25);
         });
       }
+      if(!state.dead){
+        const centre=actors.reduce((point,p)=>point.add(p.c.root.position),v()).multiplyScalar(1/actors.length).add(v(0,1.1,0));
+        const desired=state.cameraFocus.clone().lerp(centre,ease(clamp((t-.6)/1.1)));
+        const next=api.orbit.target.clone().lerp(desired,1-Math.exp(-8*Math.max(0,dt)));
+        camera.position.add(next.clone().sub(api.orbit.target));api.orbit.target.copy(next);camera.lookAt(next);
+      }
       if (t >= state.deathAt) {
         actors.forEach(p => {p.c.root.visible = false;});death(state);
       }
@@ -284,6 +291,14 @@ function createMeetingEjections(api) {
       f.points.geometry.attributes.position.needsUpdate = true;f.points.material.opacity = Math.max(0, 1 - f.age / f.life);
       if (f.age >= f.life) {dispose(f.points);particles.splice(i, 1);}
     }
+    for(const p of api.getSeats())if(p.costumeRoot){
+      // Costumes use the same rig and hip pivots as the actor, including corpses.
+      p.costumeRoot.position.copy(p.c.rig.position);p.costumeRoot.rotation.copy(p.c.rig.rotation);
+      const pants=p.costumeRoot.userData.walkPants||[];
+      pants.forEach((leg,i)=>{leg.rotation.x=p.c.legs[i]?.rotation.x||0;});
+      const fabric=pants[0]?.children.find(m=>m.isMesh)?.material;
+      p.shins.forEach(shin=>shin.traverse(o=>{if(o.isMesh)o.material=fabric||p.c.suit;}));
+    }
     layoutNames();
   }
   function layoutNames() {
@@ -300,11 +315,12 @@ function createMeetingEjections(api) {
       // Move the real label sprites before the offscreen check. When an actor
       // leaves with the UFO, its name must leave with it instead of freezing
       // at the last visible screen position.
-      p.tag.s.position.copy(anchor);
-      if (moving) {
-        if (p.roleTag) p.roleTag.s.position.copy(anchor).add(v(0,p.voted ? 1.02 : .4,0));
-        if (p.voteCheck) p.voteCheck.s.position.copy(anchor).add(v(0,.54,0));
-        if (p.voteTally) p.voteTally.s.position.copy(anchor).add(v(0,1.45,0));
+      const depth=-anchor.clone().applyMatrix4(camera.matrixWorldInverse).z;
+      const pixels=focal/Math.max(.1,depth),line=Math.max(14,p.tag.s.scale.y*pixels*.85);
+      // Reset EVERY label from its actor. Previous screen-space overlap offsets
+      // must not accumulate over frames or depend on a camera orbit's angle.
+      for(const [L,dy]of [[p.tag,0],[p.roleTag,p.voted?line*1.8:line],[p.voteCheck,line*.9],[p.voteTally,line*2.8]])if(L){
+        const q=ndc.clone();q.y+=dy*2/height;L.s.position.copy(q.unproject(camera));
       }
       if (ndc.z < -1 || ndc.z > 1 || Math.abs(ndc.x) > 1.2 || Math.abs(ndc.y) > 1.2) continue;
       const labels = [p.tag, p.roleTag, p.voteCheck, p.voteTally].filter(L => L?.s.visible);
@@ -384,9 +400,11 @@ export function patchMeetingRuntime(source) {
   // them appear at the ceiling in the results view. Keep them near the names.
   html = html.replaceAll('p.voteTally.s.position.set(p.x,4.45,p.z)', 'p.voteTally.s.position.set(p.x,3.28,p.z)');
   html = html.replaceAll('p.voteTally.s.position.set(b.x,b.y+4.22,b.z)', 'p.voteTally.s.position.set(b.x,b.y+3.16,b.z)');
+  html=html.replace('const fullName=String(s.name||""),meetingName=seats.length<=6?fullName:String(p.nick||fullName);','const fullName=String(s.name||""),meetingName=fullName;');
+  html=html.replace('const micTxt=s.mic?"🎙 ":""','const micTxt=s.alive!==false&&s.mic?"🎙 ":""');
   const factory = `\nconst createMeetingEjections=${createMeetingEjections.toString()};\nlet liveMeetingEjections=null;
 function getLiveMeetingEjections(){return liveMeetingEjections||(liveMeetingEjections=createMeetingEjections({
- THREE,scene,camera,top:TOP,now:()=>NOW,me:()=>me,getSeats:()=>seats,stand:standPose,
+ THREE,scene,camera,orbit:orb,top:TOP,now:()=>NOW,me:()=>me,getSeats:()=>seats,stand:standPose,
  impact,breakTable:mrBeginScaleBreak,hideCentre:()=>{mrCentralTable.visible=false;ped.visible=false;},
  pans:panGroups,chains:mrChainMeshes,scaleTargets:()=>scaleTargets,
  setBusy:value=>{busy=value;},voice:stage=>meetingDeathVoice(stage,'ejection'),

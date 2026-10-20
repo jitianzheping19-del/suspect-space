@@ -7,7 +7,8 @@ export const POSE_CHECKPOINT_MS = 5000;
 export const POSE_FALLBACK_MS = 200;
 const HEARTBEAT_MS = 250, FRESH_MS = 750, RETRY_MS = 30000;
 const MAGIC = 0x5350, HEADER_BYTES = 9, ROW_BYTES = 33;
-const MAX_ROWS = 40, MAX_BUFFERED = 16384;
+const MAX_ROWS = 40, MAX_BUFFERED = 4096;
+export const POSE_FRAME_MS = 1000 / 60;
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const newer = (a, b) => a !== b && ((a - b) >>> 0) < 0x80000000;
@@ -112,7 +113,7 @@ export class PeerPoseNetwork {
     if (identity !== this.identity) {
       this.stop(); this.identity = identity; this.context = context;
       this.epoch = randomId(); this.advertiseAt = 0; this.advertised = false;
-      this.lastReconcile = -Infinity; this.localSeq = 0; this.lastLocalAt = 0;
+      this.lastReconcile = -Infinity; this.localSeq = 0; this.lastLocalAt = 0;this.nextLocalAt=0;this.nextSnapshotAt=0;
       this.lastSnapshotAt = 0; this.coverageAt = 0; this.ackAt = 0;
     }
     const scopeChanged = this.context.scope !== context.scope;
@@ -120,7 +121,7 @@ export class PeerPoseNetwork {
     if (scopeChanged) {
       this.rows.clear(); this.poses.clear(); this.coverageAt = 0; this.ackAt = 0;
       this.dirtyRows.clear(); this.pendingPoses = {};
-      this.lastLocalAt = 0; this.localSignature = ''; this.onReset();
+      this.lastLocalAt = 0;this.nextLocalAt=0;this.nextSnapshotAt=0; this.localSignature = ''; this.onReset();
       if (!this.isHost) {this.ids = null; this.version = 0;}
     }
     const ids = Object.keys(context.roster).filter(id => context.roster[id]?.online === true).sort().slice(0, MAX_ROWS);
@@ -311,8 +312,11 @@ export class PeerPoseNetwork {
     if (!this.context || !this.advertised || !this.ids?.includes(this.context.uid)) return;
     const pose = normalizePeerPose(value); if (!pose) return;
     const stamp = this.clock(), signature = JSON.stringify(pose);
+    const deadline=this.nextLocalAt||stamp;
+    if (stamp+1<deadline) return;
     if (signature === this.localSignature && stamp - this.lastLocalAt < HEARTBEAT_MS) return;
     this.localSignature = signature; this.lastLocalAt = stamp;
+    this.nextLocalAt=(stamp-deadline>POSE_FRAME_MS?stamp:deadline)+POSE_FRAME_MS;
     const row = {id: this.context.uid, slot: this.ids.indexOf(this.context.uid),
       seq: this.localSeq = (this.localSeq + 1) >>> 0, at: stamp, pose};
     this.rows.set(row.id, row); this.dirtyRows.add(row.id); this.dirty = true;
@@ -390,6 +394,8 @@ export class PeerPoseNetwork {
       const poses = this.pendingPoses; this.pendingPoses = {}; this.onPoses(poses);
     }
     const stamp = this.clock();
+    const deadline=this.nextSnapshotAt||stamp;
+    if (stamp+1<deadline) return;
     if (!this.dirty && !this.forceFull && stamp - this.lastSnapshotSentAt < HEARTBEAT_MS) return;
     const full = this.forceFull || stamp - (this.lastFullAt || 0) >= 2000;
     const rows = [...this.rows.values()].filter(row => this.ids.includes(row.id) && (full || this.dirtyRows.has(row.id)))
@@ -400,6 +406,7 @@ export class PeerPoseNetwork {
       this.send(link.data, buffer);
     }
     if (full) this.lastFullAt = stamp;
+    this.nextSnapshotAt=(stamp-deadline>POSE_FRAME_MS?stamp:deadline)+POSE_FRAME_MS;
     this.lastSnapshotSentAt = stamp; this.dirty = false; this.forceFull = false; this.dirtyRows.clear();
   }
 

@@ -51,5 +51,22 @@ const noRtc = new PeerPoseNetwork({PeerConnection: null});
 noRtc.configure({enabled: true, online: true, uid: 'x', hostId: 'x'});
 assert.equal(noRtc.canUseDirect(), false);
 
+// Exercise a 60 Hz render pump and a faster monitor. The 60 Hz lane must
+// preserve every moving sample, while a 144 Hz caller cannot flood the channel.
+function measureRate(step){
+ let at=100000,packets=0;
+ const net=new PeerPoseNetwork({clock:()=>at});
+ net.context={uid:'host',hostId:'host',roster:{host:{online:true},guest:{online:true}}};
+ net.ids=['host','guest'];net.version=1;net.advertised=true;net.localSeq=0;
+ const channel={readyState:'open',bufferedAmount:0,send:()=>packets++};
+ net.links.set('guest',{peerId:'guest',data:channel,control:channel,readyVersion:1,lastReceivedAt:at});
+ for(let frame=0;frame<Math.ceil(1000/step);frame++){at=100000+frame*step;net.publishLocal({x:frame*.01,z:0,walking:true});net.tick();}
+ return {samples:net.localSeq,packets};
+}
+const sixty=measureRate(1000/60),fast=measureRate(1000/144);
+assert(sixty.samples>=59&&sixty.packets>=59,'A 60 Hz render loop must deliver roughly 60 samples');
+assert(fast.samples>=59&&fast.samples<=64&&fast.packets>=59&&fast.packets<=64,'A high-refresh display must retain the transport rate cap');
+console.log('PASS 60 Hz render cadence and high-refresh backpressure',JSON.stringify({sixty,fast}));
+
 console.log(JSON.stringify({passed: true,checks: ['millimetre fidelity', 'UTF-8 kart metadata', 'truncation and corruption', '5000 malformed packets', 'ACK while moving', 'subsecond fallback', 'sender binding', 'ordering and scene isolation', 'unsupported browser fallback'],
   packetBytes: encoded.byteLength, movementWritesPerMinute: {previousLight: 150, directCheckpoint: 12}, positionUpdateReduction: '92% after direct connection; excludes signaling and other database paths'}, null, 2));

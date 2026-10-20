@@ -32,6 +32,7 @@ window.__actionsQA={
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});const results=[];
  try{
  for(const [width,height,touch] of (process.env.ACTION_QA_TOUCH_ONLY?[[1024,768,true]]:[[1280,800,false],[1024,768,true],[1366,1024,true],[844,390,true]])){
+  if(process.env.ACTION_QA_WIDTHS&&!process.env.ACTION_QA_WIDTHS.split(',').map(Number).includes(width))continue;
   const file='space-suspect-complete.html',page=await browser.newPage({viewport:{width,height},isMobile:touch,hasTouch:touch}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/firebase-database.js',r=>r.fulfill({body:fakeDatabase,contentType:'application/javascript'}));
@@ -55,7 +56,7 @@ window.__actionsQA={
     for(let a=0;a<top.length;a++)for(let b=a+1;b<top.length;b++){const x=top[a],y=top[b];assert(x.x+x.w<=y.x+1||y.x+y.w<=x.x+1||x.y+x.h<=y.y+1||y.y+y.h<=x.y+1,'overlapping top controls '+x.id+' / '+y.id+' at '+width);}
     assert.equal(s.canvasCount,1,'HUD must reuse the game WebGL canvas');assert(!s.recoveryVisible,s.errors);assert(s.hud.draws>0);layouts.push({role,buttons,hud:s.hud});
   }
-  await page.evaluate(()=>window.__actionsQA.role('samurai',8000));await page.waitForTimeout(550);
+  await page.evaluate(()=>window.__actionsQA.role('samurai',8000));await page.waitForFunction(()=>window.__actionsQA.state().hud.visible.find(b=>b.id==='killBtn')?.cooldown>0,{},{timeout:15000});
   let s=await page.evaluate(()=>window.__actionsQA.state());const cooling=s.hud.visible.find(b=>b.id==='killBtn');assert(cooling.cooldown>0&&cooling.cooldownIndices>0&&cooling.cooldownIndices<288,'kill cooldown arc absent');assert(s.buttons.find(b=>b.id==='killBtn').disabled);
   const disabledKill=s.buttons.find(b=>b.id==='killBtn'),writes=s.writes;await page.mouse.click(disabledKill.x+disabledKill.w/2,disabledKill.y+disabledKill.h/2);
   assert.equal((await page.evaluate(()=>window.__actionsQA.state())).writes,writes,'disabled kill fired an action');

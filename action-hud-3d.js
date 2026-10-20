@@ -3,7 +3,7 @@
 // There is no extra WebGL context, readback, or animation loop.
 const ACTIONS = {
   taskBtn: {kind:'use', color:0x68dddc, faceColor:0x07584e}, jumpBtn: {kind:'jump', color:0x87cefa, faceColor:0x124b70},
-  killBtn: {kind:'knife', color:0xff526a, faceColor:0x81162d}, killSecondBtn: {kind:'knife', color:0xff7984, faceColor:0x74182b},
+  killBtn: {kind:'knife', color:0xff526a, faceColor:0x81162d}, killSecondBtn: {kind:'ability', color:0xff7984, faceColor:0x74182b},
   sabotageBtn: {kind:'bolt', color:0xbe94ff, faceColor:0x4b1b70}, abilityBtn: {kind:'ability', color:0x72e7cf, faceColor:0x075747},
   reportBtn: {kind:'report', color:0xffbe6d, faceColor:0x71410e}, rocketLaunchBtn: {kind:'rocket', color:0xffac72, faceColor:0x763316},
   waveHawkBtn: {kind:'eye', color:0x8fe8f7, faceColor:0x124b58},
@@ -144,7 +144,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
       const b=r.button,box=b.getBoundingClientRect(),style=getComputedStyle(b);
       r.group.visible=box.width>0&&box.height>0&&!b.closest('.hidden')&&style.display!=='none'&&style.visibility!=='hidden'&&style.opacity!=='0';
       if(!r.group.visible)continue;
-      const w=Math.round(box.width*sx),h=Math.round(box.height*sy),roomy=!r.spec.symbolOnly&&w>=110&&h>=(r.spec.utility?44:62),symbolOnly=!!r.spec.symbolOnly;
+      const w=Math.round(box.width*sx),h=Math.round(box.height*sy),roomy=!r.spec.symbolOnly&&w>=82&&h>=(r.spec.utility?40:38),symbolOnly=!!r.spec.symbolOnly;
       if(b.dataset.threeActionLayout!==(symbolOnly?'symbol':roomy?'icon':'compact'))b.dataset.threeActionLayout=symbolOnly?'symbol':roomy?'icon':'compact';
       const inset=Math.round(box.width*(r.spec.utility ? .28 : .38))+'px';if(b.style.getPropertyValue('--three-action-label-inset')!==inset)b.style.setProperty('--three-action-label-inset',inset);
       const caption=b.querySelector('#abilityCaption,#rocketLaunchCaption'),text=(caption||b).textContent;

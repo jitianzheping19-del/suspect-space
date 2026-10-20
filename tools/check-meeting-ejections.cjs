@@ -50,11 +50,13 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['rocket','collapse','beam
    const s=await page.evaluate(t=>window.__meetingQA.at(t),t);await page.waitForTimeout(35);
    assert.equal(s.iframe,0,mode+' cannot replace the room with an iframe');
    for(const p of s.actors){const before=s.before.find(x=>x.id===p.id);for(const key of ['root','tag','costume','color','name','font'])assert.deepEqual(p[key],before[key],mode+' changed '+key+' for '+p.id);}
-   assert.deepEqual(s.camera,[7.2,8.4,13.6],mode+' moved camera');
+   assert(s.camera.every(Number.isFinite),mode+' camera became invalid');
+   if(t===0)assert.deepEqual(s.camera,[7.2,8.4,13.6],mode+' reset the initial camera');
+   if(t===3.5)assert.notDeepEqual(s.camera,[7.2,8.4,13.6],mode+' must follow the ejected actor');
    for(let a=0;a<s.nameRects.length;a++)for(let b=a+1;b<s.nameRects.length;b++){const x=s.nameRects[a],y=s.nameRects[b];assert(Math.abs(x.x-y.x)>=(x.w+y.w)/2||Math.abs(x.y-y.y)>=(x.h+y.h)/2,mode+' overlapping names '+x.id+' / '+y.id); }
    for(const p of s.actors.filter(p=>p.id!=='p2'&&(mode!=='balance'||p.id!=='p5')))assert(p.alive&&p.visible,'witness disappeared');
    if(shots&&[1.35,3.5,4.4].includes(t))await page.screenshot({path:path.join(shots,mode+'-'+t+'.png')});
-   if(t===5.9){assert(s.dead&&!s.active,mode+' did not finish');assert(s.outcome.includes('レモンかすは侍だった')&&s.outcome.includes('残り人狼 1 人'));console.log('PASS',mode,'identity/camera/names/outcome');}
+   if(t===5.9){assert(s.dead&&!s.active,mode+' did not finish');assert(s.outcome.includes('レモンかすは侍だった')&&s.outcome.includes('残り人狼 1 人'));console.log('PASS',mode,'identity/camera-follow/names/outcome');}
   }
  }
  console.log('ERRORS',errors);assert.deepEqual(errors,[]);

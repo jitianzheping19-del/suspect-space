@@ -2798,7 +2798,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label data-role-setting="doubleKiller">サブキル最大回数 <input id="doubleSecondMaxUses" type="range" min="1" max="10" step="1" value="1"><output>1回</output></label>
           <label data-role-setting="doubleKiller">ベントを使用できる <input id="doubleKillerCanVent" type="checkbox"></label>
           <label data-role-setting="doubleKiller">サボタージュを使用できる <input id="doubleKillerCanSabotage" type="checkbox"></label>
-          <label>視点 <select id="roomViewMode"><option value="2d">2.5D（斜め見下ろし）</option><option value="3d">3D（三人称・後方追尾）</option></select></label><label>マップ <select id="roomMapMode"><option value="classic">The Skeld</option><option value="astra">Airship</option><option value="frost">フロスト</option></select></label>
+          <label>視点 <select id="roomViewMode"><option value="2d">2.5D（斜め見下ろし）</option><option value="3d">3D（三人称・後方追尾）</option></select></label><label>マップ <select id="roomMapMode"><option value="classic">The Skeld</option><option value="astra">Airship</option><option value="frost">FROST</option></select></label>
           <label data-role-setting="bountyHunter">賞金ターゲット変更 <input id="bountyChangeSeconds" type="range" min="20" max="120" step="10" value="60"><output id="bountyChangeSecondsOut">60秒</output></label>
           <label data-role-setting="bountyHunter">賞金ターゲット矢印 <input id="bountyArrowEnabled" type="checkbox" checked></label>
           <label data-role-setting="morphing">モーフィング持続時間 <input id="morphDurationSeconds" type="range" min="5" max="40" step="1" value="20"><output>20秒</output></label>
@@ -6792,7 +6792,7 @@ const REACTOR_OBJECTS = [
 const PROPS = [];
 function prop(type,u,v,w,d,extra={}) { PROPS.push({type,...skeldPoint(u,v),w,d,...extra}); }
 for(const [u,v] of [[443,125],[550,125],[443,237],[550,237],[497,182]]) prop("table",u,v,4.5,4.5,{radius:2.25,meeting:u===497});
-prop("engine",146,190,5.0,4.0); prop("engine",146,448,5.0,4.0);
+prop("engine",138,179,5.0,4.0); prop("engine",146,448,5.0,4.0);
 for(const [u,v] of [[286,235],[286,268],[347,298]]) prop("bed",u,v,1.45,2.1);
 prop("scanner",366,315,2.1,2.1,{solid:false});
 prop("security-desk",239,268,2.4,1.05); prop("chair",237,296,.9,.9);
@@ -9665,7 +9665,7 @@ $("titleJoin").onclick=()=>setSetupMode("join");
 $("titleOnline").onclick=()=>setSetupMode("online");
 $("titleBack").onclick=()=>setSetupMode("home");
 $("onlineBackBtn").onclick=()=>setSetupMode("home");
-$("rulesText").value=JSON.stringify(RULES.rules,null,2);
+$("rulesText").value=JSON.stringify(RULES,null,2);
 $("copyRules").onclick=()=>copyText($("rulesText").value);
 let pinSubmissionPending=false;
 function submitPinLogin(){
@@ -15041,7 +15041,7 @@ if (g.phase !== "play") {
             }
             if(cmd.ability==="scientist" && p.subrole==="scientist" && !comms && (p.vitalsUntil||0)<=now() && (Number(p.vitalsCooldownUntil)||0)<=now()){
               const battery=p.vitalsBattery??8;
-              if(battery>0){p.vitalsUntil=now()+battery*1000;p.vitalsBattery=0;p.vitalsCooldownUntil=now()+30000;p.abilityReadyAt=p.vitalsCooldownUntil;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"バイタルを開きました。");}
+              if(battery>0){p.vitalsUntil=now()+battery*1000;p.vitalsBattery=0;p.vitalsCooldownUntil=now()+40000;p.abilityReadyAt=p.vitalsCooldownUntil;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"バイタルを開きました。");}
             }
             if(cmd.ability==="tracker"&&p.subrole==="tracker"&&(p.abilityReadyAt||0)<=now()){
               const target=g.players[cmd.target],targetLoc=players[cmd.target];
@@ -17797,7 +17797,7 @@ function sampleVentTraversal(transition,stamp,isVented){
       camera=use3D?camera3D:camera2D;
       const ownAvatar=avatars.get(spectator?spectatorTargetId:uid);
       const centerY=.82+Math.max(0,Number(ownAvatar?.position.y)||0);
-      if(ownAvatar)ownAvatar.visible=!firstPerson;
+      if(ownAvatar){const ownState=game.players?.[spectator?spectatorTargetId:uid],entering=ownAvatar.userData.ventTransition?.entering&&sampleVentTraversal(ownAvatar.userData.ventTransition,performance.now(),true).visible;if(firstPerson||ownState?.ventId&&!entering)ownAvatar.visible=false;}
       if(use3D){
         const yaw=ownAvatar?.rotation.y||0;
         if(firstPerson){const eyeY=1.5+(Number(ownAvatar?.position.y)||0),stamp=performance.now(),lookDt=touchLookLastAt?Math.min(.1,Math.max(0,(stamp-touchLookLastAt)/1000)):0;touchLookLastAt=stamp;if(touchLookPointer===null){/* Keep the last touch-look direction while idle. */}let bob=0;
@@ -18377,7 +18377,7 @@ function startVoteEjection3D(players,resultId){
           const polygon=document.createElementNS(ns,"polygon");
           polygon.setAttribute("points",region.polygon.map(p=>`${p.x},${p.z}`).join(" "));
           polygon.setAttribute("fill",ROOMS.includes(region)?"#17538a":"#8caabc");
-          polygon.setAttribute("stroke",ROOMS.includes(region)?"#e2f1f7":"#effaff");
+          polygon.setAttribute("stroke",ROOMS.includes(region)?"#e2f1f7":"none");
           polygon.setAttribute("stroke-width",ROOMS.includes(region)?".16":".1");
           svg.appendChild(polygon);
         }
@@ -20859,7 +20859,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
             name: "Airship",
             story: "高高度の調査飛行船。貨物室やアーカイブ、昇降機が離れているため、移動にかかった時間も証言を見極める材料になります。"
         },
-        frost: { name: "フロスト", story: "氷衛星の研究基地。中央ドームから研究区と居住区へ通路が巡り、3系統のベントがつながります。" }
+        frost: { name: "FROST", story: "氷衛星の研究基地。中央ドームから研究区と居住区へ通路が巡り、3系統のベントがつながります。" }
     };
     let experienceState = null;
     let recapStamp = "";
@@ -23023,6 +23023,8 @@ body:has(#audioSettingsPanel:not(.hidden)) #roundRoles{display:none!important;vi
   body[data-phase="play"] #roundRoleBtn{top:max(4px,calc(env(safe-area-inset-top) + 2px))!important}
 }
 </style>
+<link rel="stylesheet" href="./responsive-game-ui.css">
+<script type="module" src="./game-ui-polish.js"></script>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
 </html>

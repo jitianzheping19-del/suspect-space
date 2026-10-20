@@ -2787,7 +2787,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label><input id="botMode" type="checkbox"> BOT追加</label>
           <label id="botCountControl" class="hidden"><input id="botCount" type="range" min="1" max="10" step="1" value="1" disabled><output id="botCountOut">1人</output></label>
           <label>近アモ（部屋全体） <input id="voiceRoomEnabled" type="checkbox"></label>
-          <label class="poseSyncSetting"><span>位置同期</span><select id="positionUpdateMode" aria-label="位置同期方式"><option value="standard">標準</option><option value="light">軽量</option></select></label>
+          <label class="poseSyncSetting"><span>位置同期</span><select id="positionUpdateMode" aria-label="位置同期方式"><option value="standard">標準</option><option value="light" selected>軽量</option></select></label>
           <label>会議 <input id="meetingSeconds" type="range" min="30" max="200" step="10" value="140"><output id="meetingSecondsOut">140秒</output></label>
           <input id="impostorCount" type="hidden" min="1" step="1" value="1">
           <input id="taskCount" type="hidden" value="6">
@@ -2802,7 +2802,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label data-role-setting="guesser,evilGuesser">最初の会議では推理不可 <input id="guesserNoFirstMeeting" type="checkbox"></label>
           <label data-role-setting="guesser,evilGuesser">死亡者がいない会議では推理不可 <input id="guesserRequireDead" type="checkbox"></label>
           <p data-role-setting="guesser,evilGuesser" class="muted">クルー陣営は役職推理の対象になりません。</p>
-          <label data-role-setting="guesser,evilGuesser">スターを一定会議数の間、推理対象から外す <input id="guesserCannotShootStar" type="checkbox" checked></label>
+          <label data-role-setting="guesser">スターを一定会議数の間、推理対象から外す <input id="guesserCannotShootStar" type="checkbox" checked></label>
           <label data-role-setting="guesser,evilGuesser">スターを推理対象から外す会議数 <input id="guesserStarExcludedMeetings" type="range" min="1" max="15" step="1" value="3"><output>3回</output></label>
           <label data-role-setting="scales">天秤投票の制限時間 <input id="scalesSeconds" type="range" min="0" max="180" step="2.5" value="30"><output>30秒</output></label>
           <label data-role-setting="scales">天秤投票の使用回数 <input id="scalesUses" type="range" min="1" max="5" step="1" value="1"><output>1回</output></label>
@@ -2826,7 +2826,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
           <label data-role-setting="doubleKiller">サブキル最大回数 <input id="doubleSecondMaxUses" type="range" min="1" max="10" step="1" value="1"><output>1回</output></label>
           <label data-role-setting="doubleKiller">ベントを使用できる <input id="doubleKillerCanVent" type="checkbox"></label>
           <label data-role-setting="doubleKiller">サボタージュを使用できる <input id="doubleKillerCanSabotage" type="checkbox"></label>
-          <label>視点 <select id="roomViewMode"><option value="2d">2.5D（斜め見下ろし）</option><option value="3d">3D（三人称・後方追尾）</option></select></label><label>マップ <select id="roomMapMode"><option value="classic">The Skeld</option><option value="astra">Airship</option><option value="frost">フロスト</option></select></label>
+          <label>視点 <select id="roomViewMode"><option value="2d">2.5D（斜め見下ろし）</option><option value="3d">3D（三人称・後方追尾）</option></select></label><label>マップ <select id="roomMapMode"><option value="classic">The Skeld</option><option value="astra">Airship</option><option value="frost">FROST</option></select></label>
           <label data-role-setting="bountyHunter">賞金ターゲット変更 <input id="bountyChangeSeconds" type="range" min="20" max="120" step="10" value="60"><output id="bountyChangeSecondsOut">60秒</output></label>
           <label data-role-setting="bountyHunter">賞金ターゲット矢印 <input id="bountyArrowEnabled" type="checkbox" checked></label>
           <label data-role-setting="morphing">モーフィング持続時間 <input id="morphDurationSeconds" type="range" min="5" max="40" step="1" value="20"><output>20秒</output></label>
@@ -3245,6 +3245,7 @@ window.buildAstraMap=buildAstraMap;
     import {createWorldRoleEffect,worldDeathAnimating} from "./role-world-cinematics.js";
     import {patchMeetingRuntime} from "./meeting-scene-ejections.js";
     import {SightPolygonSolver} from "./sight-polygon.js";
+    import {InviteDirectDelivery} from "./invite-direct-delivery.js";
     import {createActionHud3D} from "./action-hud-3d.js";
     import {buildFrostGameMap,frostGameLayout} from "./frost-game-map.js";
     import {requiredTaskIdsFor} from "./frost-game-layout.js";
@@ -5800,7 +5801,7 @@ async function unpackEmbeddedAssets(base64){
 }
 const EMBEDDED_ASSETS=await unpackEmbeddedAssets(EMBEDDED_ASSET_PAYLOAD);
 /* SS_EMBEDDED_ASSETS_V1_END */
-const RULES=EMBEDDED_ASSETS.RULES;
+const RULES=await fetch(new URL("./database.rules.json",import.meta.url),{signal:AbortSignal.timeout(5000)}).then(r=>r.ok?r.json():EMBEDDED_ASSETS.RULES).catch(()=>EMBEDDED_ASSETS.RULES);
 
 Object.assign(RULES.rules.rooms["$room"],{
   voicePresence:{
@@ -5996,11 +5997,12 @@ function syncCostumeColorToggle(color){const b=document.getElementById("costumeC
 document.addEventListener("click",event=>{const t=event.target.closest?.("#costumeColorToggle");if(!t)return;const pal=document.getElementById("costumeColorPalette");const open=pal.classList.toggle("collapsed")===false;t.setAttribute("aria-expanded",String(open));if(open)renderColorPalette("costumeColorPalette",["profileColorInput","colorInput","lobbyProfileColor"]);});
 let spectatorSmooth=null,spectatorSmoothAt=0;
 function smoothSpectator(target,id){
+  const actor=avatars.get(id),pose=actor?sampleRemotePose(actor,performance.now()-remotePoseInterpolationDelayMs(id)):null;if(pose)target=pose;
   const nowMs=performance.now();const dt=Math.min(.1,Math.max(.001,(nowMs-spectatorSmoothAt)/1000));spectatorSmoothAt=nowMs;
   if(!spectatorSmooth||spectatorSmooth.id!==id)spectatorSmooth={id,x:target.x,z:target.z};
   const dx=target.x-spectatorSmooth.x,dz=target.z-spectatorSmooth.z,d=Math.hypot(dx,dz);
   if(d>12){spectatorSmooth.x=target.x;spectatorSmooth.z=target.z;}
-  else if(d>2.2){const pull=d-2.2,k=1-Math.exp(-dt*3);spectatorSmooth.x+=dx/d*pull*k;spectatorSmooth.z+=dz/d*pull*k;}
+  else{const k=1-Math.exp(-dt*16);spectatorSmooth.x+=dx*k;spectatorSmooth.z+=dz*k;}
   return {x:spectatorSmooth.x,z:spectatorSmooth.z};
 }
 function liveRoomOccupants(players){
@@ -6829,7 +6831,7 @@ const REACTOR_OBJECTS = [
 const PROPS = [];
 function prop(type,u,v,w,d,extra={}) { PROPS.push({type,...skeldPoint(u,v),w,d,...extra}); }
 for(const [u,v] of [[443,125],[550,125],[443,237],[550,237],[497,182]]) prop("table",u,v,4.5,4.5,{radius:2.25,meeting:u===497});
-prop("engine",146,190,5.0,4.0); prop("engine",146,448,5.0,4.0);
+prop("engine",138,179,5.0,4.0); prop("engine",146,448,5.0,4.0);
 for(const [u,v] of [[286,235],[286,268],[347,298]]) prop("bed",u,v,1.45,2.1);
 prop("scanner",366,315,2.1,2.1,{solid:false});
 prop("security-desk",239,268,2.4,1.05); prop("chair",237,296,.9,.9);
@@ -7002,6 +7004,7 @@ const ROLE_COOLDOWN_SETTINGS=Object.freeze({
 function roleCooldownSettingsFromInputs(){return {...Object.fromEntries(Object.entries(ROLE_COOLDOWN_SETTINGS).map(([id,setting])=>{const control=$(id),value=control?Number(control.value):NaN;return[id,setting.fixed?setting.default:clamp(Number.isFinite(value)?value:setting.default,setting.min,setting.max)];})),...roleBehaviorSettingsFromInputs()};}
 
 const ROLE_BEHAVIOR_SETTINGS=Object.freeze({
+  evilGuesserCannotShootStar:{roles:["evilGuesser"],label:"スターを一定会議数の間、推理対象から外す",default:true,type:"checkbox"},
   evilNekomataExcludeImpostors:{roles:["evilNekomata"],label:"人狼陣営を道連れ対象から除外する",default:true,type:"checkbox"},
   lighterDurationSeconds:{roles:["lighter"],label:"点灯時間",default:10,min:1,max:60,step:1,unit:"秒"},
   lighterVisionMultiplier:{roles:["lighter"],label:"点灯中の視界倍率",default:2,min:1,max:5,step:.25,unit:"倍"},
@@ -7083,10 +7086,11 @@ function roleUpgradePose(g,id,profiles={},bots={}){
   if(!p||!at||(!p.bot&&at.online!==true)||!Number.isFinite(Number(at.x))||!Number.isFinite(Number(at.z)))return null;
   return{x:Number(at.x),z:Number(at.z)};
 }
+function isMirage(p){return !!p&&(p.mirage===true||p.subrole==="mirage");}
 function mirageBodyCandidates(g,stamp=now()){
   const turnStart=Number(g.turnStartedAt||g.playStartsAt||g.startedAt)||0,found=new Map();
-  for(const [bodyId,body] of Object.entries(g.bodies||{})){
-    if(!body||body.removed||body.dissolved||(Number(body.dissolveAt)>0&&Number(body.dissolveAt)<=stamp))continue;
+  for(const [bodyId,victimState] of Object.entries(g.players||{})){
+    const body=g.bodies?.[bodyId]||{sourcePlayerId:bodyId};
     const id=String(body.sourcePlayerId||body.sourceVictim||bodyId),victim=g.players?.[id],death=g.deathRecords?.[id]||victim?.deathRecord;
     if(!victim||victim.alive!==false||victim.observer)continue;
     if(turnStart&&(Number(death?.at||victim.deathAt)||0)<turnStart)continue;
@@ -8848,13 +8852,15 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       if(closeContext&&voiceContext){await voiceContext.close().catch(()=>{});voiceContext=null;}
       voiceSessionId="";refreshVoiceUI();
     }
-    async function startVoiceChat(){
-      if(!voiceRoomIsEnabled()||voiceJoined)return;
-      voicePromptOpen=true;
+    let voiceJoinBusy=false;
+    async function startVoiceChat({resume=false}={}){
+      if(!voiceRoomIsEnabled()||voiceJoined||voiceJoinBusy)return;
+      voicePromptOpen=!resume;
       const message=$("voicePermissionMessage"),settings=$("voicePermissionSettings");settings.classList.add("hidden");
       if(!window.isSecureContext){message.textContent="マイクにはHTTPSまたはlocalhostが必要です。安全な接続でこのページを開いてください。";refreshVoiceUI();return;}
       if(!navigator.mediaDevices?.getUserMedia){message.textContent="このページではマイク機能を利用できません。トップレベルのHTTPSページで開くか、運営者に埋め込みページのマイク許可（Permissions Policy）を確認してもらってください。";refreshVoiceUI();return;}
       let voiceStage="マイクの許可";
+      voiceJoinBusy=true;
       try{
         $("voicePermissionAllow").disabled=true;message.textContent="ブラウザのマイク許可を確認しています…";
         // Call getUserMedia synchronously within the click activation, before any await.
@@ -8923,7 +8929,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
           if(!activeContext||!activeRoom||!voiceJoined)return;
           void requestSkyWayToken(activeRoom,activeName).then(nextToken=>{if(skywayContext===activeContext)return activeContext.updateAuthToken(nextToken);}).catch(error=>console.warn("SkyWayトークンの更新に失敗しました",error));
         });
-        voiceJoined=true;voiceMuted=false;voiceSessionId=token();voicePresenceSignature="";syncVoiceMutePolicy();startVoiceSpatialTimer();startVoiceActivityMeter();
+        voiceJoined=true;voiceMuted=resume?readStored("space-suspect-voice-muted")==="1":false;saveStored("space-suspect-voice-consent","1");saveStored("space-suspect-voice-muted",voiceMuted?"1":"0");voiceSessionId=token();voicePresenceSignature="";syncVoiceMutePolicy();startVoiceSpatialTimer();startVoiceActivityMeter();
         const ownPresence=ref(db,`rooms/${code}/voicePresence/${uid}`);
         voiceStage="Firebase通話状態の保存";
         await onDisconnect(ownPresence).remove();await publishVoicePresence();
@@ -8946,7 +8952,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
         else if(name==="SecurityError"||name==="AbortError"){message.textContent="ブラウザまたは埋め込み元の設定でマイクがブロックされています。HTTPS、サイト設定、iframeのマイク許可を確認してください。";}
         else{message.textContent=`${voiceStage}: ${errorText(error)||"詳細不明のエラー"}`;}
         console.warn("近アモを開始できません",error);refreshVoiceUI();}
-      finally{$("voicePermissionAllow").disabled=false;}
+      finally{voiceJoinBusy=false;$("voicePermissionAllow").disabled=false;if(code&&voiceRoomIsEnabled()&&!voiceJoined)setTimeout(()=>void resumePermittedVoice(),0);}
     }
     async function toggleVoiceChat(){
       if(!voiceRoomIsEnabled()||voiceForcedMuteReason())return;
@@ -8954,13 +8960,23 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       if(voiceContext?.state==="suspended")await voiceContext.resume().catch(()=>{});
       voiceMuted=!voiceMuted;syncVoiceMutePolicy();
       try{await publishVoicePresence();}catch(error){voiceMuted=true;syncVoiceMutePolicy();toast(`マイク状態を同期できません: ${errorText(error)}`);}
-      syncVoicePeers();refreshVoiceUI();
+      saveStored("space-suspect-voice-muted",voiceMuted?"1":"0");syncVoicePeers();refreshVoiceUI();
     }
+    let voiceAutoJoinKey="",voiceAutoJoinBusy=false;
+    async function resumePermittedVoice(){
+      const key=String(code)+":"+String(session);if(!code||!voiceRoomIsEnabled()||voiceJoined||voiceJoinBusy||voiceAutoJoinBusy||voiceAutoJoinKey===key)return;
+      voiceAutoJoinBusy=true;voiceAutoJoinKey=key;
+      try{
+        let permitted=false;try{const permission=await navigator.permissions?.query({name:"microphone"});permitted=permission?.state==="granted";if(permission?.state==="denied")return;if(!permission)permitted=readStored("space-suspect-voice-consent")==="1";}catch{permitted=readStored("space-suspect-voice-consent")==="1";}
+        if(permitted&&key===String(code)+":"+String(session)&&voiceRoomIsEnabled()&&!voiceJoined)await startVoiceChat({resume:true});
+      }finally{voiceAutoJoinBusy=false;}
+    }
+    document.addEventListener("pointerdown",()=>{if(voiceContext?.state==="suspended")void voiceContext.resume().catch(()=>{});},{passive:true});
     async function updateVoiceRoomGate(){
       const enabled=(isLobbyInteractionActive()?game?.lobbySettings?.voiceEnabled:game?.settings?.voiceEnabled)===true;
       const changed=enabled!==voiceEnabledByRoom;voiceEnabledByRoom=enabled;
-      if(!enabled){voicePromptOpen=false;if(voiceJoined)await stopVoiceChat({removePresence:true,removeSignals:true,closeContext:true});}
-      syncVoiceDisplayWatch();if(changed&&enabled)voiceRemoteStates.clear();refreshVoiceUI();
+      if(!enabled){voiceAutoJoinKey="";voicePromptOpen=false;if(voiceJoined)await stopVoiceChat({removePresence:true,removeSignals:true,closeContext:true});}
+      syncVoiceDisplayWatch();if(changed&&enabled)voiceRemoteStates.clear();refreshVoiceUI();if(enabled&&!voiceJoined)void resumePermittedVoice();
     }
     initLocalAudioControls();
     $("voiceToggleBtn").addEventListener("click",()=>void toggleVoiceChat());
@@ -9100,7 +9116,7 @@ const ROLE_LOOKS={
   matryoshka:{color:"#eca7cc",icon:"◉",action:"変装",theme:"mirror"},
   triggerHappy:{color:"#ff9d68",icon:"▤",action:"連射",theme:"danger"},
   conjurer:{color:"#b99aff",icon:"△",action:"召喚陣",theme:"halo"},
-  mirage:{color:"#b8c9df",icon:"☠",action:"偽死体",theme:"mist"},
+  mirage:{color:"#b8c9df",icon:"☠",action:"死体を作成",theme:"mist"},
   arsonist:{color:"#ff9d4d",icon:"♨",action:"点火",theme:"danger"},
   lovers:{color:"#ff8fc8",icon:"♥",action:"恋人",theme:"mirror"},
   god:{color:"#f7d96a",icon:"✧",action:"神のタスク",theme:"halo"},
@@ -9210,7 +9226,7 @@ function rolePresentationSettings(id,fromInputs=false,settings={}){
 }
 function createRoleAbilityPresentation(id,{fromInputs=false,settings={}}={}){
  const {values,fields}=rolePresentationSettings(id,fromInputs,settings),kind=roleIconKind(id),value=(key,fallback)=>values[key]??fallback,wrap=document.createElement('figure');wrap.className='roleAbilityPreview';wrap.dataset.role=id;
- const title=document.createElement('figcaption');title.textContent=fromInputs?'能力プレビュー':'能力の使い方';wrap.append(title);
+
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('roleAbilityDiagram');svg.setAttribute('viewBox','0 0 320 132');svg.setAttribute('role','img');
  const suit=(x,y,color)=>`<g transform="translate(${x} ${y})" fill="${color}" stroke="#071824" stroke-width="2"><rect x="-13" y="-24" width="26" height="37" rx="12"/><rect x="-12" y="5" width="10" height="17" rx="4"/><rect x="3" y="5" width="10" height="17" rx="4"/><rect x="0" y="-18" width="18" height="11" rx="5" fill="#c4f3ff"/></g>`,icon=`<g transform="translate(141 36) scale(.95)" color="#ffe6a0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${roleIconSvg(id).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'')}</g>`;
  let picture='',description='';
@@ -9271,6 +9287,7 @@ function fitRoundRoleList(){
 window.addEventListener("resize",scheduleRoundRoleLayout);window.visualViewport?.addEventListener("resize",scheduleRoundRoleLayout);
 function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",settingsOverride=game.lobbySettings,gameOverride=game){
       const list=$("roundRoleList");list.dataset.roleLayout="quality";list.classList.remove("hasRoleDetail");list.replaceChildren();
+      if(source==="lobby"&&isHost())settingsOverride={...settingsOverride,roles:selectedRoleCounts()};
       const lobby=source==="lobby",counts=new Map(),playersForRoles=gameOverride.players||{};
       const factionNames={crew:"市民陣営",impostor:"人狼陣営",neutral:"第三陣営"};
       const factionOf=id=>{const side=ROLE_OPTIONS.find(role=>role.id===id)?.side;return id==="impostor"||["madmate","blackCat"].includes(id)||side==="impostor"?"impostor":id==="jackal"||side==="neutral"?"neutral":"crew";};
@@ -9306,6 +9323,7 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
           if(!p||p.observer||p.disconnected||(players[id]?.online===false&&!p.bot))continue;
           const baseRoleId=p.role==="impostor"?"impostor":p.role==="jackal"?"jackal":"crewmate";
           if(isSubRoleId(p.subrole))counts.set(p.subrole,(counts.get(p.subrole)||0)+1);
+          if(p.mirage&&p.subrole!=="mirage")counts.set("mirage",(counts.get("mirage")||0)+1);
           const roleId=isSubRoleId(p.subrole)?baseRoleId:p.subrole||baseRoleId;
           counts.set(roleId,(counts.get(roleId)||0)+1);
           const side=isImpostorTeamPlayer(p)?"impostor":isNeutralRole(p)?"neutral":"crew";
@@ -9331,6 +9349,7 @@ function renderRoundRoleList(source=$("roundRoles").dataset.source||"game",setti
         list.classList.add("hasRoleDetail");detail.hidden=false;
         const info=roleMeta[id]||ROLE_LABELS[id]||[id,"この役職の説明はありません。"];
         detail.replaceChildren();const heading=document.createElement("h3");heading.textContent=info[0];heading.prepend(createRoleIcon(id));detail.append(heading);
+        if(matchMedia("(pointer:coarse)").matches&&(innerWidth<=900||innerHeight<=540)){const back=document.createElement("button");back.type="button";back.className="roleDetailBack";back.textContent="一覧に戻る";back.onclick=()=>{detail.hidden=true;list.classList.remove("hasRoleDetail");scheduleRoundRoleLayout();button.focus();};detail.prepend(back);}
         const value=valueOverride??(counts.get(id)||0),count=document.createElement("p");count.className="roleChoiceCount";
         count.textContent=id==="lovers"?`${lobby?"設定":"参加"}ペア数：${value}組（${value*2}人）`:lobby?`予定人数：${value}人`:`参加人数：${value}人`;detail.append(count);
         const description=document.createElement("p");description.textContent=info[1];detail.append(description);
@@ -9812,7 +9831,7 @@ $("titleJoin").onclick=()=>setSetupMode("join");
 $("titleOnline").onclick=()=>setSetupMode("online");
 $("titleBack").onclick=()=>setSetupMode("home");
 $("onlineBackBtn").onclick=()=>setSetupMode("home");
-$("rulesText").value=JSON.stringify(RULES.rules,null,2);
+$("rulesText").value=JSON.stringify(RULES,null,2);
 $("copyRules").onclick=()=>copyText($("rulesText").value);
 let pinSubmissionPending=false;
 function submitPinLogin(){
@@ -10153,7 +10172,7 @@ const room = await readRoomBootstrap(roomCode);
 if (!room.players?.[room.hostId]?.online) {
         throw new Error("ホストが接続していません");
       }
-      if (room.game.phase !== "lobby" && (!room.game.players?.[uid] || room.game.players[uid].disconnected)) {
+      if (room.game.phase !== "lobby" && !room.game.players?.[uid]) {
         throw new Error("ゲームは進行中です。次のロビーを待ってください");
       }
 
@@ -10208,7 +10227,7 @@ async function joinRoomByCode(roomCode){
   let online=liveRoomOccupants(room.players).length;
   if(online>=20&&!room.players?.[uid])throw new Error("この部屋は満員です");
   const activeGame=room.game?.phase&&room.game.phase!=="lobby";
-  const canResume=!!room.game?.players?.[uid]&&!room.game.players[uid].disconnected;
+  const canResume=!!room.game?.players?.[uid];
   if(activeGame&&!invite&&!canResume){
     const requestRef=ref(db,`rooms/${roomCode}/game/spectateRequests/${uid}`);
     await set(requestRef,{requested:true,requestedAt:now(),approved:false});
@@ -10233,6 +10252,7 @@ async function joinRoomByCode(roomCode){
   await set(ref(db,`rooms/${roomCode}/players/${uid}`),player);
   room.players={...room.players,[uid]:player};await enterRoom(roomCode,room);
 }
+let inviteDirectDelivery=null;
 let roomInviteWatch=[],activeRoomInvite=null,roomInviteAutoHideTimer=null,inviteSeenUid="",roomInviteWatchGeneration=0;
 const dismissedRoomInvites=new Set(),seenRoomInvites=new Set();
 function restoreSeenRoomInvites(){
@@ -10306,6 +10326,7 @@ async function inviteOnlineUsers(){
     const results=await Promise.allSettled(targets.map(async([target])=>{
       const stamp=now(),inviteId=inviteRecordId(request,stamp),inboxPath=`invitations/${target}/${inviteId}`,mirrorPath=`rooms/${roomCode}/game/invites/${target}`;
       const invite=makeRoomInviteRecord(request,stamp);
+      void inviteDirectDelivery?.send(target,inviteId,invite);
       // Commit the notification and admission mirror atomically; this avoids a
       // child-added watcher racing the second write and presenting a dead invite.
       let mirror=true,mirrorError=null;
@@ -10332,6 +10353,7 @@ async function inviteOnlineUsers(){
   finally{bulkInviteBusy=false;if(inviteButton)inviteButton.disabled=false;}
 }
 function stopRoomInviteWatch(){
+  inviteDirectDelivery?.stop();inviteDirectDelivery=null;
   roomInviteWatchGeneration++;
   for(const unsubscribe of roomInviteWatch||[])unsubscribe();
   roomInviteWatch=[];
@@ -10344,11 +10366,27 @@ function startRoomInviteWatch(){
   restoreSeenRoomInvites();
   const watchingUid=uid,generation=roomInviteWatchGeneration;
   const inboxRef=ref(db,`invitations/${watchingUid}`);
+  if(globalThis.RTCPeerConnection)inviteDirectDelivery=new InviteDirectDelivery({uid:watchingUid,clock:now,
+    write:async(target,value,expectedId)=>{
+      if(uid!==watchingUid||generation!==roomInviteWatchGeneration)return;
+      const path=ref(db,`notificationSignals/${target}/${watchingUid}`);
+      if(expectedId){await runTransaction(path,current=>current?.id===expectedId?null:undefined,{applyLocally:false});return;}
+      await onDisconnect(path).remove();await set(path,value);
+    },
+    watch:receive=>{const path=ref(db,`notificationSignals/${watchingUid}`),consume=snapshot=>receive({from:snapshot.key,value:snapshot.val()});
+      const off=[onChildAdded(path,consume,()=>{}),onChildChanged(path,consume,()=>{})];return()=>off.forEach(fn=>fn());},
+    validate:async invitation=>{
+      if(uid!==watchingUid||generation!==roomInviteWatchGeneration||!/^[0-9]{4}$/.test(String(invitation?.roomCode||"")))return false;
+      const [host,epoch]=await Promise.all(["hostId","createdAt"].map(key=>get(ref(db,`rooms/${invitation.roomCode}/${key}`))));
+      return uid===watchingUid&&generation===roomInviteWatchGeneration&&host.val()===invitation.hostId&&Number(epoch.val())===Number(invitation.roomCreatedAt);
+    },
+    onInvite:(id,invitation)=>{if(uid===watchingUid&&generation===roomInviteWatchGeneration)renderRoomInvite(id,invitation);}
+  });
   const showInviteSnapshot=async snapshot=>{
     if(uid!==watchingUid||generation!==roomInviteWatchGeneration)return;
     const invitation=snapshot.val();
     restoreSeenRoomInvites();
-    if(!invitation||!/^[0-9]{4}$/.test(String(invitation.roomCode||""))||!invitation.hostId||seenRoomInvites.has(snapshot.key))return;
+    if(!invitation||now()-Number(invitation.createdAt)>300000||Number(invitation.createdAt)>now()+10000||!/^[0-9]{4}$/.test(String(invitation.roomCode||""))||!invitation.hostId||seenRoomInvites.has(snapshot.key))return;
     const targetUid=uid,inviteId=snapshot.key,roomCode=String(invitation.roomCode);
     try{
       const [host,created,phase]=await Promise.all(["hostId","createdAt","game/phase"].map(path=>get(ref(db,`rooms/${roomCode}/${path}`))));
@@ -10361,7 +10399,7 @@ function startRoomInviteWatch(){
         return;
       }
       invitation.phase=room.game?.phase||invitation.phase;
-    }catch(error){console.warn("招待先の部屋を確認できませんでした",error);return;}
+    }catch(error){console.warn("招待先の部屋の再確認は参加時に行います",error);}
     renderRoomInvite(inviteId,invitation);
   };
   roomInviteWatch=[
@@ -10646,7 +10684,7 @@ async function reconnectPreviousRoom({preserveOnFailure=false}={}) {
         const online = Object.values(room.players || {}).filter(p => p.online).length;
         const alreadyInRoom = !!room.players?.[uid];
         const activeGameState=room.game?.players?.[uid];
-        const canResumeMatch=room.game?.phase!=="lobby"&&!!activeGameState&&!activeGameState.disconnected;
+        const canResumeMatch=room.game?.phase!=="lobby"&&!!activeGameState;
         if ((!alreadyInRoom || !room.players?.[uid]?.online) && !canResumeMatch &&
              (room.game?.phase !== "lobby" || online >= 20)) {
           throw new Error("前回の部屋には再接続できません");
@@ -11323,7 +11361,7 @@ hostBusy = true;
         };
         const ticketsFor=roles=>roles.flatMap(role=>Array.from({length:roleCounts[role.id]||0},()=>role.id));
         const nonImpostorRoles=ROLE_OPTIONS.filter(role=>role.id!=="lovers"&&(role.side==="neutral"||["crew","angel"].includes(role.side)||role.id==="madmate"));
-        const impostorRoles=ROLE_OPTIONS.filter(role=>role.side==="impostor"&&role.id!=="madmate");
+        const impostorRoles=ROLE_OPTIONS.filter(role=>role.side==="impostor"&&role.id!=="madmate"&&role.id!=="mirage");
         const nonImpostorTickets=ticketsFor(nonImpostorRoles),impostorTickets=ticketsFor(impostorRoles);
         for(let n=0;n<(roleCounts.mini||0);n++)(Math.random()<2/3?nonImpostorTickets:impostorTickets).push("mini");
         const nonImpostors=ids.filter(id=>!impostorIds.has(id));
@@ -13029,6 +13067,13 @@ function ssxControlAction(){
   return false;
 }
 function ssxControlUpdate(phase,me,ready){
+  if(isMirage(me)&&me.alive===false){
+    show("rocketLaunchBtn",false);show("modRoleStatus",false);show("necromancerCompass",false);
+    const button=$("abilityBtn");button.dataset.exhausted="false";button.removeAttribute("aria-description");const mark=button.querySelector(".abilityExhaustedMark");if(mark)mark.hidden=true;
+    $("abilityCaption").textContent="死体を作成";
+    button.disabled=phase!=="play"||!connected||me.disconnected||me.observer||now()<Math.max(Number(game.playStartsAt)||0,Number(game.countdownEndsAt)||0)||killActionsLocked()||!mirageBodyCandidates(game).length||(roleBehaviorValue(game.settings,"mirageLimitUse")&&Number(me.mirageUses||0)>=roleBehaviorValue(game.settings,"mirageLimitCount"));
+    return;
+  }
   const rocketBtn=$("rocketLaunchBtn"),status=$("modRoleStatus"),compass=$("necromancerCompass"),captives=ssxControlCaptives();
   const isRocket=me?.subrole==="rocket",canLaunch=isRocket&&phase==="play"&&me?.alive&&!me?.disconnected&&!me?.observer&&captives.length>0;
   show("rocketLaunchBtn",canLaunch);rocketBtn.disabled=!canLaunch||!!me?.rocketLaunchPending;rocketBtn.setAttribute("aria-label",`捕獲した${captives.length}人をロケットで発射`);$("rocketLaunchCaption").textContent=me?.rocketLaunchPending?"発射中":`発射 ${captives.length}人`;
@@ -13056,7 +13101,7 @@ function ssxControlUpdate(phase,me,ready){
     if(me.arsonistDouse){$("abilityBtn").disabled=true;$("abilityCaption").textContent="塗布中";}
     else{if(!all&&!nearby)$("abilityBtn").disabled=true;if(Number(me.abilityReadyAt||0)<=now())$("abilityCaption").textContent=all?"点火":"塗布";}
   }
-  if(me?.subrole==="matryoshka"&&!ssxMatryCanUse||me?.subrole==="triggerHappy"&&!ssxHappyCanUse||me?.subrole==="mirage"&&me.alive===false&&!ssxMirageCanUse)$("abilityBtn").disabled=true;
+  if(me?.subrole==="matryoshka"&&!ssxMatryCanUse||me?.subrole==="triggerHappy"&&!ssxHappyCanUse||isMirage(me)&&me.alive===false&&!ssxMirageCanUse)$("abilityBtn").disabled=true;
   const proximityRole=["rocket","necromancer","revenant","penguin","samurai","suicideBomber","santa","chief"].includes(me?.subrole),target=proximityRole?ssxControlNearestTarget(me.subrole):null;
   if(proximityRole){
     const heldPenguin=me?.subrole==="penguin"&&!!me.penguinTargetId;
@@ -13085,7 +13130,7 @@ function ssxOpenPhotoGallery(){
 }
 function useRoleAbility(){
   const impostorRole=self();
-  if(impostorRole?.subrole==="mirage"&&impostorRole.alive===false){sendCommand("ability",{ability:"mirage"});return;}
+  if(isMirage(impostorRole)&&impostorRole.alive===false){sendCommand("ability",{ability:"mirage"});return;}
   if(impostorRole?.subrole==="matryoshka"&&impostorRole.alive){sendCommand("ability",{ability:"matryoshka"});return;}
   if(impostorRole?.subrole==="triggerHappy"&&impostorRole.alive){sendCommand("ability",{ability:"triggerHappy",yaw:currentTriggerHappyYaw()});return;}
   if(impostorRole?.subrole==="conjurer"&&impostorRole.alive){sendCommand("ability",{ability:"conjurer"});return;}
@@ -13338,7 +13383,7 @@ function useRoleAbility(){
       if(settings.guesserNoFirstMeeting&&Number(game.meetingCount||0)<=1)return "最初の会議では役職を推理できません。";
       if(settings.guesserRequireDead&&!Object.values(game.players||{}).some(person=>!person.observer&&!person.alive&&!person.disconnected))return "死亡者がいる会議でのみ推理できます。";
       if(!addedGuessRoleId(p))return "追加役職がないプレイヤーは役職推理の対象になりません。";
-      if(settings.guesserCannotShootStar&&p.subrole==="star"&&Number(game.meetingCount||0)<=clamp(Number(settings.guesserStarExcludedMeetings)||3,1,15))return "スターは設定された会議数のあいだ推理対象にできません。";
+      if((self()?.subrole==="evilGuesser"?roleBehaviorValue(settings,"evilGuesserCannotShootStar"):settings.guesserCannotShootStar)&&p.subrole==="star"&&Number(game.meetingCount||0)<=clamp(Number(settings.guesserStarExcludedMeetings)||3,1,15))return "スターは設定された会議数のあいだ推理対象にできません。";
       return "";
     }
     function syncGuesserSelectionVisual(){
@@ -14179,7 +14224,7 @@ function recordDeath(g,victimId,killerId,location,options={}){
   victim.alive=false;victim.deathCause=deathCause;victim.killedBy=deathCause==="sheriffMisfire"?"シェリフの誤射（自爆）":killer?.name||"不明";victim.killedByName=killer?.name||"不明";victim.killedByRole=killer?roleNameFor(killer):"";victim.killedById=killerId||"";victim.deathAt=now();
   if(victim.subrole==="star")victim.starDeathMeetingCount=Number(g.meetingCount||0)+(g.phase==="meeting"?0:1);
   delete victim.vampireDeathAt;delete victim.vampireBiteBy;
-  (g.bodies||={})[victimId]={name:victim.name,hue:victim.hue,x:location.x,z:location.z,killerId:killerId||"",witnesses:bodyWitnesses,
+  (g.bodies||={})[victimId]={name:victim.name,hue:victim.hue,costume:victim.costume||"standard",x:location.x,z:location.z,killerId:killerId||"",witnesses:bodyWitnesses,
     dissolveAt:killer?.subrole==="viper"?now()+clamp(Number(g.settings?.viperSeconds)||15,5,60)*1000:0};
   markSoul(g,victimId,location);
   if(options.vampireBite){
@@ -14202,6 +14247,13 @@ function recordDeath(g,victimId,killerId,location,options={}){
   const partner=Object.entries(g.players||{}).find(([id,p])=>id!==victimId&&victim.loverPairId&&p.loverPairId===victim.loverPairId&&p.alive);
   if(partner){const [partnerId,partnerState]=partner,partnerLoc=partnerState.bot?partnerState:players[partnerId]||partnerState;recordDeath(g,partnerId,victimId,{x:Number(partnerLoc.x)||0,z:Number(partnerLoc.z)||0},{moveKiller:false,cause:"loverFollow"});}
   return true;
+}
+function grantMirageGhosts(g){
+  const roster=Object.values(g.players||{}),quota=Math.max(0,Math.trunc(Number(g.settings?.roles?.mirage)||0));
+  let remaining=quota-roster.filter(isMirage).length,changed=false;
+  const dead=roster.filter(p=>p.role==="impostor"&&p.alive===false&&!p.observer&&!p.disconnected&&!isMirage(p));
+  while(remaining>0&&dead.length){const index=randomInt(dead.length),[p]=dead.splice(index,1);p.mirage=true;p.mirageGrantedAt=now();remaining--;changed=true;}
+  return changed;
 }
 function assignGhostRole(g,victim){
   if(victim?.role!=="crew")return;
@@ -14383,8 +14435,24 @@ function runBots(g) {
     const d=distance(bot,waypoint),step=Math.min(d,SPEED*.65*dt);
     if(d<.18){brain.path.shift();continue;}
     const nx=bot.x+(waypoint.x-bot.x)/d*step,nz=bot.z+(waypoint.z-bot.z)/d*step;
-    if(!bot.alive||!collision(nx,nz)){bot.x=nx;bot.z=nz;moved[id]={x:nx,z:nz,updatedAt:stamp};}
-    else {brain.path=[];brain.nextPlan=stamp+600;}
+    let bx=nx,bz=nz;
+    if(bot.alive){
+      for(const [otherId,other]of Object.entries(g.players||{})){
+        if(otherId===id||!other.alive||other.ventId||other.observer||other.disconnected)continue;
+        const at=other.bot?other:players[otherId];if(!at)continue;
+        let dx=bx-Number(at.x),dz=bz-Number(at.z),gap=Math.hypot(dx,dz);if(!Number.isFinite(gap)||gap>=.72)continue;
+        if(gap<.001){const a=id.localeCompare(otherId)<0?0:Math.PI;dx=Math.cos(a);dz=Math.sin(a);gap=1;}
+        const push=Math.min(.10,(.72-Math.min(.72,gap))*.32+.015),sx=bx+dx/gap*push,sz=bz+dz/gap*push;
+        if(!collision(sx,sz)){bx=sx;bz=sz;}
+      }
+    }
+    if(!bot.alive||!collision(bx,bz)){bot.x=bx;bot.z=bz;moved[id]={x:bx,z:bz,updatedAt:stamp};brain.stuckSince=0;}
+    else {
+      if(!collision(nx,bot.z))bot.x=nx;else if(!collision(bot.x,nz))bot.z=nz;
+      moved[id]={x:bot.x,z:bot.z,updatedAt:stamp};brain.path=[];brain.nextPlan=stamp+120;
+      brain.stuckSince||=stamp;
+      if(stamp-brain.stuckSince>1500){brain.target=null;brain.task="";brain.lastTask=task?.id||brain.lastTask;brain.stuckSince=0;brain.working=stamp+1200;}
+    }
   }
   return {dirty,moved};
 }
@@ -14707,22 +14775,23 @@ function maybeAddBotMeetingChat(g){
             dirty=true;
           }
           if(p.sageShieldUntil&&p.sageShieldUntil<=now()){delete p.sageShieldUntil;dirty=true;}
+          if(p.disconnected&&!p.bot&&players[id]?.online===true){p.disconnected=false;delete p.disconnectAt;missingSince.delete(id);dirty=true;}
           if (p.disconnected || p.bot) continue;
 
 if (!players[id]?.online) {
             const rosterUpdatedAt=Number(players[id]?.updatedAt);
             if (!missingSince.has(id)) missingSince.set(id,Number.isFinite(rosterUpdatedAt)?rosterUpdatedAt:now());
-            const grace=players[id]?.disconnectMode==="temporary"?PLAYER_RECONNECT_GRACE_MS:OFFLINE_PLAYER_ROW_RETENTION_MS;
+            const grace=["play","meeting","results"].includes(g.phase)?15000:players[id]?.disconnectMode==="temporary"?PLAYER_RECONNECT_GRACE_MS:OFFLINE_PLAYER_ROW_RETENTION_MS;
             if (now() - missingSince.get(id) >= grace) {
               const wasAlive=p.alive===true&&!p.observer;
               p.alive = false;
-              p.disconnected = true;
+              p.disconnected = true;p.disconnectAt=now();
               if(wasAlive){p.deathCause="切断による離脱";p.killedBy="切断による離脱";p.deathAt=now();recordDeathAudit(g,id,"","切断による離脱",p.deathAt);appendMeetingDeathNotice(g,id);}
               if(g.phase==="meeting"&&g.meeting){
                 const notices=(g.meeting.disconnectNoticeIds||=[]);
-                if(!notices.includes(id)){notices.push(id);(g.meeting.chat||=[]).push({id:token(),uid:"system",name:"システム",text:`${p.name||"プレイヤー"}：回線落ち`,at:now(),alive:true,system:true});g.meeting.chat=g.meeting.chat.slice(-80);}
+                if(!notices.includes(id)){notices.push(id);(g.meeting.chat||=[]).push({id:token(),uid:"system",name:"システム",text:`${p.name||"プレイヤー"}が退出しました。`,at:now(),alive:true,system:true});g.meeting.chat=g.meeting.chat.slice(-80);}
               }
-              g.notice = `${p.name}が切断により離脱しました。`;
+              g.notice = `${p.name}が退出しました。`;
               dirty = true;
             }
           } else {
@@ -14966,9 +15035,9 @@ commandWork.push({actor,id:commandToken,path:cmd._path});
             (g.processedCommands||={})[actor]=commandToken;dirty=true;continue;
           }
           // OCT10_IMPOSTOR_ABILITY_DISPATCH
-          if(cmd.type==="ability"&&["matryoshka","triggerHappy","conjurer","mirage"].includes(p.subrole)){
+          if(cmd.type==="ability"&&(["matryoshka","triggerHappy","conjurer","mirage"].includes(p.subrole)||isMirage(p))){
             const a=String(cmd.ability||""),live=g.phase==="play"&&now()>=Math.max(Number(g.playStartsAt)||0,Number(g.countdownEndsAt)||0),stamp=now();let why="";
-            const deadMirage=p.subrole==="mirage"&&p.alive===false;
+            const deadMirage=isMirage(p)&&p.alive===false;
             if(p.role!=="impostor")why="インポスター陣営だけが使えます。";
             else if(!live||p.disconnected||p.observer||(!deadMirage&&!p.alive)||!p.bot&&players?.[actor]?.online!==true)why="プレイ中にだけ使えます。";
             else if(!deadMirage&&(Number(p.abilityReadyAt)||0)>stamp&&!(p.subrole==="matryoshka"&&p.matryoshkaUntil>stamp))why=`クールダウン中です（残り${Math.ceil((p.abilityReadyAt-stamp)/1000)}秒）。`;
@@ -14983,7 +15052,7 @@ commandWork.push({actor,id:commandToken,path:cmd._path});
                 kill:(id,at)=>recordDeath(g,id,actor,at,{moveKiller:false,cause:"conjurer"}),
                 emit:(type,data)=>emitModRoleEvent(g,type,actor,data)});
               if(!result.ok)why=result.error;else{if(result.fired)p.abilityEvent=token();setCommandResult(g,actor,cmd,true,result.message);}
-            } else if(p.subrole==="mirage"&&deadMirage&&a==="mirage"){
+            } else if(isMirage(p)&&deadMirage&&a==="mirage"){
               const result=spawnMirageBody({g,p,actor,loc,stamp});if(result.error)why=result.error;else setCommandResult(g,actor,cmd,true,"幽霊の現在地に偽の死体を配置しました。");
             } else if(!why)why="この役職はその能力を使えません。";
             if(why)setCommandResult(g,actor,cmd,false,why);(g.processedCommands||={})[actor]=commandToken;dirty=true;continue;
@@ -15056,7 +15125,7 @@ commandWork.push({actor,id:commandToken,path:cmd._path});
             const validGuess=typeof cmd.roleGuess==="string"&&activeGuessRoles.has(cmd.roleGuess);
             const noDeadRequired=g.settings?.guesserRequireDead&&!Object.values(g.players||{}).some(person=>!person.observer&&!person.alive&&!person.disconnected);
             const blockedCrew=!targetGuessRole;
-            const blockedStar=g.settings?.guesserCannotShootStar&&target?.subrole==="star"&&Number(g.meetingCount||0)<=clamp(Number(g.settings?.guesserStarExcludedMeetings)||3,1,15);
+            const blockedStar=(p.subrole==="evilGuesser"?roleBehaviorValue(g.settings,"evilGuesserCannotShootStar"):g.settings?.guesserCannotShootStar)&&target?.subrole==="star"&&Number(g.meetingCount||0)<=clamp(Number(g.settings?.guesserStarExcludedMeetings)||3,1,15);
             if(!p.alive||!(p.subrole==="guesser"||p.subrole==="evilGuesser")||!meeting||now()>=meeting.endsAt||used>=shots||totalUsed>=totalShots||
                 g.settings?.guesserNoFirstMeeting&&Number(g.meetingCount||0)<=1||noDeadRequired||blockedCrew||blockedStar||
                 !target?.alive||target.observer||target.disconnected||cmd.target===actor||!validGuess)continue;
@@ -15234,7 +15303,7 @@ if (g.phase !== "play") {
             }
             if(cmd.ability==="scientist" && p.subrole==="scientist" && !comms && (p.vitalsUntil||0)<=now() && (Number(p.vitalsCooldownUntil)||0)<=now()){
               const battery=p.vitalsBattery??8;
-              if(battery>0){p.vitalsUntil=now()+battery*1000;p.vitalsBattery=0;p.vitalsCooldownUntil=now()+30000;p.abilityReadyAt=p.vitalsCooldownUntil;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"バイタルを開きました。");}
+              if(battery>0){p.vitalsUntil=now()+battery*1000;p.vitalsBattery=0;p.vitalsCooldownUntil=now()+40000;p.abilityReadyAt=p.vitalsCooldownUntil;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"バイタルを開きました。");}
             }
             if(cmd.ability==="tracker"&&p.subrole==="tracker"&&(p.abilityReadyAt||0)<=now()){
               const target=g.players[cmd.target],targetLoc=players[cmd.target];
@@ -15531,6 +15600,7 @@ if(Object.keys(movedBots).length&&currentSession===session&&isHost()){
             Object.assign(g,lobbyState);dirty=true;
           }
         }
+        if(["play","meeting","results"].includes(g.phase)&&grantMirageGhosts(g))dirty=true;
         if (dirty && currentSession === session && isHost()) {
           const revision=baseRevision;g.revision=revision+1;
           let committed;
@@ -17541,7 +17611,7 @@ function ssxUpdateRoleTransformFx(avatar,id,state,player,ctx){
 const avatars = new Map();
 // Render remote poses a short time behind receipt so irregular network updates
 // can be interpolated without changing the Firebase payload or publish cadence.
-const REMOTE_POSE_BUFFER_LIMIT=6,REMOTE_POSE_SNAP_DISTANCE=4.5;
+const REMOTE_POSE_BUFFER_LIMIT=24,REMOTE_POSE_SNAP_DISTANCE=4.5;
 function captureRemotePose(avatar,player,receivedAt,wallNow){
   const x=Number(player?.x),z=Number(player?.z);
   if(!Number.isFinite(x)||!Number.isFinite(z))return null;
@@ -17579,7 +17649,12 @@ function sampleRemotePose(avatar,renderAt){
   let index=0;
   while(index<samples.length-2&&renderAt>samples[index+1].receivedAt)index++;
   const a=samples[index],b=samples[index+1];
-  if(renderAt>=b.receivedAt)return samples[samples.length-1];
+  if(renderAt>=b.receivedAt){
+    const latest=samples[samples.length-1],previous=samples[samples.length-2],span=Math.max(1,latest.receivedAt-previous.receivedAt),ahead=Math.min(80,Math.max(0,renderAt-latest.receivedAt));
+    if(latest.walking===false)return latest;
+    const vx=(latest.x-previous.x)/span,vz=(latest.z-previous.z)/span,speed=Math.hypot(vx,vz),limit=speed>.018?.018/speed:1;
+    return {...latest,x:latest.x+vx*ahead*limit,z:latest.z+vz*ahead*limit};
+  }
   const span=Math.max(1,b.receivedAt-a.receivedAt),t=clamp((renderAt-a.receivedAt)/span,0,1);
   const yawDelta=Math.atan2(Math.sin(b.yaw-a.yaw),Math.cos(b.yaw-a.yaw));
   return {x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t,
@@ -18012,7 +18087,7 @@ function sampleVentTraversal(transition,stamp,isVented){
       camera=use3D?camera3D:camera2D;
       const ownAvatar=avatars.get(spectator?spectatorTargetId:uid);
       const centerY=rocketCameraTarget?.y??(.82+Math.max(0,Number(ownAvatar?.position.y)||0));
-      if(ownAvatar)ownAvatar.visible=!firstPerson;
+      if(ownAvatar){const ownState=game.players?.[spectator?spectatorTargetId:uid],entering=ownAvatar.userData.ventTransition?.entering&&sampleVentTraversal(ownAvatar.userData.ventTransition,performance.now(),true).visible;if(firstPerson||ownState?.ventId&&!entering)ownAvatar.visible=false;}
       if(use3D){
         const yaw=ownAvatar?.rotation.y||0;
         if(firstPerson){const eyeY=1.5+(Number(ownAvatar?.position.y)||0),stamp=performance.now(),lookDt=touchLookLastAt?Math.min(.1,Math.max(0,(stamp-touchLookLastAt)/1000)):0;touchLookLastAt=stamp;if(touchLookPointer===null){/* Keep the last touch-look direction while idle. */}let bob=0;
@@ -18592,7 +18667,7 @@ function startVoteEjection3D(players,resultId){
           const polygon=document.createElementNS(ns,"polygon");
           polygon.setAttribute("points",region.polygon.map(p=>`${p.x},${p.z}`).join(" "));
           polygon.setAttribute("fill",ROOMS.includes(region)?"#17538a":"#8caabc");
-          polygon.setAttribute("stroke",ROOMS.includes(region)?"#e2f1f7":"#effaff");
+          polygon.setAttribute("stroke",ROOMS.includes(region)?"#e2f1f7":"none");
           polygon.setAttribute("stroke-width",ROOMS.includes(region)?".16":".1");
           svg.appendChild(polygon);
         }
@@ -18950,17 +19025,17 @@ async function handleLobbyKartMessage(data){
   }catch(error){toast('カート操作を同期できませんでした：'+errorText(error));}
 }
 
-// Local movement stays frame-based. Smart light mode uses a 20 Hz direct lane
+// Local movement stays frame-based. Smart light mode uses a 60 Hz direct lane
 // and durable checkpoints; standard and connection recovery use 5 Hz Firebase.
 const POSE_HEARTBEAT_MS=15000;
 function roomPoseUpdateMode(){
   const configured=game.phase==="lobby"
     ?(game.lobbySettings?.matchSettings?.positionUpdateMode||game.lobbySettings?.positionUpdateMode)
     :(game.settings?.positionUpdateMode||game.lobbySettings?.matchSettings?.positionUpdateMode);
-  return configured==="light"?"light":"standard";
+  return configured==="standard"?"standard":"light";
 }
 function roomPoseSendIntervalMs(){return peerPoseNetwork?.canUseDirect()?POSE_CHECKPOINT_MS:POSE_FALLBACK_MS;}
-function remotePoseInterpolationDelayMs(id){return peerPoseNetwork?.context?.scope===roomPoseScope()&&peerPoseNetwork.poseFor(id)?(game.players?.[id]?.bot?180:100):220;}
+function remotePoseInterpolationDelayMs(id){return peerPoseNetwork?.context?.scope===roomPoseScope()&&peerPoseNetwork.poseFor(id)?(game.players?.[id]?.bot?180:50):220;}
 function roomPoseScope(){return [game.round||0,game.phase||"",game.settings?.mapMode||game.lobbySettings?.mapMode||"",game.teleportEvent?.id||""].join(":");}
 function roomPeerPose(id){
   if(id===uid)return peerPoseJoined?{x:position.x,z:position.z,yaw:lobbyFacingYaw,walking:lobbyWalking,lobbyY:lobbyElevation,updatedAt:now()}:null;
@@ -19007,6 +19082,15 @@ function compactPosePatch(next,previous){
   }
   return patch;
 }
+let lastDirectPoseFrameAt=0,lastDirectPosePosition=null;
+function publishDirectRoomPose(fallback){
+  if(!peerPoseJoined||!peerPoseNetwork?.context||!code||!connected||leaving)return;
+  const lobby=isLobbyInteractionActive(),moved=lastDirectPosePosition&&Math.hypot(position.x-lastDirectPosePosition.x,position.z-lastDirectPosePosition.z)>.0005;
+  const next=fallback||{x:position.x,z:position.z,lobbyY:lobby?lobbyElevation:0,yaw:lobbyFacingYaw,walking:lobby?lobbyWalking:!!moved,
+    lobbyKart:lobby&&lobbyKartRiding,lobbyCircuit:lobby&&lobbyCircuitLocation,lobbyVehicle:lobby&&lobbyVehicleSpawned,kartSession,circuitCourse};
+  peerPoseNetwork.publishLocal(next);if(isHost())peerPoseNetwork.publishBots(botPositions);peerPoseNetwork.tick();
+  lastDirectPosePosition={x:position.x,z:position.z};lastDirectPoseFrameAt=performance.now();
+}
 let publishBusy = false;
     setInterval(async () => {
       syncRoomPoseNetwork();
@@ -19023,9 +19107,7 @@ let publishBusy = false;
         lobbyKart:lobbyMode&&lobbyKartRiding,lobbyCircuit:lobbyMode&&lobbyCircuitLocation,
         lobbyVehicle:lobbyMode&&lobbyVehicleSpawned,kartSession,circuitCourse};
       if(peerPoseJoined)players[uid]={...players[uid],...next,updatedAt:now()};
-      peerPoseNetwork?.publishLocal(next);
-      if(isHost())peerPoseNetwork?.publishBots(botPositions);
-      peerPoseNetwork?.tick();
+      if(performance.now()-lastDirectPoseFrameAt>150)publishDirectRoomPose(next);
       if(publishBusy)return;
       const kartChanged=["lobbyKart","lobbyCircuit","lobbyVehicle","kartSession","circuitCourse"].some(key=>next[key]!==previous[key]);
       if (!moved && !yawChanged && !walkingChanged && !heightChanged && !kartChanged && now()-lastSent.at<POSE_HEARTBEAT_MS) return;
@@ -19711,7 +19793,7 @@ if (phase === "ended") {
         !ready || !me?.alive || me?.subrole==="rocket" || !(me.role === "impostor" || me.role === "jackal" || me.subrole === "sheriff") || (!penguinHolding&&(cooldown > 0 || !availableKillTarget));
       const secondCooldown=Math.max(0,Math.ceil(((Number(me?.secondaryReadyAt)||0)-now())/1000)),secondLimit=game.settings?.doubleSecondLimitEnabled!==false&&Number(me?.secondaryKillsUsed||0)>=clamp(Number(game.settings?.doubleSecondMaxUses)||1,1,10);
       show("killSecondBtn",phase==="play"&&!!me?.alive&&me?.subrole==="doubleKiller");
-      $("killSecondBtn").textContent=secondLimit?"回数終了":secondCooldown?`2回目 ${secondCooldown}秒`:"2回目のキル";
+      $("killSecondBtn").textContent=secondLimit?"回数終了":secondCooldown?`能力 ${secondCooldown}秒`:"サブキル";
       $("killSecondBtn").style.setProperty("--cooldown",clamp(secondCooldown/(clamp(Number(game.settings?.doubleSecondCooldown)||45,5,120)),0,1)*360+"deg");
       $("killSecondBtn").disabled=!ready||!me?.alive||me?.subrole!=="doubleKiller"||secondCooldown>0||secondLimit||!killTarget();
 
@@ -19735,13 +19817,13 @@ if (phase === "ended") {
       const waveModeActive=game.settings?.waveMode==="team"||game.settings?.waveMode==="battleRoyale",waveHawkButton=$("waveHawkBtn"),waveHawkActiveUntil=Number(me?.waveHawkUntil)||0,waveHawkReadyAt=Number(me?.waveHawkReadyAt)||0,waveHawkRemaining=Math.max(0,Math.ceil((waveHawkReadyAt-now())/1000)),waveHawkActiveRemaining=Math.max(0,Math.ceil((waveHawkActiveUntil-now())/1000));
       const waveHawkEligible=phase==="play"&&waveModeActive&&!!me?.alive&&!me?.disconnected&&!me?.observer;
       show("waveHawkBtn",waveHawkEligible);waveHawkButton.disabled=!waveHawkEligible||waveHawkActiveUntil>now()||waveHawkRemaining>0;waveHawkButton.textContent=waveHawkActiveUntil>now()?`ホークアイ ${waveHawkActiveRemaining}秒`:waveHawkRemaining>0?`ホークアイまで ${waveHawkRemaining}秒`:"ホークアイ [10秒]";
-      const special=["doorer","santa","chief","jumpDancer","lighter","ubiquitous","rocket","necromancer","revenant","waveCannonJackal","jackalWaveCannon","penguin","samurai","suicideBomber","slugger","teleporter","engineer","scientist","tracker","detective","medic","guardianAngel","phantom","shapeshifter","morphing","camouflager","cleaner","vampire","hawk","niceHawk","waveCannon","sage","matryoshka","triggerHappy","conjurer","mirage","speedBooster","arsonist","vulture","teleportJackal","photographer","lightkeeper","navigator","cupid"].includes(me?.subrole);
+      const special=isMirage(me)&&me.alive===false||["doorer","santa","chief","jumpDancer","lighter","ubiquitous","rocket","necromancer","revenant","waveCannonJackal","jackalWaveCannon","penguin","samurai","suicideBomber","slugger","teleporter","engineer","scientist","tracker","detective","medic","guardianAngel","phantom","shapeshifter","morphing","camouflager","cleaner","vampire","hawk","niceHawk","waveCannon","sage","matryoshka","triggerHappy","conjurer","mirage","speedBooster","arsonist","vulture","teleportJackal","photographer","lightkeeper","navigator","cupid"].includes(me?.subrole);
       const knownRoleHasCorpse=Object.entries(game.bodies||{}).some(([id,body])=>body&&!body.removed&&!body.dissolved&&Number.isFinite(Number(body.x))&&Number.isFinite(Number(body.z))&&game.players?.[id]?.alive===false);
       const knownRoleCupidTargets=Object.entries(game.players||{}).filter(([id,p])=>id!==uid&&p?.alive&&!p.observer&&!p.disconnected&&!(p.loverPairId||p.loverPartnerId)).length;
       const nearbyRoleDoor=me?.subrole==="doorer"?nearestRoleShipDoor(position,game):null;
       const knownRoleActionBlocked=me?.subrole==="doorer"&&!nearbyRoleDoor||me?.subrole==="lightkeeper"&&!(game.sabotage?.type==="lights"&&Number(game.sabotage?.endsAt)>now())||me?.subrole==="navigator"&&!knownRoleHasCorpse||me?.subrole==="cupid"&&(!!me.cupidUsed||knownRoleCupidTargets<2);
-      const available=phase==="play"&&special&&(me?.alive||me?.subrole==="guardianAngel"||me?.subrole==="revenant"&&me?.alive===false&&!!me?.revenantCurseReady||me?.subrole==="mirage"&&me?.alive===false)&&(me?.subrole!=="mirage"||me?.alive===false);
-      show("abilityBtn",available);$("buttons").dataset.impostorNoSpecialAbility=String(phase==="play"&&me?.role==="impostor"&&!available);
+      const available=phase==="play"&&special&&(me?.alive||me?.subrole==="guardianAngel"||me?.subrole==="revenant"&&me?.alive===false&&!!me?.revenantCurseReady||isMirage(me)&&me?.alive===false)&&(me?.subrole!=="mirage"||me?.alive===false);
+      show("abilityBtn",available);$("buttons").dataset.mirageGhost=String(isMirage(me)&&me.alive===false);$("buttons").dataset.impostorNoSpecialAbility=String(phase==="play"&&me?.role==="impostor"&&!available);
       let effectName="",effectUntil=0,effectTotal=0;
       if(phase==="play"&&me?.alive&&!me?.ventId){
         if(me.subrole==="phantom"){effectName="透明化";effectUntil=Number(me.phantomUntil)||0;effectTotal=7000;}
@@ -19756,10 +19838,10 @@ if (phase === "ended") {
       }
       const effectLeft=Math.max(0,effectUntil-now());show("abilityDurationBar",effectLeft>0);
       if(effectLeft>0){$("abilityDurationName").textContent=effectName;$("abilityDurationSeconds").textContent=`残り ${Math.ceil(effectLeft/1000)} 秒`;$("abilityDurationFill").style.width=(clamp(effectLeft/effectTotal,0,1)*100)+"%";$("abilityDurationFill").style.background=me.role==="impostor"?"#ff647c":"#71e4d0";}
-      const specialReadyAt=me?.subrole==="mirage"&&me.alive===false||me?.subrole==="ubiquitous"&&me.drone?.active?0:me?.subrole==="scientist"?Math.max(Number(me?.vitalsCooldownUntil)||0,Number(me?.abilityReadyAt)||0):["santa","chief","jumpDancer","lighter","ubiquitous"].includes(me?.subrole)?me.abilityReadyAt:["waveCannon","waveCannonJackal","jackalWaveCannon"].includes(me?.subrole)?Math.max(Number(me?.waveCannonReadyAt)||0,Number(me?.abilityReadyAt)||0):me?.subrole==="rocket"?me.rocketReadyAt:me?.subrole==="necromancer"?me.necromancerReadyAt:me?.abilityReadyAt;
+      const specialReadyAt=isMirage(me)&&me.alive===false||me?.subrole==="ubiquitous"&&me.drone?.active?0:me?.subrole==="scientist"?Math.max(Number(me?.vitalsCooldownUntil)||0,Number(me?.abilityReadyAt)||0):["santa","chief","jumpDancer","lighter","ubiquitous"].includes(me?.subrole)?me.abilityReadyAt:["waveCannon","waveCannonJackal","jackalWaveCannon"].includes(me?.subrole)?Math.max(Number(me?.waveCannonReadyAt)||0,Number(me?.abilityReadyAt)||0):me?.subrole==="rocket"?me.rocketReadyAt:me?.subrole==="necromancer"?me.necromancerReadyAt:me?.abilityReadyAt;
       const remaining=Math.max(0,Math.ceil(((( ["teleportJackal","teleporter"].includes(me?.subrole)?me.teleportReadyAt:["shapeshifter","morphing"].includes(me?.subrole)?me.shapeshiftReadyAt:specialReadyAt)||0)-now())/1000));
       const actionLockRemaining=Math.max(0,Math.ceil(((Number(me?.meetingActionReadyAt)||0)-now())/1000));
-      const look=roleLook(me);$("abilityBtn").style.setProperty("--role-color",look.color);
+      const look=roleLook(isMirage(me)&&me.alive===false?{...me,subrole:"mirage"}:me);$("abilityBtn").style.setProperty("--role-color",look.color);
       const abilityCooldownSeconds=me?.subrole==="triggerHappy"?Math.max(.001,upgradedRoleCooldownMs("triggerHappy",game.settings)/1000):me?.subrole==="doorer"?Math.max(.001,upgradedRoleCooldownMs("doorer",game.settings)/1000):["waveCannon","waveCannonJackal","jackalWaveCannon"].includes(me?.subrole)?clamp(Number(game.settings?.waveCannonCooldownSeconds)||45,10,120):me?.subrole==="teleporter"?clamp(Number(game.settings?.teleporterCooldownSeconds)||45,10,120):me?.subrole==="cleaner"?clamp(Number(game.settings?.cleanerCooldownSeconds)||20,5,60):me?.subrole==="conjurer"?clamp(Number(game.settings?.conjurerCooldownSeconds)||45,5,120):30;
       $("abilityBtn").style.setProperty("--cooldown",clamp(Math.max(remaining,actionLockRemaining)/abilityCooldownSeconds,0,1)*360+"deg");
       const abilityCaption=me?.subrole==="conjurer"?((me.conjurerMarkers||[]).length===3?"範囲キル":"設置"+((me.conjurerMarkers||[]).length+1)):me?.subrole==="doorer"?(nearbyRoleDoor?(roleDoorShouldOpen(nearbyRoleDoor,game)?"開ける":"閉める"):"扉開閉"):me?.subrole==="ubiquitous"?me?.drone?.active?"ドローン帰還 [F]":"ドローン起動":me?.subrole==="santa"?"プレゼント":me?.subrole==="chief"?"任命":me?.subrole==="jumpDancer"?"一斉ジャンプ":me?.subrole==="lighter"?"ライト点灯":me?.subrole==="penguin"&&me?.penguinTargetId?"確定キル":me?.subrole==="engineer"
@@ -19771,7 +19853,7 @@ if (phase === "ended") {
       $("abilityIcon").textContent=look.icon;$("abilityCaption").textContent=me?.subrole==="penguin"&&me?.penguinTargetId?"確定キル":teleportPending?`あと${teleportDelayLeft}秒`:Math.max(remaining,actionLockRemaining)?Math.max(remaining,actionLockRemaining)+"s":abilityCaption;
       $("abilityBtn").title=["teleportJackal","teleporter"].includes(me?.subrole)?"テレポート可能な生存者を発動待機後に対象地点へ集合させます。会議開始または死亡で中止されます。":"";
       const revenantNeedsTasks=me?.subrole==="revenant"&&me.alive===false&&!me.revenantCurseReady;
-      const abilityReady=ready||(phase==="play"&&me?.subrole==="revenant"&&me.alive===false&&!me.disconnected&&!me.observer)||(phase==="play"&&me?.subrole==="mirage"&&me.alive===false&&!me.disconnected&&!me.observer);
+      const abilityReady=ready||(phase==="play"&&me?.subrole==="revenant"&&me.alive===false&&!me.disconnected&&!me.observer)||(phase==="play"&&isMirage(me)&&me.alive===false&&!me.disconnected&&!me.observer);
       $("abilityBtn").disabled=!abilityReady||me?.disconnected||me?.observer||(Math.max(remaining,actionLockRemaining)>0&&!(me?.subrole==="penguin"&&me?.penguinTargetId)&&!(me?.subrole==="matryoshka"&&Number(me?.matryoshkaUntil)>now()))||teleportPending||revenantNeedsTasks||knownRoleActionBlocked||(me?.subrole==="medic"&&!!me.medicShieldUsed);
       ssxControlUpdate(phase,me,ready);
       if($("abilityTargetSelect").dataset.mode==="vitals"&&!$("abilityTargetSelect").classList.contains("hidden")){
@@ -20027,6 +20109,7 @@ if (reactorGame || taskGame || wireGame || numberTask || uploadTask || fuelTask 
         }
       }
 
+      publishDirectRoomPose();
       const poseReceivedAt=performance.now(),poseWallNow=now(),rocketFlightEvents=new Map(),launchedRocketTargets=new Set();
       for(const event of game.modRoleEvents||[])if(event?.type==="rocket-launch"){
         const fireAt=Number(event.fireAt)||Number(event.startedAt)||Number(event.at)||0,endsAt=Number(event.endsAt)||fireAt+6200;
@@ -20633,7 +20716,8 @@ window.addEventListener("ss-open-nearby-terminal",event=>{if(event.detail==="sec
   function loop(){raf=0;if(!modal.classList.contains("open"))return;if(!active()||!inRoom(securityRoom())){close();return;}if(comms()){$("ssSecurityStatus").textContent="通信妨害中 — 映像信号が遮断されています";ctx.clearRect(0,0,canvas.width,canvas.height);}else{const stamp=performance.now();if(stamp-lastFeedDrawAt>=cameraFeedInterval()){try{draw();recordCameraFeedCost(performance.now()-stamp);}catch(error){console.warn("Camera feed render failed",error);$("ssSecurityStatus").textContent="映像の再接続を待っています";}lastFeedDrawAt=performance.now();}}raf=requestAnimationFrame(loop);}
   function inRoom(room){return !!room&&Math.abs(position.x-room.x)<Math.max(3,(room.w||6)*.72)&&Math.abs(position.z-room.z)<Math.max(3,(room.d||6)*.72);}
   function show(){if(!active()||!inRoom(securityRoom()))return toast("生存中に警備室で使用できます");if(comms())return toast("通信妨害中はカメラを使用できません");lastFocus=document.activeElement;feedScale=1;feedCost=0;feedSizingAt=-Infinity;lastFeedDrawAt=performance.now()-100;window.__ssCameraVoiceVisibleIds=[];window.__ssCameraVoiceView=null;modal.classList.add("open");window.__ssVoiceCameraViewChanged?.();syncCameraPresence();$("ssCameraTabs").children[selected]?.focus();draw();lastFeedDrawAt=performance.now();if(!raf)raf=requestAnimationFrame(loop);}
-  function showVitals(){if(!active()||!inRoom(medicalRoom()))return toast("生存中に医務室で使用できます");if(comms())return toast("通信妨害中はバイタル端末を使用できません");vitalsFocus=document.activeElement;vitalsModal.classList.add("open");updateVitals();$("ssVitalsClose").focus();}
+  let terminalVitalsReadyAt=0,terminalVitalsRound="";
+  function showVitals(){const key=code+":"+game.round;if(terminalVitalsRound!==key){terminalVitalsRound=key;terminalVitalsReadyAt=0;}if(now()<terminalVitalsReadyAt)return toast(`バイタル あと${Math.ceil((terminalVitalsReadyAt-now())/1000)}秒`);if(!active()||!inRoom(medicalRoom()))return toast("生存中に医務室で使用できます");if(comms())return toast("通信妨害中はバイタル端末を使用できません");terminalVitalsReadyAt=now()+40000;vitalsFocus=document.activeElement;vitalsModal.classList.add("open");updateVitals();$("ssVitalsClose").focus();}
   window.__ssOpenSecurity=show;window.__ssOpenVitals=showVitals;openButton.onclick=show;$("ssSecurityClose").onclick=close;medicalButton.onclick=showVitals;$("ssVitalsClose").onclick=closeVitals;
   for(const overlay of [modal,vitalsModal])overlay.addEventListener("click",e=>{if(e.target===overlay)(overlay===modal?close():closeVitals());});document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modal.classList.contains("open")){e.preventDefault();close();}else if(vitalsModal.classList.contains("open")){e.preventDefault();closeVitals();}}});
   window.addEventListener("pagehide",()=>{if(raf)cancelAnimationFrame(raf);raf=0;feedTarget?.dispose();feedTarget=null;});
@@ -21105,7 +21189,7 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
             name: "Airship",
             story: "高高度の調査飛行船。貨物室やアーカイブ、昇降機が離れているため、移動にかかった時間も証言を見極める材料になります。"
         },
-        frost: { name: "フロスト", story: "氷衛星の研究基地。中央ドームから研究区と居住区へ通路が巡り、3系統のベントがつながります。" }
+        frost: { name: "FROST", story: "氷衛星の研究基地。中央ドームから研究区と居住区へ通路が巡り、3系統のベントがつながります。" }
     };
     let experienceState = null;
     let recapStamp = "";
@@ -21509,9 +21593,9 @@ window.addEventListener("keydown",e=>{if(e.key==="Escape"&&run)stop();});setInte
 
   const movePerformance=()=>{
     const panel=document.getElementById("performancePanel");
-    if(panel&&perfMount&&!perfMount.contains(panel))perfMount.append(panel);
+    if(panel&&perfMount&&!perfMount.contains(panel)){perfMount.append(panel);panel.dataset.spaceUiVisible="true";panel.inert=false;panel.removeAttribute("aria-hidden");}
   };
-  if(audio&&audioMount){audioMount.append(audio);audio.classList.add("unifiedAudioPanel");}
+  if(audio&&audioMount){audioMount.append(audio);audio.dataset.spaceUiVisible="true";audio.inert=false;audio.removeAttribute("aria-hidden");audio.classList.add("unifiedAudioPanel");}
   if(audioButton){audioButton.classList.add("hidden");audioButton.setAttribute("aria-hidden","true");audioButton.tabIndex=-1;}
   movePerformance();
   new MutationObserver(movePerformance).observe(document.body,{childList:true,subtree:true});
@@ -23408,6 +23492,8 @@ body:has(#audioSettingsPanel:not(.hidden)) #roundRoles{display:none!important;vi
   body[data-phase="play"] #roundRoleBtn{top:max(4px,calc(env(safe-area-inset-top) + 2px))!important}
 }
 </style>
+<link rel="stylesheet" href="./responsive-game-ui.css">
+<script type="module" src="./game-ui-polish.js"></script>
 </body>
 <!-- PERFORMANCE_RUNTIME_PATCH_V1 -->
 </html>
