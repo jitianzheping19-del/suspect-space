@@ -159,7 +159,7 @@ function createMeetingEjections(api) {
       appearance: actors.map(p => ({scale:p.c.root.scale.clone(),rotation:p.c.root.rotation.clone(),
         emissive:p.c.suit.emissive.clone(),intensity:p.c.suit.emissiveIntensity})),
       deathAt: mode === 'balance' ? 2.1 : mode === 'ufo' ? 5.35 : mode === 'rocket' ? 4.25 : mode === 'beam' ? 2.9 : mode === 'meteor' || mode === 'missile' ? 2.27 : 2.8,
-      cameraFocus: api.orbit.target.clone(),
+      cameraFocus: api.orbit.target.clone(),cameraOffset:camera.position.clone().sub(api.orbit.target),
       finishAt: mode === 'balance' ? 3.7 : mode === 'ufo' ? 5.7 : mode === 'rocket' ? 5.8 : mode === 'beam' ? 4.3 : 4.1};
     api.setBusy(true);api.hideOutcome();
     if (state.isMe) api.voice('start');
@@ -268,11 +268,11 @@ function createMeetingEjections(api) {
           p.c.root.rotation.y = 0;p.c.root.rotation.z = q * (i ? -.25 : .25);
         });
       }
-      if(!state.dead){
-        const centre=actors.reduce((point,p)=>point.add(p.c.root.position),v()).multiplyScalar(1/actors.length).add(v(0,1.1,0));
-        const desired=state.cameraFocus.clone().lerp(centre,ease(clamp((t-.6)/1.1)));
-        const next=api.orbit.target.clone().lerp(desired,1-Math.exp(-8*Math.max(0,dt)));
-        camera.position.add(next.clone().sub(api.orbit.target));api.orbit.target.copy(next);camera.lookAt(next);
+      if(!state.dead)state.followTarget=actors.reduce((point,p)=>point.add(p.c.root.position),v()).multiplyScalar(1/actors.length).add(v(0,1.1,0));
+      if(state.followTarget){
+        const desired=state.cameraFocus.clone().lerp(state.followTarget,ease(clamp((t-.35)/.8)));
+        const next=api.orbit.target.clone().lerp(desired,1-Math.exp(-12*Math.max(0,dt)));
+        camera.position.copy(next).add(state.cameraOffset);api.orbit.target.copy(next);camera.lookAt(next);
       }
       if (t >= state.deathAt) {
         actors.forEach(p => {p.c.root.visible = false;});death(state);
@@ -302,69 +302,24 @@ function createMeetingEjections(api) {
     layoutNames();
   }
   function layoutNames() {
-    // Move existing sprites, preserving the font, texture and size chosen when
-    // the meeting began. Camera rotation must never turn names into a new UI.
+    // All text follows its actor, with fixed screen-space row spacing. Camera
+    // orbits never move one player's name onto a remote actor or the ceiling.
     camera.updateMatrixWorld();
-    const width = innerWidth, height = innerHeight, focal = height / (2 * Math.tan(camera.fov * Math.PI / 360));
-    const occupied = [], seats = api.getSeats().filter(p => p.c.root.visible && p.tag.s.visible);
-    seats.sort((a, b) => camera.position.distanceToSquared(a.c.root.position) - camera.position.distanceToSquared(b.c.root.position));
-    for (const p of seats) {
-      const base = p.c.root.position, moving = p.meetingActorBusy || p.pinned != null;
-      const anchor = v(moving ? base.x : p.x, moving ? base.y + 2.35 : 2.6, moving ? base.z : p.z);
-      const ndc = anchor.clone().project(camera);
-      // Move the real label sprites before the offscreen check. When an actor
-      // leaves with the UFO, its name must leave with it instead of freezing
-      // at the last visible screen position.
-      const depth=-anchor.clone().applyMatrix4(camera.matrixWorldInverse).z;
-      const pixels=focal/Math.max(.1,depth),line=Math.max(14,p.tag.s.scale.y*pixels*.85);
-      // Reset EVERY label from its actor. Previous screen-space overlap offsets
-      // must not accumulate over frames or depend on a camera orbit's angle.
-      for(const [L,dy]of [[p.tag,0],[p.roleTag,p.voted?line*1.8:line],[p.voteCheck,line*.9],[p.voteTally,line*2.8]])if(L){
-        const q=ndc.clone();q.y+=dy*2/height;L.s.position.copy(q.unproject(camera));
-      }
-      if (ndc.z < -1 || ndc.z > 1 || Math.abs(ndc.x) > 1.2 || Math.abs(ndc.y) > 1.2) continue;
-      const labels = [p.tag, p.roleTag, p.voteCheck, p.voteTally].filter(L => L?.s.visible);
-      const screen = ndc.clone();
-      let boxWidth = 0, blockTop = 0, blockBottom = 0;
-      const projectedLabels = labels.map(L => {
-        const depth = -L.s.position.clone().applyMatrix4(camera.matrixWorldInverse).z;
-        const pixels = focal / Math.max(.1, depth);
-        const textWidth = Math.min(1, Math.max(.35, (L.g.measureText(L.text || p.name).width + 20) / L.w));
-        const q = L.s.position.clone().project(camera);
-        const delta = (ndc.y - q.y) * height / 2, h = L.s.scale.y * pixels * .73;
-        boxWidth = Math.max(boxWidth, L.s.scale.x * pixels * textWidth);
-        blockTop = Math.min(blockTop, delta - h / 2);blockBottom = Math.max(blockBottom, delta + h / 2);
-        return {L, q};
-      });
-      const x = (screen.x + 1) * width / 2, y = (1 - screen.y) * height / 2;
-      const box = {left: x - boxWidth / 2 - 3, right: x + boxWidth / 2 + 3, top: y + blockTop - 2, bottom: y + blockBottom + 2};
-      let shift = 0;
-      for (let pass = 0; pass < seats.length; pass++) {
-        let changed = false;
-        for (const other of occupied) if (box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top) {
-          const dy = other.top - box.bottom - 5;box.top += dy;box.bottom += dy;shift += dy;changed = true;
-        }
-        if (!changed) break;
-      }
-      // Keep long-name rows inside the viewport without clipping their actors.
-      if (box.top < 8) {const dy = 8 - box.top;box.top += dy;box.bottom += dy;shift += dy;}
-      occupied.push(box);
-      for (const {L, q} of projectedLabels) {
-        q.y -= shift * 2 / height;L.s.position.copy(q.unproject(camera));
-      }
-      let leader = labelLeaders.get(p.id);
-      if (!leader) {
-        const geometry = new THREE.BufferGeometry().setFromPoints([v(), v()]);
-        leader = new THREE.Line(geometry, new THREE.LineBasicMaterial({color: 0xb6d8e4, transparent: true, opacity: .28, depthWrite: false}));
-        scene.add(leader);labelLeaders.set(p.id, leader);
-      }
-      leader.visible = Math.abs(shift) > 9;
-      if (leader.visible) {
-        const pos = leader.geometry.attributes.position;pos.setXYZ(0, anchor.x, anchor.y - .12, anchor.z);
-        pos.setXYZ(1, p.tag.s.position.x, p.tag.s.position.y - .12, p.tag.s.position.z);pos.needsUpdate = true;
+    const height=Math.max(1,innerHeight),focal=height/(2*Math.tan(camera.fov*Math.PI/360));
+    for(const p of api.getSeats()){
+      if(!p.c.root.visible||!p.tag?.s.visible)continue;
+      const base=p.c.root.position,anchor=v(base.x,base.y+2.2,base.z),ndc=anchor.clone().project(camera);
+      const depth=Math.max(.1,-anchor.clone().applyMatrix4(camera.matrixWorldInverse).z),pixels=focal/depth;
+      if(p.voteCheck)p.voteCheck.s.visible=!!p.voted&&!p.voteTally?.s.visible&&!p.gone;
+      let cursor=Math.max(12,p.tag.s.scale.y*pixels)/2;
+      for(const label of [p.tag,p.roleTag,p.voteCheck,p.voteTally,p.bub]){
+        if(!label?.s.visible)continue;
+        const half=Math.max(12,label.s.scale.y*pixels)/2,dy=label===p.tag?0:cursor+half+4;
+        const q=ndc.clone();q.y+=dy*2/height;label.s.position.copy(q.unproject(camera));
+        cursor=dy+half;
       }
     }
-    for (const [id, leader] of labelLeaders) if (!seats.some(p => p.id === id)) leader.visible = false;
+    for(const leader of labelLeaders.values())leader.visible=false;
   }
   function reset() {
     if (active?.isMe && !active.dead) api.voice('end');
@@ -423,7 +378,7 @@ function mrStartEjection(ids,result,forcedMode){
   html = html.replace(/nameTag\(p\.tag,micTxt\+meetingName,p\.ally\?"#ff526b":\(s\.mic==="speaking"\?"#7dffb0":"#ffffff"\)\);/, 'delete p.tag.fixedFontSize;nameTag(p.tag,micTxt+meetingName,p.ally?"#ff526b":(s.mic==="speaking"?"#7dffb0":"#ffffff"));p.tag.fixedFontSize=p.tag.renderedFontSize||56;');
   html = html.replace(/function updateCrewLabelLayout\(\)\{[\s\S]*?(?=\/\/ Only the beginning of a meeting)/, `function updateCrewLabelLayout(){
  const n=seats.length,nameScale=n<=3?3.2:n<=5?3.0:n<=8?2.8:2.55,roleScale=n<=8?2.1:1.9,fontScale=n<=5?1.7:1.55;
- for(const p of seats){for(const [L,scale] of [[p.tag,nameScale],[p.roleTag,roleScale]])if(L){L.s.scale.set(scale,scale*L.h/L.w,1);L.fontScale=fontScale;delete L.fixedFontSize;nameTag(L,L.text||'',L.color||'#fff');L.fixedFontSize=L.renderedFontSize||56;}}
+ for(const p of seats){for(const [L,scale] of [[p.tag,nameScale],[p.roleTag,roleScale]])if(L){L.s.scale.set(scale,scale*L.h/L.w,1);if(L.fontScale!==fontScale){L.fontScale=fontScale;delete L.fixedFontSize;nameTag(L,L.text||'',L.color||'#fff');L.fixedFontSize=L.renderedFontSize||56;}}}
 }
 `);
   const frameEnd = /(?=\n\}\);\s*<\/script>)/;

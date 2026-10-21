@@ -77,3 +77,22 @@ html body[data-drone-view="true"] #ssDronePad button{height:44px!important;min-h
  html body[data-drone-view="true"] :is(#buttons,#role,#taskProgressHud,#roundRoleBtn,#mapBtn){visibility:hidden!important;pointer-events:none!important}
 }
 html body label:has(> #sluggerMaxHits),html body label:has(> #sluggerMultiHitEnabled),html body label:has(> #sluggerAllowKillDuringCharge){display:none!important}
+
+/* The meeting owns this button, so modal isolation cannot disable it. */
+html body[data-phase="meeting"] #meeting .card>#meetingMapBtn:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;position:fixed!important;right:max(14px,env(safe-area-inset-right))!important;bottom:max(14px,env(safe-area-inset-bottom))!important;z-index:6!important;width:96px!important;min-height:44px!important;padding:7px 12px!important;border:1px solid #8ab9ca!important;border-radius:12px!important;background:#102c40f5!important;color:#f1fbff!important;font-size:16px!important;pointer-events:auto!important}
+html body #lobbyKartStartBtn{position:fixed!important;right:max(14px,env(safe-area-inset-right))!important;bottom:max(126px,calc(env(safe-area-inset-bottom) + 118px))!important;z-index:51!important;min-width:142px!important;min-height:46px!important;border:1px solid #9ce7d6!important;border-radius:12px!important;background:#086e61!important;color:#fff!important;font-weight:850!important;pointer-events:auto!important;touch-action:manipulation!important}
+html body #settingsPlayerMount>h2,html body #inputSettingsDialog [data-settings-section="player"] .settingsRoomPlayersHeading{display:none!important}
+html body[data-phase="lobby"] #lobbyRoster{max-height:calc(100dvh - var(--stick-size,150px) - 44px)!important;overflow:hidden!important}
+html body[data-phase="lobby"] #lobbyRosterList{max-height:calc(100dvh - var(--stick-size,150px) - 94px)!important;overflow-y:auto!important}
+@layer play-action-layout{
+ @media(pointer:coarse) and (min-width:768px) and (min-height:600px){
+  html body[data-phase="lobby"] #controls #buttons>#jumpBtn:not(.hidden){position:fixed!important;left:auto!important;top:auto!important;right:max(18px,env(safe-area-inset-right))!important;bottom:max(18px,env(safe-area-inset-bottom))!important;width:156px!important;min-width:156px!important;max-width:156px!important;height:86px!important;min-height:86px!important;max-height:86px!important;transform:none!important;font-size:24px!important}
+  html body[data-phase="lobby"] #lobbyUseBtn:not(.hidden){right:max(190px,calc(env(safe-area-inset-right) + 174px))!important;bottom:max(18px,env(safe-area-inset-bottom))!important;width:150px!important;min-width:150px!important;max-width:150px!important;height:86px!important;min-height:86px!important;max-height:86px!important;font-size:23px!important}
+ }
+}
+@media(pointer:coarse) and (max-height:540px){
+ html body #lobbyKartStartBtn{bottom:max(154px,calc(env(safe-area-inset-bottom) + 146px))!important;right:max(8px,env(safe-area-inset-right))!important;min-width:124px!important;min-height:36px!important;font-size:13px!important}
+}
+@layer play-action-layout{
+ html body[data-phase="meeting"] #meeting .card>#meetingMapBtn:not(.hidden){display:flex!important}
+}
