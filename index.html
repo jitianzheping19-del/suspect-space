@@ -6162,7 +6162,7 @@ function post3DState(s){const f=meeting3DFrame();if(!meeting3DOn||!f?.contentWin
   const aliveAtStart=new Set(Array.isArray(m.rosterAliveOrder)?m.rosterAliveOrder:[]);
   const startAnimatedDeathIds=Array.isArray(m.startAnimatedDeathIds)?m.startAnimatedDeathIds.map(String):[];
   const seatsList=s.seatsList.map(x=>{const c=cards.get(x.id),isMe=x.id===s.me,death=game.deathRecords?.[x.id]||game.players?.[x.id]?.deathRecord||{};
-    const ownRole=isMe?roleNameFor(selfPlayer):"",ownImpostor=isImpostorTeamPlayer(game.players?.[x.id])&&(isMe||selfPlayer.role==="impostor"||selfPlayer.alive===false||selfPlayer.observer||selfPlayer.subrole==="god");
+    const ownRole=isMe?roleNameFor(selfPlayer):"",ownImpostor=(isMe&&isImpostorTeamPlayer(selfPlayer))||(game.players?.[x.id]?.role==="impostor"&&selfPlayer.role==="impostor")||((selfPlayer.alive===false||selfPlayer.observer||selfPlayer.subrole==="god")&&isImpostorTeamPlayer(game.players?.[x.id]));
     const deathFields={selected:game.phase==="meeting"&&!s.ownVoted&&guesserTargetId===x.id&&!$("guesserPanel")?.classList.contains("hidden"),aliveAtMeetingStart:aliveAtStart.has(String(x.id)),deathAt:Number(death.at||game.players?.[x.id]?.deathRecord?.at)||0,deathMeetingId:String(death.meetingId||""),deathMeetingElimination:!!death.meetingElimination,guessable:(s.guessableIds||[]).includes(String(x.id)),guessColor:Number(s.guessColor)||0x58eaff};
     if(!c)return {...x,...deathFields,...(isMe?{role:ownRole,impostor:ownImpostor}:{})};
     const rb=c.querySelector(".voteRole");
