@@ -50,6 +50,8 @@ jobs:
 
       - name: Keep project documents available on Pages
         run: cp -f ./space-suspect-update-notes-2026-10-20.docx ./CHANGELOG-2026-10-20.md dist/
+      - name: Publish the latest project update notes
+        run: cp -f ./space-suspect-update-notes-2026-10-21.docx ./CHANGELOG-2026-10-21.md dist/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
