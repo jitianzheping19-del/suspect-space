@@ -1,4 +1,12 @@
 /* Shared layout rules applied after the legacy entrypoint styles. */
+/* Tasks own the viewport, including their loading and closing frames. The
+   named layer also outranks older unlayered !important HUD declarations. */
+@layer play-action-layout{
+ html body[data-task-open="true"] :is(#controls,#lobbyUseBtn,#roundRoleBtn,#mapBtn,#titleInputSettingsBtn,#voiceToggleBtn,#audioSettingsBtn,#ghostHud){display:none!important;visibility:hidden!important;pointer-events:none!important}
+ html body[data-task-open="true"] :is(#inputSettingsDialog,#roundRoles,#audioSettingsPanel){visibility:hidden!important;pointer-events:none!important}
+ html body :is(#reactorTask,#numberTask,#uploadTask,#fuelTask,#taskGame,#cardTask,#wireTask,#emergencyTask):not(.hidden),
+ html body #ssTaskTerminalHost.active{position:fixed!important;inset:0!important;z-index:2147483647!important;transform:none!important;isolation:isolate!important;pointer-events:auto!important}
+}
 html body #inputSettingsDialog #performancePanel{position:static!important;inset:auto!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;pointer-events:auto!important}
 html body #inputSettingsDialog #performancePanel .qualityChoices{grid-column:1/-1!important;pointer-events:auto!important}
 html body #inputSettingsDialog #performancePanel button{pointer-events:auto!important;touch-action:manipulation!important}

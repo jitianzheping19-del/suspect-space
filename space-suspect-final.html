@@ -3220,6 +3220,9 @@ import {createFrostTaskRun} from "./frost-task-rules.js";
 import {createFrostTaskMachine,prepareFrostTaskRenderer} from "./frost-task-machine.js";
 import {configureSkeldTask} from "./skeld-tasks.js";
 import {chooseLobbyEntryPoint} from "./lobby-spawn.js";
+import {VampireRouteRecorder,vampireRouteVisible,vampireRouteSegments,vampireRouteDots} from "./vampire-routes.js";
+const vampireRoutes=new VampireRouteRecorder();
+function vampireRoutePose(id,p){return p.bot?p:(typeof roomPeerPose==="function"?roomPeerPose(id):null)||players[id]||p;}
 import {createTaskTerminalDocument} from "./task-terminal-document.js";
     const THREE_VERSION = "0.164.1";
     const THREE_CDN_BASES = [
@@ -6652,6 +6655,14 @@ const INTEGRATED_LOBBY_SRCdoc=EMBEDDED_ASSETS.INTEGRATED_LOBBY_TEMPLATE.replaceA
     lobbyRenderObserver=new MutationObserver(syncLobbyRenderState);lobbyRenderObserver.observe(lobbyRenderFrame,{attributes:true,attributeFilter:["class"]});
     const handleLobbyFrameLoad=()=>{syncLobbyRenderState();safeRenderUI();};lobbyRenderFrame.addEventListener("load",handleLobbyFrameLoad);document.addEventListener("visibilitychange",syncLobbyRenderState);
     window.addEventListener("pagehide",event=>{if(event.persisted)return;taskMachine3D?.dispose();taskMachine3D=null;lobbyRenderObserver?.disconnect();document.removeEventListener("visibilitychange",syncLobbyRenderState);lobbyRenderFrame.removeEventListener("load",handleLobbyFrameLoad);cancelAnimationFrame(frameRequestId);frameScheduled=false;cancelAnimationFrame(pendingUIRenderFrame);clearReactorTimers();for(const timer of taskLifecycleTimers.values())clearTimeout(timer);taskLifecycleTimers.clear();});
+    const taskOverlayIds=["reactorTask","numberTask","uploadTask","fuelTask","taskGame","cardTask","wireTask","emergencyTask"];
+    function syncTaskOverlayState(){
+      const active=!!document.getElementById("ssTaskTerminalHost")?.classList.contains("active")||
+        taskOverlayIds.some(id=>{const node=$(id);return node&&!node.classList.contains("hidden");});
+      const wasActive=document.body.dataset.taskOpen==="true";
+      if(wasActive!==active)document.body.dataset.taskOpen=String(active);
+      if(active&&!wasActive)window.SpaceSuspect?.runtime?.stopGameInputForModal?.();
+    }
     const showTimers = new Map();
     const show = (id, visible) => {
       const element = $(id);
@@ -6677,8 +6688,10 @@ const INTEGRATED_LOBBY_SRCdoc=EMBEDDED_ASSETS.INTEGRATED_LOBBY_TEMPLATE.replaceA
         showTimers.set(id, setTimeout(() => {
           element.classList.add("hidden");
           element.classList.remove("is-leaving");
+          if(taskOverlayIds.includes(id))syncTaskOverlayState();
         }, 210));
       }
+      if(taskOverlayIds.includes(id))syncTaskOverlayState();
     };
     const clone = x => JSON.parse(JSON.stringify(x));
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -6850,7 +6863,7 @@ const SKELD_SPAWN_POINTS=SPAWN_POINTS;
       jackal: ["ジャッカル", "中立陣営。クルーもインポスターもキルできます。インポスター全滅後、ジャッカルが生存クルーと同数以上になると勝利します。最後の生存者になった場合も勝利します。"],
       teleportJackal: ["テレポートジャッカル", "ジャッカル陣営。テレポート能力で生存者全員をランダムな1人の安全な近くへ移動させます。能力使用から10秒後に発動し、クールダウンは30秒です。通常キルも使えます。"],
       morphing: ["モーフィング", "対象をスキャンして姿を記録し、設定時間のあいだそのプレイヤーの姿に変身するインポスターです。"],
-      vampire: ["ヴァンパイア", "通常キルに加えて噛みつき攻撃を使えます。噛まれた相手は設定秒数後に死亡し、血痕は次の会議以降に確認できます。噛みつきと通常キルは同じクールダウンを共有し、噛んだ時点で開始します。"],
+      vampire: ["ヴァンパイア", "通常キルに加えて噛みつき攻撃を使えます。噛まれた相手は設定秒数後に死亡し、噛まれてから死亡するまでの移動経路を保存し、次の会議終了後に赤い点線で表示します。噛みつきと通常キルは同じクールダウンを共有し、噛んだ時点で開始します。"],
       hawk: ["ホーク", "能力中は視界が広がり、遠くのプレイヤーも見えるインポスターです。視界の持続時間とクールダウンを部屋設定で変更できます。"],
       evilGuesser: ["イビルゲッサー", "人狼陣営の役職です。通常キルに加えて、会議中に相手の役職を推理できます。正解すると対象を倒し、外すと自分が倒れます。"],
       waveCannon: ["波動砲", "Three.js製の波動砲を発射するインポスターです。射線上の対象を攻撃し、発射後は設定されたクールダウンが発生します。"],
@@ -13624,9 +13637,9 @@ function beginMeeting(g, reporter, reason) {
       g.phase = "meeting";
       const meetingStartDeaths=[];
       for(const [victimId,victim] of Object.entries(g.players||{}))if(victim.alive&&victim.vampireDeathAt){
-        const killerId=victim.vampireBiteBy||"",location={x:Number(victim.x)||0,z:Number(victim.z)||0};
+        const killerId=victim.vampireBiteBy||"",bitePose=vampireRoutePose(victimId,victim),location={x:Number(bitePose.x)||0,z:Number(bitePose.z)||0};
         delete victim.vampireDeathAt;delete victim.vampireBiteBy;
-        recordDeath(g,victimId,killerId,location,{moveKiller:false,visibleBloodMeeting:g.meetingCount});meetingStartDeaths.push(victimId);
+        recordDeath(g,victimId,killerId,location,{moveKiller:false,vampireBite:true,visibleBloodMeeting:g.meetingCount});meetingStartDeaths.push(victimId);
       }
       g.meeting = {
         id:token(),startedAt,deadAtStart:Object.values(g.players||{}).filter(p=>p&&!p.observer&&!p.alive).length,
@@ -14026,7 +14039,8 @@ function recordDeath(g,victimId,killerId,location,options={}){
   (g.bodies||={})[victimId]={name:victim.name,hue:victim.hue,x:location.x,z:location.z,killerId:killerId||"",witnesses:bodyWitnesses,
     dissolveAt:killer?.subrole==="viper"?now()+clamp(Number(g.settings?.viperSeconds)||15,5,60)*1000:0};
   markSoul(g,victimId,location);
-  if(options.vampireBite){
+  const savedVampireRoute=vampireRoutes.finish(g,victimId,location,now());
+  if(options.vampireBite&&!savedVampireRoute){
     const visibleMeeting=Number(options.visibleBloodMeeting)||((Number(g.meetingCount)||0)+1);
     (g.bloodTrails||={})[victimId]={id:victimId,x:Number(location.x)||0,z:Number(location.z)||0,visibleMeeting,at:now()};
   }
@@ -14436,6 +14450,7 @@ function maybeAddBotMeetingChat(g){
         const baseRevision=Number(g.revision)||0;
         for(const [botId,pose] of Object.entries(botPositions))if(g.players?.[botId]?.bot)g.players[botId]={...g.players[botId],...pose};
         let dirty = updateShipDoorsHost(g,now());
+        if(vampireRoutes.sample(g,vampireRoutePose,now()))dirty=true;
         const modRolePositionCorrectionAt=window.__modRolePositionCorrectionAt||(window.__modRolePositionCorrectionAt=new Map());
         for(const [id,p] of Object.entries(g.players||{}))if(p.rocketCapturedBy||p.penguinGrabbedBy||Number(p.waveStationaryUntil)>now()){
           const cap=p.penguinGrabbedBy||p.rocketCapturedBy||"",captor=g.players?.[cap],captorLoc=captor?.bot?captor:(players[cap]||captor);
@@ -14544,7 +14559,7 @@ function maybeAddBotMeetingChat(g){
           if(p.vampireDeathAt&&(p.observer||!p.alive||p.disconnected)){
             delete p.vampireDeathAt;delete p.vampireBiteBy;dirty=true;
           }else if(p.vampireDeathAt&&(now()>=p.vampireDeathAt||g.phase==="meeting")){
-            const killerId=p.vampireBiteBy||"",loc={x:Number(p.x)||0,z:Number(p.z)||0};
+            const killerId=p.vampireBiteBy||"",bitePose=vampireRoutePose(id,p),loc={x:Number(bitePose.x)||0,z:Number(bitePose.z)||0};
             delete p.vampireDeathAt;delete p.vampireBiteBy;
             if(p.alive)recordDeath(g,id,killerId,loc,{moveKiller:false,vampireBite:true});
             dirty=true;
@@ -14969,7 +14984,7 @@ if (g.phase !== "play") {
             if(victim?.alive&&!victim.observer&&!victim.disconnected&&!victim.ventId&&victim.role!=="impostor"&&targetLoc?.online&&distance(loc,targetLoc)<2.9&&!wallBetween(loc,targetLoc)&&!victim.vampireDeathAt){
               const blocked=!!victim.shielded||(victim.shieldUntil||0)>now()||(victim.sageShieldUntil||0)>now()||victim.subrole==="mini"&&victim.role==="crew"&&Number(victim.miniAge)<18;
               if(blocked)recordDeath(g,cmd.target,actor,targetLoc,{moveKiller:false});
-              else{victim.vampireDeathAt=now()+clamp(Number(g.settings?.biteDelaySeconds)||15,3,60)*1000;victim.vampireBiteBy=actor;}
+              else{const bittenAt=now();victim.vampireDeathAt=bittenAt+clamp(Number(g.settings?.biteDelaySeconds)||15,3,60)*1000;victim.vampireBiteBy=actor;vampireRoutes.begin(g,cmd.target,vampireRoutePose(cmd.target,victim),bittenAt,token());}
               p.readyAt=now()+killCooldownFor(p);p.abilityReadyAt=p.readyAt;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,blocked?"対象のシールドに防がれました。クールダウンが開始します。":"噛みつきました。クールダウンが開始します。");dirty=true;
             }
             continue;
@@ -17489,10 +17504,10 @@ function ssViperCorpseMaterial(color){const uniforms={uT:{value:0},uCrack:{value
     const corpses = new Map();
     const conjurerMarkerMeshes=new Map();
     const seerSoulMeshes=new Map();
-    const bloodTrailMeshes=new Map(),BLOOD_TRAIL_LIMIT=256,bloodTrailDummy=new THREE.Object3D();
-    const bloodTrailGeometry=new THREE.CircleGeometry(.42,18),bloodTrailMaterial=new THREE.MeshBasicMaterial({color:0x7b1425,transparent:true,opacity:.8,depthWrite:false});
+    const BLOOD_TRAIL_LIMIT=16384,bloodTrailDummy=new THREE.Object3D();
+    const bloodTrailGeometry=new THREE.CircleGeometry(.14,10),bloodTrailMaterial=new THREE.MeshBasicMaterial({color:0xff183a,transparent:true,opacity:.94,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
     const bloodTrailInstances=new THREE.InstancedMesh(bloodTrailGeometry,bloodTrailMaterial,BLOOD_TRAIL_LIMIT);bloodTrailInstances.name="blood-trail-instances";bloodTrailInstances.count=0;bloodTrailInstances.frustumCulled=true;scene.add(bloodTrailInstances);
-    let bloodTrailSnapshot=null,bloodTrailMeeting=-1;
+    let bloodTrailSnapshot=null,bloodTrailMeeting="";
     const seerFlashSeenIds=new Set();
     let seerFlashRound=-1,seerFlashTimer=0,waveBeams=new Map();
     let starFlashRound=-1,starFlashSeenId="",starFlashTimer=0;
@@ -18545,9 +18560,18 @@ function startVoteEjection3D(players,resultId){
       if(me.subrole==="seer")for(const [soulId,soul] of Object.entries(game.souls||{})){
         const mark=getMarker(`soul:${soulId}`,"mapMarker mapTask");mark.style.left=px(soul.x);mark.style.top=pz(soul.z);mark.textContent="👻";mark.title=`${soul.name||"プレイヤー"}の魂`;
       }
-      for(const [trailId,trail] of Object.entries(game.bloodTrails||{}))if((Number(game.meetingCount)||0)>=Number(trail.visibleMeeting||Infinity)){
-        const mark=getMarker(`blood:${trailId}`,"mapMarker mapTask");mark.style.left=px(trail.x);mark.style.top=pz(trail.z);mark.textContent="🩸";mark.title="ヴァンパイアの血痕";
-        Object.assign(mark.style,{background:"#691222",border:"2px solid #ff6479",boxShadow:"0 0 12px #ff173f",zIndex:"8"});
+      const routeState=`${game.round}:${game.phase}:${game.meetingCount||0}`;
+      if(svg.__bloodRouteData!==game.bloodTrails||svg.__bloodRouteState!==routeState){
+        svg.__bloodRouteData=game.bloodTrails;svg.__bloodRouteState=routeState;
+        svg.querySelector("[data-blood-routes]")?.remove();
+        const routes=document.createElementNS(ns,"g");routes.setAttribute("data-blood-routes","");
+        for(const trail of Object.values(game.bloodTrails||{}))if(vampireRouteVisible(game,trail)){
+          const path=document.createElementNS(ns,"path"),segments=vampireRouteSegments(trail);
+          path.setAttribute("d",segments.map(points=>points.map((p,i)=>`${i?"L":"M"}${p[0]} ${p[1]}`).join(" ")+(points.length===1?" l.001 0":"")).join(" "));
+          for(const [key,value] of Object.entries({fill:"none",stroke:"#ff183a","stroke-width":".3","stroke-linecap":"round","stroke-linejoin":"round","stroke-dasharray":".01 .55"}))path.setAttribute(key,value);
+          const title=document.createElementNS(ns,"title");title.textContent="ヴァンパイアに噛まれた人の移動経路";path.appendChild(title);routes.appendChild(path);
+        }
+        svg.appendChild(routes);
       }
       if(game.noiseAlert?.until>now()){
         const alert=getMarker("noise","mapMarker mapTask");alert.style.left=px(game.noiseAlert.x);alert.style.top=pz(game.noiseAlert.z);alert.textContent="♪";alert.style.background="#ff9dcd";alert.title="死亡アラート";
@@ -19719,7 +19743,7 @@ $("uiRecoveryRetry")?.addEventListener("click",safeRenderUI);
 function scheduleFrame(){if(frameScheduled||renderContextLost)return;frameScheduled=true;frameRequestId=requestAnimationFrame(frame);}
 
 const reducedMotionQuery=window.matchMedia("(prefers-reduced-motion: reduce)");
-const actionHud3D=createActionHud3D({THREE,renderer,root:$("buttons"),reducedMotion:()=>reducedMotionQuery.matches,isObscured:modalVisible,
+const actionHud3D=createActionHud3D({THREE,renderer,root:$("buttons"),reducedMotion:()=>reducedMotionQuery.matches,isObscured:()=>document.body.dataset.taskOpen==="true"||modalVisible(),
   isActive:()=>game.phase==="play"&&!activeCrewDroneView()&&!isWaitingLobbyForRunningMatch()&&!$("controls").classList.contains("hidden")&&
     document.body.dataset.controlsCountdown!=="true"&&$("roleReveal").classList.contains("hidden")});
 window.addEventListener("pagehide",event=>{if(!event.persisted)actionHud3D.dispose();});
@@ -19783,11 +19807,16 @@ function frame(time) {
         if(!marker){marker=new THREE.Group();const orb=new THREE.Mesh(new THREE.SphereGeometry(.28,12,10),new THREE.MeshBasicMaterial({color:0x78caff,transparent:true,opacity:.76}));const ring=new THREE.Mesh(new THREE.TorusGeometry(.42,.045,6,20),new THREE.MeshBasicMaterial({color:0xbceaff,transparent:true,opacity:.82}));ring.rotation.x=Math.PI/2;marker.add(orb,ring);scene.add(marker);seerSoulMeshes.set(soulId,marker);}
         marker.position.set(Number(soul.x)||0,.9+(reducedMotionQuery.matches?0:Math.sin(time*.004+String(soulId).length)*.13),Number(soul.z)||0);
       }
-      const visibleTrails=game.meetingCount||0,bloodTrailData=game.bloodTrails||{};
+      const visibleTrails=`${game.phase}:${game.meetingCount||0}`,bloodTrailData=game.bloodTrails||{};
+      bloodTrailInstances.visible=game.phase==="play";
       if(bloodTrailData!==bloodTrailSnapshot||visibleTrails!==bloodTrailMeeting){
-        bloodTrailSnapshot=bloodTrailData;bloodTrailMeeting=visibleTrails;bloodTrailMeshes.clear();let instance=0;
-        for(const [trailId,trail] of Object.entries(bloodTrailData))if(visibleTrails>=Number(trail.visibleMeeting||Infinity)){
-          if(instance>=BLOOD_TRAIL_LIMIT)break;bloodTrailDummy.position.set(Number(trail.x)||0,.035,Number(trail.z)||0);bloodTrailDummy.rotation.set(-Math.PI/2,0,0);bloodTrailDummy.scale.set(1,1,1);bloodTrailDummy.updateMatrix();bloodTrailInstances.setMatrixAt(instance,bloodTrailDummy.matrix);bloodTrailMeshes.set(trailId,instance++);
+        bloodTrailSnapshot=bloodTrailData;bloodTrailMeeting=visibleTrails;let instance=0;
+        for(const trail of Object.values(bloodTrailData))if(vampireRouteVisible(game,trail)){
+          for(const dot of vampireRouteDots(trail)){
+            if(instance>=BLOOD_TRAIL_LIMIT)break;
+            bloodTrailDummy.position.set(dot[0],.045,dot[1]);bloodTrailDummy.rotation.set(-Math.PI/2,0,0);bloodTrailDummy.scale.set(1,1,1);bloodTrailDummy.updateMatrix();bloodTrailInstances.setMatrixAt(instance++,bloodTrailDummy.matrix);
+          }
+          if(instance>=BLOOD_TRAIL_LIMIT)break;
         }
         bloodTrailInstances.count=instance;if(instance){bloodTrailInstances.instanceMatrix.needsUpdate=true;bloodTrailInstances.computeBoundingSphere();}
       }
@@ -20586,7 +20615,7 @@ function stillValid(){
 function stop(){
  clearTimeout(loadTimer);loadTimer=0;
  if(run)frame.contentWindow?.postMessage({type:"ss-task-terminal-close",id:run.id},"*");
- run=null;host.classList.remove("active");document.body.classList.remove("ss-task-terminal-open");
+ run=null;host.classList.remove("active");document.body.classList.remove("ss-task-terminal-open");syncTaskOverlayState();
 }
 function ensureTerminal(){
  if(terminalReady||terminalLoading)return;
@@ -20626,7 +20655,7 @@ window.__ssOpenTaskTerminal=station=>{
  if(!canPlay()||me?.disconnected||me?.observer||!roleCanDoTasks(me,game.settings)||
    !(me.assignedTasks||TASKS.slice(0,6).map(t=>t.id)).includes(station.id)||me.tasks?.[station.id]||distance(position,station)>2.3)return;
  run={id:"task-"+(++serial)+"-"+Date.now(),room:code,round:game.round,station,index:ixFor(station),ready:false,aliveAtOpen:me.alive===true,hue:(Number(me.hue)||180)/360};
- host.classList.add("active");document.body.classList.add("ss-task-terminal-open");
+ host.classList.remove("hidden");host.classList.add("active");document.body.classList.add("ss-task-terminal-open");syncTaskOverlayState();
  ensureTerminal();if(terminalReady)sendOpen();
  loadTimer=setTimeout(()=>{
    if(!run||run.ready)return;if(!stillValid()){stop();return;}
@@ -20666,7 +20695,7 @@ setInterval(()=>{
       abilityTargetSelect: '#abilityTargetClose', profileSettings: '#profileCloseBtn', lobby: '#lobbyCloseBtn',
       leaveConfirm: '#leaveConfirmCancel', guesserPanel: '#guesserClose', reactorTask: '#reactorCloseBtn',
       numberTask: '#numberCloseBtn', uploadTask: '#uploadCloseBtn', fuelTask: '#fuelCloseBtn',
-      taskGame: '#taskGameCloseBtn', cardTask: '#cardCloseBtn', wireTask: '#wireCloseBtn',
+      taskGame: '#taskGameCloseBtn', cardTask: '#cardCloseBtn', wireTask: '#wireCloseBtn', ssTaskTerminalHost: '#ssTaskTerminalClose',
       roundRoles: '#roundRolesClose', emergencyTask: '#emergencyCloseBtn', costumeStudio: '#costumeDone',
       roleMonitorModal: '#roleMonitorClose', ssxPractice: '[data-ssx-close-practice]', ssxTutorial: '[data-ssx-close-tutorial]',
       inputSettingsDialog: '#inputSettingsClose', matchRecap: '#matchRecapClose',
@@ -21940,7 +21969,7 @@ new MutationObserver(sched).observe(document.body,{subtree:true,attributes:true,
 setInterval(check,500);
 })();
 </script>
-<style id="ghostHudFitStyle">#ghostHudList{--n:1;justify-content:stretch}#ghostHudList .ghostTarget{flex:1 1 0;min-width:min(88px,calc(100% / var(--n)));max-width:calc(100% / var(--n) * 1.6);overflow:hidden}#ghostHudList .ghostTarget>span,#ghostHudList .ghostTarget>small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#ghostHudList .ghostTarget{font-size:clamp(10px,calc(12px + (6 - var(--n)) * .4px),14px)}</style><style id="costumePaletteStyle">#costumeColorPalette.collapsed{display:none}#costumeColorToggle{width:36px;height:36px;border-radius:10px;border:2px solid #ffffffcc;cursor:pointer;padding:0;box-shadow:0 2px 8px #0006}@media(max-width:700px){#costumeColorToggle{width:34px;height:34px}}@media(max-width:380px){#costumeColorToggle{width:30px;height:30px}}</style><div id="ssTaskTerminalHost" aria-label="タスク端末"><iframe id="ssTaskTerminalFrame" title="タスク端末"></iframe><button id="ssTaskTerminalClose" type="button" aria-label="タスクを閉じる">閉じる</button></div>
+<style id="ghostHudFitStyle">#ghostHudList{--n:1;justify-content:stretch}#ghostHudList .ghostTarget{flex:1 1 0;min-width:min(88px,calc(100% / var(--n)));max-width:calc(100% / var(--n) * 1.6);overflow:hidden}#ghostHudList .ghostTarget>span,#ghostHudList .ghostTarget>small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#ghostHudList .ghostTarget{font-size:clamp(10px,calc(12px + (6 - var(--n)) * .4px),14px)}</style><style id="costumePaletteStyle">#costumeColorPalette.collapsed{display:none}#costumeColorToggle{width:36px;height:36px;border-radius:10px;border:2px solid #ffffffcc;cursor:pointer;padding:0;box-shadow:0 2px 8px #0006}@media(max-width:700px){#costumeColorToggle{width:34px;height:34px}}@media(max-width:380px){#costumeColorToggle{width:30px;height:30px}}</style><div id="ssTaskTerminalHost" aria-label="タスク端末" aria-modal="true" role="dialog"><iframe id="ssTaskTerminalFrame" title="タスク端末"></iframe><button id="ssTaskTerminalClose" type="button" aria-label="タスクを閉じる">閉じる</button></div>
 <style id="meetingRemainingWolfFadeStyle">#eject3DStage .remainingWolfLine{position:absolute;z-index:5;top:12px;left:50%;transform:translateX(-50%);max-width:94%;padding:7px 14px;border:1px solid #f4c76a88;border-radius:999px;background:#07111eea;color:#ffe39b;font-size:clamp(17px,2.8vw,27px);font-weight:900;line-height:1.2;text-align:center;text-shadow:0 2px 8px #000;white-space:nowrap;pointer-events:none;opacity:0;animation:meetingRemainingWolfFade .7s ease-out 1.8s both}@keyframes meetingRemainingWolfFade{from{opacity:0;transform:translate(-50%,7px)}to{opacity:1;transform:translate(-50%,0)}}</style><style id="chatLineStyle">#chatMessages .chatBubble{display:block;width:fit-content;max-width:78%;margin-right:auto;margin-left:0}#chatMessages .chatBubble.mine{margin-left:auto;margin-right:0;background:#3a7bd5;color:#fff}</style><style id="chatLineBubbleStyle">#chatMessages .chatLine{display:flex;align-items:flex-end;gap:6px;margin:6px 0}#chatMessages .chatLine.mine{flex-direction:row-reverse}#chatMessages .chatLine.mine>.chatAvatar{display:none}#chatMessages .chatBubble{display:block;width:fit-content;max-width:72%;padding:8px 12px;border-radius:18px;background:#ffffff1f;color:#eef6ff;word-break:break-word}#chatMessages .chatBubble.mine{background:#3a7bd5;color:#fff;border-bottom-right-radius:4px}#chatMessages .chatLine:not(.mine) .chatBubble{border-bottom-left-radius:4px}#chatMessages .chatDeliveryStatus[data-state="sent"]{display:none}</style><style id="voteLightStyle">@keyframes voteLight{0%{box-shadow:0 0 0 0 var(--tokc,#ffffff)}35%{box-shadow:0 0 22px 9px var(--tokc,#ffffff);filter:brightness(1.8)}100%{box-shadow:0 0 8px 2px var(--tokc,#ffffff);filter:none}}.voteToken{animation:voteStamp .3s both,voteLight 1.4s ease-out .3s both}</style><style id="meeting3DOnlyStyle">#meeting .card>*:not(#meeting3D):not(#meetingStatusBar){display:none!important}#meeting3DBtn{display:none!important}#meeting3D.hidden{display:block!important}#meeting3D{display:block!important;width:100%!important;height:100dvh!important;border-radius:0!important}</style>
 
 <script id="SS_MEETING_ROLES_REVISION_JS">
