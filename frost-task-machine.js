@@ -1,17 +1,35 @@
 import * as THREE from 'three';
 import { taskInstructions, circuitPorts, tubeClips, antennaBases, signalSource, starPoints, frostPixels, crackPoints, clamp, angleDelta } from './frost-task-rules.js';
 
-// One renderer per open terminal, shared mechanical materials and controls.
+// Retain one idle WebGL context between terminals. Task state, listeners and
+// scene resources are still discarded on close; no hidden render loop remains.
+let idleTaskRenderer = null;
+export function prepareFrostTaskRenderer() {
+  if (idleTaskRenderer?.getContext().isContextLost()) {
+    idleTaskRenderer.dispose(); idleTaskRenderer = null;
+  }
+  if (!idleTaskRenderer) {
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    idleTaskRenderer = renderer;
+  }
+  return idleTaskRenderer;
+}
+if (typeof window !== 'undefined') window.addEventListener('pagehide', (event) => {
+  if (event.persisted) return;
+  idleTaskRenderer?.dispose(); idleTaskRenderer?.forceContextLoss(); idleTaskRenderer = null;
+});
+
 // Each task builds its own mechanism; the simulation remains in the run object.
 export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {}) {
   const s = run.state, mode = s.mode;
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-5.4, 5.4, 2.65, -2.65, .1, 50);
   camera.position.set(0, .4, 16); camera.lookAt(0, 0, 0);
-  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+  const renderer = prepareFrostTaskRenderer(); idleTaskRenderer = null;
   const canvas = renderer.domElement;
   canvas.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;user-select:none;outline:none';
   canvas.tabIndex = 0; canvas.setAttribute('role', 'application');
@@ -455,7 +473,10 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     for (const [name, fn] of handlers) canvas.removeEventListener(name, fn);
     document.removeEventListener('visibilitychange', pause);
     for (const g of geometries) g.dispose(); for (const m of materials) m.dispose(); for (const t of textures) t.dispose();
-    renderer.dispose(); renderer.forceContextLoss(); canvas.remove();
+    renderer.setRenderTarget(null); renderer.clear(); renderer.renderLists.dispose(); canvas.remove();
+    if (renderer.getContext().isContextLost() || idleTaskRenderer) {
+      renderer.dispose(); renderer.forceContextLoss();
+    } else idleTaskRenderer = renderer;
   }
   resize(); update(0); renderer.render(scene, camera); raf = requestAnimationFrame(tick);
   return { canvas, scene, camera, renderer, controls, run, dispose };
