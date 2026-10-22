@@ -9,7 +9,8 @@ function loadTaskRuntime() {
     import('three/addons/postprocessing/UnrealBloomPass.js'),
     import('three/addons/postprocessing/OutputPass.js'),
   ]).then(([{EffectComposer}, {RenderPass}, {UnrealBloomPass}, {OutputPass}]) =>
-    Object.freeze({THREE, EffectComposer, RenderPass, UnrealBloomPass, OutputPass})
+    // WebGL checks typed arrays in the renderer realm; srcdoc owns a different one.
+    Object.freeze({THREE, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, Float32Array})
   ).catch(error => { runtimePromise = null; throw error; });
   return runtimePromise;
 }
@@ -26,7 +27,7 @@ const TASK_TERMINAL_DOCUMENT = [
   "<div id=\"flash\"></div><div id=\"title\"><b id=\"taskTitle\">タスク端末</b><span id=\"taskHint\">端末を起動しています</span></div><div id=\"caption\"></div>",
   "<div id=\"bar\"><label id=\"hint\" style=\"min-width:200px\">端末を操作してください</label><button id=\"cancel\">閉じる</button></div>",
   "<script type=\"module\">",
-  "const {THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass}=parent.__ssTaskTerminalRuntime;",
+  "const {THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,Float32Array}=parent.__ssTaskTerminalRuntime;",
   "const $=id=>document.getElementById(id);",
   "const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t;",
   "const E={lin:t=>t,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,io:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,",
@@ -235,15 +236,15 @@ const TASK_TERMINAL_DOCUMENT = [
   " init(){x=94;downX=0;downAt=0;dragging=false;feedback=\"カードをつかんで右へスワイプ\";t.done=false;},",
   " down(px,py){if(!t.done&&py>150&&py<300&&px>x-56&&px<x+56){dragging=true;downX=px;downAt=performance.now();}},",
   " move(px,py){if(dragging){x=clamp(px,94,410);}},",
-  " up(){if(!dragging)return;dragging=false;const dx=x-downX,velocity=dx/Math.max(1,performance.now()-downAt)*1000;if(x>350&&dx>180&&velocity>=180&&velocity<=900){t.done=true;feedback=\"カードを認識しました\";}else{x=94;feedback=velocity<180?\"少し速くスワイプしてください\":\"速度を調整してもう一度\";}},",
-  " draw(g,time){g.fillStyle=\"#0b1018\";rr(g,28,92,W-56,220,16);g.fill();g.strokeStyle=\"#31465c\";g.lineWidth=2;rr(g,46,134,420,110,10);g.stroke();g.setLineDash([8,7]);g.strokeStyle=\"#d54d59\";rr(g,306,142,142,94,8);g.stroke();g.setLineDash([]);txt(g,\"CARD READER\",377,128,{size:12,color:\"#f4a1a8\",align:\"center\"});g.save();g.shadowColor=\"#ffd23d\";g.shadowBlur=18;g.fillStyle=\"#dfbb58\";rr(g,x-53,150,106,76,8);g.fill();g.restore();txt(g,\"CREW ID\",x,173,{size:12,color:\"#302814\",align:\"center\"});txt(g,\"✦  0147\",x,201,{size:17,color:\"#302814\",align:\"center\",font:\"monospace\"});}};return t;})());",
+  " up(){if(!dragging)return;dragging=false;const dx=x-downX,velocity=dx/Math.max(1,performance.now()-downAt)*1000;if(x>350&&dx>180&&velocity>=180&&velocity<=900){t.done=true;feedback=\"カードを認識しました\";}else{feedback=x<=350||dx<=180?\"カードを右端までスワイプしてください\":velocity<180?\"少し速くスワイプしてください\":\"少しゆっくりスワイプしてください\";x=94;}},",
+  " draw(g,time){g.fillStyle=\"#0b1018\";rr(g,28,92,W-56,220,16);g.fill();g.strokeStyle=\"#31465c\";g.lineWidth=2;rr(g,46,134,420,110,10);g.stroke();g.setLineDash([8,7]);g.strokeStyle=\"#d54d59\";rr(g,306,142,142,94,8);g.stroke();g.setLineDash([]);txt(g,\"CARD READER\",377,128,{size:12,color:\"#f4a1a8\",align:\"center\"});g.save();g.shadowColor=\"#ffd23d\";g.shadowBlur=18;g.fillStyle=\"#dfbb58\";rr(g,x-53,150,106,76,8);g.fill();g.restore();txt(g,\"CREW ID\",x,173,{size:12,color:\"#302814\",align:\"center\"});txt(g,\"✦  0147\",x,201,{size:17,color:\"#302814\",align:\"center\",font:\"monospace\"});txt(g,feedback,W/2,284,{size:18,align:\"center\",color:t.done?\"#5dffa0\":\"#ffe39b\"});}};return t;})());",
   "/* ================= 7. FUEL REFILL ================= */",
   "tasks.push((()=>{let levels;const t={name:\"燃料補給\",sub:\"\",accent:\"#ffb020\",done:false,",
   " init(){levels=[0,0,0];t.done=false;},down(x,y){if(t.done)return;const i=Math.floor((y-123)/56);if(i>=0&&i<3&&x>104&&x<445)levels[i]=Math.min(100,levels[i]+10);if(levels.every(v=>v>=100))t.done=true;},move(){},up(){},",
   " draw(g,time){g.fillStyle=\"#0b1018\";rr(g,32,92,W-64,230,14);g.fill();txt(g,\"REFUEL SEQUENCE\",54,122,{size:14,color:\"#ffcb73\"});levels.forEach((v,i)=>{const y=151+i*56;txt(g,`TANK 0${i+1}`,56,y+13,{size:14,color:\"#cbd8e5\"});g.fillStyle=\"#162334\";rr(g,170,y,260,26,8);g.fill();const gr=g.createLinearGradient(170,0,430,0);gr.addColorStop(0,\"#e5a84e\");gr.addColorStop(1,\"#62e9a1\");g.fillStyle=gr;rr(g,172,y+2,256*v/100,22,6);g.fill();g.strokeStyle=\"#3b5268\";rr(g,170,y,260,26,8);g.stroke();txt(g,`${v}%`,452,y+13,{size:14,color:v>=100?\"#5dffa0\":\"#eaf4ff\",align:\"right\"});});}};return t;})());",
   "/* ---------- terminals in 3D ---------- */",
   "const screens=[],terms=[];",
-  "const housing=[0x3a3420,0x153a40,0x40301a,0x1a3a2c,0x3a1a36];",
+  "const housing=[0x3a3420,0x153a40,0x40301a,0x1a3a2c,0x3a1a36,0x3a3420,0x40301a];",
   "tasks.forEach((tk,i)=>{",
   "  const c=document.createElement(\"canvas\");c.width=W;c.height=H;const g=c.getContext(\"2d\");const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=8;",
   "  const grp=new THREE.Group();const x=(i-2)*3.5;grp.position.set(x,0,Math.abs(i-2)*.45);grp.rotation.y=-x*.045;scene.add(grp);",

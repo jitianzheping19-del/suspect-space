@@ -5,7 +5,7 @@ export class InviteDirectDelivery {
   constructor({uid,write,watch,validate,onInvite,PeerConnection=globalThis.RTCPeerConnection,rtcConfiguration,clock=()=>Date.now()}={}){
     Object.assign(this,{uid,write,watch,validate,onInvite,PeerConnection,clock});
     this.config=rtcConfiguration||{iceServers:[{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:stun.l.google.com:19302'}]};
-    this.links=new Map();this.closed=false;this.stopWatch=watch(signal=>{void this.receive(signal).catch(()=>{});});
+    this.links=new Map();this.delivered=new Map();this.closed=false;this.stopWatch=watch(signal=>{void this.receive(signal).catch(()=>{});});
   }
   make(peer,id){
     if(this.closed||!this.PeerConnection||this.links.size>=24)return null;
@@ -31,7 +31,7 @@ export class InviteDirectDelivery {
       try{const packet=JSON.parse(event.data);if(packet.id!==link.id)return;
         if(packet.type==='ack'){this.close(link);return;}
         if(packet.type==='invite'&&link.invite&&packet.inviteId===link.inviteId&&this.sameInvite(packet.invite,link.invite)){
-          this.onInvite(packet.inviteId,link.invite);channel.send(JSON.stringify({type:'ack',id:link.id}));
+          this.deliver(packet.inviteId,link.invite);channel.send(JSON.stringify({type:'ack',id:link.id}));
         }
       }catch{}
     };
@@ -40,6 +40,16 @@ export class InviteDirectDelivery {
   sameInvite(a,b){
     if(!a||!b||typeof a!=='object')return false;
     const keys=Object.keys(b);return Object.keys(a).length===keys.length&&keys.every(key=>a[key]===b[key]);
+  }
+  deliver(id,invite){
+    if(typeof id!=='string'||!id||id.length>256)return;
+    const at=this.clock();
+    for(const [key,stamp] of this.delivered)if(at-stamp>300000)this.delivered.delete(key);
+    const key=invite.hostId+':'+id;
+    if(this.delivered.has(key))return;
+    this.delivered.set(key,at);
+    if(this.delivered.size>256)this.delivered.delete(this.delivered.keys().next().value);
+    this.onInvite(id,invite);
   }
   async send(peer,inviteId,invite){
     const link=this.make(peer,crypto.randomUUID());if(!link)return false;
@@ -57,6 +67,9 @@ export class InviteDirectDelivery {
       const link=this.links.get(from);if(link?.outgoing&&link.id===value.id&&!link.answered){link.answered=true;await link.pc.setRemoteDescription({type:'answer',sdp:value.sdp});}return;
     }
     if(value.kind!=='offer'||value.invite?.hostId!==from||!await this.validate(value.invite)||this.closed)return;
+    // A validated offer is a delivery receipt too. Notifications must not wait
+    // for a data channel, which can be unavailable behind a restrictive NAT.
+    this.deliver(value.inviteId,value.invite);
     if(this.links.get(from)?.id===value.id)return;
     const link=this.make(from,value.id);if(!link)return;
     link.invite=value.invite;link.inviteId=value.inviteId;
@@ -73,5 +86,5 @@ export class InviteDirectDelivery {
     // Remove only this session's signal, not a newer invitation to the same peer.
     void this.write(link.peer,null,link.id).catch(()=>{});
   }
-  stop(){this.closed=true;this.stopWatch?.();for(const link of [...this.links.values()])this.close(link);}
+  stop(){this.closed=true;this.stopWatch?.();for(const link of [...this.links.values()])this.close(link);this.delivered.clear();}
 }

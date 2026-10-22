@@ -28,6 +28,13 @@ assert.equal(received.length,1);assert.equal(received[0].uid,'guest');assert.dee
 assert.equal(host.links.size,0,'Reliable acknowledgement must close the outgoing connection');
 assert.equal(signals['host:guest'],null,'Offer SDP must be removed after acknowledgement');
 const before=validations;
+const fallback=[];
+const blocked=new InviteDirectDelivery({uid:'restricted-network',PeerConnection:null,
+ write:async()=>{},watch:()=>()=>{},validate:async()=>true,
+ onInvite:(id,value)=>fallback.push({id,value})});
+await blocked.receive({from:'host',value:{kind:'offer',id:'validated',sdp:'unavailable-data-channel',inviteId:'fallback',createdAt:Date.now(),invite}});
+assert.equal(fallback.length,1,'A validated offer must notify even if a data channel cannot be opened');
+blocked.stop();
 await guest.receive({from:'attacker',value:{kind:'offer',id:'bad',sdp:'fake',createdAt:Date.now(),invite}});
 await guest.receive({from:'host',value:{kind:'offer',id:'expired',sdp:'fake',createdAt:Date.now()-31000,invite}});
 assert.equal(validations,before,'Unbound sender and expired discovery must be rejected before validation');

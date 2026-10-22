@@ -49,7 +49,7 @@ jobs:
         run: npm run build
 
       - name: Keep project documents available on Pages
-        run: cp -f ./space-suspect-update-notes-2026-10-20.docx ./CHANGELOG-2026-10-20.md dist/
+        run: cp -f ./space-suspect-update-notes-2026-10-20.docx ./CHANGELOG-2026-10-20.md ./CHANGELOG-2026-10-22.md dist/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

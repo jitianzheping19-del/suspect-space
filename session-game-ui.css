@@ -1,0 +1,78 @@
+@layer play-action-layout {
+  html body #matchRecap { z-index: 1750 !important; }
+  html body #matchRecap .matchRecapCard { padding: 20px; border-radius: 20px; width: min(1060px, 96vw); }
+  html body #matchRecap .matchRecapHeader { top: -20px; margin: -20px -20px 16px; padding: 14px 20px; background: #102332; border-bottom: 1px solid #446173; }
+  .recapOverview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 22px; }
+  .recapStat { display: flex; align-items: baseline; justify-content: center; gap: 9px; padding: 12px 8px; background: #142d3d; border: 1px solid #2b4e60; border-radius: 12px; }
+  .recapStat b { font-size: 25px; color: #c4faf1; }
+  .recapStat span { font-size: 13px; color: #b4ccda; }
+  html body #matchRecapPlayers { grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 10px; }
+  html body .matchRecapPlayer { border-radius: 12px; border-left: 3px solid #5cdac9; padding: 13px; }
+  html body .matchRecapPlayer[data-team="impostor"] { border-left-color: #ff6a80; }
+  html body .matchRecapPlayer[data-team="neutral"] { border-left-color: #e6c16c; }
+  .recapPlayerHead { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .recapPlayerHead strong { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 16px; }
+  .recapSuit { width: 13px; height: 18px; flex: 0 0 auto; border: 1px solid #ffffff40; border-radius: 6px; }
+  .recapStatus { padding: 3px 7px; background: #482733; color: #ffadba; font-size: 11px; border-radius: 7px; white-space: nowrap; }
+  .recapStatus[data-alive="true"] { background: #15493e; color: #9ef1d4; }
+  html body .matchRecapRole { display: block; margin: 8px 0 5px 21px; color: #83e3da; font-style: normal; font-size: 14px; }
+  html body [data-team="impostor"] .matchRecapRole { color: #ff879a; }
+  html body [data-team="neutral"] .matchRecapRole { color: #e6c16c; }
+  html body .matchRecapPlayer small { margin-left: 21px; font-size: 12px; }
+  html body .matchRecapMeeting { border-radius: 12px; padding: 16px; }
+  .recapMeetingHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  html body .recapMeetingHeading h4 { margin: 0; color: #c1f3ee; font-size: 17px; }
+  .recapOutcome { color: #f4d994; font-size: 13px; }
+  .recapTally { display: grid; gap: 8px; margin-bottom: 10px; }
+  .recapTallyLine { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(50px, 2fr) 40px; align-items: center; gap: 10px; font-size: 13px; }
+  .recapTallyLine > span:first-child { overflow-wrap: anywhere; }
+  .recapTallyTrack { height: 7px; background: #203c4c; border-radius: 5px; overflow: hidden; }
+  .recapTallyTrack i { display: block; height: 100%; background: #78d7cc; border-radius: inherit; }
+  .recapDetails { border-top: 1px solid #2c4659; padding-top: 8px; margin-top: 10px; }
+  .recapDetails summary { padding: 5px 0; color: #c1dce7; cursor: pointer; font-size: 13px; }
+  .recapBallots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 5px 16px; padding-top: 7px; }
+  .recapBallot { display: grid; grid-template-columns: 1fr 16px 1fr; gap: 5px; font-size: 12px; overflow-wrap: anywhere; padding: 5px 0; }
+  .recapArrow { color: #66bcbb; }
+  .recapChat { max-height: 240px; overflow: auto; padding: 5px 0; }
+  html body .matchRecapChatLine { display: grid; grid-template-columns: minmax(70px, 1fr) 3fr; gap: 10px; border-bottom: 1px solid #20394a; padding: 7px 0; font-size: 12px; overflow-wrap: anywhere; }
+  .matchRecapChatLine strong { color: #8fdace; }
+  @media (max-height: 520px) and (pointer: coarse) {
+    html body #matchRecap .matchRecapCard { padding: 14px; }
+    html body #matchRecap .matchRecapHeader { top: -14px; margin: -14px -14px 12px; padding: 9px 14px; }
+    .recapStat { padding: 7px; }
+    .recapOverview { margin-bottom: 14px; }
+    html body #matchRecapPlayers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  html body #guesserPanel { z-index: 1700 !important; background: #030914d9 !important; padding: max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)) !important; }
+  html body #guesserPanel>.guesserCard { width:min(800px,96vw) !important; max-height:94dvh !important; display:flex !important; flex-direction:column !important; gap:14px !important; padding:24px !important; border:1px solid #92bdd2 !important; border-radius:20px !important; background:linear-gradient(145deg,#162e43,#071421) !important; }
+  html body #guesserPanel[data-side="evil"]>.guesserCard { border-color:#ef8293 !important; background:radial-gradient(ellipse at 100% 0,#73243b70,transparent 65%),linear-gradient(145deg,#1b2539,#0c1423) !important; }
+  html body #guesserPanel h2 { margin:0 !important; font-size:23px !important; }
+  html body #guesserPanel, html body #guesserPanel .guesserCard, html body #guesserPanel button { animation: none !important; transition: none !important; transform: none !important; }
+  html body #guesserPanel #guesserTargetName { margin:0 !important; padding:13px 16px !important; background:#050f1c99 !important; border-left:3px solid #ee8497 !important; border-radius:8px !important; font-size:18px !important; font-weight:800 !important; }
+  html body #guesserPanel .guesserCaution { margin:0 !important; color:#adc3d2 !important; font-size:12px !important; }
+  html body #guesserPanel #guesserRoleList { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; gap:9px !important; min-height:0 !important; max-height:52dvh !important; overflow:auto !important; }
+  html body #guesserPanel #guesserRoleList button { display:flex !important; flex-direction:column !important; align-items:flex-start !important; justify-content:center !important; gap:5px !important; min-height:70px !important; padding:12px !important; border:1px solid #536881 !important; border-radius:11px !important; background:#14263b !important; text-align:left !important; }
+  html body #guesserPanel #guesserRoleList button strong { font-size:15px !important; overflow-wrap:anywhere !important; }
+  html body #guesserPanel #guesserRoleList button small { font-size:10px !important; color:#8dbfd6 !important; }
+  html body #guesserPanel #guesserRoleList button[data-side="impostor"] small { color:#ff8fa4 !important; }
+  html body #guesserPanel #guesserRoleList button[data-side="third"] small { color:#d8b1ff !important; }
+  html body #guesserPanel #guesserRoleList button[aria-pressed="true"] { background:#5a273e !important; border-color:#ffa4b4 !important; box-shadow:inset 0 0 0 1px #ffa4b4 !important; }
+  html body #guesserPanel #guesserConfirm { width:100% !important; flex:none !important; min-height:46px !important; border:1px solid #ff9fb0 !important; border-radius:11px !important; background:linear-gradient(140deg,#bd3b60,#7a2444) !important; font-weight:850 !important; }
+  html body #stickPositionDialog { z-index:1800 !important; }
+  html body #voicePermissionPanel:not(.hidden) { z-index:1900 !important; }
+  html body #roomInviteBanner { z-index:2100 !important; pointer-events:auto !important; border:1px solid #8de6cb !important; background:#102d39f8 !important; box-shadow:0 12px 45px #0009 !important; }
+  html body #mapPanel:not(.hidden) { z-index:1700 !important; }
+  html body[data-phase="meeting"] #meeting:has(#meeting3D:not(.hidden)) .card>#meetingMapBtn { display:none !important; }
+  @media (max-height:520px) and (orientation:landscape) {
+    html body #guesserPanel>.guesserCard { width:min(880px,97vw) !important; padding:14px 18px !important; gap:8px !important; }
+    html body #guesserPanel h2 { font-size:18px !important; }
+    html body #guesserPanel #guesserTargetName { padding:8px 12px !important; font-size:14px !important; }
+    html body #guesserPanel #guesserRoleList { grid-template-columns:repeat(4,minmax(0,1fr)) !important; max-height:43dvh !important; gap:6px !important; }
+    html body #guesserPanel #guesserRoleList button { min-height:56px !important; padding:8px 10px !important; }
+    html body #guesserPanel #guesserRoleList button strong { font-size:12px !important; }
+    html body #guesserPanel #guesserConfirm { min-height:40px !important; }
+  }
+  @media (pointer:coarse) and (min-height:521px) and (min-width:701px) {
+    html body.voiceAvailable #voiceToggleBtn { left:max(18px,env(safe-area-inset-left)) !important; right:auto !important; top:calc(max(16px,env(safe-area-inset-top)) + 76px) !important; bottom:auto !important; }
+  }
+}

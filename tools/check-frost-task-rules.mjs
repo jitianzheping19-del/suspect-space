@@ -57,7 +57,12 @@ for (const task of tasks) {
     case 'irrigation':
       for (let i = 0; i < 3; i++) { if (s.moisture[i] < .6) { press('bed:' + i); for (let j = 0; j < 200 && s.moisture[i] < .63 && !s.finished; j++) step(.02); release(); } }
       step(1); break;
-    case 'fins': press('fin:0'); assert(!s.open[0]); for (const i of [1, 0, 2]) { press('fin:' + i); step(.45); } press('latch'); break;
+    case 'fins':
+      press('latch'); assert(!s.finished, 'Cannot fix closed radiator panels');
+      for (const i of [0, 2, 1]) press('fin:' + i);
+      assert(s.open.every(Boolean), 'Radiator panels must open in any tap order');
+      press('latch'); assert(!s.finished, 'Wait for unfolding without requiring a second tap');
+      step(.45); break;
     case 'core': press('cut'); assert(!s.cut); drag('depth', .5, 1.5 - s.target * 3); press('cut'); drag('extract', 3.1, -.4); break;
     case 'centrifuge':
       for (let i = 0; i < 900 && !s.finished; i++) { pad(-s.x * 4, -s.y * 4); step(.02); }

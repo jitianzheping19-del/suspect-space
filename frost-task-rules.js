@@ -12,7 +12,7 @@ export const taskInstructions = {
   stars: '光る星を、1から5の順番に押す', defrost: 'レンズをなぞって霜を落とす',
   triangulate: 'アンテナを回し、3本とも信号を最大にする', waveform: '波形がつながる順に断片を並べる',
   tubing: 'チューブの先を、光る固定具へ順に通す', medicine: '＋を押して注入。入れすぎたら−で吸い戻す',
-  irrigation: '苗床を押して給水。3つとも緑の湿度へ', fins: 'ぶつからない順にフィンを開き、固定する',
+  irrigation: '苗床を押して給水。3つとも緑の湿度へ', fins: '3枚の放熱板をタップして開き、固定を押す',
   core: '刃を光る地層に合わせて採取し、右へ引き出す', centrifuge: '右のパッドで軸を中心へ戻して安定させる',
   sterile: '右のパッドでトレーを傾け、汚染壁を避けて右下へ', freezer: '温度変化の遅れを見ながら、−18℃に保つ',
   overcurrent: '電流計を見て、過電流の回線だけを切る', battery: '−端子から外し、固定具を解除して電池を交換',
@@ -75,7 +75,7 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
     tubing: () => ({ clips: 0, tip: [-3.3, -1.2] }),
     medicine: () => ({ levels: [0, 0, 0], targets: [.35, .65, .5] }),
     irrigation: () => ({ moisture: [.18, .7, .3], water: -1 }),
-    fins: () => ({ open: [false, false, false], extension: [0, 0, 0] }),
+    fins: () => ({ open: [false, false, false], extension: [0, 0, 0], latchRequested: false }),
     core: () => ({ depth: .15, target: .63, cut: false, extraction: 0 }),
     centrifuge: () => ({ x: .55, y: -.3, control: [0, 0], rotor: 0 }),
     sterile: () => ({ x: -2.8, y: 1.1, vx: 0, vy: 0, control: [0, 0], collisions: 0 }),
@@ -134,10 +134,11 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
       if (mode === 'waveform' && n >= 0 && n < 4) { s.dragging = n; s.dragX = -2.7 + s.order.indexOf(n) * 1.8; }
       if (mode === 'irrigation' && n >= 0 && n < 3) s.water = n;
       if (mode === 'fins') {
-        if (id === 'latch' && s.open.every(Boolean) && s.extension.every((v) => v > .98)) complete();
-        else if (id.startsWith('fin:') && n >= 0 && n < 3) {
-          const next = [1, 0, 2].find((i) => !s.open[i]);
-          if (n === next) s.open[n] = true; else if (!s.open[n]) error('先に手前のフィンを開く');
+        if (id === 'latch') {
+          if (s.open.every(Boolean)) s.latchRequested = true;
+          else error('まだ閉じている放熱板をタップ');
+        } else if (id.startsWith('fin:') && Number.isInteger(n) && n >= 0 && n < 3) {
+          s.open[n] = true; s.feedback = ''; s.errorUntil = 0;
         }
       }
       if (mode === 'core' && id === 'cut') {
@@ -216,7 +217,7 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
       case 'tubing': s.progress = s.clips / tubeClips.length; break;
       case 'medicine': s.progress = s.levels.reduce((a, v, i) => a + clamp(1 - Math.abs(v - s.targets[i]) / s.targets[i], 0, 1), 0) / 3; break;
       case 'irrigation': s.progress = s.moisture.filter((v) => v >= .45 && v <= .75).length / 3; break;
-      case 'fins': s.progress = s.open.filter(Boolean).length / 4; break;
+      case 'fins': s.progress = s.open.filter(Boolean).length / 4; if (s.latchRequested && s.extension.every((v) => v > .98)) complete(); break;
       case 'core': s.progress = s.cut ? .6 + .4 * s.extraction : Math.abs(s.depth - s.target) < .035 ? .4 : 0; break;
       case 'battery': s.progress = s.stage / 9; break;
       case 'drill': s.progress = (s.swings + s.turns / .9) / 4; break;

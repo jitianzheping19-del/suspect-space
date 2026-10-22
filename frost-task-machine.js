@@ -292,16 +292,21 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
       updates.push(() => { leaves.forEach((leaf, k) => { leaf.rotation.z = (k % 2 ? 1 : -1) * (.15 + s.moisture[i] * .5); }); drops.forEach((drop, k) => { drop.visible = s.water === i; drop.position.y = .9 - (s.elapsed * 1.6 + k / 6) % 1.4; }); });
     }
   } else if (mode === 'fins') {
-    const hinges = [];
+    const hinges = [], indicators = [];
     for (let i = 0; i < 3; i++) {
       const x = (i - 1) * 2.35; plate(2.15, 2.6, .22, metal, x, .1, 0);
+      indicators.push(ring(.15, .035, amber, x, 1.18, .68));
+      label(String(i + 1), x, 1.18, .72, .18);
       const hinge = group(x - .85, .1, .4);
       for (let j = 0; j < 7; j++) box(.12, 2.1, .4, j % 2 ? trim : blue, .14 + j * .23, 0, 0, hinge);
       for (const y of [-1, 1]) disc(.12, .15, brass, x - .85, y + .1, .55);
       hit('fin:' + i, x, .1, 2.1, 2.7); hinges.push(hinge);
     }
-    button('固定', 'latch', 3.8, -1.3, 1.05);
-    updates.push(() => hinges.forEach((h, i) => { h.rotation.y = -(1 - s.extension[i]) * 1.45; }));
+    const latch = button('固定', 'latch', 3.7, -1.25, 1.6);
+    updates.push(() => {
+      hinges.forEach((h, i) => { h.rotation.y = -(1 - s.extension[i]) * 1.45; indicators[i].material = s.open[i] ? green : amber; });
+      latch.material = s.open.every(Boolean) ? green : metal;
+    });
   } else if (mode === 'core') {
     plate(3.3, 3.25, .2, metal, -.9, .03, -.05);
     const ice = material('#90cbdc', { metalness: .1, roughness: .2, transparent: true, opacity: .8 });

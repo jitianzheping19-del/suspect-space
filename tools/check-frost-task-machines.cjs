@@ -52,9 +52,14 @@ async function play(page, task, touch = false) {
       for (const i of [1, 2, 3, 5, 7, 8]) for (let turn = 0; turn < 4; turn++) { const s = await current(); if (s.finished || s.turns[i] === 0) break; await click('tile:' + i); }
       break;
     case 'clocks':
-      for (let i = 0; i < 3; i++) for (let retry = 0; retry < 3; retry++) {
-        await wait((s) => s.locked[i] || Math.abs(Math.atan2(Math.sin(s.angles[i] - Math.PI / 2), Math.cos(s.angles[i] - Math.PI / 2))) < .13, 16000);
-        await click('clock:' + i); if ((await current()).locked?.[i] || (await current()).finished) break;
+      for (let i = 0; i < 3; i++) {
+        const deadline = Date.now() + 45000;
+        while (!(await current()).locked?.[i]) {
+          await wait((s) => s.locked[i] || Math.abs(Math.atan2(Math.sin(s.angles[i] - Math.PI / 2), Math.cos(s.angles[i] - Math.PI / 2))) < .2, 16000);
+          if ((await current()).locked?.[i]) break;
+          await click('clock:' + i);
+          if (Date.now() > deadline) throw Error('Clock touch never locked: ' + JSON.stringify(await current()));
+        }
       }
       break;
     case 'cargo': await drag('cargo:2', [[1, 0]]); break;
@@ -85,7 +90,7 @@ async function play(page, task, touch = false) {
     case 'irrigation':
       for (let i = 0; i < 3; i++) { if ((await current()).finished) break; const s = await current(); if (s.moisture[i] < .6) { await down(await control('bed:' + i)); await wait((s) => s.moisture[i] >= .62); await up(); } }
       break;
-    case 'fins': for (const i of [1, 0, 2]) { await click('fin:' + i); await pause(page, 500); } await click('latch'); break;
+    case 'fins': for (const i of [0, 2, 1]) { await click('fin:' + i); await pause(page, 500); } await click('latch'); break;
     case 'core': { const s = await current(); await drag('depth', [[.5, 1.5 - s.target * 3]]); await click('cut'); await drag('extract', [[3.1, 1.5 - s.target * 3]]); break; }
     case 'centrifuge': await drive(() => [0, 0], 'centrifuge'); break;
     case 'sterile':
@@ -143,9 +148,7 @@ async function play(page, task, touch = false) {
       const errors = []; page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(url); await page.waitForFunction(() => window.__frostPreview?.state().renderedFrames > 0, null, { timeout: 90000 });
       const tasks = await page.evaluate(() => window.__frostPreview.data.tasks.filter((t) => !t.sabotage));
-      const touchModes = ['circuit', 'cargo', 'stars', 'defrost', 'waveform', 'tubing', 'medicine', 'core', 'drill', 'radar', 'rover'];
       for (const task of tasks) {
-        if (touch && !touchModes.includes(task.mode)) continue;
         if (process.env.FROST_TASK_QA_MODE && !process.env.FROST_TASK_QA_MODE.split(',').includes(task.mode)) continue;
         await page.selectOption('#taskPicker', task.id);
         await page.waitForFunction((mode) => window.__frostPreview.tasks.machine?.run?.state.mode === mode, task.mode);

@@ -4,6 +4,7 @@ const html=fs.readFileSync(path.join(__dirname,'../space-suspect-complete.html')
 const helpers=html.slice(html.indexOf('function meetingAbilityPresentation('),html.indexOf('function post3DState('));
 let serial=0;
 const ctx={game:{players:{a:{name:'使用者'},b:{name:'対象'}}},ROLE_LABELS:{medic:['メディック']},now:()=>5000,
+ roleBehaviorValue:(settings,id)=>settings?.[id]??false,
  clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),token:()=>`test-${serial++}`,setCommandResult:()=>{},forceScalePairAfterMeetingAbility:()=>{},
  matchAddedGuessRoles:()=>new Set(['medic','sheriff']),addedGuessRoleId:p=>p.subrole,
  resolveMeetingAbilityEjection:(g,id)=>{g.players[id].alive=false;}};
@@ -34,14 +35,15 @@ state=newGame();state.players.a.meetingSheriffKillsUsed=3;ctx.testCommand(state,
 console.log('PASS: private presentation, anonymous witnesses, bounded events, sheriff hit/ricochet, both guessers, rejected command');
 // Test the actual microphone policy with a captured audio track and no network.
 {
- const track={enabled:true},timers=new Map();let timer=0;
- const voice={uid:'u',code:'1234',session:1,game:{phase:'meeting',players:{u:{alive:false}}},voiceStream:{getAudioTracks:()=>[track]},voiceJoined:true,voiceMuted:false,voiceSpeaking:true,connected:true,voiceRoomIsEnabled:()=>true,publishVoicePresence:()=>Promise.resolve(),setTimeout:fn=>{timers.set(++timer,fn);return timer;},clearTimeout:id=>timers.delete(id),console};
+ const track={enabled:true},timers=new Map(),reveal={visible:false};let timer=0;
+ const voice={$:()=>({classList:{contains:()=>!reveal.visible}}),uid:'u',code:'1234',session:1,game:{phase:'meeting',players:{u:{alive:false}}},voiceStream:{getAudioTracks:()=>[track]},voiceJoined:true,voiceMuted:false,voiceSpeaking:true,connected:true,voiceRoomIsEnabled:()=>true,publishVoicePresence:()=>Promise.resolve(),setTimeout:fn=>{timers.set(++timer,fn);return timer;},clearTimeout:id=>timers.delete(id),console};
  vm.createContext(voice);vm.runInContext(html.slice(html.indexOf('let deathAnimationVoiceMute=null;'),html.indexOf('window.__ssVoiceCameraViewChanged=')),voice);
- voice.beginDeathAnimationVoiceMute('pending');assert(!track.enabled&&!voice.voiceSpeaking);
- voice.beginDeathAnimationVoiceMute('meeting-ability');assert.equal(timers.size,1);voice.endDeathAnimationVoiceMute('world');assert(!track.enabled);
+ voice.beginDeathAnimationVoiceMute('pending');assert(track.enabled&&!voice.voiceSpeaking);
+ voice.beginDeathAnimationVoiceMute('meeting-ability');assert.equal(timers.size,1);voice.endDeathAnimationVoiceMute('world');assert(track.enabled);
  voice.voiceMuted=true;voice.endDeathAnimationVoiceMute('meeting-ability');assert(!track.enabled);
  voice.voiceMuted=false;voice.beginDeathAnimationVoiceMute('world');voice.endDeathAnimationVoiceMute('world');assert(track.enabled);
  voice.beginDeathAnimationVoiceMute('pending');voice.session=2;voice.syncVoiceMutePolicy();assert(track.enabled);
  voice.endDeathAnimationVoiceMute();voice.game.players.u.alive=true;voice.beginDeathAnimationVoiceMute('world');assert(track.enabled);
- console.log('PASS: instant capture-track mute, preserved manual mute, stale cleanup/session, living attacker');
+ voice.game.phase='play';reveal.visible=true;voice.syncVoiceMutePolicy();assert(!track.enabled);reveal.visible=false;voice.syncVoiceMutePolicy();assert(track.enabled);
+ console.log('PASS: role reveal only forced mute, preserved manual mute and unrestricted meeting/death voice');
 }
