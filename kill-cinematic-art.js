@@ -47,7 +47,22 @@ export function createCinematicArt(THREE) {
   const shineTexture=canvasTexture(256,128,(g,w,h)=>{const grad=g.createLinearGradient(0,0,w,h);grad.addColorStop(0,'#ffffff00');grad.addColorStop(.38,'#dfffff00');grad.addColorStop(.42,'#eeffffb0');grad.addColorStop(.49,'#efffff90');grad.addColorStop(.54,'#fff0');grad.addColorStop(.74,'#c2efff00');grad.addColorStop(.79,'#c2efff70');grad.addColorStop(.85,'#c2efff00');g.fillStyle=grad;g.fillRect(0,0,w,h);});
   const softTexture=canvasTexture(128,128,(g,w,h)=>{const a=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);a.addColorStop(0,'#fff');a.addColorStop(.15,'#ffffffd0');a.addColorStop(.45,'#ffffff35');a.addColorStop(1,'#fff0');g.fillStyle=a;g.fillRect(0,0,w,h);});
 
-  function makeCrew(color=0x44c8ff,{arms=false}={}) {
+  function makeGameplayCrew(color,arms) {
+    // Match makeAstronaut's capsule, visor and limb proportions. Keep the same
+    // articulated pivots as the authored choreography and selected costumes.
+    const root=new THREE.Group(),rig=new THREE.Group(),torso=new THREE.Group();root.add(rig);torso.position.y=.62;rig.add(torso);
+    const suit=new THREE.MeshStandardMaterial({color,roughness:.65,side:THREE.DoubleSide});
+    const visorM=new THREE.MeshStandardMaterial({color:0xa6e8ff,metalness:.45,roughness:.2});
+    const body=mesh(torso,new THREE.CapsuleGeometry(.42,.48,5,10),suit,V(0,.38,0));
+    const pack=mesh(torso,new THREE.BoxGeometry(.6,.68,.3),suit,V(0,.36,-.43));pack.visible=false;
+    const visor=mesh(torso,new THREE.SphereGeometry(.35,12,8),visorM,V(0,.56,.37));visor.scale.set(1,.64,.48);
+    const legs=[-1,1].map(side=>{const pivot=new THREE.Group();pivot.position.set(side*.24,.62,0);rig.add(pivot);mesh(pivot,new THREE.CapsuleGeometry(.17,.24,3,8),suit,V(0,-.37,0));return pivot;});
+    const armsG=[-1,1].map(side=>{const pivot=new THREE.Group();pivot.position.set(side*.36,.46,.02);pivot.visible=arms;torso.add(pivot);const segment=mesh(pivot,new THREE.CapsuleGeometry(.105,.30,5,10),suit,V(0,-.04,0));segment.rotation.z=side*.08;const hand=new THREE.Group();hand.position.y=-.36;pivot.add(hand);pivot.userData.hand=hand;return pivot;});
+    root.userData.gameplayCharacter=true;
+    return {root,rig,torso,body,pack,visor,visorM,suit,legs,arms:armsG,hands:armsG.map(a=>a.userData.hand),mats:[suit,visorM]};
+  }
+  function makeCrew(color=0x44c8ff,{arms=false,gameplay=false}={}) {
+    if(gameplay)return makeGameplayCrew(color,arms);
     const root=new THREE.Group(),rig=new THREE.Group(),torso=new THREE.Group();root.add(rig);torso.position.y=.62;rig.add(torso);
     const suit=new THREE.MeshPhysicalMaterial({color,roughness:.32,metalness:.16,clearcoat:.5,clearcoatRoughness:.3});
     const dark=metal(0x192939,.52,.35),trim=metal(0x4b6576,.3,.65);

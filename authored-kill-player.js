@@ -33,6 +33,8 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
   document.body.append(renderer.domElement);
   const host=document.querySelector('#originalControls');
+  const nameLayer=document.createElement('div');nameLayer.id='actorNames';document.body.append(nameLayer);
+  const nameLabels=[];
   let controller=null,configuration=null,time=0,target=0,playing=false,audible=false,finished=false,dirty=false,last=performance.now();
   let sharedAudio=null,audioOutput=null;
   const listeners=[],timers=new Set();
@@ -42,6 +44,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     object.traverse(node=>{if(node.geometry)owned.geometries.add(node.geometry);for(const material of [].concat(node.material||[])){owned.materials.add(material);for(const value of Object.values(material))if(value?.isTexture)owned.textures.add(value);}});
   }
   function dispose(){
+    nameLabels.length=0;nameLayer.replaceChildren();
     for(const [type,handler,options] of listeners)window.removeEventListener(type,handler,options);
     listeners.length=0;for(const timer of timers)clearTimeout(timer);timers.clear();
     if(controller){
@@ -65,7 +68,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
       .replace('const scene=new THREE.Scene();','const scene=new THREE.Scene();__runtime.ownScene(scene);')
       .replace('document.body.prepend(renderer.domElement);','')
       .replace(/scene\.background\s*=\s*new THREE\.Color\([^;]*\);/g,'scene.background=null;')
-      .replace(/function makeCrew\([\s\S]*?(?=\/\* ---------- particles)/,'function makeCrew(color,options){return __runtime.art.makeCrew(color,options);}\n\n')
+      .replace(/function makeCrew\([\s\S]*?(?=\/\* ---------- particles)/,'function makeCrew(color,options){return __runtime.art.makeCrew(color,{...options,gameplay:__runtime.payload.useGameCharacter===true});}\n\n')
       .replace(/(^|\n)[ \t]*stage\([^;\n]*\);/g,'$1')
       .replace(/function startLoop\(update\)\{[\s\S]*?\nfunction setCam/,'function startLoop(update){__runtime.update=update;}\nfunction setCam')
       .replace('if(P.life[i]<=0){P.col[i*3]=P.col[i*3+1]=P.col[i*3+2]=0;continue;}','if(P.life[i]<=0){P.col[i*3]=P.col[i*3+1]=P.col[i*3+2]=0;P.pos[i*3+1]=-10000;continue;}')
@@ -130,9 +133,28 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     const previousNodes=new Set(document.body.children);
     controller=new Function('THREE','EffectComposer','RenderPass','UnrealBloomPass','OutputPass','__runtime','addEventListener','setTimeout',data.costumeLib+'\n'+code+'\n'+bridge)(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,runtime,listen,timeout);
     controller.nodes=[...document.body.children].filter(node=>!previousNodes.has(node));
+    for(const [index,actor] of controller.actors.entries()){
+      const name=index===0?data.payload?.killerName:data.payload?.victims?.[index-1]?.name||data.payload?.victimName;
+      if(!name)continue;
+      const label=document.createElement('span');label.textContent=String(name);label.className='actorName';nameLayer.append(label);
+      nameLabels.push({actor,label,anchor:new THREE.Vector3()});
+    }
     collect(controller.scene);
     if(audioOutput)audioOutput.gain.value=0;
-    resize();controller.step(0,0);controller.render();dirty=false;
+    resize();controller.step(0,0);renderScene();dirty=false;
+  }
+  function renderScene(){
+    controller.render();
+    for(const {actor,label,anchor} of nameLabels){
+      let visible=actor.body.visible&&actor.suit.opacity>.05;
+      for(let object=actor.root;object;object=object.parent)if(!object.visible)visible=false;
+      actor.body.getWorldPosition(anchor);anchor.y+=1.35*actor.root.scale.y;anchor.project(controller.camera);
+      label.hidden=!visible||anchor.z< -1||anchor.z>1;
+      if(label.hidden)continue;
+      const halfWidth=label.offsetWidth*.5,height=label.offsetHeight;
+      label.style.left=Math.max(8+halfWidth,Math.min(innerWidth-8-halfWidth,(anchor.x+1)*innerWidth*.5))+'px';
+      label.style.top=Math.max(8+height,Math.min(innerHeight-8,(1-anchor.y)*innerHeight*.5))+'px';
+    }
   }
   function resize(){
     const width=Math.max(1,innerWidth),height=Math.max(1,innerHeight);
@@ -167,7 +189,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
       if(audioOutput)audioOutput.gain.value=playing||audible?Math.max(0,Math.min(1,Number(configuration.payload?.volume)||0)):0;
       if(playing)target=Math.min(configuration.duration,target+elapsed);
       while(time+1e-6<target){const dt=Math.min(1/60,target-time);time+=dt;controller.step(dt,time);dirty=true;}
-      if(dirty){controller.render();dirty=false;}
+      if(dirty){renderScene();dirty=false;}
       if(time>=configuration.duration&&!finished){finished=true;playing=false;send({type:'authored-done',id:configuration.id});}
     }
     requestAnimationFrame(frame);
@@ -190,7 +212,7 @@ export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.ne
   };
   window.addEventListener('message',receive);
   const base=cdnBase.replace(/\/$/,'');
-  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}));<\/script></body></html>`
+  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}));<\/script></body></html>`
     .replace('<script type="module">',`<script type="importmap">${JSON.stringify({imports:{three:base+'/build/three.module.js','three/addons/':base+'/examples/jsm/'}})}<\/script><script type="module">`);
   const slash=document.createElement('div');
   slash.setAttribute('aria-hidden','true');

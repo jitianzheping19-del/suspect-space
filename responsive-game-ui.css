@@ -1,4 +1,24 @@
 /* Shared layout rules applied after the legacy entrypoint styles. */
+/* Keep the phone chat inside one framed column. Older fullscreen rules left
+   max-width in place, which clipped result bubbles and removed the housing. */
+@layer play-action-layout {
+ @media (pointer:coarse) and (max-width:900px), (pointer:coarse) and (max-height:540px) {
+  html body[data-phase="lobby"] #lobbyChat:not(.hidden){position:fixed!important;inset:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) auto!important;width:min(400px,46vw)!important;max-width:calc(100vw - 16px)!important;height:auto!important;min-height:0!important;max-height:none!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;gap:8px!important;margin:0!important;padding:10px!important;border:2px solid var(--console-edge,#b6a27a)!important;border-radius:16px!important;background:linear-gradient(155deg,#182c36,#0b1926 75%)!important;box-shadow:inset 0 1px 0 #f8e7bd33,0 8px 28px #0008!important;backdrop-filter:none!important;overflow:hidden!important;z-index:2147483647!important;pointer-events:auto!important}
+  html body #lobbyChat #lobbyChatTitle{flex:0 0 auto!important;min-width:0!important;gap:8px!important;padding:0 0 8px!important;border-bottom:1px solid #b6a27a55!important}
+  html body #lobbyChat #lobbyChatTitle h3{font-size:14px!important;line-height:1.3!important}
+  html body #lobbyChat #lobbyChatClose{min-width:54px!important;min-height:40px!important;padding:6px 9px!important;font-size:12px!important}
+  html body #lobbyChat #lobbyChatMessages{flex:1 1 0!important;min-width:0!important;min-height:0!important;width:100%!important;box-sizing:border-box!important;overflow-x:hidden!important;overflow-y:auto!important;gap:7px!important;padding:3px 0!important;scrollbar-gutter:auto!important}
+  html body #lobbyChat #lobbyChatMessages .lobbyChatLine{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;gap:5px!important;flex:0 0 auto!important}
+  html body #lobbyChat #lobbyChatMessages .lobbyChatText{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;padding:6px 8px!important;font-size:12px!important;line-height:1.4!important;overflow-wrap:anywhere!important}
+  html body #lobbyChat #lobbyChatMessages .roleResultsBubble{min-width:0!important;width:100%!important;flex:1 1 0!important}
+  html body #lobbyChat #lobbyChatMessages .lobbyChatText>strong{font-size:11px!important}
+  html body #lobbyChat .roleResultsRow{min-width:0!important;gap:8px!important;flex-wrap:wrap!important}
+  html body #lobbyChat .roleResultsRow>*{min-width:0!important;overflow-wrap:anywhere!important}
+  html body #lobbyChat #lobbyChatForm{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;flex:0 0 auto!important;gap:6px!important;width:100%!important;min-width:0!important;min-height:40px!important;padding:8px 0 0!important;border-top:1px solid #b6a27a55!important}
+  html body #lobbyChat #lobbyChatInput{box-sizing:border-box!important;width:100%!important;min-width:0!important;height:40px!important;min-height:40px!important;margin:0!important;padding:6px 9px!important;font-size:16px!important;border-radius:10px!important}
+  html body #lobbyChat #lobbyChatForm button{min-width:48px!important;min-height:40px!important;height:40px!important;padding:6px 9px!important;font-size:12px!important}
+ }
+}
 /* Tasks own the viewport, including their loading and closing frames. The
    named layer also outranks older unlayered !important HUD declarations. */
 @layer play-action-layout{
@@ -29,8 +49,19 @@ html body #visionOverlay:is(.oxygen,.reactorAlarm,.critical):not(.sabotage){back
 html body #visionOverlay:is(.oxygen,.reactorAlarm,.critical)::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 0 67%,#ff163b66 90%,#d1003299 100%);animation:edgeWarningPulse 1s ease-in-out infinite alternate}
 html body #visionOverlay.critical::after{animation-duration:.45s}
 @keyframes edgeWarningPulse{from{opacity:.35}to{opacity:1}}
-html body #gameCountdown:not(.hidden) #gameCountdownNumber{font-variant-numeric:tabular-nums;text-shadow:0 0 12px #aafaff,0 0 42px #30dce9,0 10px 50px #062d4a;filter:drop-shadow(0 0 20px #6ffaff55);animation:launchNumberPulse 1s cubic-bezier(.2,.8,.25,1) infinite}
-@keyframes launchNumberPulse{0%{transform:scale(1.15);opacity:.2;filter:blur(6px)}22%{transform:scale(1);opacity:1;filter:blur(0)}85%{transform:scale(.99);opacity:1}100%{transform:scale(.94);opacity:.3}}
+/* Three distinct, sharp countdown stages. No blur or full-scene filters. */
+html body #gameCountdown:not(.waveShieldCountdown){--countdown-accent:#7ddfff;--countdown-edge:#7ddfff55;--countdown-sky:#102d48;position:fixed!important;inset:0!important;box-sizing:border-box!important;width:100%!important;height:100dvh!important;margin:0!important;padding:0!important;transform:none!important;display:flex!important;align-items:center!important;justify-content:center!important;flex-direction:column!important;gap:0!important;isolation:isolate!important;overflow:hidden!important;filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:radial-gradient(ellipse at 50% 45%,var(--countdown-sky),#030a15 76%)!important}
+html body #gameCountdown.hidden{display:none!important}
+html body #gameCountdown[data-kind="post-role"]{--countdown-accent:#a4ffce;--countdown-edge:#a4ffce66;--countdown-sky:#103d39}
+html body #gameCountdown[data-kind="meeting-return"]{--countdown-accent:#ffce8c;--countdown-edge:#ffce8c66;--countdown-sky:#402c1d}
+html body #gameCountdown:not(.waveShieldCountdown)::before{content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:min(64vmin,330px)!important;height:min(64vmin,330px)!important;box-sizing:border-box!important;border:1px solid var(--countdown-edge)!important;border-radius:50%!important;transform:translate(-50%,-50%)!important;background:repeating-conic-gradient(from -2deg,var(--countdown-edge) 0deg 1deg,transparent 1deg 30deg)!important;mask:radial-gradient(circle,transparent 0 62%,#000 63% 65%,transparent 66% 69%,#000 70%);pointer-events:none!important}
+html body #gameCountdown:not(.waveShieldCountdown)::after{content:"";position:absolute;inset:max(16px,4vh) max(20px,5vw);border:1px solid var(--countdown-edge);clip-path:polygon(0 0,18% 0,18% 1%,1% 1%,1% 24%,0 24%,0 0,100% 0,100% 24%,99% 24%,99% 1%,82% 1%,82% 0,100% 0,100% 100%,82% 100%,82% 99%,99% 99%,99% 76%,100% 76%,100% 100%,0 100%,0 76%,1% 76%,1% 99%,18% 99%,18% 100%,0 100%);pointer-events:none}
+html body #gameCountdown #gameCountdownLabel{position:absolute;top:max(32px,calc(50% - min(38vmin,210px)));left:12px;right:12px;margin:0;text-align:center;color:var(--countdown-accent);font-size:clamp(14px,2.4vw,23px);font-weight:850;line-height:1.3;letter-spacing:.18em;filter:none!important}
+html body #gameCountdown #gameCountdownNumber{position:relative!important;inset:auto!important;z-index:1!important;margin:0!important;transform:none;font-size:clamp(86px,29vh,205px)!important;font-weight:950!important;line-height:1!important;font-variant-numeric:tabular-nums;letter-spacing:0!important;color:var(--countdown-accent,#fff)!important;text-shadow:0 3px 0 #020611!important;filter:none!important;backdrop-filter:none!important;animation:launchNumberPulse 1s cubic-bezier(.2,.8,.25,1) infinite!important}
+html body #gameCountdown.waveShieldCountdown #gameCountdownLabel{display:none!important}
+html body #gameCountdown.waveShieldCountdown #gameCountdownNumber{font-size:clamp(48px,10vw,64px)!important;text-shadow:none!important;animation:none!important}
+@keyframes launchNumberPulse{0%{transform:scale(1.1);opacity:.4}20%{transform:scale(1);opacity:1}84%{transform:scale(1);opacity:1}100%{transform:scale(.97);opacity:.65}}
+@media(prefers-reduced-motion:reduce){html body #gameCountdown #gameCountdownNumber{animation:none!important}}
 html body #gameCountdownProgress,html body #gameCountdown #launchLineup{display:none!important}
 @media(pointer:coarse){
  html body #buttons :is(kbd,.keyHint,.keyboardHint){display:none!important}

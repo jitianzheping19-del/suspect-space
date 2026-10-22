@@ -45,6 +45,12 @@ export function registerWinningPlayback(game,stamp){
     if(game.winningKillPlayback?.key===key)return false;
     const role=resolveAuthoredKillRole(event.cause||victim.deathCause,killer);
     game.winningKillPlayback={key,player:killerId,role};
+    // Samurai sees the shared world slash, not a second fullscreen scene.
+    if(role==='samurai'){
+      const presentation=currentPresentation(game);
+      if(presentation)presentation.hasVictory=true;
+      return true;
+    }
     addPlayback(game,killerId,key,role,'victory',stamp);
     return true;
   }
