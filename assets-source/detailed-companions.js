@@ -3,7 +3,7 @@
  * static pieces are batched by the caller and moving parts keep explicit pivots.
  */
 function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
-  const kinds=['pgho','pjel','pfrg','pbat','pmus','pgeo','pcld','pstr','pbal','pdol','pwol','pshp','pshk','pmsh','pbrd','pfsh','pcub','phrt','pflm','pice'];
+  const kinds=['dragon','rover','pgho','pjel','pfrg','pbat','pmus','pgeo','pcld','pstr','pbal','pdol','pwol','pshp','pshk','pmsh','pbrd','pfsh','pcub','phrt','pflm','pice'];
   if(!kinds.includes(kind))return null;
   const rig={kind,legs:[],wings:[],wheels:[],tails:[],ears:[],eyes:[],phase:0,weight:0};
   const ink=0x182b40,ivory=0xfff5db,cream=0xffdfae,glint=0xf5ffff;let serial=0;
@@ -47,7 +47,43 @@ function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
   }
   function star(r,color,parent=root,depth=.045){const points=Array.from({length:10},(_,i)=>{const a=Math.PI/2+i*Math.PI/5,d=i%2?r*.46:r;return[Math.cos(a)*d,Math.sin(a)*d];});return polygon(points,color,depth,parent,.018);}
   root.userData.detailedCompanion=1;
-  if(kind==='pfsh'){
+  if(kind==='dragon'){
+    const jade=0x508e79,light=0xbfd39b;
+    body(jade,light,0,-.025,-.06,.18,.17,.25);body(0x72ae8a,light,0,.13,.15,.19,.17,.18);ball(jade,0,.07,.29,.155,.09,.11);
+    for(const y of[-.105,-.055,-.005]){ball(light,0,y,.14,.105,.033,.045);stroke([[-.08,y-.015,.17],[0,y-.025,.19],[.08,y-.015,.17]],jade,.005);}
+    for(const side of[-1,1]){
+      const horn=curved(s=>{s.moveTo(-.045,0);s.bezierCurveTo(-.07,.08,-.03,.19,.045,.24);s.quadraticCurveTo(.02,.08,.045,0);s.closePath();},ivory,.043);horn.position.set(side*.12,.24,.06);horn.rotation.z=-side*.23;horn.rotation.y=side*.25;
+      ball(jade,side*.115,.22,.25,.076,.031,.039);const e=eye(side*.105,.183,.29,.037);e.rotation.y=side*.18;ball(ink,side*.07,.105,.385,.013,.010,.008);
+      const wing=joint(rig.wings,side*.12,.04,-.12,'z',side,root,{idle:.08,speed:.004,amplitude:.17});
+      const membrane=curved(s=>{s.moveTo(0,0);s.bezierCurveTo(.11,.22,.27,.31,.39,.29);s.lineTo(.33,-.045);s.quadraticCurveTo(.26,.03,.22,-.11);s.quadraticCurveTo(.14,-.025,.07,-.13);s.lineTo(0,0);s.closePath();},0x597e81,.018,wing);membrane.scale.x=side;wing.rotation.y=-side*.28;
+      for(const [x,y]of[[.38,.28],[.33,-.045],[.22,-.11]])stroke([[0,0,.025],[side*x*.55,.13,.025],[side*x,y,.025]],0x92b49b,.008,wing);
+      for(const z of[-.13,.12]){const limb=joint(rig.legs,side*.12,-.095,z,'x',side*(z<0?-1:1));ball(jade,0,-.055,0,.055,.08,.055,limb);ball(jade,0,-.12,.025,.064,.035,.08,limb);for(const dx of[-.027,.027])ball(ivory,dx,-.125,.09,.013,.014,.025,limb);}
+      for(let i=0;i<3;i++)ball(jade,side*(.155+i*.005),.01-i*.02,-.10+i*.06,.027,.012,.027);
+    }
+    stroke([[-.10,.045,.37],[0,.03,.395],[.10,.045,.37]],0x2d665a,.006);
+    const tail=joint(rig.tails,0,-.055,-.23,'y',1,root,{idle:.1,speed:.002,amplitude:.23});
+    const t=curved(s=>{s.moveTo(-.055,.02);s.bezierCurveTo(-.035,-.12,.035,-.29,.13,-.37);s.bezierCurveTo(.10,-.18,.045,-.08,.055,.02);s.closePath();},jade,.055,tail);t.rotation.x=Math.PI/2;t.position.z=-.02;
+    for(let i=0;i<3;i++){const spike=polygon([[-.033,0],[0,.08-i*.012],[.033,0]],0xc6bc7e,.024);spike.position.set(0,.14-i*.03,-.09-i*.10);spike.rotation.y=Math.PI/2;}
+    const tip=polygon([[0,0],[-.065,.08],[.055,.12],[.10,.045]],0xbaa876,.025,tail);tip.rotation.x=Math.PI/2;tip.position.set(.075,.01,-.35);
+  }else if(kind==='rover'){
+    const steel=0xa5bac3,blue=0x52778c,ochre=0xcaa36d;
+    part('box',steel,0,-.015,0,.38,.18,.43);
+    part('box',0x697f8b,0,-.09,0,.30,.07,.48);part('box',ochre,0,.085,0,.34,.07,.32);
+    for(const side of[-1,1]){
+      stroke([[side*.12,-.07,.18],[side*.23,-.10,.07],[side*.23,-.10,-.18]],steel,.018);
+      const panel=group(side*.145,.14,-.045);panel.rotation.z=-side*.08;part('box',ivory,0,0,0,.25,.025,.34,panel);part('box',blue,0,.017,0,.225,.008,.31,panel);
+      for(const x of[-.065,0,.065])for(const z of[-.10,0,.10])part('box',0x97b5bd,x,.023,z,.004,.004,.09,panel);
+      panel.updateWorldMatrix(true,true);for(const piece of [...panel.children])root.attach(piece);panel.removeFromParent();
+      for(const z of[-.17,0,.17]){
+        const wheel=joint(rig.wheels,side*.235,-.16,z,'x',side);
+        part('cylinder',ink,0,0,0,.083,.065,.083,wheel).rotation.z=Math.PI/2;part('cylinder',steel,side*.039,0,0,.041,.016,.041,wheel,'metal').rotation.z=Math.PI/2;
+        for(let i=0;i<10;i++){const a=i*Math.PI/5,lug=part('box',ink,0,Math.cos(a)*.079,Math.sin(a)*.079,.073,.018,.024,wheel);lug.rotation.x=a;}
+      }
+    }
+    const mast=group(0,.11,.13);part('cylinder',steel,0,.11,0,.018,.22,.018,mast,'metal');part('box',ivory,0,.23,.005,.23,.10,.105,mast);part('box',ink,0,.23,.062,.19,.066,.018,mast);for(const x of[-.055,.055]){ball(0x86bec7,x,.23,.075,.029,.029,.010,mast);ball(glint,x-.008,.239,.084,.008,.008,.004,mast);}
+    stroke([[-.1,.03,-.10],[-.14,.26,-.15],[-.14,.37,-.15]],ink,.007);ball(ochre,-.14,.38,-.15,.018,.018,.018);
+    part('box',ink,0,-.10,.24,.31,.035,.03);for(const x of[-.13,.13])ball(glint,x,-.03,.221,.025,.017,.01);
+  }else if(kind==='pfsh'){
     const f=group();f.rotation.y=-.45;
     body(0xf58b24,0xffe8bd,0,0,0,.205,.195,.285,f);ball(0xf7af43,0,.04,.2,.16,.15,.14,f);
     fishTail(0xea693d,f);

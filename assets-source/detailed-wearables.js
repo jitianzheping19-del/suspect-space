@@ -1,0 +1,284 @@
+/* DETAILED_WEARABLES_V1_BEGIN
+ * Authored silhouettes and surface construction, generated only on outfit changes.
+ * Each outfit owns its resources. The caller batches static pieces by material.
+ */
+function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials}){
+  const hats=['dragon','ufo','hbnd','hstr','hfed','hrib','hlea','hice','hmoo','hsta','hmsk','hpuf','hsus','hbut','hhrt','hpar','hcap2','hdev','hsan','hgld','hpen','hfrg'];
+  const bags=['pack','jet','satchel','medic','oxygen','radio','hiking','shield','aquarium','rocket','wings','treasure','solar','guitar','bbag','bdrm','bcam','bgym','bshp','bwtr','bpar','bcrd','bfish','bjus','btrv','bflag','bbal','bcat','bbee','bnin','bstr','bbox','bmap','bgsd','camera','battery','lantern','toolbox','book'];
+  const accessories=['bhrt','bstf','brbw','bflw','bwng','bhmr','brkt','bgtr','bsld','bcrn','aswd','aflg','aneo','alan','aglb','abal','apiz','aclk','arob','ajet','asng','abrd','agem','aumb','arbt','asnw','apal','asub','abok','abom'];
+  if(!(category==='hat'?hats:category==='bag'?bags:category==='accessory'?accessories:[]).includes(kind))return false;
+  const root=new THREE.Group();root.name='detailed-'+category+'-'+kind;
+  root.position.set(0,category==='hat'?1.655:category==='bag'?1:0,category==='bag'?-.57:0);
+  root.userData.detailedWearable={category,kind,version:1};parent.add(root);
+  const ink=0x203248,ivory=0xfff3d7,gold=0xd9ad58,brass=0xb98742,cyan=0x7adbe7,silver=0xb7cbd4;
+  let serial=0;
+  const own=g=>(geometry['wear:'+category+':'+kind+':'+serial++]=g,g);
+  function mat(c,finish='cloth'){
+    const k='wear:'+c+':'+finish;
+    if(materials[k])return materials[k];
+    return materials[k]=new THREE.MeshStandardMaterial({color:c,roughness:finish==='metal'?.29:finish==='enamel'?.26:finish==='glass'?.12:finish==='leather'?.58:.85,metalness:finish==='metal'?.67:finish==='enamel'?.12:.015,transparent:finish==='glass',opacity:finish==='glass'?.22:1,depthWrite:finish!=='glass',side:THREE.DoubleSide});
+  }
+  function shared(type){
+    const key='wear:primitive:'+type;if(geometry[key])return geometry[key];
+    let g;
+    if(type==='ball')g=new THREE.SphereGeometry(1,18,12);
+    else if(type==='cylinder')g=new THREE.CylinderGeometry(1,1,1,20);
+    else if(type==='cone')g=new THREE.ConeGeometry(1,1,20);
+    else if(type==='gem')g=new THREE.IcosahedronGeometry(1,0);
+    else{
+      g=new THREE.BoxGeometry(1,1,1,3,3,3);const p=g.attributes.position,v=new THREE.Vector3(),q=new THREE.Vector3();
+      for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);q.copy(v).clampScalar(-.41,.41);v.sub(q).normalize().multiplyScalar(.09).add(q);p.setXYZ(i,v.x,v.y,v.z);}g.computeVertexNormals();
+    }
+    return geometry[key]=g;
+  }
+  function mesh(g,c,finish='cloth',p=root){const m=new THREE.Mesh(g,mat(c,finish));m.userData.lightCostume=true;m.castShadow=false;p.add(m);return m;}
+  function part(type,c,x,y,z,sx,sy,sz,finish='cloth',p=root){const m=mesh(shared(type),c,finish,p);m.position.set(x,y,z);m.scale.set(sx,sy,sz);return m;}
+  const ball=(c,x,y,z,sx,sy,sz,finish='cloth',p=root)=>part('ball',c,x,y,z,sx,sy,sz,finish,p);
+  const box=(c,x,y,z,sx,sy,sz,finish='cloth',p=root)=>part('box',c,x,y,z,sx,sy,sz,finish,p);
+  const group=(x=0,y=0,z=0,p=root)=>{const g=new THREE.Group();g.position.set(x,y,z);p.add(g);return g;};
+  function line(points,c,r=.007,finish='cloth',p=root){const curve=new THREE.CatmullRomCurve3(points.map(v=>new THREE.Vector3(...v)));return mesh(own(new THREE.TubeGeometry(curve,Math.max(6,points.length*3),r,5,false)),c,finish,p);}
+  function ring(c,x,y,z,r,t=.012,rx=0,ry=0,rz=0,finish='metal',p=root){const m=mesh(own(new THREE.TorusGeometry(r,t,6,24)),c,finish,p);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);return m;}
+  function outline(draw,c,x=0,y=0,z=0,depth=.025,finish='cloth',p=root){const s=new THREE.Shape();draw(s);s.closePath();const g=own(new THREE.ExtrudeGeometry(s,{depth,steps:1,bevelEnabled:true,bevelSize:.008,bevelThickness:.008,bevelSegments:2,curveSegments:12}));const m=mesh(g,c,finish,p);m.position.set(x,y,z);return m;}
+  function poly(points,c,x=0,y=0,z=0,depth=.025,finish='cloth',p=root){return outline(s=>points.forEach(([a,b],i)=>i?s.lineTo(a,b):s.moveTo(a,b)),c,x,y,z,depth,finish,p);}
+  function profile(points,c,x,y,z,finish='cloth',p=root){const m=mesh(own(new THREE.LatheGeometry(points.map(v=>new THREE.Vector2(...v)),24)),c,finish,p);m.position.set(x,y,z);return m;}
+  function horn(points,c,r=.06,p=root){
+    const curve=new THREE.CatmullRomCurve3(points.map(v=>new THREE.Vector3(...v))),steps=18,g=own(new THREE.TubeGeometry(curve,steps,r,8,false)),a=g.attributes.position,v=new THREE.Vector3();
+    for(let i=0;i<=steps;i++){const center=curve.getPointAt(i/steps),taper=.025+.975*Math.pow(1-i/steps,.8);for(let j=0;j<=8;j++){const k=i*9+j;v.fromBufferAttribute(a,k).sub(center).multiplyScalar(taper).add(center);a.setXYZ(k,v.x,v.y,v.z);}}g.computeVertexNormals();return mesh(g,c,'enamel',p);
+  }
+  function star(c,x,y,z,r=.13,depth=.03,p=root){return poly(Array.from({length:10},(_,i)=>{const a=Math.PI/2+i*Math.PI/5,d=i%2?r*.46:r;return[Math.cos(a)*d,Math.sin(a)*d];}),c,x,y,z,depth,'metal',p);}
+  function heart(c,x,y,z,size=.15,p=root){const s=new THREE.Shape();s.moveTo(0,-1);s.bezierCurveTo(-1.8,.1,-1.05,1.6,0,.65);s.bezierCurveTo(1.05,1.6,1.8,.1,0,-1);s.closePath();const m=mesh(own(new THREE.ExtrudeGeometry(s,{depth:.28,bevelEnabled:true,bevelSize:.10,bevelThickness:.13,bevelSegments:4,curveSegments:16})),c,'enamel',p);m.position.set(x,y,z);m.scale.setScalar(size);return m;}
+  function leaf(c,x,y,z,size=.22,rotation=0,p=root){const m=outline(s=>{s.moveTo(0,-.14);s.bezierCurveTo(-.25,.10,-.16,.39,.04,.48);s.bezierCurveTo(.27,.2,.17,-.02,0,-.14);},c,x,y,z,.016,'cloth',p);m.scale.setScalar(size/.4);m.rotation.z=rotation;return m;}
+  function stud(x,y,z,c=gold,r=.018,p=root){return ball(c,x,y,z,r,r,r*.65,'metal',p);}
+  function eye(x,y,z,r=.035,p=root){ball(ink,x,y,z,r,r*1.18,r*.55,'enamel',p);ball(0xffffff,x-r*.23,y+r*.35,z+(category==='bag'?-1:1)*r*.47,r*.25,r*.28,r*.13,'enamel',p);}
+  function brim(c,r=.37,y=.025,depth=.88){const m=profile([[0,-.018],[r*.96,-.018],[r,.003],[r*.98,.025],[0,.025]],c,0,y,0);m.scale.z=depth;return m;}
+  function hatBand(c,y=.05,r=.3,t=.018){return ring(c,0,y,0,r,t,Math.PI/2,0,0,'cloth');}
+  function straps(c=ink){for(const side of[-1,1]){const m=line([[side*.17,.3,.1],[side*.25,.22,.16],[side*.25,-.2,.16],[side*.17,-.3,.09]],c,.027,'leather');(root.userData.mountPieces||=[]).push(m);}}
+  function seam(c,w=.5,h=.6,z=-.25){line([[-w/2+.04,-h/2+.04,z],[-w/2+.02,h/2-.05,z],[0,h/2+.005,z],[w/2-.02,h/2-.05,z],[w/2-.04,-h/2+.04,z]],c,.006);}
+  function handle(c,y=.39,width=.20,z=-.04){line([[-width/2,y-.07,z],[-width/2,y,z],[width/2,y,z],[width/2,y-.07,z]],c,.024,'leather');}
+  function buckle(x,y,z,c=gold){box(c,x,y,z,.065,.065,.018,'metal');box(ink,x,y,z-.012,.036,.035,.01);box(c,x,y,z-.020,.009,.055,.008,'metal');}
+  function zip(x,y,z,width=.31){box(ink,x,y,z,width,.018,.013);for(let i=0;i<7;i++)box(silver,x-width*.43+i*width*.143,y,z-.012,.013,.016,.008,'metal');ring(silver,x+width*.36,y-.028,z-.025,.022,.006,0,0,.18);}
+  function pack(c=0x426f81,w=.54,h=.66,d=.30){straps();box(c,0,0,-.07,w,h,d);seam(0x97b5b9,w,h,-.07-d/2-.009);handle(ink,h/2+.075);return {w,h,d};}
+  function pocket(c,x=0,y=-.10,z=-.25,w=.37,h=.23){box(c,x,y,z,w,h,.08);zip(x,y+h*.27,z-.049,w*.76);}
+  function badge(c,x,y,z,r=.045){const m=part('cylinder',c,x,y,z,r,.012,r,'metal');m.rotation.x=Math.PI/2;return m;}
+  function tank(c,x=0,y=0,z=-.1,r=.13,h=.58){profile([[0,-h/2],[r*.7,-h/2],[r,-h/2+.055],[r,h/2-.07],[r*.7,h/2-.02],[r*.45,h/2],[0,h/2]],c,x,y,z,'enamel');for(const dy of[-h*.3,h*.27])ring(silver,x,y+dy,z,r+.004,.014,Math.PI/2);}
+  function feather(x,y,z,length,width,tilt,p=root){const f=ball(ivory,x,y,z,width,length,.035,'cloth',p);f.rotation.z=tilt;line([[x,y+length*.65,z-.031],[x+Math.sin(tilt)*length*.7,y-length*.7,z-.035]],0xd5d9ce,.005,'cloth',p);}
+  function finish(){
+    // Wearables have no moving joints. Flatten authored groups before the
+    // caller's material batching so repeated feathers/gems are one draw call.
+    root.updateWorldMatrix(true,true);const pieces=[];
+    root.traverse(o=>{if(o.isMesh&&o.parent!==root)pieces.push(o);});
+    for(const m of pieces)root.attach(m);
+    for(const c of [...root.children])if(c.isGroup)root.remove(c);
+    return true;
+  }
+  if(category==='accessory'){
+    function reuse(c,id,x,y,z,size=1,ry=0,handheld=false){buildDetailedWearable(THREE,c,id,root,{geometry,materials});const g=root.children.at(-1);g.position.set(x,y,z);g.scale.setScalar(size);g.rotation.y=ry;if(handheld)for(const m of g.userData.mountPieces||[])m.removeFromParent();return g;}
+    function pole(x,y,z,height=1.5){part('cylinder',0x66503d,x,y,z,.027,height,.027,'leather');for(const yy of[-.32,-.24,-.16])ring(gold,x,y+yy,z,.032,.006,Math.PI/2);ball(gold,x,y-height/2,z,.04,.045,.04,'metal');}
+    function cloth(w,h,c,x,y,z){const nx=12,ny=10,pos=[],uv=[],idx=[];for(let j=0;j<=ny;j++)for(let i=0;i<=nx;i++){const u=i/nx,v=j/ny;pos.push(x+u*w,y-v*h,z+Math.sin(u*8-v*1.7)*.045*u);uv.push(u,v);}for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i;idx.push(a,a+1,a+nx+1,a+1,a+nx+2,a+nx+1);}const g=own(new THREE.BufferGeometry());g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return mesh(g,c);}
+    if(kind==='bhrt'){
+      const g=group(0,1.15,-.58);g.rotation.y=Math.PI;heart(0xc66a86,0,0,0,.40,g);heart(0xe09eb0,-.06,.04,.13,.28,g);line([[-.18,.28,.21],[-.25,.21,.23],[-.27,.12,.22]],0xffd8df,.015,'enamel',g);for(const side of[-1,1])line([[side*.19,1.35,-.4],[side*.30,1.18,-.45],[side*.24,.82,-.43]],0x755168,.025,'leather');
+    }else if(kind==='bstf'){
+      pole(.77,1.15,.10,1.65);ring(gold,.77,2.04,.10,.25,.017);star(gold,.77,2.08,.10,.23,.055);star(ivory,.77,2.08,.17,.11,.018);part('gem',cyan,.77,2.08,.215,.06,.08,.025,'enamel');for(const side of[-1,1]){const r=poly([[0,0],[side*.08,-.07],[side*.11,-.32],[side*.05,-.28],[side*.01,-.33]],0x7198aa,.77,1.91,.1,.02);r.rotation.z=side*.15;}box(0x3c526b,.77,.91,.1,.09,.25,.09,'leather');
+    }else if(kind==='brbw'){
+      const pos=[],col=[],idx=[],colors=[0x9878a7,0x6f9bb5,0x75afa6,0xc0bc77,0xd4a277,0xbf7c86].map(c=>new THREE.Color(c)),nx=20,ny=14;
+      for(let j=0;j<=ny;j++)for(let i=0;i<=nx;i++){const u=i/nx,v=j/ny,w=.31+v*.23,x=(u-.5)*w*2,y=1.42-v*1.20,z=-.42-v*.20-Math.cos((u-.5)*Math.PI)*.035+Math.sin(u*Math.PI*6)*.022*v,c=colors[Math.min(5,Math.floor(u*6))];pos.push(x,y,z);col.push(c.r,c.g,c.b);}
+      for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const a=j*(nx+1)+i;idx.push(a,a+1,a+nx+1,a+1,a+nx+2,a+nx+1);}const g=own(new THREE.BufferGeometry());g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();const m=mesh(g,0xffffff,'cape');m.material.vertexColors=true;
+      for(const side of[-1,1])line([[side*.31,1.42,-.42],[side*.42,.83,-.52],[side*.54,.22,-.62]],gold,.011,'metal');line([[-.54,.22,-.62],[0,.22,-.65],[.54,.22,-.62]],gold,.012,'metal');for(const side of[-1,1])stud(side*.28,1.43,-.38,gold,.036);
+    }else if(kind==='bflw'){
+      const g=group(.67,.94,.28);g.rotation.z=-.18;for(const [x,y,z,c]of[[-.15,.30,0,0xc97091],[.09,.40,.02,0xe2c18a],[.21,.23,.01,0x9a8cb3],[-.02,.19,.12,0xe0b2bc],[.02,.47,-.10,ivory]]){line([[0,-.22,0],[x*.7,.05,z*.7],[x,y,z]],0x6f8c60,.013,'cloth',g);for(let i=0;i<7;i++){const a=i*Math.PI*2/7,p=ball(c,x+Math.cos(a)*.09,y+Math.sin(a)*.09,z,.075,.055,.035,'cloth',g);p.rotation.z=a;}ball(gold,x,y,z+.035,.044,.044,.018,'enamel',g);leaf(0x789b6b,x*.7,.03,z,.18,x<0?.7:-.6,g);}const paper=poly([[-.29,.18],[.28,.18],[.07,-.30],[-.09,-.30]],0xd5bea0,0,-.05,.07,.026,'cloth',g);line([[-.22,.06,.11],[0,-.23,.11],[.22,.06,.11]],ivory,.009,'cloth',g);box(0xa85f7c,0,-.18,.12,.22,.065,.03,'cloth',g);for(const side of[-1,1])ball(0xc07c95,side*.08,-.18,.13,.09,.05,.04,'cloth',g);
+    }else if(kind==='bwng'){
+      reuse('bag','wings',0,1.15,-.48,1.70);for(const side of[-1,1])line([[side*.21,1.35,-.36],[side*.37,1.06,-.40],[side*.20,.78,-.40]],ivory,.025);
+    }else if(kind==='bhmr'){
+      pole(.78,1.06,.10,1.65);box(ink,.78,.75,.10,.09,.42,.09,'leather');for(let i=0;i<5;i++)ring(brass,.78,.59+i*.075,.10,.054,.008,Math.PI/2);
+      const g=group(.78,1.92,.10);box(0x829baa,0,0,0,.69,.36,.35,'metal',g);for(const side of[-1,1]){box(ink,side*.28,0,0,.075,.39,.38,'metal',g);box(gold,side*.23,0,.18,.045,.35,.018,'metal',g);for(const dy of[-.12,.12])stud(side*.20,dy,.19,ivory,.022,g);}box(0x647f91,0,0,.19,.26,.27,.025,'metal',g);poly([[-.06,.06],[.015,.06],[-.015,-.015],[.06,-.015],[-.035,-.10],[-.01,-.025]],gold,0,.04,.22,.02,'metal',g);
+    }else if(kind==='brkt'){
+      reuse('bag','rocket',0,1.06,-.58,1.48);for(const side of[-1,1])line([[side*.22,1.39,-.37],[side*.31,1.12,-.38],[side*.22,.69,-.38]],ink,.025,'leather');
+    }else if(kind==='bgtr'){
+      reuse('bag','guitar',.78,1.13,.20,1.45,Math.PI,true);line([[.39,1.40,.01],[.68,1.09,.14],[.79,.69,.15]],0x765941,.025,'leather');
+    }else if(kind==='bsld'){
+      const g=reuse('bag','shield',-.72,1.04,.17,1.36,Math.PI,true);g.rotation.z=.08;box(0x6b5340,-.60,1.05,.04,.12,.37,.10,'leather');
+    }else if(kind==='bcrn'){
+      reuse('hat','hgld',0,1.65,0,1.70);
+    }else if(kind==='aswd'){
+      const g=group(.73,.27,.09);g.rotation.z=-.11;poly([[-.085,.36],[-.105,1.35],[0,1.68],[.105,1.35],[.085,.36]],silver,0,0,0,.06,'metal',g);poly([[0,.40],[0,1.60],[.075,1.34],[.055,.40]],ivory,0,0,.068,.01,'metal',g);line([[0,.43,.082],[0,1.48,.082]],0x83aab8,.006,'metal',g);poly([[-.26,.34],[-.29,.23],[-.18,.27],[0,.31],[.18,.27],[.29,.23],[.26,.34],[0,.40]],gold,0,0,-.005,.10,'metal',g);box(0x486174,0,.16,.04,.085,.30,.085,'leather',g);for(let i=0;i<4;i++)ring(brass,0,.055+i*.065,.04,.047,.007,Math.PI/2,0,0,'metal',g);part('gem',cyan,0,-.035,.04,.07,.075,.07,'enamel',g);
+    }else if(kind==='aflg'){
+      pole(-.76,1.20,.14,1.90);cloth(.68,.43,0xad5f6e,-.76,2.04,.14);line([[-.75,2.04,.14],[-.08,2.04,.17]],gold,.012,'metal');star(ivory,-.43,1.83,.19,.11,.018);for(const y of[1.66,2.02])ring(brass,-.76,y,.14,.035,.007,Math.PI/2);
+    }else if(kind==='aneo'){
+      box(ink,0,2.10,.03,.97,.39,.09,'metal');box(0x294d58,0,2.10,.084,.88,.30,.018);const rect=[[-.40,2.23,.105],[.40,2.23,.105],[.40,1.97,.105],[-.40,1.97,.105],[-.40,2.23,.105]];line(rect,cyan,.012,'enamel');for(const side of[-1,1]){line([[side*.32,2.10,.12],[side*.22,2.17,.12],[side*.22,2.03,.12],[side*.32,2.10,.12]],0xa0e4d1,.012,'enamel');line([[side*.28,1.90,.02],[side*.27,1.72,0]],silver,.015,'metal');}star(gold,0,2.10,.12,.10,.025);
+    }else if(kind==='alan'){
+      pole(-.74,1.04,.18,1.52);line([[-.74,1.80,.18],[-.72,2.19,.18],[-.45,2.18,.18],[-.43,2.06,.18]],ink,.022,'metal');ring(gold,-.43,2.02,.18,.055,.010);const g=group(-.43,1.77,.18);profile([[.12,-.22],[.20,-.14],[.22,.04],[.18,.19],[.10,.23]],0xd8b271,0,0,0,'enamel',g);for(const y of[-.22,.22]){part('cylinder',ink,0,y,0,.15,.035,.15,'metal',g);ring(gold,0,y,0,.15,.010,Math.PI/2,0,0,'metal',g);}for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[Math.sin(a)*.12,-.22,Math.cos(a)*.12],[Math.sin(a)*.22,.02,Math.cos(a)*.22],[Math.sin(a)*.1,.22,Math.cos(a)*.1]],0x9e7047,.008,'cloth',g);}for(let i=0;i<3;i++)line([[0,-.25,0],[.015,-.30-i*.02,0],[0,-.34-i*.02,0]],gold,.009,'cloth',g);
+    }else if(kind==='aglb'){
+      const g=group(.79,1.47,.15);ball(0x4f849e,0,.10,0,.31,.31,.31,'enamel',g);const continents=[
+        [[-17,35],[5,37],[15,32],[32,30],[43,12],[51,11],[43,-12],[31,-30],[18,-35],[10,-20],[6,2],[-10,5],[-17,17]],
+        [[-11,36],[-10,44],[-1,50],[-5,58],[10,60],[20,70],[40,70],[53,60],[85,74],[120,68],[148,58],[162,62],[142,45],[133,35],[122,24],[106,5],[100,7],[96,22],[80,8],[71,23],[57,27],[50,13],[42,16],[35,31],[25,36],[20,42],[11,44],[3,40]],
+        [[-165,64],[-140,70],[-118,73],[-95,78],[-62,55],[-54,47],[-78,26],[-88,18],[-99,18],[-107,29],[-120,34],[-126,49],[-147,60]],
+        [[-81,12],[-68,11],[-52,4],[-35,-7],[-41,-22],[-56,-37],[-69,-55],[-74,-43],[-70,-20],[-81,-4]],
+        [[113,-22],[115,-33],[134,-35],[145,-39],[153,-28],[145,-15],[131,-12],[123,-17]],
+        [[-51,60],[-27,69],[-20,80],[-45,83],[-63,75]],[[47,-13],[50,-17],[47,-25],[44,-23]]
+      ];
+      for(const points of continents){const contour=points.map(v=>new THREE.Vector2(...v)),faces=THREE.ShapeUtils.triangulateShape(contour,[]),positions=[];const surface=(a,b,c,u,v)=>{const lon=(a.x*(1-u-v)+b.x*u+c.x*v)*Math.PI/180,lat=(a.y*(1-u-v)+b.y*u+c.y*v)*Math.PI/180;return[Math.sin(lon)*Math.cos(lat)*.318,.10+Math.sin(lat)*.318,Math.cos(lon)*Math.cos(lat)*.318];};for(const face of faces){const[a,b,c]=face.map(i=>contour[i]),n=8;for(let i=0;i<n;i++)for(let j=0;j<n-i;j++){positions.push(...surface(a,b,c,i/n,j/n),...surface(a,b,c,(i+1)/n,j/n),...surface(a,b,c,i/n,(j+1)/n));if(i+j<n-1)positions.push(...surface(a,b,c,(i+1)/n,j/n),...surface(a,b,c,(i+1)/n,(j+1)/n),...surface(a,b,c,i/n,(j+1)/n));}}const geo=own(new THREE.BufferGeometry());geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));const normals=[];for(let i=0;i<positions.length;i+=3){const v=new THREE.Vector3(positions[i],positions[i+1]-.10,positions[i+2]).normalize();normals.push(v.x,v.y,v.z);}geo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));mesh(geo,0x9bb18a,'cloth',g);}
+      for(let i=0;i<3;i++)ring(0x92bcc5,0,.10,0,.312,.003,0,i*Math.PI/3,0,'enamel',g);for(const y of[-.10,.10])ring(0x92bcc5,0,.10+y,0,Math.sqrt(.31**2-y*y),.004,Math.PI/2,0,0,'enamel',g);ring(gold,0,.10,0,.36,.018,0,0,-.20,'metal',g);line([[0,-.26,0],[0,-.44,0]],gold,.028,'metal',g);profile([[0,-.025],[.23,-.025],[.23,0],[.12,.055],[0,.055]],0x5a6268,0,-.49,0,'metal',g);
+    }else if(kind==='abal'){
+      for(const [x,y,z,c]of[[-.49,2.11,-.18,0xc87991],[-.20,2.40,-.17,0x78aabd],[.13,2.19,-.20,0xd6ba78],[.40,2.42,-.21,0x82b6a2]]){ball(c,x,y,z,.19,.24,.18,'enamel');part('cone',c,x,y-.25,z,.026,.045,.026).rotation.z=Math.PI;line([[x,y-.27,z],[x*.6,1.46,-.34],[.16,1.06,-.40]],ivory,.005);ball(0xfff3dc,x-.065,y+.08,z+.155,.025,.065,.006,'enamel');}box(gold,.17,1.08,-.40,.09,.09,.06,'metal');
+    }else if(kind==='apiz'){
+      const g=group(.79,1.17,.20);g.rotation.z=-.18;g.rotation.x=.35;part('cylinder',0xc2995b,0,0,0,.40,.07,.40,'cloth',g);part('cylinder',0xb7624f,0,.042,0,.355,.018,.355,'cloth',g);part('cylinder',0xe5c684,0,.055,0,.33,.013,.33,'cloth',g);ring(0xdcb97c,0,.033,0,.365,.029,Math.PI/2,0,0,'cloth',g);for(const [x,z]of[[-.16,-.12],[.13,-.16],[0,.02],[.18,.13],[-.16,.15]]){part('cylinder',0xa5584d,x,.07,z,.056,.011,.056,'cloth',g);for(let i=0;i<3;i++)ball(0xd79b7a,x-.02+i*.018,.078,z-.013,.007,.005,.007,'cloth',g);}for(const [x,z]of[[-.08,-.22],[.22,-.02],[-.22,.01]]){ball(0x77835b,x,.081,z,.045,.009,.022,'cloth',g).rotation.y=.5;ring(ink,x,.08,z+.045,.024,.007,Math.PI/2,0,0,'cloth',g);}
+    }else if(kind==='aclk'){
+      const g=group(-.75,1.69,.14);const body=part('cylinder',gold,0,0,0,.34,.10,.34,'metal',g);body.rotation.x=Math.PI/2;const face=part('cylinder',ivory,0,0,.059,.297,.016,.297,'enamel',g);face.rotation.x=Math.PI/2;ring(brass,0,0,.071,.31,.012,0,0,0,'metal',g);for(let i=0;i<12;i++){const a=i*Math.PI/6,m=box(ink,Math.sin(a)*.25,Math.cos(a)*.25,.075,i%3?.012:.020,i%3?.029:.048,.009,'cloth',g);m.rotation.z=-a;}line([[0,-.04,.09],[0,.17,.09]],ink,.013,'metal',g);line([[0,0,.097],[.12,-.07,.097]],ink,.017,'metal',g);stud(0,0,.105,gold,.028,g);ring(gold,0,.39,0,.062,.013,0,0,0,'metal',g);line([[.03,.45,0],[.27,.57,-.05],[.42,.38,-.08],[.38,.06,-.10]],brass,.010,'metal',g);
+    }else if(kind==='arob'){
+      const g=group(.72,.86,.08);box(ink,0,-.20,0,.19,.38,.19,'metal',g);for(const side of[-1,1]){box(silver,side*.11,-.08,0,.055,.25,.22,'metal',g);part('cylinder',gold,side*.13,-.24,0,.07,.03,.07,'metal',g).rotation.z=Math.PI/2;}box(0x7993a3,0,.14,0,.28,.35,.27,'metal',g);box(ink,0,.17,.15,.21,.14,.025,'metal',g);for(const x of[-.055,.055])box(cyan,x,.18,.17,.031,.06,.012,'enamel',g);for(const x of[-.10,-.035,.035,.10]){box(silver,x,.41,.025,.055,.18,.14,'metal',g);box(ink,x,.34,.09,.058,.035,.015,'metal',g);stud(x,.40,.10,gold,.015,g);}box(silver,-.19,.22,.01,.12,.17,.11,'metal',g).rotation.z=-.5;for(const y of[-.11,-.02,.07])box(gold,.11,y,-.02,.025,.025,.22,'metal',g);
+    }else if(kind==='ajet'){
+      const g=group(0,1.17,-.56);g.rotation.z=.16;profile([[0,-.50],[.08,-.46],[.12,-.28],[.12,.20],[.075,.43],[0,.56]],ivory,0,0,0,'enamel',g);for(const side of[-1,1]){poly([[0,.19],[side*.51,-.18],[side*.52,-.26],[side*.04,-.11]],silver,side*.09,0,0,.035,'metal',g).rotation.x=Math.PI/2;poly([[0,.10],[side*.20,-.03],[side*.21,-.13],[0,-.08]],0x6c879a,side*.05,-.34,0,.035,'enamel',g).rotation.x=Math.PI/2;}ball(0x628da2,0,.28,.085,.08,.16,.045,'enamel',g);part('cylinder',ink,0,-.49,0,.075,.08,.075,'metal',g);ring(cyan,0,-.535,0,.061,.009,Math.PI/2,0,0,'enamel',g);line([[0,.02,.12],[0,-.28,.12]],gold,.007,'metal',g);
+    }else if(kind==='asng'){
+      for(const side of[-1,1]){const frame=ring(gold,side*.21,1.52,.39,.215,.022);frame.scale.y=.68;ball(0x273d4d,side*.21,1.52,.39,.197,.129,.028,'enamel');line([[side*.17,1.59,.42],[side*.29,1.55,.42]],0x7599ab,.012,'enamel');line([[side*.40,1.54,.38],[side*.43,1.54,.10],[side*.39,1.47,.04]],ink,.018,'metal');}line([[-.035,1.53,.42],[0,1.56,.43],[.035,1.53,.42]],gold,.016,'metal');
+    }else if(kind==='abrd'){
+      const g=group(-.72,1.93,.10);ball(0x91a5ad,0,0,0,.19,.19,.28,'cloth',g);ball(0xb8c7c8,0,.17,.15,.145,.15,.14,'cloth',g);ball(0xe0dbbf,0,.095,.25,.12,.08,.08,'cloth',g);for(const side of[-1,1]){const w=ball(0x6f8a9b,side*.15,0,-.06,.065,.18,.20,'cloth',g);w.rotation.z=side*.20;for(let i=0;i<3;i++)ball(0x526d80,side*.16,-.07-i*.025,-.16+i*.02,.026,.075,.12,'cloth',g);eye(side*.08,.21,.26,.024,g);line([[side*.07,-.13,.10],[side*.07,-.21,.10],[side*.10,-.21,.18]],brass,.012,'metal',g);}part('cone',0xd4aa70,0,.13,.33,.045,.12,.045,'enamel',g).rotation.x=Math.PI/2;for(const side of[-1,1])ball(0x6e8699,side*.065,-.07,-.30,.07,.035,.17,'cloth',g).rotation.y=side*.2;
+    }else if(kind==='agem'){
+      pole(.75,1.12,.10,1.40);const g=group(.75,1.94,.10);const gem=mesh(own(new THREE.CylinderGeometry(.17,.29,.24,8,1,false)),0x8c82b7,'enamel',g);gem.rotation.y=Math.PI/8;const point=mesh(own(new THREE.ConeGeometry(.29,.35,8)),0x6f6ca4,'enamel',g);point.rotation.z=Math.PI;point.position.y=-.295;ring(gold,0,-.105,0,.29,.014,Math.PI/2,0,0,'metal',g);for(const side of[-1,1])line([[side*.15,-.49,0],[side*.23,-.23,.03],[side*.28,-.12,.03]],gold,.018,'metal',g);poly([[-.10,0],[-.02,.10],[.06,.08],[0,-.08]],0xc8bfe2,0,0,.21,.009,'enamel',g);
+    }else if(kind==='aumb'){
+      const g=group(0,2.28,-.12),r=.66;for(let panel=0;panel<8;panel++){const pos=[],idx=[];for(let j=0;j<=6;j++)for(let i=0;i<=4;i++){const u=i/4,v=j/6,a=(panel+u)*Math.PI/4,rr=r*v,y=.17*Math.cos(v*Math.PI/2)-.08*v-.025*Math.sin(u*Math.PI)*v;pos.push(Math.sin(a)*rr,y,Math.cos(a)*rr);}for(let j=0;j<6;j++)for(let i=0;i<4;i++){const a=j*5+i;idx.push(a,a+1,a+5,a+1,a+6,a+5);}const geo=own(new THREE.BufferGeometry());geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();mesh(geo,panel%2?0xbb7181:0x8c627d,'cloth',g);const a=panel*Math.PI/4;line([[0,.16,0],[Math.sin(a)*r*.55,.08,Math.cos(a)*r*.55],[Math.sin(a)*r,-.08,Math.cos(a)*r]],silver,.007,'metal',g);stud(Math.sin(a)*r,-.08,Math.cos(a)*r,gold,.016,g);}line([[0,.16,0],[0,-.92,0],[.04,-1.02,0],[.15,-1.02,0],[.18,-.94,0]],ink,.023,'leather',g);ball(gold,0,.22,0,.035,.05,.035,'metal',g);
+    }else if(kind==='arbt'){
+      const g=group(0,1.67,0);for(const side of[-1,1]){const e=group(side*.17,.03,-.01,g);e.rotation.z=-side*.18;ball(ivory,0,.28,0,.10,.33,.075,'cloth',e);ball(0xd69aab,0,.30,.061,.061,.24,.015,'cloth',e);line([[-.03,.10,.077],[-.03,.34,.077],[0,.49,.064]],0xf3c0ca,.006,'cloth',e);}const b=ring(0x9c7c8f,0,0,0,.30,.022,Math.PI/2,0,0,'cloth',g);ball(ivory,0,.02,-.28,.08,.065,.06,'cloth',g);
+    }else if(kind==='asnw'){
+      const g=group(-.72,.36,.20);ball(0xe6e9dc,0,0,0,.24,.27,.23,'cloth',g);ball(ivory,0,.35,.01,.18,.18,.175,'cloth',g);for(const side of[-1,1]){eye(side*.065,.39,.166,.020,g);line([[side*.19,.12,0],[side*.34,.25,.01],[side*.37,.33,.02]],0x756553,.012,'leather',g);}for(const y of[-.08,.04,.13])ball(ink,0,y,.227,.020,.020,.010,'enamel',g);part('cone',0xd39862,0,.33,.22,.033,.12,.033,'cloth',g).rotation.x=Math.PI/2;part('cylinder',0x43556c,0,.51,.01,.22,.04,.21,'cloth',g);part('cylinder',0x43556c,0,.61,.01,.14,.18,.14,'cloth',g);ring(0xa96b80,0,.55,.01,.143,.018,Math.PI/2,0,0,'cloth',g);ring(0xb97588,0,.20,0,.151,.027,Math.PI/2,0,0,'cloth',g);box(0xb97588,.13,.08,.08,.09,.27,.035,'cloth',g).rotation.z=.13;
+    }else if(kind==='apal'){
+      const g=group(-.75,.31,.09);line([[0,0,0],[.01,.52,0],[.12,1.15,0],[.08,1.69,0]],0x9d8059,.055,'leather',g);for(let i=0;i<8;i++)ring(0xc0a47b,i>4?.09:.02,.17+i*.18,0,.058,.007,Math.PI/2,0,0,'leather',g);for(let i=0;i<7;i++){const a=i*Math.PI*2/7,f=group(.08,1.67,0,g);f.rotation.y=a;f.rotation.x=.30;const blade=outline(s=>{s.moveTo(0,0);s.bezierCurveTo(.09,.17,.51,.16,.61,-.17);s.bezierCurveTo(.33,-.08,.09,-.08,0,0);},i%2?0x6a9565:0x86a46d,0,0,0,.014,'cloth',f);line([[0,0,.02],[.26,.035,.02],[.60,-.17,.02]],0xc0c38b,.007,'cloth',f);for(let j=0;j<4;j++)line([[.12+j*.08,.035,.025],[.15+j*.10,.105,.025]],0x4c7858,.004,'cloth',f);}for(const [x,z]of[[.02,.05],[.15,.04],[.10,-.07]])ball(0x8a7252,x,1.55,z,.065,.07,.06,'cloth',g);
+    }else if(kind==='asub'){
+      const g=group(.75,1.22,.10);ball(0xd5b66e,0,0,0,.21,.21,.42,'enamel',g);box(0xb59a58,0,.24,-.04,.14,.21,.22,'enamel',g);line([[0,.33,-.06],[0,.47,-.06],[0,.47,.07]],ink,.022,'metal',g);for(const z of[-.17,.08]){const p=part('cylinder',0x648a9c,.20,.015,z,.063,.024,.063,'enamel',g);p.rotation.z=Math.PI/2;ring(silver,.215,.015,z,.071,.009,0,Math.PI/2,0,'metal',g);}const lens=part('cylinder',0x698fa4,0,.015,.40,.075,.015,.075,'enamel',g);lens.rotation.x=Math.PI/2;ring(silver,0,.015,.414,.082,.012,0,0,0,'metal',g);for(const side of[-1,1]){const f=box(ink,side*.28,-.03,-.25,.26,.025,.15,'metal',g);f.rotation.y=side*.12;}line([[0,0,-.38],[0,0,-.51]],silver,.015,'metal',g);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,p=box(brass,Math.sin(a)*.09,Math.cos(a)*.09,-.51,.07,.18,.025,'metal',g);p.rotation.z=-a;}
+    }else if(kind==='abok'){
+      const g=group(-.73,.62,.15);for(const [i,c]of[0x7d596a,0x5d7b89,0x769077].entries()){const b=group(i%2?.035:-.02,i*.18,0,g);b.rotation.y=i%2?.16:-.10;box(ivory,0,0,0,.35,.12,.35,'cloth',b);for(const y of[-.07,.07])box(c,0,y,0,.41,.025,.40,'leather',b);box(c,-.19,0,0,.035,.16,.40,'leather',b);for(const z of[-.12,.12])box(gold,-.213,0,z,.009,.13,.023,'metal',b);for(const y of[-.025,.025])line([[-.15,y,.18],[.16,y,.18]],0xc7c7b5,.003,'cloth',b);}box(0xae7186,.10,.17,.20,.055,.21,.01,'cloth',g);
+    }else if(kind==='abom'){
+      const g=group(.75,1.51,.13);ball(0x354757,0,0,0,.28,.28,.28,'metal',g);ring(brass,0,.255,0,.085,.017,Math.PI/2,0,0,'metal',g);part('cylinder',ink,0,.28,0,.067,.07,.067,'metal',g);line([[0,.30,0],[.03,.43,0],[.13,.46,0],[.17,.40,0]],0xb99d70,.018,'cloth',g);star(0xe6b878,.18,.40,.01,.08,.025,g);ball(ivory,-.11,.10,.23,.065,.09,.015,'enamel',g);for(const side of[-1,1]){eye(side*.055,.03,.269,.025,g);}box(ivory,0,-.07,.274,.09,.022,.012,'enamel',g);for(const [x,y]of[[-.16,-.14],[.15,-.14]])stud(x,y,.20,silver,.014,g);
+    }
+    return finish();
+  }
+  if(category==='hat'){
+    if(kind==='dragon'){
+      ball(0x377f70,0,.10,-.01,.33,.19,.30,'enamel');ball(0x63ad8d,0,.18,.20,.27,.135,.19,'enamel');
+      ball(0xb4d49c,0,.09,.30,.23,.055,.115);line([[-.20,.09,.36],[0,.075,.405],[.20,.09,.36]],0x24584f,.009);
+      for(const s of[-1,1]){ball(0x397561,s*.21,.245,.22,.095,.055,.075,'enamel');ball(gold,s*.20,.222,.269,.052,.039,.024,'enamel');ball(ink,s*.20,.223,.29,.013,.031,.01,'enamel');stud(s*.115,.17,.362,ink,.017);horn([[s*.20,.22,-.10],[s*.27,.35,-.14],[s*.26,.52,-.24],[s*.20,.58,-.29]],ivory,.064);for(let i=0;i<3;i++)ball(0x82bc91,s*(.24+i*.017),.10-i*.025,.10-i*.075,.045,.025,.045);}
+      for(let i=0;i<3;i++){const fin=poly([[-.065,0],[0,.16-i*.025],[.065,0]],gold,0,.24-i*.02,-.08-i*.10,.035,'enamel');fin.rotation.y=Math.PI/2;}
+      hatBand(0x25594e,.015,.302,.019);
+    }else if(kind==='ufo'){
+      profile([[0,0],[.20,0],[.36,.035],[.43,.07],[.40,.10],[.24,.145],[0,.145]],silver,0,.02,0,'metal');
+      ring(ink,0,.082,0,.414,.017,Math.PI/2);ring(cyan,0,.038,0,.28,.012,Math.PI/2,0,0,'enamel');ball(0x65a8b3,0,.19,0,.20,.15,.20,'enamel');ball(cyan,-.057,.25,.115,.057,.027,.028,'enamel');
+      for(let i=0;i<8;i++){const a=i*Math.PI/4;ball(i%2?gold:cyan,Math.sin(a)*.365,.116,Math.cos(a)*.365,.032,.019,.032,'enamel');}
+      for(const s of[-1,1])box(ink,s*.23,.16,0,.04,.025,.11);
+    }else if(kind==='hbnd'){
+      ball(0xa84650,0,.055,0,.321,.12,.287);hatBand(0xd07172,.015,.30,.021);const flap=poly([[-.23,0],[.23,0],[.13,-.25],[0,-.34],[-.14,-.20]],0xb94c58,0,.09,-.265,.018);flap.rotation.x=-.15;
+      ball(0xd36a70,.27,.06,-.10,.07,.06,.065);for(const s of[-1,1]){const f=poly([[0,0],[s*.18,-.09],[s*.10,-.30],[-.025,-.04]],0xc35662,.28,.045,-.09,.018);f.rotation.y=.5;}
+      for(const x of[-.15,0,.15]){const m=part('gem',ivory,x,.085,.268,.023,.023,.009);m.rotation.z=Math.PI/4;}
+    }else if(kind==='hstr'||kind==='hfed'){
+      const straw=kind==='hstr',c=straw?0xdcb976:0x5a4c47,bandColor=straw?0x96774d:0x292d38;
+      brim(c,straw?.43:.39,.015,.88);profile([[.28,0],[.285,.08],[.24,.25],[.13,.28],[0,.24]],c,0,.04,0);hatBand(bandColor,.11,.275,.036);
+      if(straw){for(let i=0;i<5;i++){const r=.31+i*.021;const m=ring(0xb58e53,0,.033+i*.001,0,r,.0038,Math.PI/2,0,0,'cloth');m.scale.y=.88;}for(let i=0;i<9;i++){const a=i*Math.PI*2/9;line([[Math.sin(a)*.27,.10,Math.cos(a)*.27],[Math.sin(a)*.23,.25,Math.cos(a)*.23]],0xb58e53,.0036);}const b=box(0x96774d,.28,.12,.02,.12,.07,.045);b.rotation.y=.35;}
+      else{line([[-.13,.282,0],[0,.255,-.015],[.13,.282,0]],0x393b42,.012);leaf(0xacb8b5,-.24,.14,.10,.17,-.5);stud(-.24,.12,.18,gold,.023);}
+    }else if(kind==='hrib'){
+      for(const side of[-1,1]){const loop=outline(s=>{s.moveTo(0,0);s.bezierCurveTo(.18,.17,.36,.18,.34,.025);s.bezierCurveTo(.34,-.12,.16,-.13,0,0);},0xde7399,0,.18,.015,.08);loop.scale.x=side;loop.rotation.z=side*.12;line([[side*.065,.18,.10],[side*.23,.22,.108],[side*.29,.19,.09]],0xf5b6ca,.009);const tail=poly([[0,0],[side*.15,-.08],[side*.22,-.28],[side*.13,-.24],[side*.07,-.30]],0xb84976,0,.16,-.005,.025);tail.rotation.x=-.1;}
+      ball(0xbd507a,0,.18,.075,.07,.075,.07);hatBand(0x9c456a,.01,.29,.014);
+    }else if(kind==='hlea'){
+      hatBand(0x735d3a,.025,.29,.014);for(const [x,y,z,s,r,c]of[[-.15,.02,0,.30,-.75,0x588858],[.11,.06,.04,.37,.45,0x76a364],[0,.18,-.05,.25,-.05,0x9bb96b]]){const l=leaf(c,x,y,z,s,r);line([[0,-.08,.03],[0,.12,.03],[.04,.39,.03]],0xc2cc8e,.008,'cloth',l);for(const sign of[-1,1])for(const t of[.04,.16,.27])line([[0,t,.032],[sign*.085,t+.08,.032]],0xaabd80,.005,'cloth',l);}stud(-.20,.09,.09,gold,.024);
+    }else if(kind==='hice'){
+      hatBand(silver,.025,.28,.012);const snow=group(0,.23,.03);for(let i=0;i<6;i++){const a=i*Math.PI/3,g=group(0,0,0,snow);g.rotation.z=a;line([[0,0,0],[0,.24,0]],0xbbe8ed,.014,'enamel',g);for(const side of[-1,1])for(const y of[.11,.18])line([[0,y,0],[side*.065,y+.05,0]],cyan,.009,'enamel',g);part('gem',ivory,0,.23,0,.025,.035,.019,'enamel',g);}part('gem',0xf1fcff,0,.23,.03,.052,.06,.04,'enamel');
+    }else if(kind==='hmoo'){
+      const moon=outline(s=>{s.moveTo(.12,.25);s.bezierCurveTo(-.34,.35,-.39,-.27,.10,-.29);s.bezierCurveTo(-.16,-.12,-.12,.14,.12,.25);},gold,-.015,.29,.01,.075,'metal');moon.rotation.z=-.2;
+      star(ivory,.20,.30,.06,.075);ring(gold,.18,.18,.055,.025,.005);line([[.20,.23,.05],[.20,.205,.05]],brass,.007,'metal');hatBand(0x485276,.02,.28,.012);
+    }else if(kind==='hsta'){
+      hatBand(0x657a9d,.02,.28,.014);star(gold,0,.25,.015,.24,.065);star(ivory,0,.25,.085,.12,.012);for(const s of[-1,1]){star(0x98c5d8,s*.26,.08,.015,.08,.025);line([[s*.04,.10,0],[s*.16,.05,.01],[s*.25,.08,.01]],silver,.008,'metal');}
+    }else if(kind==='hmsk'){
+      const m=outline(s=>{s.moveTo(-.29,.18);s.quadraticCurveTo(0,.28,.29,.18);s.lineTo(.25,-.09);s.quadraticCurveTo(.18,-.21,.08,-.16);s.lineTo(0,-.08);s.lineTo(-.08,-.16);s.quadraticCurveTo(-.18,-.21,-.25,-.09);},ivory,0,.05,.26,.045,'enamel');m.rotation.x=-.15;
+      for(const side of[-1,1]){const e=ball(ink,side*.14,.08,.319,.081,.037,.014,'enamel');e.rotation.z=side*.22;line([[side*.23,.10,.32],[side*.17,.14,.33],[side*.07,.11,.33]],gold,.011,'metal');box(0xb34954,side*.16,-.045,.32,.042,.075,.014).rotation.z=side*.25;horn([[side*.26,.17,.26],[side*.31,.28,.23],[side*.28,.34,.18]],ivory,.04);}line([[0,.13,.33],[0,-.025,.35]],gold,.009,'metal');
+    }else if(kind==='hpuf'){
+      ball(0x5b748f,0,.12,-.01,.31,.23,.29);profile([[.28,-.025],[.32,0],[.325,.075],[.29,.10]],0x7794aa,0,.01,0);for(let i=0;i<14;i++){const a=i*Math.PI/7;line([[Math.sin(a)*.312,.025,Math.cos(a)*.312],[Math.sin(a)*.312,.084,Math.cos(a)*.312]],0xabc1ca,.006);}for(let i=0;i<8;i++){const a=i*Math.PI/4;ball(ivory,Math.sin(a)*.052,.39+(i%2)*.026,Math.cos(a)*.052,.055,.055,.055);}box(0x334d65,0,.052,.32,.11,.06,.016);star(gold,0,.055,.335,.025,.008);
+    }else if(kind==='hsus'){
+      box(ivory,0,.105,0,.55,.20,.35);box(0xe67e69,0,.23,0,.59,.115,.37,'enamel');for(let i=0;i<5;i++){const l=line([[-.25+i*.10,.29,-.16],[-.18+i*.10,.29,0],[-.12+i*.10,.29,.15]],0xffc8ad,.012);l.rotation.y=.07;}for(const side of[-1,1])for(let i=0;i<4;i++)ball(0xe5dcc3,side*.26,.065+(i%2)*.06,-.12+i*.08,.022,.012,.029);box(0x33473a,0,.17,0,.14,.31,.39);for(const s of[-1,1])line([[s*.069,.02,.205],[s*.069,.28,.205]],0x698063,.005);
+    }else if(kind==='hbut'){
+      const b=group(0,.17,.02);for(const side of[-1,1]){const w=group(0,0,0,b);w.rotation.y=side*.18;const upper=outline(s=>{s.moveTo(0,0);s.bezierCurveTo(.09,.28,.39,.31,.34,.10);s.bezierCurveTo(.32,-.015,.17,-.06,0,0);},0x8373ad,0,0,0,.025,'enamel',w);upper.scale.x=side;const lower=outline(s=>{s.moveTo(0,0);s.bezierCurveTo(.32,.08,.32,-.25,.13,-.21);s.quadraticCurveTo(.08,-.17,0,0);},0xca87ae,0,0,.005,.022,'enamel',w);lower.scale.x=side;for(const [x,y,r]of[[.23,.13,.063],[.16,-.105,.044]]){ball(ink,side*x,y,.037,r,r,.008,'enamel',w);ball(ivory,side*x,y,.047,r*.6,r*.6,.007,'enamel',w);}line([[0,0,.035],[side*.16,.12,.035],[side*.29,.18,.035]],0xd8c4de,.006,'cloth',w);line([[side*.02,.1,0],[side*.04,.20,0],[side*.10,.23,0]],ink,.008,'cloth',b);}ball(ink,0,.17,.06,.026,.14,.035);hatBand(0x765f94,.02,.28,.012);
+    }else if(kind==='hhrt'){
+      hatBand(0xa9687c,.015,.285,.015);line([[0,.03,0],[-.025,.15,0],[0,.24,0]],gold,.014,'metal');heart(0xe5819c,0,.34,.01,.17);ball(0xffd6de,-.065,.40,.064,.028,.043,.008,'enamel');star(gold,.22,.19,.03,.055,.015);
+    }else if(kind==='hpar'){
+      profile([[.255,0],[.25,.04],[.15,.32],[.025,.62],[0,.64]],0x5785a4,0,.025,0);hatBand(gold,.035,.25,.016);for(let i=0;i<3;i++){const y=.16+i*.13,r=.23-i*.05;const a=ring(0xf4bc73,0,y,0,r,.014,Math.PI/2,0,0,'cloth');a.scale.z=.95;}for(const [x,y,z]of[[-.09,.19,.19],[.05,.38,.10],[.15,.12,.15]])star(ivory,x,y,z,.035,.012);ball(0xef9b9b,0,.69,0,.075,.075,.075);
+    }else if(kind==='hcap2'){
+      ball(0xb94c55,0,.11,-.025,.31,.19,.29);const peak=outline(s=>{s.moveTo(-.24,0);s.quadraticCurveTo(-.24,.28,0,.30);s.quadraticCurveTo(.24,.28,.24,0);},0x913b47,0,.005,.17,.026);peak.rotation.x=Math.PI/2;hatBand(0x833948,.015,.293,.017);for(const side of[-1,1])line([[0,.30,-.025],[side*.18,.23,.15],[side*.27,.08,.10]],0xde8790,.005);ball(0x833948,0,.303,-.025,.025,.015,.025);const crest=badge(ivory,0,.15,.255,.055);star(0x913b47,0,.15,.269,.033,.008);for(const side of[-1,1])stud(side*.25,.16,.055,ink,.012);
+    }else if(kind==='hdev'){
+      hatBand(0x4d3547,.025,.29,.025);for(const side of[-1,1]){ball(0x5c3442,side*.22,.07,-.015,.095,.055,.09);horn([[side*.21,.08,-.02],[side*.33,.22,-.05],[side*.34,.42,-.12],[side*.23,.55,-.15]],0xa63e4c,.095);ring(gold,side*.23,.105,-.025,.079,.014,Math.PI/2);horn([[side*.28,.22,-.012],[side*.29,.34,-.05],[side*.25,.43,-.09]],0xe27b78,.012);}
+    }else if(kind==='hsan'){
+      horn([[0,.055,0],[.015,.24,-.01],[.035,.43,-.02],[.17,.51,-.02],[.30,.34,.01]],0xb54552,.27);for(let i=0;i<14;i++){const a=i*Math.PI/7;ball(ivory,Math.sin(a)*.285,.04,Math.cos(a)*.265,.063,.065,.06);}for(let i=0;i<7;i++){const a=i*Math.PI*2/7;ball(ivory,.30+Math.sin(a)*.045,.32+Math.cos(a)*.045,.01,.058,.058,.058);}line([[-.10,.13,.22],[-.07,.28,.17],[-.01,.40,.09]],0xd36972,.007);
+    }else if(kind==='hgld'){
+      profile([[.285,0],[.31,.015],[.31,.095],[.285,.11]],gold,0,.025,0,'metal');for(let i=0;i<7;i++){const a=i*Math.PI*2/7,g=group(Math.sin(a)*.285,.11,Math.cos(a)*.285);g.rotation.y=a;poly([[-.11,0],[-.07,.08],[0,.25],[.07,.08],[.11,0]],gold,0,0,0,.028,'metal',g);part('gem',i%2?0x6cbcc6:0xd36f85,0,.075,.035,.037,.055,.018,'enamel',g);stud(0,.25,.015,ivory,.022,g);}hatBand(brass,.035,.308,.012);hatBand(ivory,.10,.309,.006);
+    }else if(kind==='hpen'||kind==='hfrg'){
+      const frog=kind==='hfrg',c=frog?0x79a96d:0x34495a;ball(c,0,.10,-.01,.32,.19,.29);hatBand(frog?0x5a8556:0x293b4d,.01,.30,.016);if(frog){for(const side of[-1,1]){ball(c,side*.18,.245,.11,.10,.105,.09);ball(ivory,side*.18,.26,.183,.067,.070,.022);eye(side*.18,.26,.204,.034);ball(0xdd9c8d,side*.23,.10,.22,.038,.018,.017);}line([[-.12,.105,.27],[0,.075,.295],[.12,.105,.27]],0x385c42,.008);}
+      else{for(const side of[-1,1]){ball(ivory,side*.12,.14,.23,.105,.12,.035);eye(side*.12,.175,.268,.028);const wing=ball(c,side*.31,.07,0,.075,.13,.15);wing.rotation.z=side*.3;}const beak=poly([[-.065,0],[.065,0],[0,-.065]],0xe5b066,0,.10,.29,.055,'enamel');ball(ivory,0,.015,.19,.15,.07,.10);}
+    }
+    return finish();
+  }
+  if(kind==='pack'||kind==='hiking'||kind==='bmap'){
+    const c=kind==='hiking'?0x627e5b:kind==='bmap'?0x547d80:0x48738b;pack(c);pocket(kind==='hiking'?0x53694d:0x365d72);for(const side of[-1,1]){box(ink,side*.18,.075,-.246,.043,.40,.024);buckle(side*.18,-.04,-.30);box(c,side*.29,-.02,-.04,.10,.27,.21);}
+    if(kind==='hiking'){const roll=profile([[0,-.29],[.10,-.29],[.125,-.25],[.125,.25],[.10,.29],[0,.29]],0xb6b894,0,.43,-.065);roll.rotation.z=Math.PI/2;for(const side of[-1,1])ring(ink,side*.18,.43,-.065,.13,.017,0,Math.PI/2,0,'leather');line([[-.30,.44,-.06],[-.29,.48,-.07],[-.25,.47,-.09]],0x78866b,.008);}
+    if(kind==='bmap'){const m=group(.07,.12,-.31);m.rotation.z=-.12;box(ivory,0,0,0,.29,.20,.025);for(const x of[-.06,.05])box(0xd9c49a,x,0,-.015,.006,.18,.008);line([[-.11,-.045,-.025],[-.05,.045,-.025],[.025,-.005,-.025],[.10,.07,-.025]],0x878e6b,.010,'cloth',m);star(0xb76d5c,.07,.035,-.035,.025,.01,m);badge(brass,-.13,-.13,-.31,.045);}
+    else{box(0xc6b787,0,.13,-.244,.13,.075,.016);star(ink,0,.13,-.26,.024,.01);}
+  }else if(kind==='satchel'||kind==='bbag'||kind==='bgym'||kind==='btrv'){
+    const gym=kind==='bgym',travel=kind==='btrv',c=gym?0x546c83:travel?0x76533f:0x997049;straps(0x493e35);box(c,0,-.02,-.075,gym?.64:.56,gym?.38:.47,.30,'leather');handle(0x514339,gym?.29:.32,.26);seam(0xc7a575,.54,.43,-.232);
+    if(gym){for(const side of[-1,1]){box(ink,side*.19,0,-.24,.035,.38,.025);ring(silver,side*.19,.18,-.24,.025,.007);ball(0x42576a,side*.29,-.02,-.075,.065,.18,.15);}zip(0,.12,-.245,.48);box(ivory,0,0,-.257,.16,.045,.012);}
+    else{box(travel?0x5b4435:0x7b563a,0,.11,-.253,.55,.22,.045,'leather');for(const side of[-1,1]){box(0x4d3d31,side*.17,-.04,-.29,.042,.32,.018,'leather');buckle(side*.17,-.055,-.307);}line([[-.25,.18,-.281],[0,.21,-.281],[.25,.18,-.281]],0xd1af7d,.006);if(travel){box(ivory,.09,.075,-.29,.13,.09,.014).rotation.z=.14;for(const side of[-1,1])for(const y of[-.19,.17])box(brass,side*.25,y,-.24,.07,.075,.04,'metal');}else badge(gold,0,.12,-.29,.035);}
+  }else if(kind==='jet'||kind==='oxygen'){
+    straps();box(0x364d63,0,0,0,.30,.49,.21);for(const side of[-1,1]){tank(kind==='jet'?silver:ivory,side*.19,0,-.10,.115,.60);box(ink,side*.19,-.08,-.23,.23,.065,.027);box(gold,side*.19,.29,-.10,.13,.045,.10,'metal');line([[side*.19,.30,-.10],[side*.19,.39,-.11],[side*.08,.34,-.16]],gold,.022,'metal');if(kind==='jet'){profile([[.10,0],[.105,.04],[.075,.10]],ink,side*.19,-.37,-.10,'metal');ring(cyan,side*.19,-.35,-.10,.086,.009,Math.PI/2,0,0,'enamel');}else{box(0x6c9e9c,side*.19,.05,-.223,.13,.17,.018);for(let i=0;i<2;i++)box(ivory,side*.19,.025+i*.04,-.235,.09,.010,.006);}}
+    box(0x324a5c,0,.08,-.238,.12,.20,.06);badge(cyan,0,.105,-.275,.036);line([[-.09,.29,-.10],[-.16,.21,-.26],[0,-.13,-.29],[.14,-.09,-.20]],ink,.023,'leather');
+  }else if(kind==='medic'){
+    pack(ivory,.53,.59,.28);box(0xb64d59,0,0,-.231,.32,.32,.018);box(ivory,0,0,-.25,.064,.23,.018);box(ivory,0,0,-.25,.23,.064,.018);for(const side of[-1,1]){box(0xa8545b,side*.19,.17,-.235,.04,.17,.025);buckle(side*.19,.17,-.257);box(0xd9d5c8,side*.255,-.08,-.08,.05,.25,.17);}zip(0,-.20,-.23,.32);
+  }else if(kind==='radio'){
+    pack(0x566b5b,.46,.62,.27);box(ink,0,.11,-.245,.34,.17,.035);box(0x9cae82,-.025,.12,-.270,.20,.077,.012,'enamel');for(let i=0;i<4;i++)box(0x344d46,-.1+i*.043,.12,-.28,.018,.045,.006);for(let i=0;i<5;i++)box(ink,0,-.06-i*.033,-.245,.27,.012,.015);for(const side of[-1,1]){badge(ink,side*.14,.25,-.24,.035);stud(side*.17,-.24,-.23,silver,.012);}line([[.16,.30,-.04],[.17,.60,-.06],[.20,.86,-.08]],ink,.012,'metal');line([[-.15,.25,-.11],[-.29,.11,-.22],[-.24,-.12,-.28]],ink,.015,'leather');
+  }else if(kind==='shield'){
+    straps(0x665140);const p=[[-.29,.29],[.29,.29],[.27,-.06],[.17,-.24],[0,-.38],[-.17,-.24],[-.27,-.06]];poly(p,brass,0,0,-.25,.10,'metal');const inner=p.map(([x,y])=>[x*.87,y*.87]);poly(inner,0x3d7b89,0,0,-.269,.015,'enamel');box(ivory,0,-.005,-.29,.055,.47,.017);box(ivory,0,.11,-.29,.40,.055,.017);part('gem',gold,0,.10,-.318,.09,.11,.033,'metal');for(const [x,y]of[[-.23,.23],[.23,.23],[-.20,-.075],[.20,-.075],[0,-.30]])stud(x,y,-.28,ivory,.015);
+  }else if(kind==='aquarium'){
+    straps();box(0x30667a,0,0,-.10,.53,.59,.31,'enamel');box(0x72bdc8,0,.01,-.263,.43,.45,.02,'enamel');box(0x96b7a2,0,-.19,-.286,.43,.055,.026);for(const side of[-1,1]){box(silver,side*.255,0,-.28,.035,.55,.035,'metal');line([[side*.15,-.18,-.30],[side*.17,-.04,-.31],[side*.13,.02,-.31]],0x448a6b,.015);line([[side*.17,-.13,-.31],[side*.09,-.05,-.31]],0x62a47d,.012);}for(const y of[-.27,.27])box(silver,0,y,-.15,.55,.05,.35,'metal');const f=group(.025,.015,-.31);ball(0xe9aa58,0,0,0,.105,.057,.022,'enamel',f);poly([[-.07,0],[-.16,.065],[-.16,-.065]],0xdf8f4e,0,0,0,.017,'enamel',f);eye(.062,.012,-.020,.012,f);for(const y of[.065,.15,.20])ring(ivory,-.09,y,-.304,.015+y*.035,.004,0,0,0,'enamel');box(0xc3e7e8,0,0,-.35,.46,.47,.012,'glass');line([[-.19,.18,-.361],[-.09,.25,-.361]],ivory,.008,'enamel');
+  }else if(kind==='rocket'){
+    straps();box(ink,0,0,.035,.33,.53,.13);profile([[.08,-.33],[.16,-.25],[.16,.20],[.11,.34],[0,.49]],ivory,0,0,-.14,'enamel');profile([[.16,0],[.13,.10],[0,.27]],0xb45159,0,.20,-.14,'enamel');ring(silver,0,.09,-.306,.068,.014);badge(0x5c98af,0,.09,-.318,.057);for(const side of[-1,1]){poly([[0,.03],[side*.18,-.15],[side*.18,-.34],[0,-.27]],0xb45159,side*.13,-.03,-.16,.045,'enamel');line([[side*.125,-.07,-.23],[side*.27,-.24,-.23]],ivory,.006);}profile([[.095,0],[.11,.025],[.08,.10]],ink,0,-.39,-.14,'metal');for(const y of[-.13,-.07])ring(brass,0,y,-.14,.161,.008,Math.PI/2);
+  }else if(kind==='wings'){
+    straps(ivory);box(gold,0,.04,0,.17,.27,.08,'metal');for(const side of[-1,1]){const g=group(side*.04,.15,-.10);for(let i=0;i<6;i++)feather(side*(.11+i*.065),.13-i*.043,-i*.008,.27-i*.015,.068,side*(-.40-i*.09),g);ball(ivory,side*.15,.14,.02,.20,.12,.04,'cloth',g);line([[side*.04,.09,-.06],[side*.20,.27,-.05],[side*.42,.17,-.08]],gold,.011,'metal',g);}badge(gold,0,.13,-.18,.055);
+  }else if(kind==='treasure'||kind==='bbox'){
+    const toys=kind==='bbox';straps();box(toys?0x6e8f8b:0x79533c,0,-.04,-.10,.56,.39,.33,'leather');profile([[0,-.27],[.17,-.27],[.17,.27],[0,.27]],toys?0x85aaa0:0x9b7350,0,.17,-.10).rotation.z=Math.PI/2;
+    for(const side of[-1,1]){box(gold,side*.18,-.04,-.279,.036,.39,.022,'metal');line([[side*.18,.15,-.28],[side*.18,.29,-.13],[side*.18,.16,.06]],gold,.018,'metal');for(const y of[-.17,.11])stud(side*.18,y,-.298,brass,.013);}box(gold,0,.03,-.30,.10,.12,.025,'metal');box(ink,0,.035,-.32,.018,.04,.009);line([[-.25,-.08,-.28],[.25,-.08,-.28]],0x573c31,.006);if(toys){star(ivory,-.13,-.08,-.31,.06,.016);ball(0xb96f7d,.10,.28,-.10,.085,.09,.075);for(const side of[-1,1])ball(0xb96f7d,.10+side*.062,.35,-.10,.035,.04,.03);box(0xddb16b,-.09,.24,-.16,.12,.13,.10).rotation.z=.14;}
+  }else if(kind==='solar'){
+    pack(0x4d6074,.30,.57,.25);for(const side of[-1,1]){const g=group(side*.30,0,-.12);g.rotation.y=side*.12;box(silver,0,0,0,.29,.58,.035,'metal',g);box(0x234f77,0,0,-.024,.255,.53,.014,'enamel',g);for(const x of[-.085,0,.085])for(let i=0;i<4;i++){box(0x426f9c,x,-.20+i*.132,-.036,.071,.115,.008,'enamel',g);line([[x-.025,-.24+i*.132,-.044],[x+.025,-.15+i*.132,-.044]],0x83adc1,.003,'metal',g);}box(brass,side*-.145,0,0,.04,.20,.06,'metal',g);}box(ink,0,-.10,-.24,.16,.13,.025);for(let i=0;i<3;i++)box(cyan,-.04+i*.04,-.1,-.26,.02,.06,.008,'enamel');
+  }else if(kind==='guitar'){
+    straps(0x624b39);const g=group(0,-.12,-.17);g.rotation.z=-.20;outline(s=>{s.moveTo(0,-.25);s.bezierCurveTo(-.32,-.25,-.25,.02,-.16,.04);s.bezierCurveTo(-.29,.25,-.05,.32,0,.25);s.bezierCurveTo(.05,.32,.29,.25,.16,.04);s.bezierCurveTo(.25,.02,.32,-.25,0,-.25);},0xb27d4b,0,0,-.045,.10,'leather',g);box(0x65503d,0,.44,0,.074,.52,.075,'leather',g);box(0x8d603d,0,.75,0,.12,.18,.075,'leather',g);const hole=part('cylinder',ink,0,.085,-.058,.069,.013,.069,'cloth',g);hole.rotation.x=Math.PI/2;ring(ivory,0,.085,-.068,.077,.008,0,0,0,'cloth',g);box(0x594031,0,-.10,-.075,.16,.035,.024,'leather',g);for(const x of[-.022,0,.022])line([[x,-.10,-.091],[x,.80,-.051]],silver,.0025,'metal',g);for(let i=0;i<8;i++)box(silver,0,.25+i*.056,-.049,.072,.007,.006,'metal',g);for(const side of[-1,1])for(let i=0;i<3;i++)stud(side*.071,.70+i*.045,0,silver,.012,g);
+  }else if(kind==='bdrm'){
+    straps();const drum=profile([[0,-.15],[.25,-.15],[.25,.15],[0,.15]],0xa55c59,0,0,-.13,'enamel');drum.rotation.x=Math.PI/2;for(const z of[-.29,.03]){const lid=part('cylinder',ivory,0,0,z,.25,.018,.25);lid.rotation.x=Math.PI/2;ring(silver,0,0,z,.25,.016);}for(let i=0;i<8;i++){const a=i*Math.PI/4,x=Math.sin(a)*.238,y=Math.cos(a)*.238;line([[x,y,-.28],[x,y,.02]],silver,.009,'metal');stud(x,y,-.31,brass,.018);}for(const side of[-1,1]){const s=line([[side*.16,-.13,-.33],[-side*.12,.23,-.34]],0xc2a278,.014);ball(0xe1c99b,-side*.12,.23,-.34,.022,.027,.022);}
+  }else if(kind==='bcam'||kind==='camera'){
+    pack(0x4e6573,.55,.43,.28);box(ink,0,0,-.26,.44,.27,.045,'leather');const l=profile([[.10,0],[.10,.08],[.085,.10]],ink,0,0,-.29,'metal');l.rotation.x=-Math.PI/2;ring(silver,0,0,-.394,.09,.012);badge(0x528a9c,0,0,-.405,.075);ball(0xaccdd0,-.025,.025,-.42,.025,.014,.008,'enamel');box(ivory,-.15,.09,-.30,.066,.043,.018,'enamel');box(silver,.12,.14,-.19,.083,.045,.06,'metal');zip(0,-.16,-.24,.34);stud(.17,-.08,-.297,gold,.013);
+  }else if(kind==='bshp'){
+    straps(0x92754a);box(0xa98754,0,-.035,-.10,.57,.39,.34);for(let row=0;row<4;row++)box(row%2?0xcfb780:0xb69b66,0,-.17+row*.085,-.28,.55,.04,.014);for(let i=0;i<7;i++)box(0xd3b989,-.24+i*.08,-.035,-.291,.027,.37,.012);line([[-.22,.18,-.10],[-.20,.43,-.10],[.20,.43,-.10],[.22,.18,-.10]],0x9a7b50,.025);ball(0xc98159,-.13,.18,-.12,.083,.095,.07);leaf(0x668c5d,-.12,.25,-.13,.15,.4);const bread=ball(0xd2b077,.10,.22,-.11,.072,.25,.065);bread.rotation.z=-.24;for(let i=0;i<3;i++)line([[.04,.14+i*.08,-.17],[.12,.18+i*.08,-.17]],0xe9d7ad,.008);
+  }else if(kind==='bwtr'||kind==='bjus'){
+    const juice=kind==='bjus',c=juice?0xde9b4e:0x579ba9;straps();box(ink,0,-.02,.055,.29,.48,.06);tank(c,0,-.01,-.10,.155,.56);part('cylinder',ink,0,.30,-.10,.11,.09,.11);ring(silver,0,.345,-.10,.103,.012,Math.PI/2);line([[.11,.30,-.10],[.19,.30,-.1],[.19,.20,-.1],[.13,.18,-.1]],ink,.015);box(ivory,0,-.01,-.261,.20,.18,.018);if(juice){badge(0xeab96b,0,-.015,-.281,.062);leaf(0x7c9d65,.035,.055,-.295,.065,-.6);}else{poly([[0,.07],[-.055,-.025],[0,-.06],[.055,-.025]],0x4f93ac,0,0,-.284,.013,'enamel');for(const y of[-.19,.17])ring(ink,0,y,-.1,.16,.019,Math.PI/2,0,0,'leather');}
+  }else if(kind==='bpar'){
+    pack(0xb59a62,.55,.63,.31);for(const side of[-1,1]){box(0x545b4e,side*.17,0,-.24,.052,.59,.025);buckle(side*.17,-.08,-.27);line([[side*.17,.29,-.2],[side*.25,.39,-.02],[side*.21,.29,.13]],ivory,.011);for(let i=0;i<3;i++)line([[side*.22,.20-i*.07,-.251],[side*.27,.16-i*.07,-.20]],0xe4d8b8,.007);}box(0xdccdab,0,.08,-.248,.17,.14,.025);line([[-.065,.14,-.268],[0,.19,-.268],[.065,.14,-.268]],0x777953,.008);line([[-.065,.14,-.268],[0,.045,-.268],[.065,.14,-.268]],0x777953,.006);line([[.23,-.09,-.15],[.32,-.09,-.16],[.32,-.19,-.16],[.24,-.19,-.15]],0xb34e51,.017);
+  }else if(kind==='bcrd'){
+    straps(0xa88d62);box(0xc1a47b,0,0,-.09,.56,.57,.32);box(0x937d5f,0,.286,-.09,.51,.007,.27);for(const side of[-1,1]){const flap=box(0xd2b98d,side*.14,.32,-.08,.28,.025,.32);flap.rotation.z=side*-.19;}box(0xdbbf8f,0,0,-.257,.095,.56,.012);box(ivory,-.12,-.06,-.27,.17,.14,.009);for(let i=0;i<5;i++)box(ink,-.18+i*.027,-.08,-.28,i%2?.009:.014,.073,.006);poly([[-.07,-.02],[.07,-.02],[0,.04]],0x645a4b,.13,.11,-.27,.01);box(0x645a4b,.13,.06,-.277,.021,.09,.01);for(const y of[-.22,-.19])line([[-.25,y,-.266],[.25,y,-.266]],0x9e8865,.004);
+  }else if(kind==='bfish'){
+    pack(0x667b63,.43,.64,.25);pocket(0x50674f,0,-.09,-.23,.32,.26);for(const side of[-1,1]){line([[side*.22,-.26,.02],[side*.25,.35,0],[side*.29,.66,-.015]],side<0?0xb0a17b:ink,.012);ring(silver,side*.26,.35,-.016,.034,.006,0,Math.PI/2);box(0xa3875a,side*.22,-.11,.02,.035,.24,.035);line([[side*.29,.65,-.014],[side*.30,.3,-.08]],silver,.0025);}const fish=ball(silver,.08,.03,-.292,.07,.035,.015,'metal');poly([[-.025,0],[-.065,.03],[-.065,-.03]],silver,.02,.03,-.30,.012,'metal');badge(brass,0,.18,-.22,.035);
+  }else if(kind==='bflag'){
+    pack(0x53737e,.33,.47,.23);line([[-.17,-.20,-.05],[-.17,.88,-.05]],silver,.017,'metal');stud(-.17,.90,-.05,gold,.027);const flag=outline(s=>{s.moveTo(0,0);s.bezierCurveTo(.12,.08,.27,-.09,.43,0);s.lineTo(.43,-.27);s.bezierCurveTo(.27,-.35,.13,-.19,0,-.27);},0xb95663,-.17,.82,-.05,.018);star(ivory,.06,.71,-.025,.064,.012);for(const y of[.80,.56])ring(gold,-.17,y,-.05,.024,.005,Math.PI/2);
+  }else if(kind==='bbal'){
+    pack(0x79677f,.30,.39,.22);for(const [x,y,z,c]of[[-.23,.73,-.11,0xc97086],[.20,.77,-.12,0x72a6bc],[0,.96,-.03,0xd8b469]]){ball(c,x,y,z,.17,.21,.16,'enamel');line([[x,y-.20,z],[x*.65,.35,-.08],[0,.14,-.22]],ivory,.004);part('cone',c,x,y-.22,z,.025,.045,.025,'enamel').rotation.z=Math.PI;ball(0xffefd7,x-.06,y+.075,z-.13,.023,.054,.006,'enamel');}zip(0,0,-.24,.19);
+  }else if(kind==='bcat'){
+    pack(0x9ba5a0,.56,.49,.34);box(ink,0,-.015,-.289,.41,.32,.018);ball(0xb4a18a,0,-.015,-.322,.12,.10,.015);for(const side of[-1,1]){part('cone',0xb4a18a,side*.075,.075,-.325,.045,.10,.015);ball(0xdfc8a8,side*.052,-.035,-.339,.045,.028,.008);eye(side*.052,.01,-.343,.015);}for(const x of[-.16,-.08,0,.08,.16])box(silver,x,-.01,-.362,.012,.30,.016,'metal');for(const y of[-.17,.15])box(silver,0,y,-.35,.43,.023,.018,'metal');for(const side of[-1,1])for(let i=0;i<3;i++)box(ink,side*.275,-.065+i*.06,-.12,.014,.022,.11);zip(0,.19,-.27,.34);
+  }else if(kind==='bbee'){
+    straps(0x625944);for(const side of[-1,1]){for(const [dy,w,h,rot]of[[.15,.18,.31,-.40],[-.13,.14,.22,.65]]){const g=group(side*.14,dy,-.10);g.rotation.z=side*rot;ball(0xb9d7d6,side*.10,0,0,w,h,.023,'enamel',g);line([[0,-h*.5,-.026],[side*.14,h*.35,-.026],[side*.10,h*.80,-.026]],ivory,.007,'cloth',g);for(const s of[-1,1])line([[side*.10,0,-.028],[side*.22,s*h*.34,-.028]],0x8fb5b8,.004,'cloth',g);}}ball(0xc5a452,0,-.01,-.16,.14,.27,.12,'enamel');for(const y of[-.11,.01,.13])ring(ink,0,y,-.16,.128,.023,Math.PI/2,0,0,'cloth');
+  }else if(kind==='bnin'){
+    pack(0x374654,.47,.66,.25);box(0x25343e,0,0,-.24,.42,.55,.025);for(const side of[-1,1]){const b=box(0x97535c,0,.015,-.266,.058,.68,.018);b.rotation.z=side*.55;}const scroll=profile([[0,-.27],[.075,-.27],[.075,.27],[0,.27]],0xb2a083,0,.39,-.065);scroll.rotation.z=Math.PI/2;for(const x of[-.29,.29]){const c=part('cylinder',brass,x,.39,-.065,.09,.055,.09,'metal');c.rotation.z=Math.PI/2;}star(silver,0,0,-.295,.10,.02);part('gem',ink,0,0,-.325,.025,.025,.015);for(const side of[-1,1])buckle(side*.16,-.22,-.265);
+  }else if(kind==='bstr'){
+    straps(0xb59765);for(const side of[-1,1]){box(0x795b42,side*.16,0,-.10,.075,.64,.065,'leather');for(let i=0;i<4;i++)stud(side*.16,-.18+i*.12,-.14,gold,.013);buckle(side*.16,.18,-.15);}box(0x4b6c78,0,-.02,-.13,.29,.28,.12);box(0xc3af83,0,-.02,-.198,.19,.16,.018);star(0x6b7e83,0,-.02,-.22,.055,.014);line([[-.13,.29,-.13],[.10,.16,-.19],[.14,-.27,-.10]],0xe4c898,.016);
+  }else if(kind==='bgsd'){
+    pack(0x676a88,.43,.60,.24);box(0xb9b7b8,0,0,-.228,.37,.53,.025,'enamel');box(ink,0,.09,-.25,.29,.22,.016);box(0x8baf9e,0,.09,-.261,.24,.16,.01,'enamel');for(let i=0;i<4;i++)box(0x4d776d,-.075+i*.05,.055+(i%2)*.04,-.273,.034,.033,.008);box(ink,-.085,-.12,-.258,.10,.032,.015);box(ink,-.085,-.12,-.258,.032,.10,.015);for(const [x,y]of[[.07,-.145],[.13,-.105]])badge(0xa35f79,x,y,-.265,.025);for(let i=0;i<3;i++)box(0x6b7080,.065+i*.027,-.218,-.251,.010,.04,.01);
+  }else if(kind==='battery'){
+    pack(0x517f72,.44,.60,.26);box(ink,0,.02,-.24,.27,.35,.025);for(let i=0;i<3;i++)box(0x88c3a4,0,-.09+i*.105,-.26,.21,.064,.018,'enamel');box(gold,0,.34,-.08,.15,.07,.12,'metal');poly([[.02,.12],[-.08,-.02],[-.01,-.02],[-.035,-.12],[.08,.03],[.01,.03]],ivory,0,.02,-.285,.014);for(const side of[-1,1])for(const y of[-.25,.25])stud(side*.18,y,-.22,silver,.015);
+  }else if(kind==='lantern'){
+    straps();box(ink,0,0,-.05,.34,.45,.24,'metal');box(0xe8bc73,0,0,-.18,.26,.32,.016,'enamel');for(const side of[-1,1])box(brass,side*.12,0,-.21,.028,.34,.025,'metal');for(const y of[-.21,.21])box(ink,0,y,-.06,.38,.055,.28,'metal');ring(brass,0,.35,-.05,.11,.018);ball(ivory,0,0,-.20,.06,.12,.018,'enamel');
+  }else if(kind==='toolbox'){
+    pack(0x648a99,.57,.39,.30);for(const side of[-1,1]){box(silver,side*.19,0,-.244,.042,.36,.018,'metal');buckle(side*.19,.05,-.26);}box(ink,0,.09,-.24,.55,.012,.016);for(const side of[-1,1])for(const y of[-.13,.14])stud(side*.24,y,-.24,silver,.018);zip(0,-.11,-.25,.25);
+  }else if(kind==='book'){
+    straps(0x655341);box(0x7b4d64,0,0,-.10,.45,.60,.20,'leather');box(ivory,.025,0,-.22,.37,.53,.025);box(0x7b4d64,0,0,-.245,.45,.60,.024,'leather');box(gold,-.19,0,-.15,.05,.61,.24,'metal');seam(gold,.39,.54,-.265);poly([[0,.12],[.09,0],[0,-.12],[-.09,0]],gold,0,0,-.275,.018,'metal');box(0xa77873,.12,-.30,-.14,.055,.13,.012).rotation.z=-.12;
+  }
+  return finish();
+}
+/* DETAILED_WEARABLES_V1_END */

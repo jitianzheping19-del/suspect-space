@@ -75,4 +75,19 @@
   @media (pointer:coarse) and (min-height:521px) and (min-width:701px) {
     html body.voiceAvailable #voiceToggleBtn { left:max(18px,env(safe-area-inset-left)) !important; right:auto !important; top:calc(max(16px,env(safe-area-inset-top)) + 76px) !important; bottom:auto !important; }
   }
+  html body[data-phase="meeting"].voiceAvailable #voiceToggleBtn {
+    left:auto !important;right:max(12px,env(safe-area-inset-right)) !important;
+    top:max(10px,env(safe-area-inset-top)) !important;bottom:auto !important;
+    width:48px !important;height:48px !important;min-width:48px !important;min-height:48px !important;
+    transform:none !important;z-index:1600 !important;
+  }
+  html body[data-phase="meeting"] #meeting>#meetingMapBtn:not(.hidden) {
+    position:fixed !important;display:flex !important;align-items:center !important;justify-content:center !important;
+    top:max(10px,env(safe-area-inset-top)) !important;right:calc(max(12px,env(safe-area-inset-right)) + 58px) !important;
+    left:auto !important;bottom:auto !important;z-index:30 !important;
+    width:76px !important;min-width:76px !important;height:48px !important;min-height:48px !important;
+    margin:0 !important;padding:8px !important;pointer-events:auto !important;touch-action:manipulation !important;
+    border:1px solid #94bdce !important;border-radius:12px !important;background:#173449 !important;
+    color:#ecf8ff !important;font-size:14px !important;font-weight:800 !important;transform:none !important;
+  }
 }

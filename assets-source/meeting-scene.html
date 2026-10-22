@@ -898,7 +898,7 @@ document.body.appendChild(timerBar);
 const tPhase=timerBar.querySelector("#tPhase"),tSec=timerBar.querySelector("#tSec"),tFill=timerBar.querySelector("#tFill");
 const abilityBar=document.createElement("div");abilityBar.style.cssText="position:fixed;right:10px;bottom:10px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:48vw;z-index:5";
 document.body.appendChild(abilityBar);
-const modeHint=document.createElement("div");modeHint.style.cssText="position:fixed;bottom:72px;left:50%;transform:translateX(-50%);padding:6px 12px;border:1px solid #70dfff88;border-radius:10px;background:#0b1524ee;color:#eaf7ff;font:800 13px sans-serif;display:none;z-index:6;max-width:70vw;text-align:center;box-shadow:0 4px 14px #0008";
+const modeHint=document.createElement("div");modeHint.id="meetingTargetHint";modeHint.setAttribute("role","status");modeHint.setAttribute("aria-live","polite");modeHint.style.cssText="position:fixed;bottom:72px;left:50%;transform:translateX(-50%);padding:8px 16px;border:1px solid #70dfff88;border-radius:10px;background:#0b1524ee;color:#eaf7ff;font:800 15px sans-serif;display:none;pointer-events:none;z-index:6;max-width:70vw;text-align:center;box-shadow:0 4px 14px #0008";
 document.body.appendChild(modeHint);
 window.__ui=function(){const narrow=isNarrow(),fs=narrow?"11px":"13px",w=PANEL_W;
   chatPanel.style.width=w+"px";chatPanel.style.fontSize=fs;
@@ -914,12 +914,14 @@ window.__ui=function(){const narrow=isNarrow(),fs=narrow?"11px":"13px",w=PANEL_W
   abilityBar.style.fontSize=fs;modeHint.style.fontSize=fs;
   const bs=narrow?"11px":"13px";abilityBar.querySelectorAll("button").forEach(b=>{b.style.fontSize=bs;b.style.padding=narrow?"6px 9px":"10px 14px";});};
 let abilityKey="",uiMeeting="",uiTotal=0,uiBase=0,uiAt=0,mode="",modeList=[],appliedSwaps=0,meetingOverNow=false,votingOpenNow=false,allVotedNow=false;
-const meetingMapControl=document.createElement("button");meetingMapControl.id="meetingMapControl";meetingMapControl.textContent="マップ";meetingMapControl.style.cssText="position:fixed;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));z-index:8;padding:8px 12px;border-radius:10px;background:#173449;border:1px solid #94bdce;font-size:12px";meetingMapControl.onclick=()=>parent.postMessage({type:"ss3d-btn",id:"meetingMapBtn"},"*");document.body.append(meetingMapControl);
+// Map input belongs to the parent dialog; it remains available during every
+// iframe update and uses the same open/close path as the keyboard shortcut.
+let parentTargetSelection=false;
 const modeButtonIds={swap:"swapVotesBtn",scales:"scalesBtn",sheriff:"meetingSheriffBtn"};
 function syncModeButtons(){for(const button of abilityBar.querySelectorAll("[data-ability-id]")){button.textContent=modeButtonIds[mode]===button.dataset.abilityId?"キャンセル":button.dataset.baseLabel;button.setAttribute("aria-pressed",String(modeButtonIds[mode]===button.dataset.abilityId));}}
-window.addEventListener("message",event=>{if(event.source===parent&&event.data?.type==="ss3d-cancel-mode")setMode("");});
-const modeText={swap:"入れ替える2人を選んでください",scales:"天秤に載せる2人を選んでください",sheriff:"ナイフを使う相手を選んでください"};
-function setMode(m){mode=m;modeList=[];modeHint.style.display=m?"block":"none";modeHint.textContent=m?modeText[m]:"";syncModeButtons();refreshTargetOutlines();}
+window.addEventListener("message",event=>{if(event.source===parent&&event.data?.type==="ss3d-cancel-mode"){parentTargetSelection=false;setMode("");}});
+function refreshTargetHint(){const selecting=!!mode||parentTargetSelection;modeHint.style.display=selecting?"block":"none";modeHint.textContent=selecting?"対象を選んでください":"";}
+function setMode(m){mode=m;modeList=[];refreshTargetHint();syncModeButtons();refreshTargetOutlines();}
 function finishMode(){const picks=modeList.slice();const m=mode;setMode("");
   if(m==="swap"||m==="scales")parent.postMessage({type:"ss3d-pick2",kind:m,targets:picks},"*");
   if(m==="sheriff")parent.postMessage({type:"ss3d-sheriff",target:picks[0]},"*");}
@@ -932,7 +934,7 @@ function buttonAction(id){
   if(id==="meetingSheriffBtn"){setMode(mode==="sheriff"?"":"sheriff");return;}
   parent.postMessage({type:"ss3d-btn",id},"*");}
 function renderUi(d){
-  const mapState=(d.buttons||[]).find(b=>b.id==="meetingMapBtn");meetingMapControl.hidden=!mapState?.visible;meetingMapControl.disabled=!!mapState?.disabled;
+  parentTargetSelection=!!d.targetSelection;refreshTargetHint();
   window.__ui?.();
   const atBottom=chatLog.scrollTop+chatLog.clientHeight>=chatLog.scrollHeight-40;
   const reporter=chatPanel.querySelector("#chatReporter");
@@ -1014,7 +1016,7 @@ startLoop((dt,rdt,time)=>{
   NOW+=dt;updateMeetingAbilityView();if(freeCam)updateFreeCam(dt);else orb.update();roof.visible=false;hatch.visible=false;mrUpdateScaleBreak(dt);if(scaleShown)mrUpdateScaleChains();
   skipBtn.style.display=(voting&&!busy&&!ownVoted&&!allVotedNow&&!mode)?"block":"none";
   timerBar.style.display=allVotedNow||resultPlayback?"none":"";
-  if(uiMeeting&&!allVotedNow&&!resultPlayback){const left=Math.max(0,uiBase-(performance.now()-uiAt));tSec.textContent=Math.ceil(left/1000)+"秒";tFill.style.width=(clamp(left/uiTotal,0,1)*100)+"%";const voteUrgent=votingOpenNow&&left>0&&left<=10000&&!ownVoted;voteWarning.style.display=voteUrgent?"block":"none";tFill.style.background=voteUrgent?"linear-gradient(90deg,#ff384f,#ff9a9a)":"linear-gradient(90deg,#43dfff,#d9fbff)";tPhase.textContent=(votingOpenNow?"投票中":"議論中")+(mode?"　▶ "+modeText[mode]:"");}else voteWarning.style.display="none";
+  if(uiMeeting&&!allVotedNow&&!resultPlayback){const left=Math.max(0,uiBase-(performance.now()-uiAt));tSec.textContent=Math.ceil(left/1000)+"秒";tFill.style.width=(clamp(left/uiTotal,0,1)*100)+"%";const voteUrgent=votingOpenNow&&left>0&&left<=10000&&!ownVoted;voteWarning.style.display=voteUrgent?"block":"none";tFill.style.background=voteUrgent?"linear-gradient(90deg,#ff384f,#ff9a9a)":"linear-gradient(90deg,#43dfff,#d9fbff)";tPhase.textContent=votingOpenNow?"投票中":"議論中";}else voteWarning.style.display="none";
   if(!voting||ownVoted)hud.style.display=(hud.style.display==="flex"&&voting&&!ownVoted)?"flex":"none";
   for(const f of flights){if(f.done||NOW<f.start)continue;f.m.visible=true;const t=clamp((NOW-f.start)/f.dur,0,1),a=f.from(),b=f.to(),e=E.io(t);
     f.m.position.set(lerp(a.x,b.x,e),lerp(a.y,b.y,e)+Math.sin(Math.PI*t)*f.arc,lerp(a.z,b.z,e));if(f.weighted){f.m.rotation.y+=dt*4;f.m.rotation.z=Math.sin(t*Math.PI*2)*.28;}if(t>=1){f.done=true;f.onDone&&f.onDone(f.m);}}
