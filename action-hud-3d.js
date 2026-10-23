@@ -76,6 +76,9 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     }else if(kind==='mic'){
       mesh(group,polygon([[-.22,-.04],[-.22,.48],[-.13,.63],[.13,.63],[.22,.48],[.22,-.04],[.12,-.19],[-.12,-.19]]),metal);
       mesh(group,polygon([[-.42,.02],[-.33,.02],[-.28,-.23],[0,-.35],[.28,-.23],[.33,.02],[.42,.02],[.35,-.35],[.07,-.47],[.07,-.63],[.31,-.63],[.31,-.73],[-.31,-.73],[-.31,-.63],[-.07,-.63],[-.07,-.47],[-.35,-.35]]),tint);
+    }else if(kind==='headphones'){
+      const arch=mesh(group,geometry('headset-arch',()=>new THREE.TorusGeometry(.50,.075,6,28,Math.PI)),metal,0,.02,.02);for(const side of[-1,1])mesh(group,cube,tint,side*.50,-.20,.04,[.20,.48,.22]);
+      for(const a of[-Math.PI/4,Math.PI/4]){const cross=mesh(group,cube,basic(0xff667b),0,-.03,.22,[.62,.10,.10]);cross.rotation.z=a;}
     }else if(kind==='map'){
       for(let i=0;i<3;i++){
         const leaf=mesh(group,cube,i===1?tint:metal,(i-1)*.4,0,.08,[.38,.95,.1]);leaf.rotation.y=i===1?-.4:.4;
@@ -99,7 +102,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     const group=new THREE.Group(),cap=new THREE.Group();group.name='action:'+button.id;group.add(cap);scene.add(group);
     const shellMat=material(0x172534,{roughness:.48}),edgeMat=material(spec.color,{emissive:spec.color,emissiveIntensity:.34}),faceMat=material(spec.faceColor||0x102130,{metalness:.3,roughness:.46});
     const shell=mesh(group,cube,shellMat),edge=mesh(cap,cube,edgeMat,0,0,2),face=mesh(cap,cube,faceMat,0,0,4);
-    const symbol=icon(spec.kind,spec.color);cap.add(symbol);
+    const symbol=icon(spec.kind,spec.color);cap.add(symbol);const headset=spec.kind==='mic'?icon('headphones',spec.color):null;if(headset){headset.visible=false;cap.add(headset);}
     const arcGeometry=ring.clone();geometries.add(arcGeometry);
     const arc=mesh(cap,arcGeometry,basic(spec.color,{transparent:true,opacity:.88}),0,0,23);arc.visible=false;
     // A spent ability gets a physical red X over its icon, not another panel.
@@ -108,11 +111,11 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     spent.visible=false;
     const muteSlash=spec.kind==='mic'?mesh(cap,cube,red,0,0,29,[32,3,2]):null;
     if(muteSlash){muteSlash.rotation.z=-Math.PI/4;muteSlash.visible=false;}
-    const record={button,spec,group,cap,shell,edge,face,shellMat,edgeMat,faceMat,symbol,arc,spent,muteSlash,w:0,h:0,press:0,pressUntil:0,hover:false,cooling:0,disabled:false};
+    const record={button,spec,group,cap,shell,edge,face,shellMat,edgeMat,faceMat,symbol,headset,arc,spent,muteSlash,w:0,h:0,press:0,pressUntil:0,hover:false,cooling:0,disabled:false};
     records.set(button.id,record);button.dataset.threeAction='true';return record;
   }
   for(const [id,spec] of Object.entries(ACTIONS)){const b=spec.utility?document.getElementById(id):root?.querySelector('#'+id);if(b)build(b,spec);}
-  const invalidate=()=>{dirty=true;};
+  const invalidate=()=>{dirty=true;if(active&&(!isActive()||isObscured()))setActive(false);};
   const lost=()=>setActive(false);
   renderer.domElement.addEventListener('webglcontextlost',lost);
   renderer.domElement.addEventListener('webglcontextrestored',invalidate);
@@ -161,7 +164,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
       r.cooling=Math.max(0,Math.min(1,(parseFloat(b.style.getPropertyValue('--cooldown'))||0)/360));
       r.disabled=b.disabled;r.speaking=b.dataset.speaking==='true';r.spent.visible=b.dataset.exhausted==='true';
       if(r.muteSlash){
-        const muted=b.dataset.state!=='on';r.muteSlash.visible=muted;
+        const deafened=b.dataset.state==='deafened',muted=b.dataset.state!=='on';r.muteSlash.visible=muted&&!deafened;if(r.headset){r.headset.visible=deafened;r.symbol.visible=!deafened;r.headset.position.copy(r.symbol.position);r.headset.scale.copy(r.symbol.scale);}
         r.spec.color=muted?0xe2b96d:0x6cdeb5;
         r.muteSlash.scale.set(Math.min(w,h)*.62,3,2);
       }

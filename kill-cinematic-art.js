@@ -288,8 +288,12 @@ export function createCinematicArt(THREE) {
       }
     }
     if(role==='jackal'||role==='samurai'||role==='sheriff'){
-      heroWeapon=blade(attacker.hands[1],{length:role==='samurai'?1.38:.68,katana:role==='samurai',accent});
+      heroWeapon=blade(attacker.hands[1],{length:role==='samurai'?1.38:role==='sheriff'?.87:.68,katana:role==='samurai',accent});
       if(props.gun)props.gun.visible=false;
+      if(role==='sheriff'){
+        const guard=ring(heroWeapon,.083,.014,metal(0xd8b978,.2,.88),V(0,-.16,0));guard.rotation.z=Math.PI/2;
+        for(const side of[-1,1])rod(heroWeapon,V(side*.045,.10,.012),V(side*.045,-.10,.012),.006,metal(0xd8b978,.2,.9));
+      }
       if(role==='samurai'){
         const sheath=new THREE.Group();attacker.torso.add(sheath);sheath.position.set(-.32,-.02,-.12);sheath.rotation.set(.5,0,-.7);rod(sheath,V(),V(0,-1.25,0),.062,metal(0x102030,.35,.6));ring(sheath,.063,.018,metal(0xd2b780),V(0,-.08,0));
       }
@@ -462,8 +466,8 @@ export function createCinematicArt(THREE) {
       if(role==='sheriff'){
         const reflect=payload.cause==='sheriffMisfire';
         attacker.root.position.x=eased(t,[[0,-2.6],[.3,-2.45],[.84,1.5],[1,1.75],[1.3,1.7],[2.1,1.6]]);
-        attacker.torso.rotation.x=eased(t,[[0,.04],[.8,-.14],[1,.18],[1.3,.04]]);
-        attacker.arms[1].rotation.x=eased(t,[[0,-.3],[.72,-2.5],[1,-1.57],[1.15,-1.5],[1.6,-.4]]);
+        attacker.torso.rotation.x=eased(t,[[0,.06],[.4,.12],[.73,-.18],[.91,-.12],[1.03,.24],[1.23,.16],[1.6,.02]]);attacker.torso.rotation.y=eased(t,[[0,-.18],[.48,-.26],[.86,.38],[1.05,-.35],[1.5,0]]);
+        attacker.arms[1].rotation.x=eased(t,[[0,.30],[.38,-.25],[.65,-2.75],[.86,-2.55],[1.01,-1.38],[1.18,-1.60],[1.40,-.55],[1.8,-.3]]);attacker.arms[1].rotation.z=eased(t,[[0,.10],[.65,.34],[1.02,-.14],[1.5,.08]]);heroWeapon.rotation.y=eased(t,[[0,-.25],[.42,.50],[.70,0],[1.2,0]]);
         attacker.arms[0].rotation.x=eased(t,[[0,0],[.9,-.6],[1.15,-.35],[1.6,0]]);
         if(reflect){
           const fall=smooth((t-1.5)/.65);attacker.rig.rotation.x=fall*Math.PI*.48;attacker.rig.position.y=fall*.43;attacker.suit.color.copy(attacker._identity).multiplyScalar(1-fall*.25);
@@ -472,7 +476,7 @@ export function createCinematicArt(THREE) {
           if(t>=1.15){const k=smooth((t-1.15)/.35);heroWeapon.position.set(mix(primary.root.position.x-.42,attacker.root.position.x+.22,k),1.12+Math.sin(k*Math.PI)*.22,-.24*(1-k));}
           once('misfire',t>=1.5,()=>{const b=newBurst(effects,{count:45,color:accent,speed:2.5,life:.4});b.fire(1.5,attacker.root.position.clone().add(V(0,1,0)));timedBursts.push(b);props.tone(150,45,.3,.25);});
         }else{const fall=smooth((t-1.08)/.72);primary.root.rotation.z=0;primary.rig.rotation.x=-fall*Math.PI*.48;primary.rig.position.y=fall*.43;}
-        once('knifeHit',t>=1,()=>props.noise(.14,{type:'highpass',f0:3000,f1:800,gain:.22}));
+        once('knifeHit',t>=1,()=>{props.noise(.14,{type:'highpass',f0:3900,f1:750,gain:.22});props.tone(110,45,.12,.17);const b=newBurst(effects,{count:42,color:0xe3e8df,shards:true,speed:2.3,gravity:5,life:.30});b.fire(1,hitPoint);timedBursts.push(b);});
       }
       if(role==='slugger'){
         attacker.root.position.x=eased(t,[[0,-2.4],[.3,-2.15],[.7,-1.05],[1.3,-1.05]]);

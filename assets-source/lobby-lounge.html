@@ -828,7 +828,7 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
       root.rotation.y=targetAngle;root.userData.dismountTurnPending=false;return true;
     }
     let lastPositionMessage = 0;
-    function updatePlayer(dt, elapsed) { if(window.__lobbyKartCircuit?.updateDrive(dt))return; const localState=lobbyVisualStates.get(visualSelfUid),motionLocked=window.__lobbyStudioOpen===true||performance.now()<(window.__lobbyMotionUntil||0),seated=(localState?.seated===true||localState?.sitting===true)&&!motionLocked; const position=player.root.position,previousY=position.y,support=lobbyPlatformAt(position.x,position.z,position.y+.05);if(!seated){if(lobbyJumpVelocity===0&&lobbyJumpQueuedUntil>performance.now()&&position.y<=support+.06){lobbyJumpVelocity=LOBBY_JUMP_STRENGTH;lobbyJumpQueuedUntil=0;}if(lobbyJumpVelocity!==0||position.y>support+.025){lobbyJumpVelocity-=17*dt;position.y=Math.max(support,position.y+lobbyJumpVelocity*dt);}else position.y=support;}else{position.y=support;lobbyJumpVelocity=0;} const landingTop=lobbyPlatformAt(position.x,position.z,previousY+.05);if(lobbyJumpVelocity<=0&&position.y<=landingTop+.025){position.y=landingTop;lobbyJumpVelocity=0;} if(motionLocked||seated){if(elapsed-lastPositionMessage>.04){lastPositionMessage=elapsed;parent.postMessage({type:"lobby-position",x:position.x,z:position.z,lobbyY:position.y,yaw:player.root.rotation.y,walking:false,circuitTrack:window.__lobbyKartCircuit?.isTrackAt(position.x,position.z)===true},"*");}player.legs.forEach(leg=>leg.rotation.x=0);return;}
+    function updatePlayer(dt, elapsed) { if(window.__lobbyKartCircuit?.updateDrive(dt))return; const localState=lobbyVisualStates.get(visualSelfUid),motionLocked=window.__lobbyStudioOpen===true||performance.now()<(window.__lobbyMotionUntil||0),seated=(localState?.seated===true||localState?.sitting===true)&&!motionLocked; const position=player.root.position,previousY=position.y,support=lobbyPlatformAt(position.x,position.z,position.y+.05);if(!seated){if(lobbyJumpVelocity===0&&lobbyJumpQueuedUntil>performance.now()&&position.y<=support+.06){lobbyJumpVelocity=LOBBY_JUMP_STRENGTH;lobbyJumpQueuedUntil=0;}if(lobbyJumpVelocity!==0||position.y>support+.025){lobbyJumpVelocity-=17*dt;position.y=Math.max(support,position.y+lobbyJumpVelocity*dt);}else position.y=support;}else{position.y=support;lobbyJumpVelocity=0;} const landingTop=lobbyPlatformAt(position.x,position.z,previousY+.05);if(lobbyJumpVelocity<=0&&position.y<=landingTop+.025){position.y=landingTop;lobbyJumpVelocity=0;} if(motionLocked||seated){if(elapsed-lastPositionMessage>=1/60){lastPositionMessage=elapsed;parent.postMessage({type:"lobby-position",x:position.x,z:position.z,lobbyY:position.y,yaw:player.root.rotation.y,walking:false,circuitTrack:window.__lobbyKartCircuit?.isTrackAt(position.x,position.z)===true},"*");}player.legs.forEach(leg=>leg.rotation.x=0);return;}
       const horizontal =
         Number(pressed("KeyD", "ArrowRight")) -
         Number(pressed("KeyA", "ArrowLeft")) + lobbyStick.x;
@@ -904,7 +904,7 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
         
       }
 
-      if (elapsed - lastPositionMessage > 0.04) {
+      if (elapsed - lastPositionMessage >= 1/60) {
         lastPositionMessage = elapsed;
         const moving=moveDirection.lengthSq()>0.0001; parent.postMessage({ type: "lobby-position", x: player.root.position.x, z: player.root.position.z, lobbyY:player.root.position.y, yaw:player.root.rotation.y, walking:moving, circuitTrack:window.__lobbyKartCircuit?.isTrackAt(player.root.position.x,player.root.position.z)===true }, "*");
       }
@@ -973,9 +973,9 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
  * static pieces are batched by the caller and moving parts keep explicit pivots.
  */
 function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
-  const kinds=['dragon','rover','pgho','pjel','pfrg','pbat','pmus','pgeo','pcld','pstr','pbal','pdol','pwol','pshp','pshk','pmsh','pbrd','pfsh','pcub','phrt','pflm','pice'];
+  const kinds=['hamster','drone','cat','dog','parrot','robot','fox','slime','penguin','turtle','owl','lifebuoy','rabbit','panda','axolotl','dragon','rover','pgho','pjel','pfrg','pbat','pmus','pgeo','pcld','pstr','pbal','pdol','pwol','pshp','pshk','pmsh','pbrd','pfsh','pcub','phrt','pflm','pice'];
   if(!kinds.includes(kind))return null;
-  const rig={kind,legs:[],wings:[],wheels:[],tails:[],ears:[],eyes:[],phase:0,weight:0};
+  const rig={kind,legs:[],wings:[],wheels:[],tails:[],ears:[],eyes:[],heads:[],bodies:[],rotors:[],phase:0,weight:0};
   const ink=0x182b40,ivory=0xfff5db,cream=0xffdfae,glint=0xf5ffff;let serial=0;
   const own=g=>(geometry['detail:'+kind+':'+serial++]=g,g);
   function mat(color,finish='satin'){
@@ -998,7 +998,7 @@ function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
     g.setAttribute('color',new THREE.BufferAttribute(colors,3));
     const key='detail:gradient:'+top+':'+bottom;
     const material=materials[key]||(materials[key]=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.37,metalness:.035}));
-    const m=new THREE.Mesh(g,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.userData.lightCostume=true;parent.add(m);return m;
+    const m=new THREE.Mesh(g,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.userData.lightCostume=true;m.userData.companionTorso=true;parent.add(m);rig.bodies.push({node:m,scale:m.scale.clone(),restY:y});return m;
   }
   function eye(x,y,z,size=.043,parent=root){
     const e=group(x,y,z,parent);ball(ink,0,0,0,size,size*1.12,size*.58,e);ball(glint,-size*.27,size*.36,size*.5,size*.27,size*.28,size*.15,e);
@@ -1017,7 +1017,52 @@ function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
   }
   function star(r,color,parent=root,depth=.045){const points=Array.from({length:10},(_,i)=>{const a=Math.PI/2+i*Math.PI/5,d=i%2?r*.46:r;return[Math.cos(a)*d,Math.sin(a)*d];});return polygon(points,color,depth,parent,.018);}
   root.userData.detailedCompanion=1;
-  if(kind==='dragon'){
+  if(kind==='hamster'){
+    const fur=0xcda16d,belly=0xffefd3;
+    body(fur,belly,0,-.025,-.065,.195,.16,.235);ball(belly,0,-.08,.095,.14,.11,.11);
+    const h=joint(rig.heads,0,.12,.115,'y',1);ball(fur,0,0,0,.19,.16,.16,h);
+    for(const side of[-1,1]){const ear=joint(rig.ears,side*.13,.115,-.035,'z',side,h);ball(fur,0,.025,0,.060,.065,.027,ear);ball(0xe1b2a0,0,.025,.023,.035,.040,.008,ear);ball(belly,side*.105,-.055,.112,.086,.080,.063,h);for(const dy of[-.012,.012])stroke([[side*.13,-.045+dy,.14],[side*.23,-.025+dy,.135]],0xead3b0,.0025,h);}
+    face(.035,.145,.078,.025,h);ball(0xd39994,0,-.023,.181,.021,.016,.012,h);smile(-.068,.174,.025,h);for(const side of[-1,1])part('box',ivory,side*.014,-.074,.184,.025,.036,.012,h);
+    for(const x of[-.125,.125])for(const z of[-.13,.105])leg(x,z,fur,0xe0b4a2,(x<0?-1:1)*(z<0?-1:1));
+    const tail=joint(rig.tails,0,-.075,-.26,'y',1);ball(0xe0b4a2,0,0,-.02,.032,.028,.045,tail);
+  }else if(['cat','dog','fox','rabbit','panda'].includes(kind)){
+    const fur=kind==='cat'?0xcda679:kind==='dog'?0xc9b395:kind==='fox'?0xd48c5b:kind==='panda'?0xe1e6df:0xe9e7df;
+    const darkFur=kind==='panda'?ink:fur;
+    body(fur,ivory,0,-.025,-.055,.17,.145,.25);
+    const h=joint(rig.heads,0,.13,.14,'y',1);ball(fur,0,0,0,.17,.155,.16,h);ball(ivory,0,-.065,.12,.12,.07,.07,h);face(.025,.144,.072,.028,h);ball(kind==='rabbit'?0xdca2b3:ink,0,-.043,.183,.023,.017,.015,h);smile(-.077,.181,.034,h);
+    if(kind==='rabbit')for(const side of[-1,1]){const e=joint(rig.ears,side*.09,.11,-.025,'z',side,h);ball(fur,0,.14,0,.052,.19,.045,e);ball(0xddadba,0,.15,.039,.027,.13,.011,e);}
+    else if(kind==='panda')for(const side of[-1,1]){ball(ink,side*.12,.12,-.025,.063,.063,.045,h);ball(ink,side*.073,.024,.129,.056,.060,.019,h);}
+    else if(kind==='dog')for(const side of[-1,1]){const e=joint(rig.ears,side*.147,.055,-.03,'z',side,h);ball(0x927158,side*.025,-.05,0,.057,.12,.045,e);}
+    else{ears(fur,0xe3b1b8,.105,.12,-.02,h);for(const side of[-1,1])for(const dy of[-.01,.018])stroke([[side*.08,-.06,.17],[side*.20,-.055+dy,.16]],0xece0c7,.003,h);}
+    for(const x of[-.12,.12])for(const z of[-.14,.12])leg(x,z,darkFur,kind==='panda'?ink:ivory,(x<0?-1:1)*(z<0?-1:1));
+    const tail=joint(rig.tails,0,-.035,-.25,'y',1,root,{idle:kind==='dog'?.8:.35,speed:.005,amplitude:kind==='dog'?.6:.26});
+    if(kind==='cat')stroke([[0,0,0],[.055,.015,-.14],[.13,.14,-.20],[.12,.20,-.12]],fur,.025,tail);
+    else if(kind==='rabbit'||kind==='panda')ball(ivory,0,.015,-.04,.075,.075,.075,tail);
+    else{ball(fur,0,.015,-.13,.075,.075,.20,tail);ball(ivory,0,.015,-.28,.062,.062,.075,tail);}
+    if(kind==='dog'){part('ring',0x548d96,0,-.03,.17,.133,.12,.08).rotation.x=Math.PI/2;ball(0xd4bd81,0,-.105,.21,.023,.027,.012);}
+  }else if(['parrot','penguin','owl'].includes(kind)){
+    const bird=kind==='parrot'?0x64a993:kind==='owl'?0x9f896c:0x425b70;
+    body(bird,ivory,0,-.015,-.035,.155,.20,.17);ball(ivory,0,-.04,.108,.105,.145,.035);
+    const h=joint(rig.heads,0,.17,.035,'y',1);ball(bird,0,0,0,.15,.14,.14,h);
+    if(kind==='owl')for(const side of[-1,1]){ball(ivory,side*.066,.015,.12,.063,.069,.021,h);part('cone',bird,side*.10,.12,-.01,.045,.13,.04,h);}
+    face(.02,.134,.06,.026,h);part('cone',0xd3af72,0,-.04,.17,.043,.09,.036,h).rotation.x=Math.PI/2;
+    for(const side of[-1,1]){const w=joint(rig.wings,side*.125,.045,-.035,'z',side,root,{idle:kind==='parrot'?.35:.08,speed:.012,amplitude:kind==='parrot'?.42:.15});ball(bird,side*.045,-.05,0,.06,.15,.12,w);for(let i=0;i<3;i++)ball(kind==='parrot'?0x4a7e9b:bird,side*(.05+i*.012),-.12-i*.015,-.065,.025,.095,.05,w);const l=joint(rig.legs,side*.075,-.14,.035,'x',side);ball(0xc6a16b,0,-.045,.025,.055,.023,.075,l);}
+    const tail=joint(rig.tails,0,-.09,-.14,'x',1,root,{idle:.25,speed:.004,amplitude:.12});for(const x of[-.045,0,.045])ball(bird,x,-.015,-.07,.025,.045,.11,tail);
+  }else if(kind==='axolotl'){
+    body(0xd99cad,0xf8d6ca,0,-.025,-.08,.17,.13,.28);const h=joint(rig.heads,0,.055,.15,'y',1);ball(0xe5b1bc,0,0,0,.20,.12,.17,h);face(.025,.15,.075,.028,h);smile(-.025,.175,.05,h);
+    for(const side of[-1,1])for(let i=0;i<3;i++){const g=joint(rig.ears,side*.17,.06-i*.05,0,'z',side,h);stroke([[0,0,0],[side*.09,.035-i*.015,-.02],[side*.15,.08-i*.04,-.02]],0xb96c91,.014,g);for(let j=0;j<3;j++)stroke([[side*(.07+j*.02),.025,0],[side*(.07+j*.02),.065,-.01]],0xd590ac,.006,g);}
+    for(const x of[-.12,.12])for(const z of[-.14,.11])leg(x,z,0xd99cad,0xedc4c4,(x<0?-1:1)*(z<0?-1:1));const t=joint(rig.tails,0,-.035,-.28,'y',1,root,{idle:.4,speed:.004,amplitude:.28});const fin=curved(s=>{s.moveTo(-.05,.04);s.quadraticCurveTo(.17,.09,.09,-.26);s.quadraticCurveTo(-.04,-.09,-.05,.04);},0xc17b9e,.022,t);fin.rotation.x=Math.PI/2;
+  }else if(kind==='turtle'){
+    body(0x82aa7c,0xd8d5a5,0,-.055,-.025,.19,.10,.24);ball(0x527b64,0,.05,-.04,.22,.15,.25);for(let i=0;i<6;i++){const a=i*Math.PI/3;const tile=part('box',0x8aa17b,Math.sin(a)*.12,.172,Math.cos(a)*.13-.04,.075,.012,.095);tile.rotation.y=a;}const h=joint(rig.heads,0,-.01,.22,'y',1);ball(0x91b28b,0,0,0,.105,.085,.12,h);face(.025,.10,.045,.022,h);smile(-.025,.115,.025,h);for(const x of[-.17,.17])for(const z of[-.15,.11]){const l=joint(rig.legs,x,-.095,z,'x',Math.sign(x*z));ball(0x8caf84,0,-.02,.02,.06,.045,.095,l);}
+  }else if(kind==='slime'){
+    const b=body(0x87c5a5,0xd2eed0,0,-.025,0,.23,.20,.22);b.material.roughness=.23;face(.02,.205,.071,.03);smile(-.05,.219,.042);ball(glint,-.09,.075,.17,.042,.018,.011);for(const side of[-1,1])ball(0xd4b5bf,side*.14,-.025,.179,.03,.014,.012);rig.softBody=true;
+  }else if(kind==='drone'||kind==='robot'){
+    const robot=kind==='robot';part('box',0xb4c5ca,0,-.025,0,.28,.23,.24,root,'metal');root.children.at(-1).userData.companionTorso=true;part('box',ink,0,.015,.13,.19,.075,.025);for(const x of[-.045,.045])ball(0x7ad8df,x,.018,.15,.025,.025,.012);
+    if(robot){const h=joint(rig.heads,0,.16,0,'y',1);part('box',0x9bb4c0,0,0,0,.24,.15,.20,h,'metal');part('box',ink,0,0,.11,.19,.065,.018,h);for(const x of[-.05,.05])ball(0x8edee0,x,0,.125,.024,.024,.010,h);for(const side of[-1,1]){const arm=joint(rig.wings,side*.16,.03,0,'x',side,root,{idle:.1,speed:.004,amplitude:.20});part('box',0x7895a9,0,-.055,0,.055,.15,.08,arm,'metal');leg(side*.075,.02,0x7895a9,ink,side);}}
+    else{for(const side of[-1,1])for(const z of[-.13,.13]){stroke([[side*.10,.02,z*.5],[side*.23,.045,z]],0x6e899c,.016);const rotor=joint(rig.rotors,side*.23,.06,z,'y',side);part('box',ink,0,0,0,.22,.012,.035,rotor);part('box',ink,0,.003,0,.035,.012,.22,rotor);part('ring',0x99c8cf,0,-.005,0,.13,.13,.13,rotor).rotation.x=Math.PI/2;}root.userData.floatHeight=.18;rig.floating=true;}
+  }else if(kind==='lifebuoy'){
+    body(0xe6bf73,ivory,0,.06,0,.14,.15,.17);ball(0xe6bf73,0,.20,.05,.13,.115,.12);face(.22,.15,.055,.022);part('cone',0xd38e5a,0,.17,.20,.045,.09,.04).rotation.x=Math.PI/2;const life=mesh(own(new THREE.TorusGeometry(.27,.08,8,32)),0xe5e9df);life.rotation.x=Math.PI/2;life.position.y=-.035;for(let i=0;i<4;i++){const a=i*Math.PI/2,band=part('box',0xb86c78,Math.sin(a)*.27,-.035,Math.cos(a)*.27,.10,.10,.095);band.rotation.y=a;}for(const side of[-1,1]){const w=joint(rig.wings,side*.13,.045,0,'z',side,root,{idle:.3,speed:.004,amplitude:.15});ball(0xdcb66d,side*.02,0,-.01,.055,.06,.11,w);}root.userData.floatHeight=.04;rig.floating=true;
+  }else if(kind==='dragon'){
     const jade=0x508e79,light=0xbfd39b;
     body(jade,light,0,-.025,-.06,.18,.17,.25);body(0x72ae8a,light,0,.13,.15,.19,.17,.18);ball(jade,0,.07,.29,.155,.09,.11);
     for(const y of[-.105,-.055,-.005]){ball(light,0,y,.14,.105,.033,.045);stroke([[-.08,y-.015,.17],[0,y-.025,.19],[.08,y-.015,.17]],jade,.005);}
@@ -1577,6 +1622,8 @@ function buildLightCostume(THREE,code){
   if(pet&&pet!=='none'){
     const buddy=new THREE.Group();buddy.position.set(.72,.3,.1);buddy.userData.isPet=true;root.add(buddy);
     const c=pet==='cat'?0xe8bd83:pet==='dog'?0xe2d7c5:pet==='parrot'?0x66dca0:pet==='fox'?0xf29a56:pet==='slime'?0x93e39b:pet==='penguin'?dark:pet==='turtle'?0x81b88b:pet==='owl'?0xb99368:pet==='lifebuoy'?0xf28b55:cyan;
+    const detailedRig=buildDetailedCompanion(THREE,pet,buddy,{shape,geometry,materials});
+    if(!detailedRig){
     if(pet==='bee'){
       add('sphere',gold,0,0,0,.23,.16,.18,buddy);for(const x of [-.08,.08])add('box',dark,x,0,.16,.035,.23,.035,buddy);for(const x of [-.16,.16])add('sphere',white,x,.19,-.03,.13,.04,.16,buddy);for(const x of [-.07,.07])add('sphere',dark,x,.04,.18,.025,.03,.02,buddy);
     }else if(pet==='chick'){
@@ -1637,7 +1684,7 @@ function buildLightCostume(THREE,code){
       if(pet==='turtle'){for(const x of [-.075,.075])add('box',0xadc773,x,.23,-.07,.035,.018,.2,buddy);}
       if(pet==='fox')add('sphere',white,.25,-.02,-.31,.06,.065,.075,buddy);
     }
-    const detailedRig=buildDetailedCompanion(THREE,pet,buddy,{shape,geometry,materials});
+    }
     if(detailedRig){buddy.userData.motionRig=detailedRig;}else{
     // Articulated feet, wings and wheels share each costume's owned materials.
     const rig={kind:pet,legs:[],wings:[],wheels:[],tails:[],ears:[],eyes:[],phase:0,weight:0};
@@ -1853,6 +1900,9 @@ function animateCompanionGait(pet,travel,dt,moving,stamp){
  for(const part of rig.wheels)part.node.rotation[part.axis]+=Math.max(0,travel)/.075;
  for(const part of rig.tails){const idle=part.idle||0,cycle=phase*.7+stamp*(part.speed||0)+(part.phase||0);part.node.rotation[part.axis]=part.rotation[part.axis]+Math.sin(cycle)*(part.amplitude??.24)*(idle+(1-idle)*w);}
  for(const part of rig.ears)part.node.rotation[part.axis]=part.rotation[part.axis]+Math.sin(phase+part.side)*.10*w;
+ for(const part of rig.heads||[])part.node.rotation[part.axis]=part.rotation[part.axis]+Math.sin(stamp*.0017)*.055*(1-w)+Math.sin(phase*.5)*.06*w;
+ for(const part of rig.rotors||[])part.node.rotation[part.axis]=part.rotation[part.axis]+stamp*.032*part.side;
+ for(const part of rig.bodies||[]){const breath=Math.sin(stamp*.0025)*.015*(1-w),squish=rig.softBody?Math.sin(phase)*.06*w:0;part.node.scale.set(part.scale.x*(1-squish*.4),part.scale.y*(1+breath+squish),part.scale.z*(1-squish*.4));}
  const blink=stamp%4700,eyeScale=blink>4490&&blink<4650?.12:1;for(const eye of rig.eyes)eye.node.scale.y=eye.scaleY*eyeScale;
  const soft=["slime","pjel","pfrg","rabbit"].includes(rig.kind),bounce=soft?Math.max(0,Math.sin(phase))*.055*w:Math.abs(Math.sin(phase))*.012*w;
  return bounce+(rig.floating?Math.sin(stamp*.0022)*.012:0);
@@ -1861,12 +1911,13 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
  const d=owner.userData,step=Math.min(.05,Math.max(0,dt)),floatHeight=Number(pet.userData.floatHeight)||0;let f=d.companionMotion;
  if(!f||f.pet!==pet){const yaw=Number(owner.rotation.y)||0;f=d.companionMotion={pet,lastX:owner.position.x,lastZ:owner.position.z,sampleX:owner.position.x,sampleZ:owner.position.z,trail:[{x:owner.position.x,z:owner.position.z,y:owner.position.y}],following:false,speed:0,height:owner.position.y+.25+floatHeight};}
  const travel=Math.hypot(owner.position.x-f.lastX,owner.position.z-f.lastZ),ownerSpeed=travel/Math.max(.016,step);f.lastX=owner.position.x;f.lastZ=owner.position.z;
- if(Math.hypot(owner.position.x-f.sampleX,owner.position.z-f.sampleZ)>.11){if(travel>3)f.trail=[];f.trail.push({x:owner.position.x,z:owner.position.z,y:owner.position.y});f.sampleX=owner.position.x;f.sampleZ=owner.position.z;if(f.trail.length>100)f.trail.splice(0,f.trail.length-100);}
- const gap=Math.hypot(owner.position.x-pet.position.x,owner.position.z-pet.position.z);
- if(!f.following&&gap>.98)f.following=true;else if(f.following&&gap<.65)f.following=false;
+ if(Math.hypot(owner.position.x-f.sampleX,owner.position.z-f.sampleZ)>.11){if(travel>3)f.trail=[];f.trail.push({x:owner.position.x,z:owner.position.z,y:owner.position.y});f.sampleX=owner.position.x;f.sampleZ=owner.position.z;if(f.trail.length>32)f.trail.splice(0,f.trail.length-32);}
+ let gap=Math.hypot(owner.position.x-pet.position.x,owner.position.z-pet.position.z);
+ if(travel>3||gap>6){const yaw=Number(owner.rotation.y)||0;pet.position.set(owner.position.x-Math.sin(yaw)*.72,owner.position.y+.25+floatHeight,owner.position.z-Math.cos(yaw)*.72);f.trail=[{x:owner.position.x,z:owner.position.z,y:owner.position.y}];f.height=pet.position.y;f.speed=0;gap=.72;}
+ if(!f.following&&gap>.80)f.following=true;else if(f.following&&gap<.65)f.following=false;
  while(f.trail.length>1&&Math.hypot(f.trail[0].x-pet.position.x,f.trail[0].z-pet.position.z)<.2)f.trail.shift();
  const target=f.trail[0]||{x:owner.position.x,z:owner.position.z,y:owner.position.y},dx=target.x-pet.position.x,dz=target.z-pet.position.z,distance=Math.hypot(dx,dz);
- const desired=f.following?Math.min(8.5,Math.max(3.2,ownerSpeed*1.2)+Math.min(2,gap)*.3):0,accel=desired>f.speed?17:24;f.speed+=Math.max(-accel*step,Math.min(accel*step,desired-f.speed));
+ const desired=f.following?Math.min(8.5,Math.max(3.8,ownerSpeed*1.35)+Math.min(2,gap)*.3):0,accel=desired>f.speed?17:24;f.speed+=Math.max(-accel*step,Math.min(accel*step,desired-f.speed));
  const moved=gap>.51?Math.min(distance,f.speed*step):0;
  if(moved>.0001&&distance>.001){pet.position.x+=dx/distance*moved;pet.position.z+=dz/distance*moved;const yaw=Math.atan2(dx,dz),delta=Math.atan2(Math.sin(yaw-pet.rotation.y),Math.cos(yaw-pet.rotation.y));pet.rotation.y+=delta*(1-Math.exp(-step*10));}
  f.height+=((Number(target.y)||0)+.25+floatHeight-f.height)*(1-Math.exp(-step*10));
@@ -1901,6 +1952,15 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
     // Let the ID keyed visual synchronizer run departure animations before cleanup.
     window.__lobbyExitAnimationManaged=true;
     let visualSelfUid="";const lobbyVisualStates=new Map();
+function playerIsReconnecting(player,stamp){return !!player&&player.online===false&&player.disconnectMode==='temporary'&&stamp-Number(player.updatedAt)>=0&&stamp-Number(player.updatedAt)<15000;}
+function createConnectionIndicator(THREE){
+ const root=new THREE.Group();root.name='connection-recovering';root.visible=false;
+ const canvas=document.createElement('canvas');canvas.width=256;canvas.height=56;const g=canvas.getContext('2d');g.font='700 31px sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=6;g.strokeStyle='#091724';g.strokeText('接続中',128,28);g.fillStyle='#f5d18a';g.fillText('接続中',128,28);const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+ const label=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthTest:false,depthWrite:false}));label.scale.set(1.7,.372,1);label.position.y=3.15;label.renderOrder=1002;root.add(label);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(.24,.035,6,24,Math.PI*1.55),new THREE.MeshBasicMaterial({color:0xf5d18a,depthTest:false,depthWrite:false,transparent:true,opacity:.9}));ring.position.y=2.77;ring.renderOrder=1001;root.add(ring);
+ return{root,update(stamp,show,camera){root.visible=!!show;if(!show)return;if(camera)ring.quaternion.copy(camera.quaternion);ring.rotateZ(-stamp*.004);},dispose(){texture.dispose();label.material.dispose();ring.geometry.dispose();ring.material.dispose();root.removeFromParent();}};
+}
+
     function createLobbyIdentityLabel(name,mic,ready,speaking,voiceEnabled){
       const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
       ctx.font='900 60px sans-serif';const nameWidth=Math.ceil(ctx.measureText(name).width),micWidth=voiceEnabled?72:0;
@@ -1915,8 +1975,8 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
       const textX=16+micWidth;ctx.strokeStyle='#071320';ctx.lineWidth=9;ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.strokeText(name,textX,56);ctx.fillStyle='#f8fdff';ctx.fillText(name,textX,56);
       if(ready){ctx.fillStyle='#58f3a6';ctx.strokeStyle='#071320';ctx.strokeText('✓',textX+nameWidth+12,56);ctx.fillText('✓',textX+nameWidth+12,56);}
       const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
-      const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false}));
-      sprite.scale.set(canvas.width/112*.8,.8,1);sprite.position.set(0,2.4,0);return sprite;
+      const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,depthTest:false}));
+      sprite.renderOrder=1000;sprite.scale.set(canvas.width/112*.8,.8,1);sprite.position.set(0,2.4,0);return sprite;
     }
     // Three places on each of four benches; all coordinates are in lobby world space.
     const lobbySeats=[];
@@ -2014,6 +2074,7 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
         const crew=id===visualSelfUid?player:remoteCrews.get(id);if(!crew)continue;
         const root=crew.root,data=root.userData;
         if(crew.label)crew.label.visible=false;
+        if(state.reconnecting===true&&!data.connectionIndicator){data.connectionIndicator=createConnectionIndicator(THREE);root.add(data.connectionIndicator.root);}data.connectionIndicator?.update(performance.now(),state.reconnecting===true,camera);
         const mic=state.micOn===true,tagText=(state.name||"プレイヤー").slice(0,16),tagKey=tagText+":"+!!state.ready+":"+!!state.micEnabled+":"+(mic?(state.micSpeaking?"speaking":"on"):"muted");
         if(data.lobbyNameTagKey!==tagKey){
           for(const key of ["lobbyNameTag","lobbyMicTag","lobbyMicCross"]){const old=data[key];if(old){root.remove(old);old.material?.map?.dispose();old.material?.dispose();delete data[key];}}

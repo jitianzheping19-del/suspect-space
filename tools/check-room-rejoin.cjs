@@ -55,7 +55,7 @@ window.__rejoinQA={
  for(const mode of ['2d','3d']){
   const loaded=await page.evaluate(mode=>window.__rejoinQA.load(mode),mode);await page.waitForTimeout(650);
   let s=await page.evaluate(()=>window.__rejoinQA.state());console.log('PASS',mode,'current position, visible centered avatar, costume and facing');
-  assert.deepEqual(s.position,loaded.expected);assert(s.avatar?.visible&&s.ship);assert.equal(s.avatar.costume,'captain');assert.equal(s.avatar.yaw,.6);assert.equal(s.positionedRound,3);assert.equal(s.rosterPositionedRound,3);
+  assert.deepEqual(s.position,loaded.expected);assert(s.avatar?.visible&&s.ship);assert.equal(s.avatar.costume,'captain');if(s.avatar.yaw!==.6)console.log('YAW STATE',JSON.stringify(s));assert.equal(s.avatar.yaw,.6);assert.equal(s.positionedRound,3);assert.equal(s.rosterPositionedRound,3);
   assert(Math.abs(s.center.x-422)<5,'own avatar centered horizontally');
   if(process.env.ROOM_QA_SHOTS){fs.mkdirSync(process.env.ROOM_QA_SHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.ROOM_QA_SHOTS,'rejoin-'+mode+'.png')});}
   await page.evaluate(()=>window.__rejoinQA.lateDisconnect());await page.waitForTimeout(100);s=await page.evaluate(()=>window.__rejoinQA.state());assert(s.profile.online&&s.avatar.visible);assert.deepEqual(s.position,loaded.expected);

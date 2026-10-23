@@ -2,7 +2,7 @@
 // Optional: MEETING_QA_SHOTS=/tmp/meeting-shots node tools/check-meeting-ejections.cjs
 const fs=require('fs'),path=require('path'),{pathToFileURL}=require('url'),zlib=require('zlib'),assert=require('assert/strict'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..'),shots=process.env.MEETING_QA_SHOTS;
-const modes=process.env.MEETING_QA_MODES?.split(',')||['rocket','collapse','beam','missile','meteor','ufo','balance'];
+const modes=process.env.MEETING_QA_MODES?.split(',')||['cat','rocket','collapse','beam','missile','meteor','ufo','balance','gravity','pod','ice','singularity','crane'];
 (async()=>{
  const {patchMeetingRuntime}=await import(pathToFileURL(path.join(root,'meeting-scene-ejections.js')));
  const html=fs.readFileSync(path.join(root,'space-suspect-complete.html'),'utf8');
@@ -18,17 +18,17 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['rocket','collapse','beam
  init(costumeSource,n=12,scale=false){
   window.__meetingPaused=false;
   libCostumeSource=costumeSource;libCostume=new Function('THREE','clamp',costumeSource+';return {buildLightCostume:buildLightCostume};')(THREE,clamp);
-  const list=Array.from({length:n},(_,i)=>({id:'p'+i,name:i===0?'ものすごく長いプレイヤーの名前1234567890':i===2?'レモンかす':'テストBot '+(i+1),hue:i/n,alive:true,voted:true,role:i===2?'侍':'',costume:['standard','captain','crown','suit'][i%4]}));
+  const list=Array.from({length:n},(_,i)=>({id:'p'+i,name:i===0?'ものすごく長いプレイヤーの名前1234567890':i===2?'レモンかす':'テストBot '+(i+1),hue:i/n,alive:true,voted:true,role:i===2?'侍':'',costume:i===2?'custom-hpar-jet-none':['standard','captain','royal','chef'][i%4]}));
   applyState({meetingId:'qa-'+Math.random(),me:'p2',seats:list,voting:false,ownVoted:'',allVoted:true,scalesTargets:scale?['p2','p5']:[]});
   chatPanel.style.display='none';timerBar.style.display='none';
  },
  pause(){window.__meetingPaused=true;NOW+=10;window.__qaMeetingUpdate(0,0,NOW);},
  start(mode,ids=['p2']){camera.position.set(7.2,8.4,13.6);orb.target.set(0,1.8,0);orb.enableDamping=false;orb.update();
-  const result={id:'result-'+Math.random(),ejected:ids[0],ejecteds:ids,outcome:'ejected',revealMode:'role',ejectedDisclosure:ids.map(id=>({id,label:id==='p2'?'侍':'クルーメイト',impostor:id==='p2'})),remainingImpostors:1,showImpostorCount:true,counts:{p2:6,p5:3}};
+  const result={id:'result-'+Math.random(),ejected:ids[0],ejecteds:ids,outcome:'ejected',revealMode:'role',ejectedDisclosure:ids.map(id=>({id,label:id==='p2'?'侍':'クルーメイト',impostor:id==='p2'})),remainingImpostors:1,showImpostorCount:true,catDrag:mode==='cat'?{cat:'p2',target:'p5'}:null,counts:{p2:6,p5:3}};
   this.started=NOW;this.before=seats.map(p=>({id:p.id,root:p.c.root.uuid,tag:p.tag.s.uuid,costume:p.costumeRoot?.uuid,color:p.c.suit.color.getHex(),name:p.tag.text,font:p.tag.renderedFontSize}));this.camera=camera.position.toArray();this.quaternion=camera.quaternion.toArray();mrStartEjection(ids,result,mode);
  },
  at(t){NOW=this.started+t;window.__qaMeetingUpdate(.016,.016,NOW);scene.updateMatrixWorld(true);renderer.render(scene,camera);return this.state();},
- state(){return {...getLiveMeetingEjections().getState(),nameRects:seats.filter(p=>p.tag.s.visible).map(p=>{const a=p.tag.s.position.clone(),q=a.clone().project(camera),z=-a.applyMatrix4(camera.matrixWorldInverse).z,pixels=innerHeight/(2*Math.tan(camera.fov*Math.PI/360))/z;return{id:p.id,x:(q.x+1)*innerWidth/2,y:(1-q.y)*innerHeight/2,w:p.tag.s.scale.x*pixels*Math.min(1,(p.tag.g.measureText(p.tag.text).width+20)/p.tag.w),h:p.tag.s.scale.y*pixels*.73};}),camera:camera.position.toArray(),quaternion:camera.quaternion.toArray(),before:this.before,actors:seats.map(p=>({id:p.id,root:p.c.root.uuid,tag:p.tag.s.uuid,costume:p.costumeRoot?.uuid,color:p.c.suit.color.getHex(),name:p.tag.text,font:p.tag.renderedFontSize,visible:p.c.root.visible,alive:p.alive})),iframe:document.querySelectorAll('iframe').length,outcome:meetingOutcome.textContent,outcomeVisible:meetingOutcome.style.display,scaleBroken:mrScaleBroken};}
+ state(){const cabin=scene.getObjectByName('ufo-cabin');let fit=null;if(cabin){scene.updateMatrixWorld(true);const inv=cabin.matrixWorld.clone().invert(),box=new THREE.Box3(),q=new THREE.Vector3();let bottom=Infinity,top=-Infinity,radius=0;const p=seats.find(p=>p.id==='p2');p.c.root.traverse(o=>{if(!o.isMesh)return;for(let a=o;a&&a!==p.c.root.parent;a=a.parent)if(!a.visible)return;o.geometry.computeBoundingBox();box.copy(o.geometry.boundingBox);for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){q.set(x,y,z).applyMatrix4(o.matrixWorld).applyMatrix4(inv);bottom=Math.min(bottom,q.y);top=Math.max(top,q.y);radius=Math.max(radius,Math.hypot(q.x,q.z));}});fit={bottom,top,radius,cabin:cabin.userData.cabin};}return {ufoFit:fit,survivorGun:!!scene.getObjectByName('survivor-sidearm')?.visible,...getLiveMeetingEjections().getState(),nameRects:seats.filter(p=>p.tag.s.visible).map(p=>{const a=p.tag.s.position.clone(),q=a.clone().project(camera),z=-a.applyMatrix4(camera.matrixWorldInverse).z,pixels=innerHeight/(2*Math.tan(camera.fov*Math.PI/360))/z;return{id:p.id,x:(q.x+1)*innerWidth/2,y:(1-q.y)*innerHeight/2,w:p.tag.s.scale.x*pixels*Math.min(1,(p.tag.g.measureText(p.tag.text).width+20)/p.tag.w),h:p.tag.s.scale.y*pixels*.73};}),camera:camera.position.toArray(),quaternion:camera.quaternion.toArray(),before:this.before,actors:seats.map(p=>({id:p.id,root:p.c.root.uuid,tag:p.tag.s.uuid,costume:p.costumeRoot?.uuid,color:p.c.suit.color.getHex(),name:p.tag.text,font:p.tag.renderedFontSize,visible:p.c.root.visible,alive:p.alive})),iframe:document.querySelectorAll('iframe').length,outcome:meetingOutcome.textContent,outcomeVisible:meetingOutcome.style.display,scaleBroken:mrScaleBroken};}
  };
  `;
  source=source.replace('window.meetingScene={',diagnostic+'\nwindow.meetingScene={').replace('NOW+=dt;updateMeetingAbilityView();','NOW+=window.__meetingPaused?0:dt;updateMeetingAbilityView();').replace('function startLoop(update){','function startLoop(update){window.__qaMeetingUpdate=update;').replace('(function frame(){const rdt=','(function frame(){if(window.__meetingPaused){requestAnimationFrame(frame);return;}const rdt=');
@@ -45,20 +45,26 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['rocket','collapse','beam
   const longName=fittedNames.find(p=>p.id==='p0'),shortName=fittedNames.find(p=>p.id==='p2');
   assert.equal(longName.name,'ものすごく長いプレイヤーの名前1234567890','meeting scene must keep the full long name');
   assert(longName.font<shortName.font,'long meeting names must shrink to fit instead of being truncated');
-  await page.evaluate(mode=>{window.__meetingQA.pause();window.__meetingQA.start(mode,mode==='balance'?['p2','p5']:['p2']);},mode);
-  for(const t of [0,1.35,2.25,3.5,4.4,5.9]){
+  await page.evaluate(mode=>{window.__meetingQA.pause();window.__meetingQA.start(mode,mode==='balance'||mode==='cat'?['p2','p5']:['p2']);},mode);
+  for(const t of [0,1.35,2.25,3.5,4.4,5.9,8.0]){
    const s=await page.evaluate(t=>window.__meetingQA.at(t),t);await page.waitForTimeout(35);
    assert.equal(s.iframe,0,mode+' cannot replace the room with an iframe');
    for(const p of s.actors){const before=s.before.find(x=>x.id===p.id);for(const key of ['root','tag','costume','color','name','font'])assert.deepEqual(p[key],before[key],mode+' changed '+key+' for '+p.id);}
    assert(s.camera.every(Number.isFinite),mode+' camera became invalid');
    if(t===0)assert.deepEqual(s.camera,[7.2,8.4,13.6],mode+' reset the initial camera');
+   if(t===1.35)assert(!s.dead&&s.outcomeVisible==='none',mode+' shows outcome before animation');
+   if(mode==='cat'&&t===2.25){const original=s.before.find(p=>p.id==='p5');assert(s.effect.phase==='cat-only','companion must remain unaware before surprise');}
+   if(mode==='balance'&&t===2.25)assert(s.effect.captured,'last weight must have crushed the plate');
+   if(mode==='ufo'&&t===5.9){const fit=s.ufoFit;assert(fit&&fit.bottom>=fit.cabin.bottom-.02&&fit.top<=fit.cabin.top+.02&&fit.radius<=fit.cabin.radius+.02,'Actual umbrella/suit bounds must fit UFO '+JSON.stringify(fit));const b=s.effect.captureBounds;assert(s.effect.captured&&b.actorBottom>=b.bottom-.02&&b.actorTop<=b.top+.02,'UFO cabin containment '+JSON.stringify(b));}
    if(t===3.5)assert.notDeepEqual(s.camera,[7.2,8.4,13.6],mode+' must follow the ejected actor');
    for(let a=0;a<s.nameRects.length;a++)for(let b=a+1;b<s.nameRects.length;b++){const x=s.nameRects[a],y=s.nameRects[b];assert(Math.abs(x.x-y.x)>=(x.w+y.w)/2||Math.abs(x.y-y.y)>=(x.h+y.h)/2,mode+' overlapping names '+x.id+' / '+y.id); }
-   for(const p of s.actors.filter(p=>p.id!=='p2'&&(mode!=='balance'||p.id!=='p5')))assert(p.alive&&p.visible,'witness disappeared');
-   if(shots&&[1.35,3.5,4.4].includes(t))await page.screenshot({path:path.join(shots,mode+'-'+t+'.png')});
-   if(t===5.9){assert(s.dead&&!s.active,mode+' did not finish');assert(s.outcome.includes('レモンかすは侍だった')&&s.outcome.includes('残り人狼 1 人'));console.log('PASS',mode,'identity/camera-follow/names/outcome');}
+   for(const p of s.actors.filter(p=>p.id!=='p2'&&(!['balance','cat'].includes(mode)||p.id!=='p5')))assert(p.alive&&p.visible,'witness disappeared');
+   if(shots&&[1.35,3.5,4.4,5.9].includes(t))await page.screenshot({path:path.join(shots,mode+'-'+t+'.png')});
+   if(t===8.0){assert(s.dead&&!s.active,mode+' did not finish');assert(s.outcome.includes('レモンかすは侍だった')&&s.outcome.includes('残り人狼 1 人'));console.log('PASS',mode,'identity/camera-follow/names/outcome');}
   }
  }
+ await page.evaluate(src=>{window.__meetingQA.init(src,12,true);window.__meetingQA.pause();window.__meetingQA.start('balance',['p2']);},assets.COSTUME_LIB_SRC);
+ let one=await page.evaluate(()=>window.__meetingQA.at(1.2));assert(one.survivorGun,'surviving scale opponent must draw the sidearm');one=await page.evaluate(()=>window.__meetingQA.at(5.9));assert(!one.actors.find(p=>p.id==='p2').alive&&one.actors.find(p=>p.id==='p5').alive,'only the losing scale actor dies');console.log('PASS scales survivor sidearm and one-loser outcome');
  console.log('ERRORS',errors);assert.deepEqual(errors,[]);
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

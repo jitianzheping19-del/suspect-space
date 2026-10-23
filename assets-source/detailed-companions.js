@@ -3,9 +3,9 @@
  * static pieces are batched by the caller and moving parts keep explicit pivots.
  */
 function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
-  const kinds=['dragon','rover','pgho','pjel','pfrg','pbat','pmus','pgeo','pcld','pstr','pbal','pdol','pwol','pshp','pshk','pmsh','pbrd','pfsh','pcub','phrt','pflm','pice'];
+  const kinds=['hamster','drone','cat','dog','parrot','robot','fox','slime','penguin','turtle','owl','lifebuoy','rabbit','panda','axolotl','dragon','rover','pgho','pjel','pfrg','pbat','pmus','pgeo','pcld','pstr','pbal','pdol','pwol','pshp','pshk','pmsh','pbrd','pfsh','pcub','phrt','pflm','pice'];
   if(!kinds.includes(kind))return null;
-  const rig={kind,legs:[],wings:[],wheels:[],tails:[],ears:[],eyes:[],phase:0,weight:0};
+  const rig={kind,legs:[],wings:[],wheels:[],tails:[],ears:[],eyes:[],heads:[],bodies:[],rotors:[],phase:0,weight:0};
   const ink=0x182b40,ivory=0xfff5db,cream=0xffdfae,glint=0xf5ffff;let serial=0;
   const own=g=>(geometry['detail:'+kind+':'+serial++]=g,g);
   function mat(color,finish='satin'){
@@ -28,7 +28,7 @@ function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
     g.setAttribute('color',new THREE.BufferAttribute(colors,3));
     const key='detail:gradient:'+top+':'+bottom;
     const material=materials[key]||(materials[key]=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.37,metalness:.035}));
-    const m=new THREE.Mesh(g,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.userData.lightCostume=true;parent.add(m);return m;
+    const m=new THREE.Mesh(g,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.userData.lightCostume=true;m.userData.companionTorso=true;parent.add(m);rig.bodies.push({node:m,scale:m.scale.clone(),restY:y});return m;
   }
   function eye(x,y,z,size=.043,parent=root){
     const e=group(x,y,z,parent);ball(ink,0,0,0,size,size*1.12,size*.58,e);ball(glint,-size*.27,size*.36,size*.5,size*.27,size*.28,size*.15,e);
@@ -47,7 +47,52 @@ function buildDetailedCompanion(THREE,kind,root,{shape,geometry,materials}){
   }
   function star(r,color,parent=root,depth=.045){const points=Array.from({length:10},(_,i)=>{const a=Math.PI/2+i*Math.PI/5,d=i%2?r*.46:r;return[Math.cos(a)*d,Math.sin(a)*d];});return polygon(points,color,depth,parent,.018);}
   root.userData.detailedCompanion=1;
-  if(kind==='dragon'){
+  if(kind==='hamster'){
+    const fur=0xcda16d,belly=0xffefd3;
+    body(fur,belly,0,-.025,-.065,.195,.16,.235);ball(belly,0,-.08,.095,.14,.11,.11);
+    const h=joint(rig.heads,0,.12,.115,'y',1);ball(fur,0,0,0,.19,.16,.16,h);
+    for(const side of[-1,1]){const ear=joint(rig.ears,side*.13,.115,-.035,'z',side,h);ball(fur,0,.025,0,.060,.065,.027,ear);ball(0xe1b2a0,0,.025,.023,.035,.040,.008,ear);ball(belly,side*.105,-.055,.112,.086,.080,.063,h);for(const dy of[-.012,.012])stroke([[side*.13,-.045+dy,.14],[side*.23,-.025+dy,.135]],0xead3b0,.0025,h);}
+    face(.035,.145,.078,.025,h);ball(0xd39994,0,-.023,.181,.021,.016,.012,h);smile(-.068,.174,.025,h);for(const side of[-1,1])part('box',ivory,side*.014,-.074,.184,.025,.036,.012,h);
+    for(const x of[-.125,.125])for(const z of[-.13,.105])leg(x,z,fur,0xe0b4a2,(x<0?-1:1)*(z<0?-1:1));
+    const tail=joint(rig.tails,0,-.075,-.26,'y',1);ball(0xe0b4a2,0,0,-.02,.032,.028,.045,tail);
+  }else if(['cat','dog','fox','rabbit','panda'].includes(kind)){
+    const fur=kind==='cat'?0xcda679:kind==='dog'?0xc9b395:kind==='fox'?0xd48c5b:kind==='panda'?0xe1e6df:0xe9e7df;
+    const darkFur=kind==='panda'?ink:fur;
+    body(fur,ivory,0,-.025,-.055,.17,.145,.25);
+    const h=joint(rig.heads,0,.13,.14,'y',1);ball(fur,0,0,0,.17,.155,.16,h);ball(ivory,0,-.065,.12,.12,.07,.07,h);face(.025,.144,.072,.028,h);ball(kind==='rabbit'?0xdca2b3:ink,0,-.043,.183,.023,.017,.015,h);smile(-.077,.181,.034,h);
+    if(kind==='rabbit')for(const side of[-1,1]){const e=joint(rig.ears,side*.09,.11,-.025,'z',side,h);ball(fur,0,.14,0,.052,.19,.045,e);ball(0xddadba,0,.15,.039,.027,.13,.011,e);}
+    else if(kind==='panda')for(const side of[-1,1]){ball(ink,side*.12,.12,-.025,.063,.063,.045,h);ball(ink,side*.073,.024,.129,.056,.060,.019,h);}
+    else if(kind==='dog')for(const side of[-1,1]){const e=joint(rig.ears,side*.147,.055,-.03,'z',side,h);ball(0x927158,side*.025,-.05,0,.057,.12,.045,e);}
+    else{ears(fur,0xe3b1b8,.105,.12,-.02,h);for(const side of[-1,1])for(const dy of[-.01,.018])stroke([[side*.08,-.06,.17],[side*.20,-.055+dy,.16]],0xece0c7,.003,h);}
+    for(const x of[-.12,.12])for(const z of[-.14,.12])leg(x,z,darkFur,kind==='panda'?ink:ivory,(x<0?-1:1)*(z<0?-1:1));
+    const tail=joint(rig.tails,0,-.035,-.25,'y',1,root,{idle:kind==='dog'?.8:.35,speed:.005,amplitude:kind==='dog'?.6:.26});
+    if(kind==='cat')stroke([[0,0,0],[.055,.015,-.14],[.13,.14,-.20],[.12,.20,-.12]],fur,.025,tail);
+    else if(kind==='rabbit'||kind==='panda')ball(ivory,0,.015,-.04,.075,.075,.075,tail);
+    else{ball(fur,0,.015,-.13,.075,.075,.20,tail);ball(ivory,0,.015,-.28,.062,.062,.075,tail);}
+    if(kind==='dog'){part('ring',0x548d96,0,-.03,.17,.133,.12,.08).rotation.x=Math.PI/2;ball(0xd4bd81,0,-.105,.21,.023,.027,.012);}
+  }else if(['parrot','penguin','owl'].includes(kind)){
+    const bird=kind==='parrot'?0x64a993:kind==='owl'?0x9f896c:0x425b70;
+    body(bird,ivory,0,-.015,-.035,.155,.20,.17);ball(ivory,0,-.04,.108,.105,.145,.035);
+    const h=joint(rig.heads,0,.17,.035,'y',1);ball(bird,0,0,0,.15,.14,.14,h);
+    if(kind==='owl')for(const side of[-1,1]){ball(ivory,side*.066,.015,.12,.063,.069,.021,h);part('cone',bird,side*.10,.12,-.01,.045,.13,.04,h);}
+    face(.02,.134,.06,.026,h);part('cone',0xd3af72,0,-.04,.17,.043,.09,.036,h).rotation.x=Math.PI/2;
+    for(const side of[-1,1]){const w=joint(rig.wings,side*.125,.045,-.035,'z',side,root,{idle:kind==='parrot'?.35:.08,speed:.012,amplitude:kind==='parrot'?.42:.15});ball(bird,side*.045,-.05,0,.06,.15,.12,w);for(let i=0;i<3;i++)ball(kind==='parrot'?0x4a7e9b:bird,side*(.05+i*.012),-.12-i*.015,-.065,.025,.095,.05,w);const l=joint(rig.legs,side*.075,-.14,.035,'x',side);ball(0xc6a16b,0,-.045,.025,.055,.023,.075,l);}
+    const tail=joint(rig.tails,0,-.09,-.14,'x',1,root,{idle:.25,speed:.004,amplitude:.12});for(const x of[-.045,0,.045])ball(bird,x,-.015,-.07,.025,.045,.11,tail);
+  }else if(kind==='axolotl'){
+    body(0xd99cad,0xf8d6ca,0,-.025,-.08,.17,.13,.28);const h=joint(rig.heads,0,.055,.15,'y',1);ball(0xe5b1bc,0,0,0,.20,.12,.17,h);face(.025,.15,.075,.028,h);smile(-.025,.175,.05,h);
+    for(const side of[-1,1])for(let i=0;i<3;i++){const g=joint(rig.ears,side*.17,.06-i*.05,0,'z',side,h);stroke([[0,0,0],[side*.09,.035-i*.015,-.02],[side*.15,.08-i*.04,-.02]],0xb96c91,.014,g);for(let j=0;j<3;j++)stroke([[side*(.07+j*.02),.025,0],[side*(.07+j*.02),.065,-.01]],0xd590ac,.006,g);}
+    for(const x of[-.12,.12])for(const z of[-.14,.11])leg(x,z,0xd99cad,0xedc4c4,(x<0?-1:1)*(z<0?-1:1));const t=joint(rig.tails,0,-.035,-.28,'y',1,root,{idle:.4,speed:.004,amplitude:.28});const fin=curved(s=>{s.moveTo(-.05,.04);s.quadraticCurveTo(.17,.09,.09,-.26);s.quadraticCurveTo(-.04,-.09,-.05,.04);},0xc17b9e,.022,t);fin.rotation.x=Math.PI/2;
+  }else if(kind==='turtle'){
+    body(0x82aa7c,0xd8d5a5,0,-.055,-.025,.19,.10,.24);ball(0x527b64,0,.05,-.04,.22,.15,.25);for(let i=0;i<6;i++){const a=i*Math.PI/3;const tile=part('box',0x8aa17b,Math.sin(a)*.12,.172,Math.cos(a)*.13-.04,.075,.012,.095);tile.rotation.y=a;}const h=joint(rig.heads,0,-.01,.22,'y',1);ball(0x91b28b,0,0,0,.105,.085,.12,h);face(.025,.10,.045,.022,h);smile(-.025,.115,.025,h);for(const x of[-.17,.17])for(const z of[-.15,.11]){const l=joint(rig.legs,x,-.095,z,'x',Math.sign(x*z));ball(0x8caf84,0,-.02,.02,.06,.045,.095,l);}
+  }else if(kind==='slime'){
+    const b=body(0x87c5a5,0xd2eed0,0,-.025,0,.23,.20,.22);b.material.roughness=.23;face(.02,.205,.071,.03);smile(-.05,.219,.042);ball(glint,-.09,.075,.17,.042,.018,.011);for(const side of[-1,1])ball(0xd4b5bf,side*.14,-.025,.179,.03,.014,.012);rig.softBody=true;
+  }else if(kind==='drone'||kind==='robot'){
+    const robot=kind==='robot';part('box',0xb4c5ca,0,-.025,0,.28,.23,.24,root,'metal');root.children.at(-1).userData.companionTorso=true;part('box',ink,0,.015,.13,.19,.075,.025);for(const x of[-.045,.045])ball(0x7ad8df,x,.018,.15,.025,.025,.012);
+    if(robot){const h=joint(rig.heads,0,.16,0,'y',1);part('box',0x9bb4c0,0,0,0,.24,.15,.20,h,'metal');part('box',ink,0,0,.11,.19,.065,.018,h);for(const x of[-.05,.05])ball(0x8edee0,x,0,.125,.024,.024,.010,h);for(const side of[-1,1]){const arm=joint(rig.wings,side*.16,.03,0,'x',side,root,{idle:.1,speed:.004,amplitude:.20});part('box',0x7895a9,0,-.055,0,.055,.15,.08,arm,'metal');leg(side*.075,.02,0x7895a9,ink,side);}}
+    else{for(const side of[-1,1])for(const z of[-.13,.13]){stroke([[side*.10,.02,z*.5],[side*.23,.045,z]],0x6e899c,.016);const rotor=joint(rig.rotors,side*.23,.06,z,'y',side);part('box',ink,0,0,0,.22,.012,.035,rotor);part('box',ink,0,.003,0,.035,.012,.22,rotor);part('ring',0x99c8cf,0,-.005,0,.13,.13,.13,rotor).rotation.x=Math.PI/2;}root.userData.floatHeight=.18;rig.floating=true;}
+  }else if(kind==='lifebuoy'){
+    body(0xe6bf73,ivory,0,.06,0,.14,.15,.17);ball(0xe6bf73,0,.20,.05,.13,.115,.12);face(.22,.15,.055,.022);part('cone',0xd38e5a,0,.17,.20,.045,.09,.04).rotation.x=Math.PI/2;const life=mesh(own(new THREE.TorusGeometry(.27,.08,8,32)),0xe5e9df);life.rotation.x=Math.PI/2;life.position.y=-.035;for(let i=0;i<4;i++){const a=i*Math.PI/2,band=part('box',0xb86c78,Math.sin(a)*.27,-.035,Math.cos(a)*.27,.10,.10,.095);band.rotation.y=a;}for(const side of[-1,1]){const w=joint(rig.wings,side*.13,.045,0,'z',side,root,{idle:.3,speed:.004,amplitude:.15});ball(0xdcb66d,side*.02,0,-.01,.055,.06,.11,w);}root.userData.floatHeight=.04;rig.floating=true;
+  }else if(kind==='dragon'){
     const jade=0x508e79,light=0xbfd39b;
     body(jade,light,0,-.025,-.06,.18,.17,.25);body(0x72ae8a,light,0,.13,.15,.19,.17,.18);ball(jade,0,.07,.29,.155,.09,.11);
     for(const y of[-.105,-.055,-.005]){ball(light,0,y,.14,.105,.033,.045);stroke([[-.08,y-.015,.17],[0,y-.025,.19],[.08,y-.015,.17]],jade,.005);}

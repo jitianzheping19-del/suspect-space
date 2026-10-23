@@ -6,3 +6,4 @@ tmp/
 .env
 .env.*
 !.env.example
+public/ejection-meeting-preview.html

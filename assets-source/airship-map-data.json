@@ -12,7 +12,8 @@
     "view": "conversion from the 1372-px preview of the reference art: world_x = (px*S - CX)*SC, world_z = (py*S - CY)*SC",
     "spawns": "6 respawn candidates in the order kitchen, brig, engine, main hall, archive, cargo",
     "start": "where players gather at round start (left platform of the lift)",
-    "doorReview": "All 19 door spans aligned with traced jambs / shared room openings, 2026-10-22"
+    "doorReview": "All 19 door spans aligned with traced jambs / shared room openings, 2026-10-22",
+    "gapLift": "Open shaft: gap-lift is the only crossing between its landings"
   },
   "rooms": [
     {
@@ -315,7 +316,26 @@
           -18.586
         ]
       ],
-      "holes": [],
+      "holes": [
+        [
+          [
+            -1.18,
+            -12.0
+          ],
+          [
+            2.6,
+            -12.0
+          ],
+          [
+            2.6,
+            -10.37
+          ],
+          [
+            -1.18,
+            -10.37
+          ]
+        ]
+      ],
       "x": -3.967,
       "z": -10.816,
       "w": 18.687,

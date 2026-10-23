@@ -1,6 +1,8 @@
 /* Ejections run on the meeting's existing actors, labels, table and camera.
  * This factory is embedded into the meeting document, so it has no module or
  * network dependencies and never creates a second scene or renderer. */
+import {createExtendedEjectionEffects} from './meeting-ejection-effects.js';
+
 function createMeetingEjections(api) {
   const {THREE, scene, camera} = api;
   const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -12,6 +14,7 @@ function createMeetingEjections(api) {
   const particles = [];
   const labelLeaders = new Map();
   let active = null, last = null;
+  const extended=createExtendedEjectionEffects({THREE,props,api,clamp,ease,v,emit});
 
   function material(color, metalness = .45, roughness = .35) {
     return new THREE.MeshStandardMaterial({color, metalness, roughness});
@@ -165,9 +168,12 @@ function createMeetingEjections(api) {
     if (state.isMe) api.voice('start');
     for (const p of actors) {p.meetingActorBusy = true;p.ejectionStarted = true;p.dying = true;p.pinned = null;}
     if (mode === 'rocket') state.prop = createRocket();
-    if (mode === 'ufo') state.prop = createUfo();
     if (mode === 'meteor' || mode === 'missile') state.prop = createProjectile(mode);
     if (mode === 'beam') state.prop = createBeam();
+    if (extended.supports(mode)) {
+      state.prop=extended.create(mode,state);
+      state.deathAt=state.prop.deathAt;state.finishAt=state.prop.finishAt;
+    }
     if (state.prop) state.prop.root.visible = false;
     if (mode === 'balance') {
       state.pans = actors.map(p => {
@@ -182,7 +188,7 @@ function createMeetingEjections(api) {
     if (state) {
       const t = Math.max(0, api.now() - state.start), {mode, actors} = state;
       const approach = ease(clamp(t / 1.25));
-      if (mode !== 'balance') {
+      if (mode !== 'balance' && mode !== 'cat') {
         actors.forEach((p, i) => {
           const end = v((i - (actors.length - 1) / 2) * 1.15, api.top + .13, mode === 'rocket' ? .95 : 0);
           p.c.root.position.lerpVectors(state.positions[i], end, approach);
@@ -198,7 +204,8 @@ function createMeetingEjections(api) {
         });
         if (t >= 1.25) state.standing = true;
       }
-      if (mode === 'rocket') {
+      if(extended.supports(mode))extended.tick(state,t,dt);
+      else if (mode === 'rocket') {
         const {root, flame, light} = state.prop;root.visible = t > .65 && t < state.deathAt;
         root.position.set(0, api.top + .1 - 5 * (1 - ease(clamp((t - .65) / .75))), -.2);
         // Keep the burst inside the meeting room's visible volume while the
@@ -268,7 +275,8 @@ function createMeetingEjections(api) {
           p.c.root.rotation.y = 0;p.c.root.rotation.z = q * (i ? -.25 : .25);
         });
       }
-      if(!state.dead)state.followTarget=actors.reduce((point,p)=>point.add(p.c.root.position),v()).multiplyScalar(1/actors.length).add(v(0,1.1,0));
+      if(!state.dead&&mode==='cat'&&t<3.35)state.followTarget=state.prop.cat.c.root.position.clone().add(v(0,1.1,0));
+      else if(!state.dead)state.followTarget=actors.reduce((point,p)=>point.add(p.c.root.position),v()).multiplyScalar(1/actors.length).add(v(0,1.1,0));
       if(state.followTarget){
         const desired=state.cameraFocus.clone().lerp(state.followTarget,ease(clamp((t-.35)/.8)));
         const next=api.orbit.target.clone().lerp(desired,1-Math.exp(-12*Math.max(0,dt)));
@@ -306,10 +314,17 @@ function createMeetingEjections(api) {
     // orbits never move one player's name onto a remote actor or the ceiling.
     camera.updateMatrixWorld();
     const height=Math.max(1,innerHeight),focal=height/(2*Math.tan(camera.fov*Math.PI/360));
-    for(const p of api.getSeats()){
+    const occupied=[];
+    const selected=new Set((active||last)?.actors||[]);
+    const ordered=[...api.getSeats()].sort((a,b)=>Number(selected.has(b))-Number(selected.has(a)));
+    for(const p of ordered){
       if(!p.c.root.visible||!p.tag?.s.visible)continue;
       const base=p.c.root.position,anchor=v(base.x,base.y+2.2,base.z),ndc=anchor.clone().project(camera);
       const depth=Math.max(.1,-anchor.clone().applyMatrix4(camera.matrixWorldInverse).z),pixels=focal/depth;
+      const ratio=Math.min(1,((p.tag.g?.measureText(p.tag.text).width||p.tag.w)+20)/p.tag.w),w=p.tag.s.scale.x*pixels*ratio,h=p.tag.s.scale.y*pixels*.73;
+      const rect={x:(ndc.x+1)*innerWidth/2,y:(1-ndc.y)*height/2,w,h};
+      for(let n=0;n<20;n++){const collision=occupied.find(r=>Math.abs(rect.x-r.x)<(rect.w+r.w)/2+4&&Math.abs(rect.y-r.y)<(rect.h+r.h)/2+4);if(!collision)break;rect.y=collision.y-(collision.h+rect.h)/2-5;}
+      ndc.y=1-rect.y/height*2;occupied.push(rect);
       if(p.voteCheck)p.voteCheck.s.visible=!!p.voted&&!p.voteTally?.s.visible&&!p.gone;
       let cursor=Math.max(12,p.tag.s.scale.y*pixels)/2;
       for(const label of [p.tag,p.roleTag,p.voteCheck,p.voteTally,p.bub]){
@@ -330,13 +345,15 @@ function createMeetingEjections(api) {
     });
     active = null;last = null;clearProps();
     api.chains.forEach(c => c.visible = true);
-    api.pans.forEach((pan, i) => {pan.position.set(i === 0 ? -2.15 : 2.15, -2.41, 0);pan.rotation.set(0, 0, 0);});
+    api.pans.forEach((pan, i) => {pan.visible=true;pan.position.set(i === 0 ? -2.15 : 2.15, -2.41, 0);pan.rotation.set(0, 0, 0);});
     for (const leader of labelLeaders.values()) dispose(leader);labelLeaders.clear();
   }
   function getState() {
     const s = active || last;
     return {active: !!active, mode: s?.mode || '', dead: !!s?.dead,
-      elapsed: s ? api.now() - s.start : 0, actors: (s?.actors || []).map((p, i) => ({id: p.id,
+      elapsed: s ? api.now() - s.start : 0, deathAt:s?.deathAt||0,finishAt:s?.finishAt||0,
+      effect:s?.prop?{phase:s.prop.phase,captured:!!s.prop.captured,envelope:s.prop.envelope,captureBounds:s.prop.captureBounds}:null,
+      actors: (s?.actors || []).map((p, i) => ({id: p.id,
         sameActor: p.c.root.uuid === s.uuid[i], sameName: p.tag.s.uuid === s.tags[i],
         sameCostume: (p.costumeRoot?.uuid || null) === s.costumes[i], position: p.c.root.position.toArray(), visible: p.c.root.visible})),
       labels: api.getSeats().filter(p => p.tag.s.visible).map(p => ({id: p.id, name: p.tag.text,
@@ -357,7 +374,7 @@ export function patchMeetingRuntime(source) {
   html = html.replaceAll('p.voteTally.s.position.set(b.x,b.y+4.22,b.z)', 'p.voteTally.s.position.set(b.x,b.y+3.16,b.z)');
   html=html.replace('const fullName=String(s.name||""),meetingName=seats.length<=6?fullName:String(p.nick||fullName);','const fullName=String(s.name||""),meetingName=fullName;');
   html=html.replace('const micTxt=s.mic?"🎙 ":""','const micTxt=s.alive!==false&&s.mic?"🎙 ":""');
-  const factory = `\nconst createMeetingEjections=${createMeetingEjections.toString()};\nlet liveMeetingEjections=null;
+  const factory = `\nconst createExtendedEjectionEffects=${createExtendedEjectionEffects.toString()};\nconst createMeetingEjections=${createMeetingEjections.toString()};\nlet liveMeetingEjections=null;
 function getLiveMeetingEjections(){return liveMeetingEjections||(liveMeetingEjections=createMeetingEjections({
  THREE,scene,camera,orbit:orb,top:TOP,now:()=>NOW,me:()=>me,getSeats:()=>seats,stand:standPose,
  impact,breakTable:mrBeginScaleBreak,hideCentre:()=>{mrCentralTable.visible=false;ped.visible=false;},
@@ -366,10 +383,11 @@ function getLiveMeetingEjections(){return liveMeetingEjections||(liveMeetingEjec
  hideOutcome:()=>{meetingOutcome.style.display='none';cap.style.opacity='0';},outcome:showMeetingOutcome
 }));}
 function mrStartEjection(ids,result,forcedMode){
- getLiveMeetingEjections().start(ids,result,forcedMode||mrEjectionMode(ids));
+ getLiveMeetingEjections().start(ids,result,forcedMode||(result.catDrag?'cat':mrEjectionMode(ids)));
 }
 `;
   html = html.replace(/function mrStartEjection\([\s\S]*?(?=window\.previewMeetingEjection=)/, factory);
+  html=html.replace("const names=['rocket','collapse','beam','missile','meteor','ufo'];","const names=['rocket','collapse','beam','missile','meteor','ufo','gravity','pod','ice','singularity','crane'];");
   html = html.replace('meetingIdentitySnapshot=[];resetMeetingAbilityEffects();', 'liveMeetingEjections?.reset();meetingIdentitySnapshot=[];resetMeetingAbilityEffects();');
   html = html.replace('if(!mrScaleBroken||window.__meetingEjectionOverlayActive)return;', 'if(!mrScaleBroken)return;');
   html = html.replace('getAbilityState:()=>(', 'getEjectionState:()=>getLiveMeetingEjections().getState(),getAbilityState:()=>(');

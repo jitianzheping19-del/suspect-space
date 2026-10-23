@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {firstPersonLook,firstPersonMove}from '../first-person-controls.js';
+import {sampleAirshipLift,carryAirshipLift,onAirshipLift}from '../airship-lift.js';
+import {createVoiceActivityGate,voiceConnectionUsable,voiceGainChanged}from '../voice-continuity.js';
+// Audio cannot flap with the silences between syllables, but mute is immediate.
+const gate=createVoiceActivityGate();assert(gate.update(.04,0));assert(gate.update(.001,150));assert(gate.update(.02,300));assert(gate.update(0,650));assert(!gate.update(0,721));assert(gate.update(.05,800));assert(!gate.update(.05,801,false));assert(!gate.update(.02,810));
+const session={connected:false,joined:true,healthy:true,lossAt:1000};assert(voiceConnectionUsable({...session,stamp:1100}));assert(!voiceConnectionUsable({...session,stamp:6000}));assert(!voiceConnectionUsable({...session,stamp:1100,healthy:false}));assert(!voiceConnectionUsable({...session,stamp:1100,joined:false}));assert(!voiceGainChanged(.7,.701));assert(voiceGainChanged(.001,0));
+console.log('PASS syllable hysteresis, immediate mute, bounded healthy-SFU grace and gain coalescing');
+// Full revolutions keep the camera finite, and diagonal motion cannot move faster.
+let look={yaw:0,pitch:0};for(let i=0;i<10000;i++)look=firstPersonLook(look.yaw,look.pitch,25,-12);assert(Math.abs(look.yaw)<=Math.PI&&look.pitch<=1.10);for(const yaw of[0,Math.PI/2,Math.PI,-Math.PI/2]){const f=firstPersonMove(0,1,yaw),r=firstPersonMove(1,0,yaw),d=firstPersonMove(1,1,yaw);assert(Math.abs(f.x*r.x+f.z*r.z)<1e-10);assert(Math.abs(Math.hypot(d.x,d.z)-1)<1e-10);}assert.deepEqual(firstPersonMove(0,0,1),{x:0,z:0});
+console.log('PASS camera rotation limits, view-relative strafing and uniform diagonal speed');
+// Irregular frame cadence and a full round trip preserve the rider's offset.
+const r={a:[-3,-16],b:[5,-16],width:2.4},epoch=20000;let t=epoch,prev=sampleAirshipLift(r,t,epoch),point={x:prev.x+.25,z:prev.z+.2};for(let i=0;i<1500;i++){t+=i%17===0?240:16.7;const next=sampleAirshipLift(r,t,epoch),carried=carryAirshipLift(point,r,prev,next);assert(carried.riding);point=carried;assert(Math.abs(point.x-next.x-.25)<1e-8&&Math.abs(point.z-next.z-.2)<1e-8);prev=next;}assert(!onAirshipLift({x:prev.x+2,z:prev.z},r,prev));assert.equal(sampleAirshipLift(r,epoch+13200,epoch).t,0);
+console.log('PASS lift round trips, long-frame rider continuity, shared clock and deck boundary');
+// A continuous five-minute walk is 18,000 RTC frames and only one initial durable pose.
+const {createPoseSavePolicy}=await import('../room-traffic-policy.js');const policy=createPoseSavePolicy();let writes=0;for(let i=0;i<6000;i++)if(policy.shouldSave({scope:'room:play',moving:true,direct:true,stamp:i*50}))writes++;assert.equal(writes,1);assert(policy.shouldSave({scope:'room:play',moving:false,direct:true,stamp:300001}));for(let i=0;i<100;i++)assert(!policy.shouldSave({scope:'room:play',moving:false,direct:true,stamp:300100+i*50}));assert(policy.shouldSave({scope:'room:meeting',moving:false,direct:true,stamp:306000}));
+console.log('PASS five-minute RTC movement writes one initial recovery pose; rest/phase boundaries save once');
+const {spawnChoiceIndices}=await import('../spawn-choice-view.js');for(let round=0;round<100;round++){const a=spawnChoiceIndices(6,'round:'+round),b=spawnChoiceIndices(6,'round:'+round);assert.equal(a.length,3);assert.equal(new Set(a).size,3);assert(a.every(i=>i>=0&&i<6));assert.deepEqual(a,b);}assert.deepEqual(spawnChoiceIndices(2,'a').sort(),[0,1]);console.log('PASS exactly three unique deterministic Airship choices shared by host and guests');

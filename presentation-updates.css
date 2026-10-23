@@ -1,0 +1,35 @@
+@layer presentation-updates {
+ #gameCountdown:not(.hidden){backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;background:radial-gradient(ellipse at 50% 45%,#122e43,#040d19 68%)!important;overflow:hidden}
+ #gameCountdown>.effectCard{position:relative;isolation:isolate;filter:none!important;backdrop-filter:none!important;background:transparent!important;box-shadow:none!important;border:0!important}
+ #gameCountdown>.effectCard::before{content:"";pointer-events:none;position:absolute;z-index:-1;width:min(62vh,360px);aspect-ratio:1;left:50%;top:48%;margin-left:calc(min(62vh,360px)/-2);margin-top:calc(min(62vh,360px)/-2);border-radius:50%;border:1px solid #71d8ed44;background:repeating-conic-gradient(from 0deg,#7bced533 0deg 1deg,transparent 1deg 10deg);mask:radial-gradient(transparent 60%,#000 61%);animation:countdownOrbit 18s linear infinite}
+ #gameCountdown>.effectCard::after{content:"";pointer-events:none;position:absolute;z-index:-1;width:min(50vh,290px);aspect-ratio:1;left:50%;top:48%;margin-left:calc(min(50vh,290px)/-2);margin-top:calc(min(50vh,290px)/-2);border-radius:50%;border:2px solid #8adbd155;box-shadow:0 0 45px #58e7e31a,inset 0 0 35px #58e7e312;animation:countdownBreathe 1s ease-out infinite}
+ #gameCountdownNumber{font-weight:900!important;letter-spacing:-.045em!important;text-shadow:0 0 45px #75ebed66,0 8px 0 #061624!important;animation:countdownDigit 1s cubic-bezier(.18,.8,.3,1) infinite!important}
+ #gameCountdown[data-kind="meeting-return"]{background:radial-gradient(ellipse at 50% 45%,#302d23,#080e18 68%)!important}
+ #gameCountdown[data-kind="meeting-return"] #gameCountdownNumber{color:#ecd6a2!important;text-shadow:0 0 40px #eed99755!important}
+ #gameCountdown[data-kind="post-role"]{background:radial-gradient(ellipse at 50% 45%,#133e39,#040e18 68%)!important}
+ #roleReveal:not(.hidden)>.card{animation:roleCardArrive .55s cubic-bezier(.16,.9,.25,1) both;isolation:isolate;overflow:hidden}
+ #roleReveal:not(.hidden)>.card::before{content:"";position:absolute;inset:-50%;z-index:-1;pointer-events:none;background:conic-gradient(from 80deg,transparent 0 65%,#88dfdf12 73%,transparent 82%);animation:countdownOrbit 14s linear infinite}
+ #roleReveal:not(.hidden) #roleRevealTitle{animation:roleTitleArrive .65s cubic-bezier(.15,.85,.3,1) both}
+ #roleReveal:not(.hidden) #roleLineup{animation:roleLineupArrive .75s .08s both}
+ #meetingIntro[data-kind="body"],#meetingIntro[data-kind="emergency"]{z-index:400!important}
+ body:has(#meetingIntro:not(.hidden)) :is(#hud,#controls,#ghostHud,#roundRoleBtn,#titleInputSettingsBtn,#mapBtn,#voiceToggleBtn){visibility:hidden!important;pointer-events:none!important}
+ #meetingIntro[data-kind="body"],#meetingIntro[data-kind="emergency"]{background:radial-gradient(ellipse at 50% 46%,#4d142d,#120a18 70%)!important;backdrop-filter:none!important}
+ #meetingIntro[data-kind="body"]::before,#meetingIntro[data-kind="emergency"]::before,#meetingIntro[data-kind="body"]::after,#meetingIntro[data-kind="emergency"]::after{display:none!important}
+ #meetingIntro[data-kind="body"] .effectCard,#meetingIntro[data-kind="emergency"] .effectCard{display:flex!important;flex-direction:column;align-items:center;width:min(1100px,96vw)!important;max-height:98dvh!important;padding:0!important;background:transparent!important;box-shadow:none!important;animation:roleCardArrive .35s ease-out both!important}
+ #meetingIntroTitle{background:transparent!important;padding:0!important;border:0!important;display:block!important;order:0;margin:0!important;position:relative!important;inset:auto!important;font-size:clamp(34px,9vh,72px)!important;letter-spacing:.15em!important;line-height:1.2!important;color:#fff0dc!important;text-shadow:0 2px 0 #78243c,0 0 36px #ff678c44!important}
+ .meetingIntroCanvas{order:1;display:block;max-width:100%;margin:-6px auto 0;pointer-events:none}
+ #meetingIntroReason{display:block!important;order:2;position:relative!important;inset:auto!important;margin:0!important;font-size:clamp(14px,3.6vh,23px)!important;color:#f6d8db!important;max-width:90vw;text-align:center}
+ .spawnChoiceCanvas{display:block;width:100%;max-width:100%;height:auto;pointer-events:none}
+ #spawnTeleportPanel>.card{width:min(850px,94vw)!important;padding:18px!important;background:linear-gradient(145deg,#142b3c,#071421)!important;border:1px solid #6b9aa7!important;border-radius:22px!important;box-shadow:0 30px 90px #000b!important}
+ #spawnTeleportChoices{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}
+ #spawnTeleportChoices button{display:flex!important;justify-content:center!important;align-items:center!important;min-height:56px!important;padding:8px!important;border:1px solid #679caa!important;border-radius:12px!important;background:linear-gradient(150deg,#1c4656,#102b3b)!important;font-size:clamp(12px,1.7vw,17px)!important}
+ #spawnTeleportChoices .spawnMark,#spawnTeleportChoices small{display:none!important}
+ @media(max-height:500px){#spawnTeleportPanel>.card{padding:12px!important}#spawnTeleportChoices button{min-height:40px!important}.meetingIntroCanvas{margin:-8px auto -2px!important}}
+ @media(prefers-reduced-motion:reduce){#gameCountdownNumber,#gameCountdown>.effectCard::before,#gameCountdown>.effectCard::after,#roleReveal>.card,#roleRevealTitle,#roleLineup{animation:none!important}}
+}
+@keyframes countdownOrbit{to{transform:rotate(360deg)}}
+@keyframes countdownBreathe{0%{opacity:.9;scale:.94}75%,100%{opacity:.12;scale:1.07}}
+@keyframes countdownDigit{0%{opacity:.15;scale:1.16}16%{opacity:1;scale:1}80%{opacity:1;scale:1}100%{opacity:.15;scale:.98}}
+@keyframes roleCardArrive{from{opacity:0;translate:0 18px;scale:.96}to{opacity:1;translate:0 0;scale:1}}
+@keyframes roleTitleArrive{from{opacity:0;letter-spacing:.22em;translate:0 10px}to{opacity:1;letter-spacing:.03em;translate:0 0}}
+@keyframes roleLineupArrive{from{opacity:0;translate:0 20px}to{opacity:1;translate:0 0}}

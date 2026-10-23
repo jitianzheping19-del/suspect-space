@@ -40,4 +40,5 @@ const muzzle=ctx.triggerHappyMuzzle({x:0,z:0},0);assert(muzzle.blocked&&muzzle.z
 wall=()=>false;g=game();poses={a:{x:0,z:0}};start(g,poses,1000,Math.PI/2);step(g,poses,1120);
 const shot=g.players.a.triggerHappyVolley.projectiles[0];assert(Math.abs(shot.x-.8)<1e-8&&Math.abs(shot.z+.274)<1e-8);
 g.phase='meeting';step(g,poses,1140);assert(!g.players.a.triggerHappyVolley);
+g=game({triggerHappyAmmo:2});poses={a:{x:0,z:0,yaw:0}};start(g,poses);step(g,poses,1120);poses.a.yaw=Math.PI/2;step(g,poses,1205);assert.equal(g.players.a.triggerHappyVolley.projectiles[0].yaw,0);assert.equal(g.players.a.triggerHappyVolley.projectiles[1].yaw,Math.PI/2);assert.equal(g.players.a.triggerHappyVolley.intervalMs,85);
 console.log('PASS: free fire, cooldown/ammo, duplicate press, eligibility, bullet hits, friendly fire, wall/muzzle collision, facing, meeting cleanup');

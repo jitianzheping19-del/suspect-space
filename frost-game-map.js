@@ -24,6 +24,7 @@ export function buildFrostGameMap() {
       if (key === previousKey) return;
       previousKey = key; completed = tasks || {}; sabotage = incident || null; stations.refresh();
     },
+    update(stamp) { stations.update(stamp); },
     dispose() { stations.dispose(); meeting.dispose(); map.dispose(); },
   };
 }

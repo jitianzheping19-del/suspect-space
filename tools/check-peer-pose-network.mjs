@@ -69,4 +69,4 @@ assert(fast.samples>=59&&fast.samples<=64&&fast.packets>=59&&fast.packets<=64,'A
 console.log('PASS 60 Hz render cadence and high-refresh backpressure',JSON.stringify({sixty,fast}));
 
 console.log(JSON.stringify({passed: true,checks: ['millimetre fidelity', 'UTF-8 kart metadata', 'truncation and corruption', '5000 malformed packets', 'ACK while moving', 'subsecond fallback', 'sender binding', 'ordering and scene isolation', 'unsupported browser fallback'],
-  packetBytes: encoded.byteLength, movementWritesPerMinute: {previousLight: 150, directCheckpoint: 12}, positionUpdateReduction: '92% after direct connection; excludes signaling and other database paths'}, null, 2));
+  packetBytes: encoded.byteLength, bandwidthPolicyCheck:'tools/check-pose-bandwidth.cjs'}, null, 2));

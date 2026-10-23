@@ -1,7 +1,8 @@
 // Exercise discovery, actual transport state machines, loss, host relay and
 // recovery for 20 users. Only the browser's UDP carrier is replaced in memory.
 import assert from 'node:assert/strict';
-import {PeerPoseNetwork, POSE_CHECKPOINT_MS, POSE_FALLBACK_MS} from '../peer-pose-network.js';
+import {PeerPoseNetwork} from '../peer-pose-network.js';
+import {createPoseSavePolicy} from '../room-traffic-policy.js';
 let stamp = 100000, pcId = 0, sent = [], loss = 0, seed = 17;
 const pcs = new Map();
 const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0x100000000);
@@ -50,7 +51,7 @@ roster['bot-a'] = {online: true, bot: true}; roster['bot-b'] = {online: true, bo
 let hostId = ids[0], scope = '1:play', enabled = true, moving = true;
 const counts = {}, nodes = new Map();
 for (const [index, uid] of ids.entries()) {
-  counts[uid] = {received: 0, writes: 0, lastWrite: stamp};
+  counts[uid] = {received: 0, writes: 0, policy:createPoseSavePolicy()};
   nodes.set(uid, new PeerPoseNetwork({PeerConnection, clock: () => stamp,
     writePresence: async value => {if (value) roster[uid].poseNet = value; else delete roster[uid].poseNet;},
     writeSignal: async (target, value) => {
@@ -72,8 +73,7 @@ async function step(ticks = 1, skip = '') {
       node.publishLocal({x: index * 2 + at, z: Math.sin(at), walking: moving, kartSession: 'kart-xyz', circuitCourse: 'orbit'});
       if (uid === hostId) node.publishBots({'bot-a': {x: at, z: 0}, 'bot-b': {x: 0, z: at}});
       node.tick();
-      const count = counts[uid], cadence = node.canUseDirect() ? POSE_CHECKPOINT_MS : POSE_FALLBACK_MS;
-      if (stamp - count.lastWrite >= cadence) {count.writes++; count.lastWrite = stamp;}
+      const count=counts[uid];if(count.policy.shouldSave({scope,stamp,moving,direct:node.canUseDirect()}))count.writes++;
     }
     await settle();
     const deliveries = sent.filter(item => item.at <= stamp); sent = sent.filter(item => item.at > stamp);
@@ -94,7 +94,7 @@ await converge();
 assert.equal(nodes.get(hostId).links.size, 19);
 assert(ids.filter(id => id !== hostId).every(id => nodes.get(id).links.size === 1));
 assert.equal([...nodes.values()].reduce((n, node) => n + node.links.size, 0), 38);
-for (const count of Object.values(counts)) {count.writes = 0; count.lastWrite = stamp; count.received = 0;}
+for (const count of Object.values(counts)) {count.writes = 0; count.received = 0;}
 loss = .12;
 await step(1200); // 60 seconds of 20-person continuous movement, 12% packet loss.
 for (const [id, count] of Object.entries(counts)) {
@@ -127,7 +127,7 @@ assert.equal(nodes.get(hostId).links.size, 19);
 assert(ids.filter(id => id !== hostId).every(id => nodes.get(id).links.size === 1));
 enabled = false; await step(5);
 assert([...nodes.values()].every(node => node.links.size === 0 && !node.canUseDirect()));
-assert(Object.values(roster).every(row => !row.poseNet), 'standard mode should remove discovery metadata');
+assert(Object.values(roster).every(row => !row.poseNet), 'stopping the transport should remove discovery metadata');
 
 let denied = 0;
 const restricted = new PeerPoseNetwork({PeerConnection, clock: () => stamp,
@@ -141,7 +141,7 @@ assert(denied <= 3, 'permission failure must not create a write storm');
 restricted.stop(); await settle();
 console.log(JSON.stringify({passed:true,participants:20,hostConnections:19,guestConnections:1,
   simulatedSeconds:60,packetLoss:'12%',steadyStateCheckpointsPerPlayer:steadyWrites,
-  previousLightWritesPerMinute:150,smartLightWritesPerMinute:12,positionUpdateReduction:'92%',
-  checks:['continuous poses and bot relay','loss and out-of-order recovery','final stop delivery','5-second checkpoints',
+  durablePolicy:'movement over WebRTC; event snapshots and bounded connection recovery',
+  checks:['continuous poses and bot relay','loss and out-of-order recovery','final stop delivery','event snapshots and bounded recovery',
     'legacy client fallback','link failure and 30-second reconnect','suspended host','phase/teleport invalidation',
-    'host migration','standard-mode cleanup','permission-denied backoff']},null,2));
+    'host migration','transport teardown','permission-denied backoff']},null,2));
