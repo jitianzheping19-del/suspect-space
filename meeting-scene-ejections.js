@@ -5,7 +5,7 @@ import {createExtendedEjectionEffects,createEjectionStaging} from './meeting-eje
 import {patchMeetingRendering} from './meeting-render-recovery.js';
 
 function createMeetingEjections(api) {
-  const {THREE, scene, camera} = api;
+  const {THREE, scene, camera, createExtendedEjectionEffects, createEjectionStaging} = api;
   const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
   const ease = t => t * t * (3 - 2 * t);
   const v = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -393,7 +393,7 @@ export function patchMeetingRuntime(source) {
   html=html.replace('const micTxt=s.mic?"🎙 ":""','const micTxt=s.alive!==false&&s.mic?"🎙 ":""');
   const factory = `\nconst createEjectionStaging=${createEjectionStaging.toString()};\nconst createExtendedEjectionEffects=${createExtendedEjectionEffects.toString()};\nconst createMeetingEjections=${createMeetingEjections.toString()};\nlet liveMeetingEjections=null;
 function getLiveMeetingEjections(){return liveMeetingEjections||(liveMeetingEjections=createMeetingEjections({
- THREE,scene,camera,orbit:orb,top:TOP,now:()=>NOW,me:()=>me,getSeats:()=>seats,stand:standPose,
+ THREE,scene,camera,createExtendedEjectionEffects,createEjectionStaging,orbit:orb,top:TOP,now:()=>NOW,me:()=>me,getSeats:()=>seats,stand:standPose,
  impact,breakTable:mrBeginScaleBreak,hideCentre:()=>{mrCentralTable.visible=false;ped.visible=false;},
  pans:panGroups,chains:mrChainMeshes,scaleTargets:()=>scaleTargets,
  setBusy:value=>{busy=value;},voice:stage=>meetingDeathVoice(stage,'ejection'),
