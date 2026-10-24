@@ -3233,6 +3233,7 @@ function vampireRoutePose(id,p){return p.bot?p:(typeof roomPeerPose==="function"
 import {createTaskTerminalDocument} from "./task-terminal-document.js";
 import {createWorldTaskMachine} from "./task-station-models.js";
 import {buildTriggerHappyWeapon,buildTriggerHappyBullet,attachTriggerHappyWeapon,triggerHappyMuzzleWorld} from "./trigger-happy-models.js";
+import {createWaveCannonEffect,waveCannonSegments,waveCannonTargetOnBeam,waveCannonMovementLock,WAVE_CANNON_FIRE_MS,WAVE_CANNON_GROW_MS} from "./wave-cannon-runtime.js";
 import {createConnectionIndicator,playerIsReconnecting} from "./connection-indicator.js";
 import {spawnChoiceIndices,createSpawnChoiceView} from "./spawn-choice-view.js";
 import {createMeetingIntroPresentation} from "./meeting-intro-presentation.js";
@@ -6708,6 +6709,9 @@ async function reportMeetingResultReveal(resultId,meetingId){
   },{applyLocally:false});}catch(error){console.warn("結果表示の完了を同期できませんでした。安全な待ち時間後に再開します。",error);}
 }
 function meeting3DFrame(){return $("meeting3D");}
+let meetingRecoveryTimer=0,meetingRecoveryAttempts=0;
+function queueMeetingRecovery(delay=2500){if(meetingRecoveryTimer||!meeting3DOn||!["meeting","results"].includes(game.phase))return;meetingRecoveryTimer=setTimeout(()=>{meetingRecoveryTimer=0;const frame=meeting3DFrame();if(!meeting3DOn||!["meeting","results"].includes(game.phase)||!frame)return;if(meetingRecoveryAttempts>=2)return;meetingRecoveryAttempts++;frame.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);},delay);}
+
 function post3DInit(){const f=meeting3DFrame();if(!f?.contentWindow)return;f.contentWindow.postMessage({type:"ss3d-init",src:COSTUME_LIB_SRC},"*");}
 // Meeting abilities use one authoritative event. Witness payloads omit the user,
 // guessed role and outcome; only the involved clients receive those presentation fields.
@@ -6762,8 +6766,8 @@ const gameViewportMeta=document.querySelector('meta[name="viewport"]');
 const gameViewportDefault=gameViewportMeta?.content||"width=device-width,initial-scale=1,viewport-fit=cover";
 function set3DMode(on){meeting3DOn=!!on;const f=meeting3DFrame(),vp=$("votePlayers"),b=$("meeting3DBtn");if(!f)return;
   if(gameViewportMeta)gameViewportMeta.content=meeting3DOn&&["meeting","results"].includes(game.phase)?"width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover":gameViewportDefault;
-  if(meeting3DOn){if(!f.srcdoc)f.srcdoc=MEETING_3D_SRCDOC;f.classList.remove("hidden");vp?.classList.add("hidden");}
-  else{f.classList.add("hidden");vp?.classList.remove("hidden");f.srcdoc="";}
+  if(meeting3DOn){if(!f.srcdoc){meetingRecoveryAttempts=0;f.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);}f.classList.remove("hidden");vp?.classList.add("hidden");}
+  else{clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;f.classList.add("hidden");vp?.classList.remove("hidden");f.srcdoc="";}
   if(b)b.textContent=meeting3DOn?"2D表示に戻す":"3D会議室";
   post3DState(latest3D);}
 $("meeting3DBtn")?.addEventListener("click",()=>set3DMode(!meeting3DOn));
@@ -6771,6 +6775,10 @@ meeting3DOn=true;setTimeout(()=>set3DMode(true),0);
 /* picks go through the existing 2D handlers (card click -> confirm), so guess mode, scale limits and vote rules stay in one place */
 window.addEventListener("message",e=>{const f=meeting3DFrame();if(!f||e.source!==f.contentWindow)return;const d=e.data||{};
   if(d.type==="ss3d-results-reveal"){void reportMeetingResultReveal(d.resultId,d.meetingId);return;}
+  if(d.type==="ss3d-context-lost"){queueMeetingRecovery();return;}
+  if(d.type==="ss3d-render-error"){queueMeetingRecovery(350);return;}
+  if(d.type==="ss3d-context-restored"||d.type==="ss3d-rendered"){clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;post3DState(latest3D);return;}
+
   if(d.type==="ss3d-ready"){post3DInit();post3DState(latest3D);if((game.phase==="results"||game.phase==="ended")&&latest3DResult&&latest3DResultMeetingId===String(latest3D?.meeting?.id||game.meeting?.id||""))post3DResult(latest3DResult);}
   if(d.type==="ss3d-pick"&&d.target&&meeting3DOn&&latest3D&&String(d.meetingId||"")===String(latest3D.meeting?.id||"")){
     if(d.target==="skip"){void sendVote("skip");return;}
@@ -14335,7 +14343,7 @@ function useRoleAbility(){
     $("rocketLaunchBtn").onclick=()=>{const me=self();if(me?.subrole==="rocket"&&ssxControlCaptives().length)sendCommand("ability",{ability:"rocketLaunch"});};
     let localJump=null,jumpPending=false;
     function jumpAvailable(){
-      if(activeCrewDroneView())return false;
+      if(activeCrewDroneView()||waveCannonMovementLock(game,uid,now()))return false;
       const me=self();
       const lobby=isLobbyInteractionActive();
       return (lobby
@@ -15418,7 +15426,7 @@ function runBots(g) {
   const dt=botLastMove?clamp((stamp-botLastMove)/1000,.03,.24):BOT_MOVE_INTERVAL_MS/1000;botLastMove=stamp;
   let dirty=false;const moved={};
   for(const [id,bot] of Object.entries(g.players||{})){
-    if(!bot.bot||bot.observer||bot.disconnected||bot.ventId)continue;
+    if(!bot.bot||bot.observer||bot.disconnected||bot.ventId||waveCannonMovementLock(g,id,stamp))continue;
     let brain=botBrains.get(id);
     if(!brain||brain.round!==g.round){brain={round:g.round,path:[],nextPlan:0,working:0,personality:botPersonalityFor(id)};botBrains.set(id,brain);}
     if(!brain.personality)brain.personality=botPersonalityFor(id);
@@ -15712,11 +15720,11 @@ function maybeAddBotMeetingChat(g){
         let dirty = updateShipDoorsHost(g,now());
         if(vampireRoutes.sample(g,vampireRoutePose,now()))dirty=true;
         const modRolePositionCorrectionAt=window.__modRolePositionCorrectionAt||(window.__modRolePositionCorrectionAt=new Map());
-        for(const [id,p] of Object.entries(g.players||{}))if(p.rocketCapturedBy||p.penguinGrabbedBy||Number(p.waveStationaryUntil)>now()){
+        for(const [id,p] of Object.entries(g.players||{}))if(p.rocketCapturedBy||p.penguinGrabbedBy||waveCannonMovementLock(g,id,now())){
           const cap=p.penguinGrabbedBy||p.rocketCapturedBy||"",captor=g.players?.[cap],captorLoc=captor?.bot?captor:(players[cap]||captor);
-          const stationary=Number(p.waveStationaryUntil)>now(),following=!!cap,savedX=Number(p.rocketCaptureX),savedZ=Number(p.rocketCaptureZ);
-          const x=stationary?Number(p.waveStationaryX):following&&Number.isFinite(Number(captorLoc?.x))?Number(captorLoc.x):Number.isFinite(savedX)?savedX:Number(p.x);
-          const z=stationary?Number(p.waveStationaryZ):following&&Number.isFinite(Number(captorLoc?.z))?Number(captorLoc.z):Number.isFinite(savedZ)?savedZ:Number(p.z);
+          const waveLock=waveCannonMovementLock(g,id,now()),stationary=!!waveLock,following=!!cap,savedX=Number(p.rocketCaptureX),savedZ=Number(p.rocketCaptureZ);
+          const x=stationary?waveLock.x:following&&Number.isFinite(Number(captorLoc?.x))?Number(captorLoc.x):Number.isFinite(savedX)?savedX:Number(p.x);
+          const z=stationary?waveLock.z:following&&Number.isFinite(Number(captorLoc?.z))?Number(captorLoc.z):Number.isFinite(savedZ)?savedZ:Number(p.z);
           if(Number.isFinite(x)&&Number.isFinite(z)){
             if(p.x!==x||p.z!==z){p.x=x;p.z=z;dirty=true;}
             if(p.rocketCapturedBy&&(p.rocketCaptureX!==x||p.rocketCaptureZ!==z)){p.rocketCaptureX=x;p.rocketCaptureZ=z;dirty=true;}
@@ -15902,15 +15910,15 @@ let movedBots={};
 if(g.phase==="play"&&(g.settings?.waveMode==="battleRoyale"||g.settings?.waveMode==="team")){
   const stamp=now();
   for(const [botId,bot] of Object.entries(g.players||{})){
-    if(!bot.bot||!bot.alive||bot.disconnected||bot.observer||stamp<Math.max(Number(g.startedAt||0)+3000,Number(bot.waveShieldUntil)||0,Number(bot.abilityReadyAt)||0))continue;
+    if(!bot.bot||!bot.alive||bot.disconnected||bot.observer||waveCannonMovementLock(g,botId,stamp)||stamp<Math.max(Number(g.startedAt||0)+3000,Number(bot.waveShieldUntil)||0,Number(bot.abilityReadyAt)||0))continue;
     const origin=bot,targets=Object.entries(g.players||{}).filter(([id,target])=>id!==botId&&target.alive&&!target.disconnected&&!target.observer&&
       (g.settings.waveMode!=="team"||target.waveTeam!==bot.waveTeam)).map(([id,target])=>({id,target,loc:target.bot?target:players[id]})).filter(row=>row.loc)
       .sort((a,b)=>distance(origin,a.loc)-distance(origin,b.loc));
     if(!targets.length)continue;
     const target=targets[0],yaw=Math.atan2(Number(target.loc.x)-Number(origin.x),Number(target.loc.z)-Number(origin.z));
     const fireAt=stamp+clamp(Number(g.settings.waveCannonChargeSeconds)||1,1,6)*1000;
-    bot.abilityReadyAt=stamp+10000;bot.readyAt=Math.max(Number(bot.readyAt)||0,stamp+10000);bot.waveChargingUntil=fireAt;bot.waveStationaryX=Number(origin.x)||0;bot.waveStationaryZ=Number(origin.z)||0;bot.waveStationaryUntil=fireAt+3000;bot.waveShieldUntil=Number(bot.waveShieldUntil)||0;bot.abilityEvent=token();
-    const waveEvent={id:token(),by:botId,x:Number(origin.x)||0,z:Number(origin.z)||0,yaw,startedAt:stamp,fireAt,endsAt:fireAt+5000,resolved:false,hitPlayers:[]};(g.waveEvents||={})[waveEvent.id]=waveEvent;g.waveEvent=waveEvent;dirty=true;break;
+    bot.abilityReadyAt=stamp+10000;bot.readyAt=Math.max(Number(bot.readyAt)||0,stamp+10000);bot.waveChargingUntil=fireAt;bot.waveStationaryX=Number(origin.x)||0;bot.waveStationaryZ=Number(origin.z)||0;bot.waveStationaryUntil=fireAt+WAVE_CANNON_FIRE_MS;bot.waveShieldUntil=Number(bot.waveShieldUntil)||0;bot.abilityEvent=token();
+    const waveEvent={id:token(),by:botId,x:Number(origin.x)||0,z:Number(origin.z)||0,yaw,startedAt:stamp,fireAt,endsAt:fireAt+WAVE_CANNON_FIRE_MS,resolved:false,hitPlayers:[]};(g.waveEvents||={})[waveEvent.id]=waveEvent;g.waveEvent=waveEvent;dirty=true;break;
   }
 }
 if (g.phase === "play" && now() >= (g.playStartsAt || g.countdownEndsAt || 0)) {
@@ -16394,12 +16402,13 @@ if (g.phase !== "play") {
               p.abilityReadyAt=now()+clamp(Number(g.settings?.hawkCooldownSeconds)||30,5,90)*1000;p.abilityEvent=token();setCommandResult(g,actor,cmd,true,"視界を広げました。");dirty=true;
             } else if(cmd.ability==="waveCannon"&&p.subrole==="waveCannon"){
               const shieldUntil=Number(p.waveShieldUntil)||0;if(shieldUntil>now()){setCommandResult(g,actor,cmd,false,`シールド中です。波動砲は${Math.ceil((shieldUntil-now())/1000)}秒後から使えます。`);continue;}
+              if(waveCannonMovementLock(g,actor,now())){setCommandResult(g,actor,cmd,false,"波動砲を発射中です。");continue;}
               const waveReadyAt=Math.max(Number(p.abilityReadyAt)||0,Number(p.waveCannonReadyAt)||0);
               if(waveReadyAt>now()){setCommandResult(g,actor,cmd,false,`波動砲クールダウン中です（残り${Math.ceil((waveReadyAt-now())/1000)}秒）。`);continue;}
               const cooldown=clamp(Number(g.settings?.waveCannonCooldownSeconds)||45,10,120)*1000,chargeMs=clamp(Number(g.settings?.waveCannonChargeSeconds)||2,1,6)*1000,shared=killCooldownFor(p),startedAt=now(),fireAt=startedAt+chargeMs;
               const origin=commandOrigin(loc,cmd);
-              p.readyAt=startedAt+Math.max(cooldown,shared);p.waveCannonReadyAt=startedAt+cooldown;p.abilityReadyAt=p.waveCannonReadyAt;p.waveChargingUntil=fireAt;p.waveStationaryX=Number(origin.x)||0;p.waveStationaryZ=Number(origin.z)||0;p.waveStationaryUntil=fireAt+3000;p.abilityEvent=token();
-              const waveEvent={id:token(),by:actor,x:Number(origin.x)||0,z:Number(origin.z)||0,yaw:Number.isFinite(Number(cmd.yaw))?Number(cmd.yaw):Number(loc.yaw)||0,startedAt,fireAt,endsAt:fireAt+5000,resolved:false,hitPlayers:[]};(g.waveEvents||={})[waveEvent.id]=waveEvent;g.waveEvent=waveEvent;setCommandResult(g,actor,cmd,true,"波動砲をチャージしています。");dirty=true;
+              p.readyAt=startedAt+Math.max(cooldown,shared);p.waveCannonReadyAt=startedAt+cooldown;p.abilityReadyAt=p.waveCannonReadyAt;p.waveChargingUntil=fireAt;p.waveStationaryX=Number(origin.x)||0;p.waveStationaryZ=Number(origin.z)||0;p.waveStationaryUntil=fireAt+WAVE_CANNON_FIRE_MS;p.abilityEvent=token();
+              const waveEvent={id:token(),by:actor,x:Number(origin.x)||0,z:Number(origin.z)||0,yaw:Number.isFinite(Number(cmd.yaw))?Number(cmd.yaw):Number(loc.yaw)||0,startedAt,fireAt,endsAt:fireAt+WAVE_CANNON_FIRE_MS,resolved:false,hitPlayers:[]};(g.waveEvents||={})[waveEvent.id]=waveEvent;g.waveEvent=waveEvent;setCommandResult(g,actor,cmd,true,"波動砲をチャージしています。");dirty=true;
             } else if(cmd.ability==="morphScan"&&p.subrole==="morphing"&&(p.shapeshiftReadyAt||0)<=now()){
               const target=g.players[cmd.target],targetLoc=players[cmd.target];
               if(target?.alive&&!target.observer&&!target.disconnected&&!target.ventId&&targetLoc?.online&&cmd.target!==actor&&distance(loc,targetLoc)<8&&!wallBetween(loc,targetLoc)){
@@ -16607,10 +16616,10 @@ if(Object.keys(movedBots).length&&currentSession===session&&isHost()){
         const waveEvents=g.waveEvents&&typeof g.waveEvents==="object"?Object.values(g.waveEvents):g.waveEvent?[g.waveEvent]:[];
         if(g.phase==="play")for(const wave of waveEvents){
           if(!wave||now()<(wave.fireAt||0)||wave.resolved)continue;
-          const beamEndsAt=Number(wave.endsAt)||Number(wave.fireAt)+5000;
+          const beamEndsAt=Number(wave.endsAt)||Number(wave.fireAt)+WAVE_CANNON_FIRE_MS;
           if(now()>=beamEndsAt){wave.resolved=true;dirty=true;continue;}
           if(!Array.isArray(wave.hitPlayers)){wave.hitPlayers=[];dirty=true;}
-          const firingProgress=Math.min(1,Math.max(0,(now()-Number(wave.fireAt))/450));
+          const firingProgress=Math.min(1,Math.max(0,(now()-Number(wave.fireAt))/WAVE_CANNON_GROW_MS));
           if(!wave.reflection){
             const waveShooterTeam=g.players?.[wave.by]?.waveTeam,sage=Object.entries(g.players||{}).map(([id,p])=>({id,p,loc:p?.bot?p:players[id]})).filter(q=>q.p?.subrole==="sage"&&q.p.alive&&!q.p.disconnected&&!q.p.observer&&!(g.settings?.waveMode==="team"&&q.p.waveTeam&&q.p.waveTeam===waveShooterTeam)&&Number(q.p.sageShieldUntil)>now()&&q.loc&&Number.isFinite(Number(q.loc.x))&&Number.isFinite(Number(q.loc.z))&&waveCannonTargetOnBeam(wave,q.loc,firingProgress)).sort((a,b)=>{const dx=Math.sin(Number(wave.yaw)||0),dz=Math.cos(Number(wave.yaw)||0),aa=(Number(a.loc.x)-Number(wave.x))*dx+(Number(a.loc.z)-Number(wave.z))*dz,bb=(Number(b.loc.x)-Number(wave.x))*dx+(Number(b.loc.z)-Number(wave.z))*dz;return aa-bb;})[0];
             if(sage){const x=Number(sage.loc.x),z=Number(sage.loc.z),incoming=Number(wave.yaw)||0,reflectYaw=incoming+(Math.random()<.5?-1:1)*(Math.PI*.25+Math.random()*Math.PI*.5);wave.reflection={sageId:sage.id,x,z,yaw:reflectYaw};dirty=true;}
@@ -17237,16 +17246,6 @@ function syncTerminalLocations(){const terminalRoomIds=['security','electrical',
 syncTerminalLocations();
 // The wave cannon hits every player in its forward beam through walls.
 // Keep this ability-specific test independent of wallBetween()/collision meshes.
-function waveCannonSegments(wave){
-  const angle=Number(wave?.yaw)||0,segments=[{x:Number(wave?.x)||0,z:Number(wave?.z)||0,yaw:angle,length:80}];
-  const r=wave?.reflection;if(r&&Number.isFinite(Number(r.x))&&Number.isFinite(Number(r.z))){const dx=Math.sin(angle),dz=Math.cos(angle),along=(Number(r.x)-segments[0].x)*dx+(Number(r.z)-segments[0].z)*dz;segments[0].length=Math.max(0,Math.min(80,along));segments.push({x:Number(r.x),z:Number(r.z),yaw:Number(r.yaw)||0,length:80});}
-  return segments;
-}
-function waveCannonTargetOnBeam(wave,loc,progress=1){
-  if(!wave||!loc)return false;
-  let remaining=80*Math.max(0,Math.min(1,Number(progress)||0));
-  return waveCannonSegments(wave).some(segment=>{const visibleLength=Math.max(0,Math.min(segment.length,remaining));remaining=Math.max(0,remaining-segment.length);const dx=Math.sin(segment.yaw),dz=Math.cos(segment.yaw),ox=Number(loc.x)-segment.x,oz=Number(loc.z)-segment.z,along=ox*dx+oz*dz,side=Math.abs(ox*dz-oz*dx);return along>=.5&&along<=visibleLength&&side<=3.4;});
-}
     /* SSX_MOD_SPECIAL_ROLES_V1 */
 function ssxSpecialRole(player,id){return player?.subrole||player?.role||"";}
 function ssxIsRocket(player){return ssxSpecialRole(player)==="rocket";}
@@ -17391,8 +17390,8 @@ function ssxRoleAbility(ctx){
       const cooldown=ssxSpecialSetting(g.settings,["waveCannonCooldownSeconds","waveJackalCooldownSeconds"],45,10,120)*1000;
       const charge=ssxSpecialSetting(g.settings,["waveCannonChargeSeconds","waveJackalChargeSeconds"],2,1,6)*1000;
       const startedAt=now,fireAt=now+charge,origin=commandOrigin(loc,cmd),yaw=Number.isFinite(Number(cmd.yaw))?Number(cmd.yaw):Number(loc?.yaw)||0;
-      const endsAt=fireAt+5000;
-      p.waveCannonReadyAt=startedAt+cooldown;p.abilityReadyAt=p.waveCannonReadyAt;p.readyAt=Math.max(Number(p.readyAt)||0,startedAt+Math.max(cooldown,killCooldownFor(p,g.settings)));p.waveChargingUntil=fireAt;p.waveStationaryX=Number(origin.x)||0;p.waveStationaryZ=Number(origin.z)||0;p.waveStationaryUntil=fireAt+3000;p.abilityEvent=token();
+      const endsAt=fireAt+WAVE_CANNON_FIRE_MS;
+      p.waveCannonReadyAt=startedAt+cooldown;p.abilityReadyAt=p.waveCannonReadyAt;p.readyAt=Math.max(Number(p.readyAt)||0,startedAt+Math.max(cooldown,killCooldownFor(p,g.settings)));p.waveChargingUntil=fireAt;p.waveStationaryX=Number(origin.x)||0;p.waveStationaryZ=Number(origin.z)||0;p.waveStationaryUntil=fireAt+WAVE_CANNON_FIRE_MS;p.abilityEvent=token();
       g.waveEvent={id:token(),by:actor,x:Number(origin.x)||0,z:Number(origin.z)||0,yaw,startedAt,fireAt,endsAt,resolved:false,hitPlayers:[],faction:"jackal",role:"waveCannonJackal"};
       (g.waveEvents||={})[g.waveEvent.id]=g.waveEvent;
       ssxSpecialResult(ctx,true,"ジャッカル波動砲をチャージしています。");ssxSpecialDirty(ctx);
@@ -17681,71 +17680,9 @@ registerModEffectHandler("teleporterArrival",modCoreFxTeleporterArrival);
 
     /* SS_OCT8_WAVE_ORIGINAL_PATCH */
     function createWaveCannonVisual(THREE,scene,event){
-      const {x,z,yaw,startedAt,endsAt}=event,group=new THREE.Group(),bounceGroup=new THREE.Group();
-      const actor=game.players?.[event.by],team=String(actor?.waveTeam??actor?.team??event.waveTeam??event.team??"").toUpperCase();
-      const isRed=team==="RED"||team==="A",isBlue=team==="BLUE"||team==="B",isJackal=event.faction==="jackal";
-      const beamColor=isRed?0xff405f:isBlue?0x398bff:isJackal?0x53ffe6:0x70cfff;
-      const chargeColor=isRed?0xff7087:isBlue?0x78b7ff:isJackal?0x9bff69:0x77ddff;
-      const resourcesG=new Set(),resourcesM=new Set(),resourcesT=new Set();let disposed=false;
-      const ownG=g=>(resourcesG.add(g),g),ownM=m=>(resourcesM.add(m),m),ownT=t=>(resourcesT.add(t),t);
-      const add={blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,toneMapped:false};
-      const mat=(color,opacity=1,opts={})=>ownM(new THREE.MeshBasicMaterial({color,opacity,...add,side:THREE.DoubleSide,...opts}));
-      const start=Number(startedAt)||0,fireAt=Number(event.fireAt)||start+(Number(event.endsAt)-start)*.25;
-      const chargeDuration=Math.max(1,fireAt-start),duration=Math.max(1,Number(endsAt)-start),beamDuration=Math.max(1,Number(endsAt)-fireAt);
-      const muzzleZ=.5;
-      group.name="wave-cannon-visual";group.position.set(Number(x)||0,.9,Number(z)||0);group.rotation.y=Number(yaw)||0;scene.add(group);
-      bounceGroup.name="wave-cannon-reflection";scene.add(bounceGroup);
-
-      const dotCanvas=document.createElement("canvas");dotCanvas.width=dotCanvas.height=64;const dotCtx=dotCanvas.getContext("2d"),grad=dotCtx.createRadialGradient(32,32,0,32,32,32);grad.addColorStop(0,"rgba(255,255,255,1)");grad.addColorStop(.25,"rgba(255,255,255,.7)");grad.addColorStop(1,"rgba(255,255,255,0)");dotCtx.fillStyle=grad;dotCtx.fillRect(0,0,64,64);const dot=ownT(new THREE.CanvasTexture(dotCanvas));
-      const sprite=(color,opacity=1)=>ownM(new THREE.SpriteMaterial({map:dot,color,opacity,...add}));
-
-      // Uploaded design: bright charge orb, transverse rings and converging motes.
-      const orbGroup=new THREE.Group();orbGroup.position.z=muzzleZ;group.add(orbGroup);
-      const orbCore=new THREE.Mesh(ownG(new THREE.SphereGeometry(1,48,32)),mat(0xffffff,1));orbGroup.add(orbCore);
-      const orbHalo=new THREE.Sprite(sprite(beamColor,1));orbHalo.scale.set(1,1,1);orbGroup.add(orbHalo);
-      const chargeRings=[];
-      for(let i=0;i<3;i++){const ring=new THREE.Mesh(ownG(new THREE.TorusGeometry(1.5+i*.5,.025,8,96)),mat(chargeColor,.8));ring.position.z=1.6+i*1.1;orbGroup.add(ring);chargeRings.push(ring);}
-      const PN=1800,pStart=[],pDelay=new Float32Array(PN),pTw=new Float32Array(PN),pPos=new Float32Array(PN*3),pCol=new Float32Array(PN*3);let seed=String(event.id||start).split("").reduce((a,c)=>(Math.imul(a,33)+c.charCodeAt(0))>>>0,5381);const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
-      for(let i=0;i<PN;i++){const d=new THREE.Vector3(random()*2-1,random()*2-1,random()*2-1).normalize().multiplyScalar(5+random()*13);d.z=Math.abs(d.z)*.6+d.z*.4+.6;pStart.push(d);pDelay[i]=random()*.72;pTw[i]=random()*6.28;}
-      const pGeo=ownG(new THREE.BufferGeometry());pGeo.setAttribute("position",new THREE.BufferAttribute(pPos,3));pGeo.setAttribute("color",new THREE.BufferAttribute(pCol,3));const pPts=new THREE.Points(pGeo,ownM(new THREE.PointsMaterial({map:dot,size:.38,sizeAttenuation:true,vertexColors:true,...add})));pPts.frustumCulled=false;group.add(pPts);
-
-      // Uploaded three-layer Fresnel beam, axis adapted from +X to the game's +Z.
-      const beamGeo=ownG(new THREE.CylinderGeometry(1,1,1,64,1,true));beamGeo.translate(0,.5,0);beamGeo.rotateX(Math.PI/2);
-      const beamMat=(color,power)=>ownM(new THREE.ShaderMaterial({uniforms:{uTime:{value:0},uOpacity:{value:0},uColor:{value:new THREE.Color(color)},uPow:{value:power}},vertexShader:'varying vec2 vUv;varying vec3 vN;varying vec3 vV;void main(){vUv=uv;vec4 mv=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}',fragmentShader:'uniform float uTime,uOpacity,uPow;uniform vec3 uColor;varying vec2 vUv;varying vec3 vN;varying vec3 vV;void main(){float e=pow(abs(dot(normalize(vN),normalize(vV))),uPow);float len=vUv.y*60.;float s=.5+.5*sin(len*1.3-uTime*38.+sin(vUv.x*12.566+uTime*3.)*1.6);float s2=.5+.5*sin(len*3.1-uTime*61.+vUv.x*18.8);float flow=.62+.26*s+.12*s2;vec3 c=mix(uColor,vec3(1.),e*e)*flow*(1.+e*1.5);float tail=smoothstep(0.,.02,vUv.y);gl_FragColor=vec4(c*uOpacity,e*uOpacity*tail);}',transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,toneMapped:false}));
-      function makeBeamRig(parent){const layers=[];for(const [color,power] of [[beamColor,1.2],[isRed?0xff9cab:isBlue?0xa6ceff:0x8fe0ff,2],[0xffffff,3]]){const m=new THREE.Mesh(beamGeo,beamMat(color,power));m.visible=false;parent.add(m);layers.push(m);}return layers;}
-      const mainLayers=makeBeamRig(group),bounceLayers=makeBeamRig(bounceGroup);
-      const muzzleFlare=new THREE.Sprite(sprite(0xffffff));muzzleFlare.position.z=muzzleZ;muzzleFlare.scale.setScalar(1);group.add(muzzleFlare);
-      const headFlare=new THREE.Sprite(sprite(beamColor));headFlare.visible=false;group.add(headFlare);
-      const glowLight=new THREE.PointLight(beamColor,0,36,2);glowLight.position.set(0,0,muzzleZ);group.add(glowLight);
-
-      // Animated sparks stream through the beam, matching the attached demo.
-      const SN=700,sOff=[],sPos=new Float32Array(SN*3),sCol=new Float32Array(SN*3);for(let i=0;i<SN;i++)sOff.push({a:random()*6.28,r:Math.sqrt(random()),x:random(),v:.6+random()*1.4,w:(random()-.5)*4});
-      const sGeo=ownG(new THREE.BufferGeometry());sGeo.setAttribute("position",new THREE.BufferAttribute(sPos,3));sGeo.setAttribute("color",new THREE.BufferAttribute(sCol,3));const sPts=new THREE.Points(sGeo,ownM(new THREE.PointsMaterial({map:dot,size:.5,sizeAttenuation:true,vertexColors:true,...add})));sPts.frustumCulled=false;sPts.visible=false;group.add(sPts);
-
-      const ringGeo=ownG(new THREE.TorusGeometry(1,.025,8,96)),shockwaves=[];let lastShockAt=-Infinity;
-      function spawnWave(stamp,reflection=false){const parent=reflection?bounceGroup:group,m= new THREE.Mesh(ringGeo,mat(beamColor,.9));m.position.z=muzzleZ;parent.add(m);shockwaves.push({mesh:m,stamp,max:60,speed:46,reflection});}
-      const outlineGeo=ownG(new THREE.BufferGeometry());outlineGeo.setAttribute("position",new THREE.Float32BufferAttribute(new Float32Array(2*4*2*3),3));const outlineMat=mat(beamColor,.96,{depthTest:false});const outline=new THREE.LineSegments(outlineGeo,outlineMat);
-
-      function updateRig(layers,length,width,time,fade){const active=length>0;for(const [i,m] of layers.entries()){m.visible=active;const radius=width*(i===0?2.6:i===1?1.7:.85);m.position.set(0,0,muzzleZ);m.scale.set(radius,radius,Math.max(.001,length));m.material.uniforms.uTime.value=time;m.material.uniforms.uOpacity.value=(i===0?.8:1)*fade;}}
-      function update(stamp){
-        if(disposed)return false;const current=game.waveEvents?.[event.id]||(game.waveEvent?.id===event.id?game.waveEvent:event),nowStart=Number(current.startedAt)||start,nowFire=Number(current.fireAt)||nowStart+chargeDuration,elapsed=stamp-nowStart,beamElapsed=stamp-nowFire,total=Math.max(1,Number(current.endsAt)-nowStart),fireLength=Math.max(1,Number(current.endsAt)-nowFire);
-        if(elapsed>=total){group.visible=false;bounceGroup.visible=false;outline.visible=false;return false;}group.visible=elapsed>=0;if(elapsed<0)return true;
-        const charging=stamp<nowFire,chargeT=Math.max(0,Math.min(1,elapsed/Math.max(1,nowFire-nowStart))),segments=waveCannonSegments(current),first=segments[0],reflection=segments[1];
-        orbGroup.visible=charging;pPts.visible=charging||(beamElapsed>=0&&beamElapsed<260);const orbS=charging?(.15+Math.pow(chargeT,2.2)*1.4):0;orbCore.visible=charging;orbCore.scale.setScalar(Math.max(.001,orbS));orbHalo.visible=charging;orbHalo.material.opacity=Math.min(1,chargeT*1.2);orbHalo.scale.setScalar(Math.max(.001,orbS*7));
-        for(let i=0;i<chargeRings.length;i++){const r=chargeRings[i];r.visible=charging;r.material.opacity=Math.min(1,chargeT*1.5);r.rotation.z=reducedMotionQuery.matches?0:(stamp-nowStart)*.0015*(2+i*1.5);r.scale.setScalar(1+Math.sin((stamp-nowStart)*.006+i)*.04*chargeT);}
-        if(pPts.visible){for(let i=0;i<PN;i++){const q=Math.min(Math.max((chargeT*1.25-pDelay[i])/(1.25-pDelay[i]*.9),0),1),e=q*q,s=pStart[i],ang=(1-e)*2.6+pTw[i]*0,inv=1-e,ca=Math.cos(ang),sa=Math.sin(ang),xx=s.x*ca-s.y*sa,yy=s.x*sa+s.y*ca;pPos[i*3]=xx*inv;pPos[i*3+1]=yy*inv;pPos[i*3+2]=muzzleZ+s.z*inv;const b=(q>0&&q<1?1:0)*(.4+.6*e);pCol[i*3]=.4*b+e*.6;pCol[i*3+1]=.75*b+e*.25;pCol[i*3+2]=b;}pGeo.attributes.position.needsUpdate=true;pGeo.attributes.color.needsUpdate=true;}
-        const grow=450,attack=charging?0:Math.max(0,Math.min(1,beamElapsed/grow)),fade=charging?0:Math.min(1,Math.max(0,(fireLength-beamElapsed)/250)),width=(.5+attack*.9)*(1+.03*Math.sin(stamp*.07)),firstLength=Number.isFinite(Number(first?.length))?Math.max(0,Number(first.length)):80,secondLength=Number.isFinite(Number(reflection?.length))?Math.max(0,Number(reflection.length)):80,frontReach=80*attack,visibleFirst=Math.min(frontReach,firstLength),visibleSecond=reflection?Math.min(secondLength,Math.max(0,frontReach-firstLength)):0,mainVisibleLength=Math.max(0,visibleFirst-muzzleZ),bounceVisibleLength=Math.max(0,visibleSecond-muzzleZ);
-        updateRig(mainLayers,mainVisibleLength,width,stamp*.001,fade);
-        if(reflection){bounceGroup.visible=!charging;bounceGroup.position.set(reflection.x,.9,reflection.z);bounceGroup.rotation.y=reflection.yaw;updateRig(bounceLayers,bounceVisibleLength,width,stamp*.001,fade);}else{bounceGroup.visible=false;updateRig(bounceLayers,0,width,stamp*.001,0);}
-        muzzleFlare.visible=!charging&&beamElapsed<fireLength;muzzleFlare.material.opacity=fade;muzzleFlare.scale.setScalar(width*(10+Math.sin(stamp*.04)*1.5));headFlare.visible=!charging&&attack>0;headFlare.position.z=muzzleZ+mainVisibleLength;headFlare.material.opacity=fade;headFlare.scale.setScalar(width*9);glowLight.intensity=charging?chargeT*8:fade*18;
-        if(!charging&&attack>0){for(let i=0;i<SN;i++){const o=sOff[i];o.x=(o.x+.016*o.v*.9)%1;const px=muzzleZ+o.x*mainVisibleLength,r=o.r*width*2.4;sPos[i*3]=Math.cos(o.a+stamp*.001*o.w)*r;sPos[i*3+1]=Math.sin(o.a+stamp*.001*o.w)*r;sPos[i*3+2]=px;const b=fade*(1-o.x*.5);sCol[i*3]=.6*b;sCol[i*3+1]=.9*b;sCol[i*3+2]=b;}sGeo.attributes.position.needsUpdate=true;sGeo.attributes.color.needsUpdate=true;sPts.visible=true;}else sPts.visible=false;
-        outline.visible=false;
-        if(!charging&&beamElapsed<1000&&stamp-lastShockAt>110){spawnWave(stamp);if(reflection)spawnWave(stamp,true);lastShockAt=stamp;}
-        for(let i=shockwaves.length-1;i>=0;i--){const w=shockwaves[i],age=Math.max(0,(stamp-w.stamp)*.001),radius=.1+age*w.speed;const segmentLength=w.reflection?bounceVisibleLength:mainVisibleLength;w.mesh.position.z=muzzleZ+Math.min(segmentLength,age*8);w.mesh.scale.setScalar(radius);w.mesh.material.opacity=Math.max(0,1-radius/w.max)*fade;if(radius>=w.max){w.mesh.parent?.remove(w.mesh);shockwaves.splice(i,1);}}
-        return true;
-      }
-      function dispose(){if(disposed)return;disposed=true;scene.remove(group);scene.remove(bounceGroup);scene.remove(outline);for(const g of resourcesG)g.dispose?.();for(const m of resourcesM)m.dispose?.();for(const t of resourcesT)t.dispose?.();resourcesG.clear();resourcesM.clear();resourcesT.clear();group.clear();bounceGroup.clear();shockwaves.length=0;}
-      return {group,bounceGroup,update,dispose};
+      const actor=game.players?.[event.by];return createWaveCannonEffect({THREE,scene,event:{...event,team:actor?.waveTeam??actor?.team??event.team},
+        currentEvent:()=>game.waveEvents?.[event.id]||(game.waveEvent?.id===event.id?game.waveEvent:event),
+        getAvatar:id=>avatars.get(id),observable:point=>event.by===uid||rolePropObservable(point),phase:()=>game.phase,reducedMotion:()=>reducedMotionQuery.matches});
     }
 
     scene.background = new THREE.Color("#080e1d");
@@ -18894,6 +18831,7 @@ function findSafeTeleportOffset(anchor,index,reserved=[]){
 }
 
 function movePlayer(dx, dz) {
+      if(waveCannonMovementLock(game,uid,now()))return;
       const length = Math.hypot(dx, dz);
       if (!length) return;
       const steps = Math.max(1, Math.ceil(length / MOVE_STEP));
@@ -21118,7 +21056,7 @@ function frame(time) {
         }
         bloodTrailInstances.count=instance;if(instance){bloodTrailInstances.instanceMatrix.needsUpdate=true;bloodTrailInstances.computeBoundingSphere();}
       }
-      const activeWaves=game.phase!=="lobby"?(game.waveEvents&&typeof game.waveEvents==="object"?Object.values(game.waveEvents):game.waveEvent?[game.waveEvent]:[]).filter(w=>Number(w?.endsAt||0)>now()):[];
+      const activeWaves=["play","ended"].includes(game.phase)?(game.waveEvents&&typeof game.waveEvents==="object"?Object.values(game.waveEvents):game.waveEvent?[game.waveEvent]:[]).filter(w=>Number(w?.endsAt||0)>now()):[];
       const activeWaveIds=new Set(activeWaves.map(w=>w?.id).filter(Boolean));
       for(const [id,beam] of waveBeams)if(!activeWaveIds.has(id)){beam.dispose();waveBeams.delete(id);}
       for(const activeWave of activeWaves){if(!activeWave?.id)continue;let beam=waveBeams.get(activeWave.id);if(!beam){beam=createWaveCannonVisual(THREE,scene,activeWave);waveBeams.set(activeWave.id,beam);}if(!beam.update(now())){beam.dispose();waveBeams.delete(activeWave.id);}}
@@ -21130,11 +21068,12 @@ function frame(time) {
       const waveLaunchCountdown=game.phase==="play"&&game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch"&&now()<(Number(game.countdownEndsAt)||0);
       const waveShieldMovementWindow=game.phase==="play"&&game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch"&&now()>=(Number(game.countdownEndsAt)||0)&&now()<(Number(game.playStartsAt)||0);
       const winningKillerFrozen=game.phase==="ended"&&waitForKillPresentation()&&game.winningKillPlayback?.player===uid;
-      const movingAllowed = !winningKillerFrozen && !game.players?.[uid]?.penguinCapturedBy && !game.players?.[uid]?.rocketCapturedBy && !modalVisible() && !isWaitingLobbyForRunningMatch() && (moveAsLivingPlayer || waveLaunchCountdown || waveShieldMovementWindow || game.phase === "lobby" || (game.phase==="play"&&myGhost)) &&
+      const ownWaveLock=waveCannonMovementLock(game,uid,now());
+      const movingAllowed = !ownWaveLock && !winningKillerFrozen && !game.players?.[uid]?.penguinCapturedBy && !game.players?.[uid]?.rocketCapturedBy && !modalVisible() && !isWaitingLobbyForRunningMatch() && (moveAsLivingPlayer || waveLaunchCountdown || waveShieldMovementWindow || game.phase === "lobby" || (game.phase==="play"&&myGhost)) &&
         $("setup").classList.contains("hidden") &&
         (game.phase !== "play" || waveLaunchCountdown || waveShieldMovementWindow || now() >= (game.countdownEndsAt || 0)) && me && !me.disconnected &&
         !(game.phase==="lobby"&&(me.seated||me.sitting)) &&
-        !(game.phase==="play"&&!waveLaunchCountdown&&((me.sageShieldUntil||0)>now()||(me.waveChargingUntil||0)>now())) &&
+        !(game.phase==="play"&&!waveLaunchCountdown&&(me.sageShieldUntil||0)>now()) &&
         performance.now() >= deathPauseUntil &&
         $("roleReveal").classList.contains("hidden");
       let dx = joystick.x;
@@ -21157,6 +21096,7 @@ const length = Math.hypot(dx, dz);
       const controllingDrone=me?.subrole==="ubiquitous"&&me?.drone?.active;
       if(controllingDrone)window.__ssCrewDroneInput?.(movingAllowed?dx:0,movingAllowed?dz:0);
       updateAirshipLift();
+      if(ownWaveLock){position.x=ownWaveLock.x;position.z=ownWaveLock.z;}
       const tankControls=movingAllowed&&!controllingDrone&&game.phase==="play"&&game.settings?.viewMode==="3d";
       if(tankControls){
         const ownAvatar=avatars.get(uid),facingYaw=ownAvatar?.rotation.y||0;
@@ -21253,6 +21193,7 @@ avatar.visible = !!code && (p.online||playerIsReconnecting(p,now())) &&
 
 const remotePose=id===uid?null:sampleRemotePose(avatar,poseReceivedAt-REMOTE_POSE_DELAY_MS);
 let target = id === uid ? position : deathFall ? deathPosition : (remotePose||p);
+const wavePoseLock=waveCannonMovementLock(game,id,now());if(wavePoseLock)target=wavePoseLock;
 if(ventTransition&&ventProgress<1)target={x:ventTransition.fromX+(ventTransition.toX-ventTransition.fromX)*ventEase,z:ventTransition.fromZ+(ventTransition.toZ-ventTransition.fromZ)*ventEase};
 else if(ventTransition){delete avatar.userData.ventTransition;ventTransition=null;}
 const captiveBy=state?.rocketCapturedBy||state?.penguinCapturedBy;
@@ -21277,6 +21218,7 @@ const gaitTravel=movingSample?travel:0;
 if(movingSample){if(!(id===uid&&game.phase==="play"&&game.settings?.viewMode==="3d"))avatar.rotation.y=Math.atan2(vx,vz);}
         else if(id===uid&&Number.isFinite(avatar.userData.lastFacingYaw)&&!(game.phase==="play"&&game.settings?.viewMode==="3d"))avatar.rotation.y=avatar.userData.lastFacingYaw;
         if(id===uid)avatar.userData.lastFacingYaw=avatar.rotation.y;
+        if(wavePoseLock)avatar.rotation.y=wavePoseLock.yaw;
         if(id!==uid&&remotePose?.hasYaw)avatar.rotation.y=remotePose.yaw;
         avatar.position.y = (ghost ? .35 + (reducedMotionQuery.matches?0:Math.sin(time * .003) * .12) : 0) + ventSample.offsetY;
         const breathe = reducedMotionQuery.matches?1:1 + Math.sin(time * .0032 + id.length) * .018;
@@ -21342,7 +21284,7 @@ if(movingSample){if(!(id===uid&&game.phase==="play"&&game.settings?.viewMode==="
         updateAvatarStanding(avatar,!!(p.seated||p.sitting||state?.seated||state?.sitting),dt);
         const jumpAt=Math.max(id===uid&&localJump?.room===code&&localJump.round===game.round?Number(localJump.at)||0:0,Number(p.jumpAt)||0,Number(p.jumpStartedAt)||0,Number(state?.jumpAt)||0);
         if(id===uid&&game.phase==="play"&&game.settings?.viewMode==="3d"&&cameraPerspective==="first")avatar.visible=false;
-        applyLightJump(avatar,legs,jumpAt,now(),game.phase==="play"&&!ghost&&!state?.ventId,dt);
+        if(!wavePoseLock)applyLightJump(avatar,legs,jumpAt,now(),game.phase==="play"&&!ghost&&!state?.ventId,dt);else{avatar.userData.lightJumpActive=false;avatar.userData.lightJumpLandedAt=0;}
         const deathAt=Number(game.deathRecords?.[id]?.at||state?.deathAt||0),killAge=now()-deathAt;
         const isRecentVictim=deathFall&&deathAt>0&&killAge>=0&&killAge<3000&&state?.alive===false,collapse=avatar.userData.killCollapseRestore;
         if(isRecentVictim){

@@ -2,6 +2,7 @@
  * This factory is embedded into the meeting document, so it has no module or
  * network dependencies and never creates a second scene or renderer. */
 import {createExtendedEjectionEffects,createEjectionStaging} from './meeting-ejection-effects.js';
+import {patchMeetingRendering} from './meeting-render-recovery.js';
 
 function createMeetingEjections(api) {
   const {THREE, scene, camera} = api;
@@ -423,5 +424,5 @@ function mrStartEjection(ids,result,forcedMode){
  #meetingOutcome[data-kind="result"]>div:first-child>div{max-width:100%;}
  @media(max-height:500px){#meetingOutcome[data-kind="result"]{max-width:84vw;padding:10px 20px;font-size:clamp(16px,2.5vw,25px)!important;border-radius:12px}#meetingOutcome>div+div{margin-top:8px!important}}
  </style>`;
-  return html.replace('</head>', css + '</head>');
+  return patchMeetingRendering(html.replace('</head>', css + '</head>'));
 }
