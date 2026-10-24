@@ -13,7 +13,7 @@ export function createExtendedEjectionEffects(ctx) {
   function ring(p,m,r,y,t=.025){const o=mesh(new THREE.TorusGeometry(r,t,6,64),m,p);o.rotation.x=Math.PI/2;o.position.y=y;return o;}
   function pipe(p,m,points,r=.025){return mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(a=>v(...a))),Math.max(12,points.length*5),r,6,false),m,p);}
   function bolts(p,m,r,y,n=12){const geo=new THREE.CylinderGeometry(.04,.04,.04,6);for(let i=0;i<n;i++){const a=i/n*TAU,o=mesh(geo,m,p);o.position.set(Math.sin(a)*r,y,Math.cos(a)*r);}}
-  function cloud(p,n,color,size=.035){const array=new Float32Array(n*3),geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(array,3));const material=new THREE.PointsMaterial({color,size,transparent:true,opacity:.8,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true}),o=new THREE.Points(geo,material);o.frustumCulled=false;p.add(o);return{object:o,array,n};}
+  function cloud(p,n,color,size=.035){const array=new Float32Array(n*3),geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(array,3));const material=new THREE.PointsMaterial({color,size,map:ctx.sprite?.(),transparent:true,opacity:.8,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true}),o=new THREE.Points(geo,material);o.frustumCulled=false;p.add(o);return{object:o,array,n};}
   function updateCloud(c,fn){for(let i=0;i<c.n;i++)fn(i,c.array,i*3);c.object.geometry.attributes.position.needsUpdate=true;}
   function measure(state){
     const box3=new THREE.Box3(),bounds=new THREE.Box3(),inv=new THREE.Matrix4(),q=new THREE.Matrix4();
@@ -71,6 +71,7 @@ export function createExtendedEjectionEffects(ctx) {
       for(const side of[-1,1]){const g=group(cabin);g.rotation.y=side*Math.PI/2;box(g,effect.metal,0,h/2,-r,.095,h,.12);}
       effect.doors=[-1,1].map(side=>{const g=group(cabin);g.userData.side=side;const wall=mesh(new THREE.CylinderGeometry(r,r,h,48,1,true,side<0?0:Math.PI,Math.PI),glass(0xadd5e0,.14),g);wall.position.y=h/2+.2;for(const y of[.2,h+.2])ring(g,effect.light,r,y,.014);return g;});
       effect.latches=[];for(let i=0;i<6;i++){const a=i/6*TAU,g=group(cabin);g.rotation.y=a;const latch=box(g,effect.gold,0,.35,r+.06,.13,.24,.15);effect.latches.push(latch);}
+      for(let i=0;i<8;i++){const a=i/8*TAU,g=group(cabin);g.rotation.y=a;box(g,effect.metal,0,.025,r*.71,.11,.24,.20);box(g,effect.light,0,.09,r*.88,.045,.025,.13);}
       effect.exhaust=mesh(new THREE.ConeGeometry(r*.5,3.6,32,1,true),mat(0x80dfff,true,.7),cabin);effect.exhaust.rotation.z=Math.PI;effect.exhaust.position.y=-1.9;effect.exhaust.visible=false;
       effect.rails=group(root);for(const side of[-1,1]){box(effect.rails,effect.metal,side*(r+.32),.16,-1.3,.12,.12,5.4);for(let i=0;i<7;i++)box(effect.rails,effect.light,side*(r+.32),.23,-3.5+i*.65,.09,.025,.28);}
     }else if(mode==='ice'){
@@ -79,6 +80,7 @@ export function createExtendedEjectionEffects(ctx) {
       for(let i=0;i<p.count;i++)if(p.getY(i)>0)p.setY(i,p.getY(i)+Math.max(0,.14*Math.sin(p.getX(i)*9+p.getZ(i)*7)));geometry.computeVertexNormals();
       effect.crystal=mesh(geometry,glass(0xb8e6fb,.19),ice);effect.crystal.position.y=h/2;effect.crystal.material.depthWrite=false;
       const wire=mesh(new THREE.EdgesGeometry(geometry),new THREE.LineBasicMaterial({color:0x9ee2f3,transparent:true,opacity:.65}),ice);ice.remove(wire);effect.edges=new THREE.LineSegments(wire.geometry,wire.material);effect.edges.position.y=h/2;ice.add(effect.edges);
+      effect.cracks=group(ice);for(let i=0;i<7;i++){const a=i/7*TAU,g=group(effect.cracks);g.rotation.y=a;pipe(g,mat(0xbef4ff,true,.55),[[0,.08,r*.95],[.07,h*.3,r*.9],[-.05,h*.46,r*.85],[.08,h*.63,r*.80],[0,h*.89,r*.75]],.008);}
       effect.snow=cloud(ice,110,0xecffff,.035);updateCloud(effect.snow,(i,a,k)=>{const angle=i*2.4,rr=.8+(i%7)*.05;a[k]=Math.sin(angle)*rr;a[k+1]=(i/110)*h;a[k+2]=Math.cos(angle)*rr;});
       effect.aurora=mesh(new THREE.CylinderGeometry(18,21,16,64,1,true),new THREE.ShaderMaterial({transparent:true,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{time:{value:0},strength:{value:0}},vertexShader:'varying vec2 p;void main(){p=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'varying vec2 p;uniform float time,strength;void main(){float w=.5+.5*sin(p.x*42.+sin(p.x*19.+time)*2.);float a=pow(w,3.)*sin(p.y*3.14159)*.22*strength;gl_FragColor=vec4(mix(vec3(.12,.8,.6),vec3(.45,.3,.95),p.y),a);}'}),root);effect.aurora.position.y=27;
     }else if(mode==='singularity'){
@@ -86,6 +88,7 @@ export function createExtendedEjectionEffects(ctx) {
       const hole=mesh(new THREE.SphereGeometry(1,40,24),new THREE.MeshBasicMaterial({color:0x02020b}),effect.portal);hole.scale.set(1,1,.28);
       effect.disk=mesh(new THREE.PlaneGeometry(6,6),new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{time:{value:0},strength:{value:1}},vertexShader:'varying vec2 p;void main(){p=uv*2.-1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'varying vec2 p;uniform float time,strength;void main(){float r=length(p),a=atan(p.y,p.x);float rim=exp(-pow((r-.37)*32.,2.));float disk=exp(-pow((r-.53)*9.,2.))*(.45+.55*sin(a*7.-time*7.+r*30.));float ring=exp(-pow((r-.72)*36.,2.))*.18;float alpha=(rim+disk*.5+ring)*strength;gl_FragColor=vec4(mix(vec3(.45,.17,.9),vec3(1.,.73,.38),rim),alpha);}'}),effect.portal);effect.disk.position.z=.34;
       effect.portalRim=ring(group(effect.portal),mat(0xc4a0f4,true,.65),1.03,0,.025);effect.portalRim.rotation.x=0;effect.portalRim.parent.rotation.z=.25;
+      effect.accretion=group(effect.portal);effect.accretion.rotation.x=.75;for(let i=0;i<3;i++){const tor=mesh(new THREE.TorusGeometry(1.25+i*.16,.012+i*.006,5,96,TAU*.82),mat(i%2?0xe3b67c:0xaca2ff,true,.45),effect.accretion);tor.rotation.z=i*1.3;}
       effect.debris=Array.from({length:18},(_,i)=>{const o=mesh(new THREE.IcosahedronGeometry(.035+(i%4)*.018,0),effect.metal,root);return o;});
     }else if(mode==='crane'){
       const r=Math.max(.95,envelope.radius+.1),h=envelope.height+.5;effect.height=h;
@@ -95,16 +98,20 @@ export function createExtendedEjectionEffects(ctx) {
       ring(effect.hoist,effect.metal,r,h,.065);effect.claws=[-1,1].map(side=>{const g=group(effect.hoist);g.position.set(side*(r+.2),h,0);const a=pipe(g,effect.metal,[[0,0,0],[side*.15,-.35,0],[side*.08,-h+.35,0],[-side*.32,-h+.12,0]],.065);box(g,effect.dark,side*.12,-h/2,0,.15,.65,.19);return{g,side};});
       effect.seat=group(effect.hoist);box(effect.seat,effect.dark,0,.07,0,1.45,.12,1.30);box(effect.seat,effect.metal,0,.10,-.5,1.30,.12,.12);effect.release=false;
     }else if(mode==='ufo'){
-      const r=Math.max(1.25,envelope.radius+.25),h=Math.max(2.9,envelope.height+.55),ufo=effect.ship=group(root);effect.radius=r;effect.height=h;effect.mountY=.46;effect.captured=false;ufo.name='ufo-cabin';ufo.userData.cabin={radius:r,bottom:.18,top:h+.46};
+      const h=Math.max(2.65,envelope.height+.55),r=Math.max(2.0,envelope.radius*1.9,h*1.12),ufo=effect.ship=group(root);effect.radius=r;effect.height=h;effect.mountY=.46;effect.captured=false;ufo.name='ufo-cabin';ufo.userData.cabin={radius:r,bottom:.18,top:h+.46};
       const profile=[[r,-.12],[r+.14,-.12],[r+1,.02],[r+1.2,.25],[r+.85,.47],[r+.16,.56],[r,.46]];
       const hull=effect.hull=mesh(new THREE.LatheGeometry(profile.map(p=>new THREE.Vector2(...p)),80),mat(0x718b9c),ufo);
       ring(ufo,effect.dark,r+1.12,.24,.085);ring(ufo,effect.light,r+1.14,.28,.025);ring(ufo,effect.gold,r+.10,.49,.028);
-      const canopy=mesh(new THREE.CylinderGeometry(r,r,h,64,1,true),glass(0x93cbd9,.10),ufo);canopy.position.y=h/2+.46;
-      const roof=mesh(new THREE.SphereGeometry(1,48,20,0,TAU,0,Math.PI/2),glass(0x6aa6c4,.28),ufo);roof.scale.set(r,.50,r);roof.position.y=h+.46;
-      ring(ufo,effect.metal,r,h+.46,.045);ring(ufo,effect.light,r,h+.48,.014);
+      const canopy=mesh(new THREE.SphereGeometry(1,64,24,0,TAU,0,Math.PI/2),glass(0x93cbd9,.12),ufo);canopy.scale.set(r,h*1.05,r);canopy.position.y=.46;
+      ring(ufo,effect.metal,r,.47,.045);ring(ufo,effect.light,r,.49,.014);
+      effect.canopy=canopy;
+      for(let i=0;i<4;i++){const a=i/4*TAU,points=Array.from({length:17},(_,j)=>{const u=j/16*Math.PI/2;return[Math.sin(a)*r*Math.cos(u),.46+h*1.05*Math.sin(u),Math.cos(a)*r*Math.cos(u)];});pipe(ufo,effect.metal,points,.012);}
+      const crown=mesh(new THREE.SphereGeometry(1,24,12),effect.dark,ufo);crown.position.y=.46+h*1.05;crown.scale.set(.21,.065,.21);ring(ufo,effect.light,.16,crown.position.y+.015,.011);
+      effect.vanes=Array.from({length:6},(_,i)=>{const g=group(ufo);g.rotation.y=i/6*TAU;const vane=box(g,effect.metal,0,-.08,r+.56,.23,.19,.60);const lamp=box(g,effect.light,0,-.19,r+.59,.11,.014,.33);return{g,vane,lamp};});
+      effect.underglow=ring(ufo,mat(0x8dceff,true,.4),r*.91,-.12,.028);
       for(let i=0;i<16;i++){const a=i/16*TAU,g=group(ufo);g.rotation.y=a;box(g,effect.dark,0,.20,r+.68,.20,.085,.37);box(g,i%2?effect.light:mat(0x99b7ff,true,.9),0,.25,r+.70,.08,.014,.22);pipe(g,effect.metal,[[0,.47,r+.1],[0,.38,r+.4],[0,.30,r+.95]],.012);}
       effect.iris=Array.from({length:8},(_,i)=>{const g=group(ufo);g.rotation.y=i/8*TAU;const blade=box(g,effect.dark,0,.20,r*.50,.90,.09,r*.95);return{g,blade,i};});
-      effect.field=group(root);effect.beam=mesh(new THREE.CylinderGeometry(r*.86,r*1.30,1,64,1,true),new THREE.ShaderMaterial({transparent:true,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{time:{value:0},strength:{value:0}},vertexShader:'varying vec2 p;void main(){p=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'varying vec2 p;uniform float time,strength;void main(){float ribbon=pow(.5+.5*sin(p.x*75.+sin(p.y*15.-time*3.)*.7),12.);float scan=pow(.5+.5*sin(p.y*96.-time*12.),9.);float edge=pow(abs(sin(p.x*3.14159)),2.);float a=(.055+ribbon*.16+scan*.08)*sin(p.y*3.14159)*strength;gl_FragColor=vec4(mix(vec3(.12,.62,.85),vec3(.61,1.,.76),scan),a);}'}),effect.field);
+      effect.field=group(root);effect.beam=mesh(new THREE.CylinderGeometry(r*.86,r*1.30,1,64,1,true),new THREE.ShaderMaterial({transparent:true,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{time:{value:0},strength:{value:0}},vertexShader:'varying vec2 p;void main(){p=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'varying vec2 p;uniform float time,strength;void main(){float ribbon=pow(.5+.5*sin(p.x*37.699-p.y*13.+time*3.5),14.);float fine=pow(.5+.5*sin(p.x*113.1+p.y*5.-time),24.);float scan=pow(.5+.5*sin(p.y*50.-time*9.),11.);float soft=sin(p.y*3.14159);float a=(.025+ribbon*.16+fine*.06+scan*.035)*soft*strength;gl_FragColor=vec4(mix(vec3(.12,.56,.85),vec3(.58,1.,.80),ribbon),a);}'}),effect.field);
       effect.climbing=Array.from({length:7},()=>ring(effect.field,mat(0x94ffdd,true,0),1,0,.014));
       effect.shafts=Array.from({length:5},(_,i)=>{const o=mesh(new THREE.CylinderGeometry(.012,.035,1,6,1,true),mat(i%2?0xafffe2:0x8fb9ff,true,.33),effect.field);return o;});
       effect.engine=mesh(new THREE.CylinderGeometry(r*.25,r*.6,1,32,1,true),mat(0x93dcff,true,.35),ufo);effect.engine.position.y=-.9;effect.engine.visible=false;
@@ -149,10 +156,10 @@ export function createExtendedEjectionEffects(ctx) {
       if(t>1.6)actors.forEach((p,i)=>p.c.root.position.set(i*.6,base+f.cabin.position.y+.22,f.cabin.position.z));f.captured=lock>.99;
     }else if(mode==='ice'){
       const grow=smooth(1.5,3.4,t),launch=Math.max(0,t-4.9),y=launch*launch*8;
-      f.shell.scale.y=Math.max(.015,grow);f.shell.position.y=y;f.crystal.material.opacity=.12+grow*.10;f.edges.material.opacity=grow*.55;f.snow.object.visible=grow>.1;f.snow.object.rotation.y=t*.15;f.aurora.material.uniforms.time.value=t;f.aurora.material.uniforms.strength.value=smooth(4.8,6.8,t);
+      f.shell.scale.y=Math.max(.015,grow);f.shell.position.y=y;f.cracks.visible=grow>.45;f.cracks.rotation.y=Math.sin(t*.6)*.025;f.crystal.material.opacity=.12+grow*.10;f.edges.material.opacity=grow*.55;f.snow.object.visible=grow>.1;f.snow.object.rotation.y=t*.15;f.aurora.material.uniforms.time.value=t;f.aurora.material.uniforms.strength.value=smooth(4.8,6.8,t);
       if(t>3.4)actors.forEach(p=>{p.c.root.position.y=base+y;p.c.root.rotation.y=.15*Math.sin(t);});f.captured=grow>.99;
     }else if(mode==='singularity'){
-      const open=smooth(1.3,2.9,t),pull=smooth(3.5,6.65,t);f.portal.scale.setScalar(Math.max(.001,open)*(1-smooth(6.85,7.15,t)));f.disk.material.uniforms.time.value=t;
+      const open=smooth(1.3,2.9,t),pull=smooth(3.5,6.65,t);f.portal.scale.setScalar(Math.max(.001,open)*(1-smooth(6.85,7.15,t)));f.disk.material.uniforms.time.value=t;f.accretion.rotation.z=t*.7;
       f.debris.forEach((o,i)=>{const u=(t*.20+i/18)%1,r=3*(1-u),a=t*2+i*2.4;o.position.set(Math.sin(a)*r,1.8+Math.cos(a)*r,Math.cos(a)*.15-1.35);o.rotation.set(t+i,t*.7,0);});
       if(t>3.5)actors.forEach(p=>{p.c.root.position.set(Math.sin(t*4)*.12*(1-pull),base+pull*.6,-pull*1.5);p.c.root.rotation.z=-pull*.55;const s=state.appearance[actors.indexOf(p)].scale;p.c.root.scale.copy(s).multiplyScalar(1-smooth(6.4,7.05,t)*.98);});
       f.pad.base.scale.setScalar(1-open*.10);f.space.stars.object.visible=true;f.space.stars.object.rotation.z=t*.015;
@@ -164,7 +171,7 @@ export function createExtendedEjectionEffects(ctx) {
       if(t>3.15)actors.forEach(p=>{p.c.root.position.set(0,base+y+.14-drop*drop*7,z);p.c.root.rotation.z=drop*.6;});f.captured=grip>.99&&t<6.3;
     }else if(mode==='ufo'){
       const arrive=smooth(.2,1.6,t),beam=smooth(1.65,2.35,t)*(1-smooth(5.0,5.45,t)),capture=smooth(2.6,5.0,t),depart=Math.max(0,t-5.7),shipY=5.9+depart*depart*8;
-      f.ship.position.set(0,shipY,-14*(1-arrive)-depart*depart*12);f.ship.rotation.y=t*.32;f.ship.rotation.z=Math.sin(t*1.7)*.018*(1-smooth(5.4,5.8,t));
+      f.ship.position.set(0,shipY,-14*(1-arrive)-depart*depart*12);f.ship.rotation.y=t*.32;f.vanes.forEach(({vane,lamp},i)=>{vane.rotation.x=-smooth(5.3,5.8,t)*.35;lamp.material.opacity=.5+.25*Math.sin(t*6+i);});f.underglow.material.opacity=.35+beam*.3;f.ship.rotation.z=Math.sin(t*1.7)*.018*(1-smooth(5.4,5.8,t));
       const open=smooth(1.5,2.0,t)*(1-smooth(5.12,5.60,t));f.iris.forEach(({blade})=>{blade.position.z=f.radius*.50+open*(f.radius+.2);});
       const top=shipY+.1,height=Math.max(.1,top);f.field.visible=beam>.001;f.beam.position.y=height/2;f.beam.scale.y=height;f.beam.material.uniforms.time.value=t;f.beam.material.uniforms.strength.value=beam;
       f.climbing.forEach((o,i)=>{const u=(t*.45+i/7)%1;o.position.y=u*height;o.scale.setScalar(f.radius*(1.30-u*.44));o.material.opacity=Math.sin(u*Math.PI)*beam*.50;});
@@ -175,4 +182,26 @@ export function createExtendedEjectionEffects(ctx) {
     }
   }
   return{supports:mode=>supported.includes(mode),create,tick};
+}
+
+// One shared, disposable staging rig. Instanced machinery and bounded particles
+// keep the visual build-up independent of network/gameplay state.
+export function createEjectionStaging({THREE,root,base,mode,radius=1.7}){
+ const group=new THREE.Group();group.name='ejection-staging';group.position.y=base;root.add(group);
+ const r=Math.max(1.5,Math.min(3.1,radius)),hot=['rocket','missile','meteor','beam'].includes(mode),color=hot?0xffbc73:mode==='cat'||mode==='singularity'?0xbd9bf0:0x85eced;
+ const make=(geo,mat)=>{const o=new THREE.Mesh(geo,mat);group.add(o);return o;};
+ const ring=make(new THREE.PlaneGeometry(r*2.7,r*2.7),new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{time:{value:0},charge:{value:0},fade:{value:1},tint:{value:new THREE.Color(color)}},vertexShader:'varying vec2 p;void main(){p=uv*2.-1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec2 p;uniform float time,charge,fade;uniform vec3 tint;void main(){float r=length(p),a=atan(p.y,p.x);float outer=exp(-pow((r-.73)*180.,2.)),inner=exp(-pow((r-.61)*150.,2.));float ticks=step(.72,fract((a+3.14159)*7.6394))*step(.67,r)*step(r,.71);float scan=exp(-pow((r-.77)*125.,2.))*smoothstep(-1.,1.,sin(a-time*1.7));float alpha=(outer*.28+inner*.10+ticks*.3+scan*.48)*charge*fade;gl_FragColor=vec4(tint,alpha);}'}));ring.rotation.x=-Math.PI/2;ring.position.y=.018;
+ const metal=new THREE.MeshStandardMaterial({color:0x233a4a,metalness:.8,roughness:.3}),gold=new THREE.MeshStandardMaterial({color:0x9bb9bd,metalness:.72,roughness:.3});
+ const clamps=new THREE.InstancedMesh(new THREE.BoxGeometry(.21,.13,.43),metal,6),pins=new THREE.InstancedMesh(new THREE.CylinderGeometry(.057,.057,.26,10),gold,6);group.add(clamps,pins);const dummy=new THREE.Object3D();
+ const data=new Float32Array(96*3),geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(data,3));
+ const texData=new Uint8Array(32*32*4);for(let y=0;y<32;y++)for(let x=0;x<32;x++){const k=(y*32+x)*4,d=Math.hypot((x-15.5)/15.5,(y-15.5)/15.5);texData.set([255,255,255,Math.round(Math.max(0,1-d)**2*255)],k);}
+ const texture=new THREE.DataTexture(texData,32,32);texture.needsUpdate=true;
+ const sparks=new THREE.Points(geo,new THREE.PointsMaterial({color,size:.075,map:texture,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0}));sparks.frustumCulled=false;group.add(sparks);
+ const shock=make(new THREE.RingGeometry(.91,1,80),new THREE.MeshBasicMaterial({color,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));shock.rotation.x=-Math.PI/2;shock.position.y=.03;
+ const hit={cat:3.35,balance:1.85,gravity:4.8,pod:4.85,ice:4.9,singularity:6.65,crane:6.3,ufo:5.7,rocket:2.45,collapse:1.8,beam:2.9,missile:2.27,meteor:2.27}[mode]||4.8;
+ return{tick(t){const charge=Math.min(1,Math.max(0,(t-.3)/1.1)),fade=1-Math.min(1,Math.max(0,(t-hit-.4)/1.3)),impact=Math.max(0,t-hit);ring.material.uniforms.time.value=t;ring.material.uniforms.charge.value=charge;ring.material.uniforms.fade.value=fade;
+  for(let i=0;i<6;i++){const a=i*Math.PI/3,rr=r+.22*(1-charge)+.18*Math.min(1,impact);dummy.position.set(Math.sin(a)*rr,.065,Math.cos(a)*rr);dummy.rotation.set(0,a,-.12*(1-charge));dummy.scale.setScalar(1);dummy.updateMatrix();clamps.setMatrixAt(i,dummy.matrix);dummy.position.y=.12;dummy.position.x*=1.03;dummy.position.z*=1.03;dummy.rotation.z=Math.PI/2;dummy.updateMatrix();pins.setMatrixAt(i,dummy.matrix);}clamps.instanceMatrix.needsUpdate=true;pins.instanceMatrix.needsUpdate=true;clamps.visible=pins.visible=t>.35&&fade>.01;
+  sparks.material.opacity=charge*fade*.75;for(let i=0;i<96;i++){const u=(t*.40+i/96)%1,a=i*2.39996+t*.5,rr=r*(.64+.12*Math.sin(i*7.));data[i*3]=Math.sin(a)*rr;data[i*3+1]=u*(.9+charge*.8);data[i*3+2]=Math.cos(a)*rr;}geo.attributes.position.needsUpdate=true;sparks.visible=t>.4&&fade>.01;
+  shock.visible=impact>0&&impact<.7;shock.scale.setScalar(r*(1+impact*5));shock.material.opacity=Math.max(0,1-impact/.7)*.45;
+ }};
 }

@@ -7,3 +7,4 @@ tmp/
 .env.*
 !.env.example
 public/ejection-meeting-preview.html
+public/pet-models-preview.js

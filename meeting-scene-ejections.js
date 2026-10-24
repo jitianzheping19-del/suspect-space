@@ -1,7 +1,7 @@
 /* Ejections run on the meeting's existing actors, labels, table and camera.
  * This factory is embedded into the meeting document, so it has no module or
  * network dependencies and never creates a second scene or renderer. */
-import {createExtendedEjectionEffects} from './meeting-ejection-effects.js';
+import {createExtendedEjectionEffects,createEjectionStaging} from './meeting-ejection-effects.js';
 
 function createMeetingEjections(api) {
   const {THREE, scene, camera} = api;
@@ -14,7 +14,7 @@ function createMeetingEjections(api) {
   const particles = [];
   const labelLeaders = new Map();
   let active = null, last = null;
-  const extended=createExtendedEjectionEffects({THREE,props,api,clamp,ease,v,emit});
+  const extended=createExtendedEjectionEffects({THREE,props,api,clamp,ease,v,emit,sprite:softSprite});
 
   function material(color, metalness = .45, roughness = .35) {
     return new THREE.MeshStandardMaterial({color, metalness, roughness});
@@ -31,16 +31,18 @@ function createMeetingEjections(api) {
   function dispose(root) {
     const geometries = new Set(), materials = new Set();
     root.traverse(o => {
+      if(o.isInstancedMesh)o.dispose();
       if (o.geometry) geometries.add(o.geometry);
       for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m) materials.add(m);
     });
     root.removeFromParent();
-    geometries.forEach(g => g.dispose());materials.forEach(m => m.dispose());
+    geometries.forEach(g => g.dispose());const textures=new Set();materials.forEach(m=>{for(const value of Object.values(m))if(value?.isTexture)textures.add(value);m.dispose();});textures.forEach(t=>t.dispose());
   }
   function clearProps() {
     for (const child of [...props.children]) dispose(child);
     particles.length = 0;
   }
+  function softSprite(){const a=new Uint8Array(16*16*4);for(let y=0;y<16;y++)for(let x=0;x<16;x++){const d=Math.hypot((x-7.5)/7.5,(y-7.5)/7.5),i=(y*16+x)*4;a.set([255,255,255,Math.round(Math.max(0,1-d)**2*255)],i);}const t=new THREE.DataTexture(a,16,16);t.needsUpdate=true;return t;}
   function emit(position, color, count = 50, speed = 5, life = 1.2, gravity = 5) {
     const data = new Float32Array(count * 3), velocities = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
@@ -51,7 +53,7 @@ function createMeetingEjections(api) {
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(data, 3));
-    const mat = new THREE.PointsMaterial({color, size: .085, transparent: true,
+    const mat = new THREE.PointsMaterial({color, size: .10, map:softSprite(), transparent: true,
       opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true});
     const points = new THREE.Points(geometry, mat);points.frustumCulled = false;props.add(points);
     particles.push({points, data, velocities, age: 0, life, gravity});
@@ -63,26 +65,33 @@ function createMeetingEjections(api) {
     }
   }
   function createRocket() {
-    const root = new THREE.Group();props.add(root);
-    const steel = material(0xb6c5d0, .78, .23), dark = material(0x1b2735, .75, .32), red = material(0xac293d);
-    mesh(new THREE.CylinderGeometry(.56, .65, 3.65, 40), steel, root, [0, 2.15, 0]);
-    mesh(new THREE.ConeGeometry(.56, 1.05, 40), red, root, [0, 4.5, 0]);
-    for (const y of [.55, .92, 3.65]) mesh(new THREE.CylinderGeometry(.67, .67, .13, 40), dark, root, [0, y, 0]);
-    for (let i = 0; i < 4; i++) {
-      const fin = mesh(new THREE.BoxGeometry(.12, 1.1, .95), red, root);
-      fin.position.set(Math.sin(i * Math.PI / 2) * .65, .75, Math.cos(i * Math.PI / 2) * .65);fin.rotation.y = i * Math.PI / 2;
-      const rivet = mesh(new THREE.SphereGeometry(.055, 8, 6), dark, root);
-      rivet.position.set(Math.sin(i * Math.PI / 2) * .57, 3.5, Math.cos(i * Math.PI / 2) * .57);
+    const root = new THREE.Group();root.name='ejection-launch-vehicle';props.add(root);
+    const steel=material(0xc4ced3,.78,.25),dark=material(0x142532,.75,.33),red=material(0x9f3448,.55,.35),gold=material(0xe1bc76,.7,.3);
+    mesh(new THREE.CylinderGeometry(.55,.62,3.65,40),steel,root,[0,2.15,0]);
+    const nose=new THREE.LatheGeometry([[.55,3.97],[.54,4.20],[.46,4.47],[.31,4.76],[.14,4.99],[0,5.10]].map(p=>new THREE.Vector2(...p)),48);mesh(nose,steel,root);
+    for(const y of[.52,.95,3.65,4.02])mesh(new THREE.CylinderGeometry(.635,.635,.085,40),y===3.65?red:dark,root,[0,y,0]);
+    for(let i=0;i<4;i++){
+      const a=i*Math.PI/2,g=new THREE.Group();g.rotation.y=a;root.add(g);
+      const sh=new THREE.Shape();sh.moveTo(0,.35);sh.lineTo(.55,.18);sh.quadraticCurveTo(.69,.16,.66,.31);sh.lineTo(.22,1.55);sh.lineTo(0,1.64);sh.closePath();
+      const fin=mesh(new THREE.ExtrudeGeometry(sh,{depth:.08,bevelEnabled:true,bevelSize:.025,bevelThickness:.018,bevelSegments:2}),red,g,[.48,0,-.04]);
+      const trim=mesh(new THREE.BoxGeometry(.06,.7,.11),gold,g,[.67,.70,0]);trim.rotation.z=.32;
+      mesh(new THREE.BoxGeometry(.045,1.9,.018),dark,g,[0,2.30,.557]);
+      for(const y of[1.43,1.52,1.61])mesh(new THREE.BoxGeometry(.19,.025,.024),red,g,[0,y,.569]);
     }
-    mesh(new THREE.CylinderGeometry(.38, .48, .4, 24), dark, root, [0, .15, 0]);
-    const flame = new THREE.Group();root.add(flame);flame.position.y = -.1;flame.visible = false;
-    mesh(new THREE.ConeGeometry(.43, 2.2, 28), glow(0xff6a16, .85), flame, [0, -1.1, 0]).rotation.z = Math.PI;
-    mesh(new THREE.ConeGeometry(.22, 1.5, 24), glow(0xfff3b0), flame, [0, -.7, 0]).rotation.z = Math.PI;
-    const light = new THREE.PointLight(0xff8e35, 0, 9, 2);flame.add(light);
-    // Restraints sit on the actual character, without replacing its costume.
-    const straps = new THREE.Group();root.add(straps);
-    for (const y of [1.35, 1.9]) mesh(new THREE.TorusGeometry(.55, .055, 8, 32), dark, straps, [0, y, .72]).rotation.x = Math.PI / 2;
-    return {root, flame, light};
+    const rim=mesh(new THREE.TorusGeometry(.21,.055,8,32),dark,root,[0,3.12,.53]);
+    mesh(new THREE.SphereGeometry(.18,20,12),new THREE.MeshPhysicalMaterial({color:0x6aadb8,metalness:.25,roughness:.12,clearcoat:1}),root,[0,3.12,.565]).scale.set(1,1,.21);
+    const rivets=new THREE.InstancedMesh(new THREE.SphereGeometry(.022,6,4),gold,48),dummy=new THREE.Object3D();root.add(rivets);
+    for(let i=0;i<48;i++){const a=(i%16)*Math.PI/8;dummy.position.set(Math.sin(a)*.626,[.99,2.14,3.61][Math.floor(i/16)],Math.cos(a)*.626);dummy.updateMatrix();rivets.setMatrixAt(i,dummy.matrix);}
+    mesh(new THREE.CylinderGeometry(.39,.53,.32,32,1,true),dark,root,[0,.10,0]);mesh(new THREE.TorusGeometry(.50,.055,8,40),gold,root,[0,-.07,0]).rotation.x=Math.PI/2;
+    const flame=new THREE.Group();root.add(flame);flame.position.y=-.1;flame.visible=false;
+    const engineMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{time:{value:0}},vertexShader:'varying vec2 p;uniform float time;void main(){p=uv;vec3 q=position;q.xz*=1.+.065*sin(q.y*15.+time*35.);gl_Position=projectionMatrix*modelViewMatrix*vec4(q,1.);}',fragmentShader:'varying vec2 p;uniform float time;void main(){float hot=pow(p.y,.45),wave=.8+.2*sin(p.y*52.-time*35.);float edge=pow(sin(p.x*3.14159),.4);gl_FragColor=vec4(mix(vec3(.24,.4,1.),vec3(1.,.83,.55),hot),edge*wave*sin(p.y*3.14159)*.75);}'});
+    mesh(new THREE.ConeGeometry(.48,3.4,32,1,true),engineMat,flame,[0,-1.65,0]).rotation.z=Math.PI;
+    mesh(new THREE.ConeGeometry(.23,2.7,24),glow(0xf5f7ff,.9),flame,[0,-1.28,0]).rotation.z=Math.PI;
+    for(let i=0;i<4;i++){const diamond=mesh(new THREE.SphereGeometry(1,12,8),glow(0xbed9ff,.38),flame,[0,-.5-i*.62,0]);diamond.scale.set(.17-i*.018,.24,.17-i*.018);}
+    const light=new THREE.PointLight(0xffb977,0,9,2);flame.add(light);
+    const straps=new THREE.Group();root.add(straps);for(const y of[1.35,1.9])mesh(new THREE.TorusGeometry(.55,.055,8,32),dark,straps,[0,y,.72]).rotation.x=Math.PI/2;
+    const supports=[];for(const side of[-1,1]){const g=new THREE.Group();g.position.set(side*.7,.3,0);root.add(g);mesh(new THREE.BoxGeometry(.14,.8,.20),dark,g,[side*.05,.3,0]);mesh(new THREE.BoxGeometry(.44,.10,.21),gold,g,[-side*.12,.7,0]);supports.push({g,side});}
+    return{root,flame,light,engineMat,supports};
   }
   function createUfo() {
     const root = new THREE.Group();props.add(root);
@@ -101,38 +110,34 @@ function createMeetingEjections(api) {
     return {root, beam};
   }
   function createProjectile(mode) {
-    const root = new THREE.Group();props.add(root);
-    if (mode === 'meteor') {
-      const rock = mesh(new THREE.IcosahedronGeometry(1.25, 2), material(0x3d2824, .25, .92), root);
-      const positions = rock.geometry.attributes.position;
-      for (let i = 0; i < positions.count; i++) {
-        const k = .9 + .17 * Math.sin(i * 43.2);positions.setXYZ(i, positions.getX(i) * k, positions.getY(i) * k, positions.getZ(i) * k);
-      }
-      rock.geometry.computeVertexNormals();
-      mesh(new THREE.IcosahedronGeometry(1.28, 1), new THREE.MeshBasicMaterial({color: 0xff601c, wireframe: true, transparent: true, opacity: .75}), root);
-    } else {
-      const steel = material(0x667383, .8, .25), dark = material(0x17232f), red = material(0xb82b32);
-      mesh(new THREE.CylinderGeometry(.28, .32, 1.8, 24), steel, root);
-      mesh(new THREE.ConeGeometry(.28, .65, 24), red, root, [0, 1.22, 0]);
-      for (let i = 0; i < 4; i++) {
-        const fin = mesh(new THREE.BoxGeometry(.07, .55, .6), dark, root, [0, -.66, 0]);fin.rotation.y = i * Math.PI / 2;
-      }
-      mesh(new THREE.ConeGeometry(.2, 1.8, 20), glow(0xff7a22, .85), root, [0, -1.8, 0]).rotation.z = Math.PI;
-      root.quaternion.setFromUnitVectors(v(0, 1, 0), v(-1, -.6, .15).normalize());
+    const root=new THREE.Group();props.add(root);let surface;
+    if(mode==='meteor'){
+      const geometry=new THREE.IcosahedronGeometry(1.35,3),positions=geometry.attributes.position;
+      for(let i=0;i<positions.count;i++){const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i),k=.92+.10*Math.sin(x*4.3+y*7.2+z*3.1)+.055*Math.sin(x*13.-z*8.);positions.setXYZ(i,x*k,y*k,z*k);}geometry.computeVertexNormals();
+      surface=new THREE.ShaderMaterial({uniforms:{time:{value:0}},vertexShader:'varying vec3 p,n;void main(){p=position;n=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 p,n;uniform float time;void main(){float v=sin(p.x*12.+sin(p.y*8.))*sin(p.z*11.+sin(p.x*5.));float crack=1.-smoothstep(.01,.065,abs(v));float noise=.5+.5*sin(p.x*31.+p.y*17.)*sin(p.z*23.-p.y*13.);float light=.28+.72*max(0.,dot(normalize(n),normalize(vec3(-.5,.8,.6))));vec3 rock=mix(vec3(.055,.045,.046),vec3(.22,.13,.095),noise)*light;vec3 lava=mix(vec3(1.,.19,.015),vec3(1.,.78,.22),crack)*crack*(.85+.15*sin(time*2.+p.y*3.));gl_FragColor=vec4(rock+lava,1.);}'});mesh(geometry,surface,root);
+      const atmosphere=mesh(new THREE.IcosahedronGeometry(1.41,2),glow(0xff5b20,.07),root);atmosphere.scale.set(1.03,1.03,1.03);
+    }else{
+      const steel=material(0x8c9dab,.8,.25),dark=material(0x17232f),red=material(0xaf394b);
+      mesh(new THREE.CylinderGeometry(.28,.32,1.8,32),steel,root);mesh(new THREE.ConeGeometry(.28,.65,32),red,root,[0,1.22,0]);
+      for(const y of[-.76,.70])mesh(new THREE.CylinderGeometry(.325,.325,.07,32),dark,root,[0,y,0]);
+      for(let i=0;i<4;i++){const a=i*Math.PI/2,g=new THREE.Group();g.rotation.y=a;root.add(g);const fin=mesh(new THREE.BoxGeometry(.065,.57,.48),dark,g,[0,-.65,.32]);fin.rotation.x=-.18;mesh(new THREE.BoxGeometry(.11,.025,.015),glow(0xffd08c,.6),g,[0,.38,.285]);}
+      mesh(new THREE.ConeGeometry(.21,2.1,24),glow(0xffa366,.85),root,[0,-1.92,0]).rotation.z=Math.PI;
+      root.quaternion.setFromUnitVectors(v(0,1,0),v(-1,-.6,.15).normalize());
     }
-    const trail = mesh(new THREE.ConeGeometry(mode === 'meteor' ? 1.15 : .35, 4.2, 24, 1, true), glow(0xff4f17, .35), root, [0, -2.7, 0]);
-    trail.rotation.z = Math.PI;
-    return {root};
+    const trail=mesh(new THREE.ConeGeometry(mode==='meteor'?1.15:.35,4.8,32,1,true),glow(0xff6d30,.22),root,[0,-2.9,0]);trail.rotation.z=Math.PI;
+    return{root,surface,trail};
   }
   function createBeam() {
-    const root = new THREE.Group();props.add(root);root.visible = false;
-    const rim = mesh(new THREE.CylinderGeometry(.63, .63, 34, 40, 1, true), glow(0xff254d, .42), root);
-    const core = mesh(new THREE.CylinderGeometry(.32, .32, 34, 32), glow(0xffe9d4), root);
-    rim.rotation.z = core.rotation.z = Math.PI / 2;
-    for (let i = 0; i < 4; i++) {
-      const ring = mesh(new THREE.TorusGeometry(.72, .045, 6, 36), glow(0xff4f57, .75), root, [i * 3 - 4.5, 0, 0]);ring.rotation.y = Math.PI / 2;
-    }
-    return {root};
+    const root=new THREE.Group();props.add(root);root.visible=false;const field=new THREE.Group();root.add(field);
+    const beamMaterial=new THREE.ShaderMaterial({transparent:true,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{time:{value:0}},vertexShader:'varying vec2 p;void main(){p=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec2 p;uniform float time;void main(){float bands=.25+.75*pow(.5+.5*sin(p.y*70.-time*28.+sin(p.x*25.)),3.);float edge=pow(sin(p.x*3.14159),.4);gl_FragColor=vec4(1.,.19+bands*.34,.16+bands*.22,edge*bands*.38);}'});
+    mesh(new THREE.CylinderGeometry(.67,.67,27,48,1,true),beamMaterial,field).rotation.z=Math.PI/2;
+    mesh(new THREE.CylinderGeometry(.24,.24,27,24),glow(0xfff6df,.92),field).rotation.z=Math.PI/2;
+    const rings=[];for(let i=0;i<5;i++){const ring=mesh(new THREE.TorusGeometry(.71,.026,6,48),glow(0xffbd96,.55),field);ring.rotation.y=Math.PI/2;rings.push(ring);}
+    const emitters=[];for(const side of[-1,1]){const g=new THREE.Group();root.add(g);g.position.x=side*8.5;g.rotation.z=side*Math.PI/2;const dark=material(0x193443,.75,.30),metal=material(0x91aab4,.8,.25);
+      mesh(new THREE.CylinderGeometry(.75,.88,1.3,32),dark,g);mesh(new THREE.TorusGeometry(.77,.09,8,48),metal,g,[0,.60,0]).rotation.x=Math.PI/2;
+      for(let i=0;i<8;i++){const a=i*Math.PI/4;mesh(new THREE.BoxGeometry(.12,.8,.14),metal,g,[Math.sin(a)*.79,-.05,Math.cos(a)*.79]);}
+      const iris=mesh(new THREE.SphereGeometry(.58,20,12),glow(0xff9c67,.8),g,[0,.64,0]);iris.scale.y=.14;emitters.push({g,iris,side});
+    }return{root,field,rings,emitters,beamMaterial};
   }
   function death(state) {
     if (state.dead) return;
@@ -160,7 +165,7 @@ function createMeetingEjections(api) {
       rotations: actors.map(p => p.c.root.rotation.y), uuid: actors.map(p => p.c.root.uuid),
       tags: actors.map(p => p.tag.s.uuid), costumes: actors.map(p => p.costumeRoot?.uuid || null),
       appearance: actors.map(p => ({scale:p.c.root.scale.clone(),rotation:p.c.root.rotation.clone(),
-        emissive:p.c.suit.emissive.clone(),intensity:p.c.suit.emissiveIntensity})),
+        emissive:p.c.suit.emissive.clone(),intensity:p.c.suit.emissiveIntensity,arms:(p.c.arms||[]).map(a=>a.rotation.clone()),legs:(p.c.legs||[]).map(a=>a.rotation.clone())})),
       deathAt: mode === 'balance' ? 2.1 : mode === 'ufo' ? 5.35 : mode === 'rocket' ? 4.25 : mode === 'beam' ? 2.9 : mode === 'meteor' || mode === 'missile' ? 2.27 : 2.8,
       cameraFocus: api.orbit.target.clone(),cameraOffset:camera.position.clone().sub(api.orbit.target),
       finishAt: mode === 'balance' ? 3.7 : mode === 'ufo' ? 5.7 : mode === 'rocket' ? 5.8 : mode === 'beam' ? 4.3 : 4.1};
@@ -174,6 +179,7 @@ function createMeetingEjections(api) {
       state.prop=extended.create(mode,state);
       state.deathAt=state.prop.deathAt;state.finishAt=state.prop.finishAt;
     }
+    state.staging=createEjectionStaging({THREE,root:props,base:api.top+.13,mode,radius:(state.prop?.envelope?.radius||1.3)+.3});
     if (state.prop) state.prop.root.visible = false;
     if (mode === 'balance') {
       state.pans = actors.map(p => {
@@ -187,7 +193,7 @@ function createMeetingEjections(api) {
     const state = active;
     if (state) {
       const t = Math.max(0, api.now() - state.start), {mode, actors} = state;
-      const approach = ease(clamp(t / 1.25));
+      const approach = ease(clamp(t / 1.25));state.staging?.tick(t);
       if (mode !== 'balance' && mode !== 'cat') {
         actors.forEach((p, i) => {
           const end = v((i - (actors.length - 1) / 2) * 1.15, api.top + .13, mode === 'rocket' ? .95 : 0);
@@ -212,14 +218,16 @@ function createMeetingEjections(api) {
         // camera follows the actor while preserving the player's viewing angle.
         const lift = Math.max(0, t - 2.45);root.position.y += lift * lift;
         if (t > 1.45) actors.forEach(p => {p.c.root.position.set(0, root.position.y + .55, .55);p.c.root.rotation.y = 0;});
-        flame.visible = t > 2.25;flame.scale.y = .7 + Math.sin(t * 53) * .12 + lift * .6;light.intensity = flame.visible ? 9 : 0;
+        flame.visible=t>2.25;flame.scale.y=.7+Math.sin(t*53)*.08+lift*.6;light.intensity=flame.visible?9:0;state.prop.engineMat.uniforms.time.value=t;
+        state.prop.supports.forEach(({g,side})=>g.rotation.z=-side*ease(clamp((t-1.7)/.55))*.9);
+        if(t>2.25&&!state.ignited){state.ignited=true;emit(v(0,api.top+.2,0),0xc6d5df,75,2.6,1.1,1);api.impact(v(0,api.top,0),0xffc78a,.22);}
         if (t >= state.deathAt && !state.dead) {fireworks(v(0, root.position.y + 1, 0));api.impact(v(0, root.position.y + 1, 0), 0xffbc61, .65);}
       } else if (mode === 'collapse') {
         if (t > 1.8 && !state.broken) {state.broken = true;api.breakTable();api.hideCentre();api.impact(v(0, api.top, 0), 0xc3e7ef, .45);}
         if (t > 1.8) actors.forEach((p, i) => {const q = t - 1.8;p.c.root.position.y = api.top - 7 * q * q;p.c.root.rotation.z = Math.sin(i + 1) * q * .5;});
       } else if (mode === 'beam') {
-        const root = state.prop.root;root.visible = t > 1.8 && t < 3.4;root.position.set(0, api.top + 1.1, 0);
-        root.scale.set(1, .2 + .8 * clamp((t - 1.8) / .18), 1);
+        const root = state.prop.root;root.visible=t>1.25&&t<3.6;root.position.set(0,api.top+1.1,0);const power=ease(clamp((t-1.90)/.16));state.prop.field.visible=t>1.90;state.prop.field.scale.set(1,.15+power*.85,.15+power*.85);state.prop.beamMaterial.uniforms.time.value=t;
+        state.prop.emitters.forEach(({g,iris,side})=>{g.position.x=side*(8.5+Math.max(0,Math.sin((t-1.9)*25))*power*.08);iris.material.opacity=.2+.8*ease(clamp((t-1.25)/.7));});state.prop.rings.forEach((o,i)=>o.position.x=-12+((t*19+i*5)%24));
         const heat = clamp((t - 2.03) / 1.1);
         for (const p of actors) {p.c.suit.emissive.setHex(0xff241e);p.c.suit.emissiveIntensity = heat * 2;}
         if (t >= state.deathAt && !state.scatter) {
@@ -232,7 +240,7 @@ function createMeetingEjections(api) {
         root.visible = t > 1.5 && (mode === 'meteor' || t < impactAt);
         const k = clamp((t - 1.5) / (impactAt - 1.5));
         root.position.set(9 * (1 - k), api.top + .6 + 11 * (1 - k), -3 * (1 - k));
-        if (mode === 'meteor') root.rotation.set(t * .5, t, t * .28);
+        if(mode==='meteor'){root.rotation.set(t*.5,t,t*.28);state.prop.surface.uniforms.time.value=t;}state.prop.trail.scale.x=state.prop.trail.scale.z=.85+Math.sin(t*35)*.06;
         if (t >= impactAt && !state.broken) {
           state.broken = true;api.breakTable();api.hideCentre();
           api.impact(v(0, api.top + .3, 0), 0xff934a, mode === 'meteor' ? 1.3 : 1.8);
@@ -275,8 +283,16 @@ function createMeetingEjections(api) {
           p.c.root.rotation.y = 0;p.c.root.rotation.z = q * (i ? -.25 : .25);
         });
       }
+      // Small readable reactions use the real meeting rig and stop at freezing.
+      // The cat's companion remains still until the surprise grab actually lands.
+      if(!state.dead)actors.forEach((p,i)=>{const saved=state.appearance[i],catTarget=mode==='cat'&&p===state.prop.target,start=catTarget?3.35:mode==='balance'?1.7:1.65,weight=ease(clamp((t-start)/.5));if(t<1.25)return;
+        const frozen=mode==='ice'?1-ease(clamp((t-2.9)/.5)):1,flail=Math.sin(t*7+i*1.7)*.13*weight*frozen,reach=(mode==='rocket'?.12:mode==='pod'?.20:.50)*weight;
+        (p.c.arms||[]).forEach((arm,j)=>{const rest=saved.arms[j];if(!rest)return;arm.rotation.copy(rest);arm.rotation.z+=(j?1:-1)*(reach+flail);arm.rotation.x-=weight*.24+flail;});
+        (p.c.legs||[]).forEach((leg,j)=>{const rest=saved.legs[j];if(rest)leg.rotation.x=rest.x+Math.sin(t*8+j*Math.PI)*.14*weight*frozen;});
+      });
       if(!state.dead&&mode==='cat'&&t<3.35)state.followTarget=state.prop.cat.c.root.position.clone().add(v(0,1.1,0));
       else if(!state.dead)state.followTarget=actors.reduce((point,p)=>point.add(p.c.root.position),v()).multiplyScalar(1/actors.length).add(v(0,1.1,0));
+      if(mode==='ufo'&&!state.dead&&state.prop?.ship){const arrival=ease(clamp((t-.3)/1.1)),ship=state.prop.ship,centre=v(ship.position.x,api.top+.13+ship.position.y+state.prop.height*.45,ship.position.z);state.followTarget.lerp(centre,arrival*.30);}
       if(state.followTarget){
         const desired=state.cameraFocus.clone().lerp(state.followTarget,ease(clamp((t-.35)/.8)));
         const next=api.orbit.target.clone().lerp(desired,1-Math.exp(-12*Math.max(0,dt)));
@@ -341,7 +357,7 @@ function createMeetingEjections(api) {
     const old = active || last;
     old?.actors.forEach((p,i) => {
       const saved=old.appearance[i];p.c.root.scale.copy(saved.scale);p.c.root.rotation.copy(saved.rotation);
-      p.c.suit.emissive.copy(saved.emissive);p.c.suit.emissiveIntensity=saved.intensity;p.meetingActorBusy=false;
+      (p.c.arms||[]).forEach((arm,j)=>{if(saved.arms[j])arm.rotation.copy(saved.arms[j]);});(p.c.legs||[]).forEach((leg,j)=>{if(saved.legs[j])leg.rotation.copy(saved.legs[j]);});p.c.suit.emissive.copy(saved.emissive);p.c.suit.emissiveIntensity=saved.intensity;p.meetingActorBusy=false;
     });
     active = null;last = null;clearProps();
     api.chains.forEach(c => c.visible = true);
@@ -374,7 +390,7 @@ export function patchMeetingRuntime(source) {
   html = html.replaceAll('p.voteTally.s.position.set(b.x,b.y+4.22,b.z)', 'p.voteTally.s.position.set(b.x,b.y+3.16,b.z)');
   html=html.replace('const fullName=String(s.name||""),meetingName=seats.length<=6?fullName:String(p.nick||fullName);','const fullName=String(s.name||""),meetingName=fullName;');
   html=html.replace('const micTxt=s.mic?"🎙 ":""','const micTxt=s.alive!==false&&s.mic?"🎙 ":""');
-  const factory = `\nconst createExtendedEjectionEffects=${createExtendedEjectionEffects.toString()};\nconst createMeetingEjections=${createMeetingEjections.toString()};\nlet liveMeetingEjections=null;
+  const factory = `\nconst createEjectionStaging=${createEjectionStaging.toString()};\nconst createExtendedEjectionEffects=${createExtendedEjectionEffects.toString()};\nconst createMeetingEjections=${createMeetingEjections.toString()};\nlet liveMeetingEjections=null;
 function getLiveMeetingEjections(){return liveMeetingEjections||(liveMeetingEjections=createMeetingEjections({
  THREE,scene,camera,orbit:orb,top:TOP,now:()=>NOW,me:()=>me,getSeats:()=>seats,stand:standPose,
  impact,breakTable:mrBeginScaleBreak,hideCentre:()=>{mrCentralTable.visible=false;ped.visible=false;},

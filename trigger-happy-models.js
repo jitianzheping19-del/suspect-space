@@ -1,4 +1,22 @@
-// One compact, articulated receiver and an actual pointed cartridge model.
+// The model, hand attachment and shot origin share one muzzle coordinate.
+export const TRIGGER_HAPPY_MUZZLE = Object.freeze({x:0,y:.026,z:.74});
+export const TRIGGER_HAPPY_MOUNT = Object.freeze({x:.274/.76,y:1.10-.026,z:.8/.76-.74});
+export function attachTriggerHappyWeapon(prop,avatar,viewScene=null){
+ let parent=avatar;
+ // First person hides the owner body. Keep the held gun in its own matching
+ // transform so hiding that body does not also hide the weapon.
+ if(viewScene){if(!prop.viewAnchor){prop.viewAnchor=new avatar.constructor();prop.viewAnchor.matrixAutoUpdate=false;}if(prop.viewAnchor.parent!==viewScene)viewScene.add(prop.viewAnchor);avatar.updateWorldMatrix(true,false);viewScene.updateWorldMatrix(true,false);prop.viewAnchor.matrix.copy(viewScene.matrixWorld).invert().multiply(avatar.matrixWorld);parent=prop.viewAnchor;}
+ else prop.viewAnchor?.removeFromParent();
+ if(prop.root.parent!==parent)parent.add(prop.root);
+ prop.root.position.set(TRIGGER_HAPPY_MOUNT.x,TRIGGER_HAPPY_MOUNT.y,TRIGGER_HAPPY_MOUNT.z);
+ prop.root.rotation.set(0,0,0);prop.root.scale.setScalar(1);
+ avatar.userData.triggerHappyWeapon=prop;
+}
+export function triggerHappyMuzzleWorld(prop,target){
+ prop.root.updateWorldMatrix(true,true);
+ return prop.muzzle.getWorldPosition(target);
+}
+// Articulated receiver and a pointed cartridge model.
 export function buildTriggerHappyWeapon(THREE,scope){
  const {root,mesh,standard,glow}=scope,metal=standard(0x243b4b,{metalness:.82,roughness:.28}),edge=standard(0x879ba6,{metalness:.9,roughness:.22}),rubber=standard(0x111e29,{roughness:.7}),brass=standard(0xc8a16b,{metalness:.85}),light=glow(0x71d8d2,.75);
  const box=(m,x,y,z,w,h,d,p=root)=>mesh(new THREE.BoxGeometry(w,h,d),m,p,x,y,z);
@@ -13,9 +31,9 @@ export function buildTriggerHappyWeapon(THREE,scope){
  box(metal,0,-.01,-.36,.09,.11,.25);box(rubber,0,-.025,-.50,.14,.19,.06);box(edge,0,-.02,-.43,.10,.045,.09);
  const sight=new THREE.Group();sight.position.set(0,.21,-.08);root.add(sight);for(const side of[-1,1])box(edge,side*.062,.005,0,.018,.10,.06,sight);box(edge,0,.055,0,.14,.018,.06,sight);box(light,0,.008,.031,.025,.018,.008,sight);
  const bolt=box(edge,.09,.035,.01,.025,.06,.12);box(rubber,.107,.035,.005,.012,.028,.047);for(const z of[-.15,.14])tube(brass,.096,.02,z,.014,.018);
- const flash=new THREE.Group();flash.position.set(0,.026,.76);root.add(flash);tube(glow(0xffefd0,.9),0,0,.12,.033,.26,flash);for(let i=0;i<6;i++){const a=i*Math.PI/3,spark=mesh(new THREE.ConeGeometry(.026,.21,5),glow(i%2?0xffbc72:0xffefb1,.72),flash,Math.sin(a)*.052,Math.cos(a)*.052,.07);spark.rotation.x=Math.PI/2;spark.rotation.z=a;}
+ const muzzle=new THREE.Object3D();muzzle.name="trigger-happy-muzzle";muzzle.position.set(TRIGGER_HAPPY_MUZZLE.x,TRIGGER_HAPPY_MUZZLE.y,TRIGGER_HAPPY_MUZZLE.z);root.add(muzzle);const flash=new THREE.Group();muzzle.add(flash);tube(glow(0xffefd0,.9),0,0,.12,.033,.26,flash);for(let i=0;i<6;i++){const a=i*Math.PI/3,spark=mesh(new THREE.ConeGeometry(.026,.21,5),glow(i%2?0xffbc72:0xffefb1,.72),flash,Math.sin(a)*.052,Math.cos(a)*.052,.07);spark.rotation.x=Math.PI/2;spark.rotation.z=a;}
  const shells=new THREE.InstancedMesh(scope.geometry(new THREE.CylinderGeometry(.016,.019,.073,8)),brass,30);root.add(shells);shells.count=0;
- return{scope,root,flash,shells,bolt};
+ return{scope,root,muzzle,flash,shells,bolt};
 }
 export function buildTriggerHappyBullet(THREE,scope,radius){
  const size=Math.max(.055,Math.min(.13,radius*.35)),brass=scope.standard(0xd4b67b,{metalness:.9,roughness:.22}),tip=scope.standard(0xe3d2ad,{metalness:.75,roughness:.26}),bullet=new THREE.Group();scope.root.add(bullet);

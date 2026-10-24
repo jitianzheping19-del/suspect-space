@@ -35,7 +35,7 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['cat','rocket','collapse'
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  try{
  const page=await browser.newPage({viewport:{width:1280,height:720},deviceScaleFactor:1}),errors=[];
- page.on('pageerror',e=>errors.push(e.message));
+ page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/WebGLProgram|Shader Error|VALIDATE_STATUS/.test(m.text()))errors.push(m.text());});
  await page.route('**/qa-meeting.html',r=>r.fulfill({body:source,contentType:'text/html'}));
  await page.goto('http://meeting.test/qa-meeting.html',{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__meetingQA,{timeout:90000});
  if(shots)fs.mkdirSync(shots,{recursive:true});
