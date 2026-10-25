@@ -22,7 +22,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
   ],batches=materials.map(()=>[]),cube=new THREE.BoxGeometry(1,1,1),dummy=new THREE.Object3D();
   function box(m,x,y,z,w,h,d){batches[m].push([x,y,z,w,h,d]);}
   route.forEach(([x,z,y],i)=>{
-    const summit=i===route.length-1,w=summit?3.1:i<8?2.6:i%6===0?2.5:2.2,d=summit?3.1:i<8?2.6:2.2,h=i%3===0?.55:.24;
+    const summit=i===route.length-1,w=summit?3.6:i<8?3.1:i%6===0?3.0:2.7,d=summit?3.6:i<8?3.0:2.7,h=i%3===0?.55:.24;
     obstacles.push({x,z,w,d,top:y,bottom:y-h,platform:true,ascent:true});
     box(0,x,y-h/2,z,w,h,d);
     box(4,x,y+.014,z,w-.18,.028,d-.18);

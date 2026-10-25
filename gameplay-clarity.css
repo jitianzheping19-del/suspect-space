@@ -42,3 +42,15 @@ html body #mapWorld .mapMe{width:23px!important;height:23px!important;z-index:80
 #ghostTools button{min-height:28px!important;height:28px;padding:3px 8px!important;font-size:11px!important;border:1px solid #537b89;border-radius:9px;background:#153746;color:#ecfff9;white-space:nowrap}
 #ghostTools button[aria-pressed=true]{background:#25645f;border-color:#85cebc}#ghostPrev,#ghostNext{grid-row:2}#ghostHudList{grid-column:2;grid-row:2;min-width:0}
 @media(pointer:coarse){html body #ghostHud{display:grid!important;grid-template-columns:28px minmax(0,1fr) 28px!important;grid-template-rows:26px minmax(0,1fr)!important;right:calc(min(29vw,220px) + max(8px,env(safe-area-inset-right)))!important;height:98px!important}#ghostHud .ghostTarget{padding:4px!important}#ghostHud .ghostArrow{width:28px!important;min-width:28px!important;padding:2px!important}}
+/* The map is a navigation overlay; its close button stays interactive while
+   uncovered controls and the canvas keep their own touch pointers. */
+html body[data-map-walking=true] #mapPanel{pointer-events:none!important}
+html body[data-map-walking=true] #mapPanel #mapCloseBtn{pointer-events:auto!important}
+html body[data-map-walking=true] #controls #stick{pointer-events:auto!important;z-index:2450!important}
+html body #gameCountdown .countdownLayout{box-sizing:border-box;flex:none;max-height:86dvh}
+html body #gameCountdown[data-kind="launch"] .countdownLayout{grid-template-columns:minmax(0,1fr);grid-template-rows:1fr auto auto 1fr;padding:18px}
+html body #gameCountdown[data-kind="launch"] #gameCountdownLabel{grid-row:2;grid-column:1;align-self:end}
+html body #gameCountdown[data-kind="launch"] #gameCountdownNumber{grid-row:3;grid-column:1;align-self:start;filter:drop-shadow(0 0 14px #53dbed66)}
+html body #gameCountdown #gameCountdownProgress,html body #gameCountdown #gameCountdownCrewLineup{display:none!important}
+html body #gameCountdown .countdownArt{box-sizing:border-box}
+html body #gameCountdown #launchLineup{display:none!important}
