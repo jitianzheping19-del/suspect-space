@@ -153,7 +153,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
       const b=r.button,box=b.getBoundingClientRect(),style=getComputedStyle(b);
       r.group.visible=box.width>0&&box.height>0&&!b.closest('.hidden')&&style.display!=='none'&&style.visibility!=='hidden'&&style.opacity!=='0';
       if(!r.group.visible)continue;
-      const w=Math.round(box.width*sx),h=Math.round(box.height*sy),roomy=!r.spec.symbolOnly&&w>=82&&h>=(r.spec.utility?40:38),symbolOnly=!!r.spec.symbolOnly;
+      const w=Math.round(box.width*sx),h=Math.round(box.height*sy),roomy=!r.spec.symbolOnly&&(w>=82||!r.spec.utility&&w>=66&&h>=48)&&h>=(r.spec.utility?40:38),symbolOnly=!!r.spec.symbolOnly;
       if(b.dataset.threeActionLayout!==(symbolOnly?'symbol':roomy?'icon':'compact'))b.dataset.threeActionLayout=symbolOnly?'symbol':roomy?'icon':'compact';
       const inset=Math.round(box.width*(r.spec.utility ? .28 : .38))+'px';if(b.style.getPropertyValue('--three-action-label-inset')!==inset)b.style.setProperty('--three-action-label-inset',inset);
       const caption=b.querySelector('#abilityCaption,#rocketLaunchCaption'),text=(caption||b).textContent;

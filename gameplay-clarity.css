@@ -54,3 +54,18 @@ html body #gameCountdown[data-kind="launch"] #gameCountdownNumber{grid-row:3;gri
 html body #gameCountdown #gameCountdownProgress,html body #gameCountdown #gameCountdownCrewLineup{display:none!important}
 html body #gameCountdown .countdownArt{box-sizing:border-box}
 html body #gameCountdown #launchLineup{display:none!important}
+/* Phone landscape: fixed-size action cells prevent inherited wide grid tracks
+   from stretching the use button. Keep the same 3D icon layout as larger screens. */
+@media (pointer:coarse) and (max-height:600px){
+ html body[data-phase="play"] #controls{--phone-action-height:56px;--phone-action-width:76px}
+ html body[data-phase="play"] #controls>div:last-child{width:244px!important;max-width:244px!important;min-width:0!important}
+ html body[data-phase="play"] #controls #buttons{width:244px!important;max-width:244px!important;grid-template-columns:repeat(3,76px)!important;grid-template-rows:repeat(2,56px)!important;grid-auto-rows:56px!important;gap:8px!important;padding:0!important}
+ html body[data-phase="play"] #controls #buttons>button:not(.hidden):not(#mapBtn){width:76px!important;min-width:76px!important;max-width:76px!important;height:56px!important;min-height:56px!important;max-height:56px!important;align-self:stretch!important;justify-self:end!important;padding:4px 5px!important;border-radius:13px!important}
+ html body[data-phase="play"] #controls #buttons>#taskBtn:not(.hidden){width:76px!important;min-width:76px!important;max-width:76px!important;height:56px!important;min-height:56px!important;max-height:56px!important;grid-column:1!important;grid-row:2!important}
+ html body[data-phase="lobby"] #lobbyUseBtn:not(.hidden){width:76px!important;min-width:76px!important;max-width:76px!important;height:56px!important;min-height:56px!important;max-height:56px!important;padding:4px 6px!important;border-radius:13px!important}
+ html body[data-phase="play"] #controls #buttons>#mapBtn:not(.hidden){position:fixed!important;left:auto!important;right:calc(max(8px,env(safe-area-inset-right)) + 58px)!important;top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;inset-inline-start:auto!important;width:44px!important;min-width:44px!important;max-width:44px!important;height:44px!important;min-height:44px!important;max-height:44px!important;grid-area:auto!important;z-index:250!important;transform:none!important;margin:0!important}
+ html body[data-phase="play"] #taskProgressHud{left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:min(220px,30vw)!important;max-width:calc(100vw - 240px)!important;padding:5px 8px!important;font-size:11px!important}
+ html body[data-phase="play"] #sabotageTimerHud{left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:min(210px,30vw)!important;max-width:calc(100vw - 240px)!important;padding:4px 7px!important;font-size:11px!important;line-height:1.2!important}
+ html body[data-phase="play"] #sabotageTimerTrack{height:6px!important}
+ html body[data-phase="play"] #sabotageTimerLabel{gap:5px!important;margin-bottom:3px!important}
+}

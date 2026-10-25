@@ -26,7 +26,12 @@ export async function showReviewInbox({api,host,body,setBadge}){
   const empty=document.createElement('p');empty.className='reviewEmpty';empty.textContent='該当するメッセージはありません';body.append(empty);
   function refresh(){const q=search.value.toLocaleLowerCase().trim();let shown=0;for(const row of rows){row.article.hidden=!!(q&&!row.text.includes(q)||filter.value&&row.state.value!==filter.value);if(!row.article.hidden)shown++;}empty.hidden=shown>0;}
   search.oninput=refresh;filter.onchange=refresh;refresh();
-  if(latest&&api.context().uid===account.uid){await api.markRead(latest);setBadge(0);}
- }catch{loading.textContent='取得できませんでした。もう一度開いてください。';}
+  if(latest&&api.context().uid===account.uid){try{await api.markRead(latest);setBadge(0);}catch(error){console.warn("レビューの既読保存は次回に再試行します",error);}}
+ }catch(error){
+  console.error('Review inbox read failed',error);
+  if(!loading.isConnected)body.append(loading);
+  loading.textContent=/permission|denied/i.test(String(error?.code||error?.message))?'Firebase側でメッセージの閲覧が拒否されています。管理者用のデータベースルールを反映してください。':'メッセージを取得できませんでした。接続を確認して再試行してください。';
+  const retry=document.createElement('button');retry.type='button';retry.className='reviewSend';retry.textContent='再試行';retry.onclick=()=>showReviewInbox({api,host,body,setBadge});body.append(retry);
+ }
  host.querySelector('.reviewClose')?.focus();
 }

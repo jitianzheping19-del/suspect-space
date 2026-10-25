@@ -1051,7 +1051,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
       for(const crew of [player,...remoteCrews.values()]){
         const owner=crew.root,gear=owner.userData.walkCostumeRoot,next=gear?.userData.pet||null,old=owner.userData.petFollower;present.add(owner);
         if(old&&old!==next){old.removeFromParent();const gs=new Set(),ms=new Set();old.traverse(o=>{if(o.geometry)gs.add(o.geometry);if(o.material)ms.add(o.material);});for(const g of gs)g.dispose();for(const m of ms)m.dispose();delete owner.userData.companionMotion;}
-        if(next&&old!==next){const yaw=owner.rotation.y;scene.add(next);next.position.set(owner.position.x-Math.sin(yaw)*.65,owner.position.y+.25,owner.position.z-Math.cos(yaw)*.65);next.rotation.y=yaw;}
+        if(next&&old!==next){const yaw=owner.rotation.y;scene.add(next);next.position.set(owner.position.x-Math.sin(yaw)*1.25,owner.position.y+.25,owner.position.z-Math.cos(yaw)*1.25);next.rotation.y=yaw;}
         owner.userData.petFollower=next;
         if(next)advanceCompanionFollower(owner,next,dt,stamp,owner.visible&&!window.__lobbyStudioOpen);
         lobbyCompanionOwners.add(owner);
@@ -1929,7 +1929,7 @@ function buildLightCostume(THREE,code){
     if(bag==='toolbox'){add('box',0x548dae,0,1,-.77,.48,.32,.23);add('box',gold,0,1,-.9,.08,.1,.025);add('box',dark,0,1.22,-.77,.22,.05,.08);}
     if(bag==='book'){add('box',0x913f63,0,1,-.74,.4,.5,.15);add('box',white,0,1,-.84,.31,.4,.025);add('box',gold,-.18,1,-.75,.055,.51,.16);}
   if(pet&&pet!=='none'){
-    const buddy=new THREE.Group();buddy.position.set(.72,.3,.1);buddy.userData.isPet=true;root.add(buddy);
+    const buddy=new THREE.Group();buddy.position.set(1.25,.3,.1);buddy.userData.isPet=true;root.add(buddy);
     const c=pet==='cat'?0xe8bd83:pet==='dog'?0xe2d7c5:pet==='parrot'?0x66dca0:pet==='fox'?0xf29a56:pet==='slime'?0x93e39b:pet==='penguin'?dark:pet==='turtle'?0x81b88b:pet==='owl'?0xb99368:pet==='lifebuoy'?0xf28b55:cyan;
     const detailedRig=buildDetailedCompanion(THREE,pet,buddy,{shape,geometry,materials});
     if(!detailedRig){
@@ -2225,13 +2225,16 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
  const travel=Math.hypot(owner.position.x-f.lastX,owner.position.z-f.lastZ),ownerSpeed=travel/Math.max(.016,step);f.lastX=owner.position.x;f.lastZ=owner.position.z;
  if(Math.hypot(owner.position.x-f.sampleX,owner.position.z-f.sampleZ)>.11){if(travel>3)f.trail=[];f.trail.push({x:owner.position.x,z:owner.position.z,y:owner.position.y});f.sampleX=owner.position.x;f.sampleZ=owner.position.z;if(f.trail.length>32)f.trail.splice(0,f.trail.length-32);}
  let gap=Math.hypot(owner.position.x-pet.position.x,owner.position.z-pet.position.z);
- if(travel>3||gap>6){const yaw=Number(owner.rotation.y)||0;pet.position.set(owner.position.x-Math.sin(yaw)*.72,owner.position.y+.25+floatHeight,owner.position.z-Math.cos(yaw)*.72);f.trail=[{x:owner.position.x,z:owner.position.z,y:owner.position.y}];f.height=pet.position.y;f.speed=0;gap=.72;}
- if(!f.following&&gap>.80)f.following=true;else if(f.following&&gap<.65)f.following=false;
+ if(travel>3||gap>6){const yaw=Number(owner.rotation.y)||0;pet.position.set(owner.position.x-Math.sin(yaw)*1.25,owner.position.y+.25+floatHeight,owner.position.z-Math.cos(yaw)*1.25);f.trail=[{x:owner.position.x,z:owner.position.z,y:owner.position.y}];f.height=pet.position.y;f.speed=0;gap=1.25;}
+ if(!f.following&&gap>1.5)f.following=true;else if(f.following&&gap<1.3)f.following=false;
  while(f.trail.length>1&&Math.hypot(f.trail[0].x-pet.position.x,f.trail[0].z-pet.position.z)<.2)f.trail.shift();
  const target=f.trail[0]||{x:owner.position.x,z:owner.position.z,y:owner.position.y},dx=target.x-pet.position.x,dz=target.z-pet.position.z,distance=Math.hypot(dx,dz);
  const desired=f.following?Math.min(8.5,Math.max(3.8,ownerSpeed*1.35)+Math.min(2,gap)*.3):0,accel=desired>f.speed?17:24;f.speed+=Math.max(-accel*step,Math.min(accel*step,desired-f.speed));
- const moved=gap>.51?Math.min(distance,f.speed*step):0;
+ const moved=gap>1.25?Math.min(distance,f.speed*step,Math.max(0,gap-1.25)):0;
  if(moved>.0001&&distance>.001){pet.position.x+=dx/distance*moved;pet.position.z+=dz/distance*moved;const yaw=Math.atan2(dx,dz),delta=Math.atan2(Math.sin(yaw-pet.rotation.y),Math.cos(yaw-pet.rotation.y));pet.rotation.y+=delta*(1-Math.exp(-step*10));}
+ // Enforce body clearance after turns, catches and teleports too.
+ const clearX=pet.position.x-owner.position.x,clearZ=pet.position.z-owner.position.z,clearance=Math.hypot(clearX,clearZ);
+ if(clearance<1.25){const yaw=Number(owner.rotation.y)||0;pet.position.x=owner.position.x+(clearance>.001?clearX/clearance:-Math.sin(yaw))*1.25;pet.position.z=owner.position.z+(clearance>.001?clearZ/clearance:-Math.cos(yaw))*1.25;}
  f.height+=((Number(target.y)||0)+.25+floatHeight-f.height)*(1-Math.exp(-step*10));
  pet.position.y=f.height+(visible?animateCompanionGait(pet,moved,step,moved>.001,stamp):0);pet.visible=!!visible;
  pet.userData.following=f.following;pet.userData.followSpeed=f.speed;return moved;
