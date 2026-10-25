@@ -231,19 +231,34 @@ export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.ne
     .replace('<script type="module">',`<script type="importmap">${JSON.stringify({imports:{three:base+'/build/three.module.js','three/addons/':base+'/examples/jsm/'}})}<\/script><script type="module">`);
   const slash=document.createElement('div');
   slash.setAttribute('aria-hidden','true');
-  slash.style.cssText='position:absolute;inset:0;overflow:hidden;pointer-events:none;visibility:hidden;backdrop-filter:blur(1.5px) brightness(.66);-webkit-backdrop-filter:blur(1.5px) brightness(.66)';
+  slash.style.cssText='position:absolute;inset:0;overflow:hidden;pointer-events:none;visibility:hidden;isolation:isolate';
   slash.innerHTML=`<style>
     @keyframes ssx-kill-atmosphere{0%{opacity:0;transform:scale(.96)}18%{opacity:1;transform:scale(1)}100%{opacity:.8;transform:scale(1)}}
     @keyframes ssx-kill-light{0%{transform:translateX(-28%);opacity:0}25%{opacity:.6}100%{transform:translateX(18%);opacity:0}}
-    .ssx-kill-atmosphere{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 56%,#081523aa 0%,#08152377 27%,#08152333 49%,transparent 74%)}
+    .ssx-kill-atmosphere{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 56%,#10293de8 0%,#091724ed 40%,#020711f5 100%)}
     .ssx-kill-atmosphere::before,.ssx-kill-atmosphere::after{content:'';position:absolute;left:8%;width:84%;height:1px;background:linear-gradient(90deg,transparent,var(--ssx-kill-accent,#a8deee) 45%,transparent);opacity:.28;filter:drop-shadow(0 0 5px var(--ssx-kill-accent,#a8deee));transform:rotate(-3deg)}
     .ssx-kill-atmosphere::before{top:21%}.ssx-kill-atmosphere::after{bottom:16%;transform:rotate(2deg)}
     .ssx-kill-slash-on .ssx-kill-atmosphere{animation:ssx-kill-atmosphere .7s cubic-bezier(.2,.75,.25,1) both}
     .ssx-kill-rim{position:absolute;inset:6% 0;background:radial-gradient(ellipse at -8% 57%,color-mix(in srgb,var(--ssx-kill-accent,#a8deee) 20%,transparent),transparent 40%),radial-gradient(ellipse at 108% 42%,color-mix(in srgb,var(--ssx-kill-accent,#a8deee) 18%,transparent),transparent 40%)}
     .ssx-kill-light{position:absolute;left:6%;right:6%;top:21%;height:1px;background:linear-gradient(90deg,transparent,var(--ssx-kill-accent,#a8deee),transparent);opacity:0;transform:rotate(-3deg)}
     .ssx-kill-slash-on .ssx-kill-light{animation:ssx-kill-light .75s ease-out both}
-    @media(prefers-reduced-motion:reduce){.ssx-kill-slash-on .ssx-kill-atmosphere{animation:none}.ssx-kill-slash-on .ssx-kill-light{animation:none}}
-  </style><div class="ssx-kill-atmosphere"></div><div class="ssx-kill-rim"></div><div class="ssx-kill-light"></div>`;
+    .ssx-kill-fin{position:absolute;top:0;bottom:0;width:27%;background:linear-gradient(135deg,#243d50,#0a1623 62%);border-inline:1px solid color-mix(in srgb,var(--ssx-kill-accent) 48%,#234052);box-shadow:inset 0 0 35px #020810}
+    .ssx-kill-fin.left{left:0;clip-path:polygon(0 0,90% 0,60% 35%,100% 48%,45% 100%,0 100%)}
+    .ssx-kill-fin.right{right:0;clip-path:polygon(10% 0,100% 0,100% 100%,55% 100%,0 48%,40% 35%)}
+    .ssx-kill-orbit{position:absolute;left:50%;top:54%;width:min(62vw,84vh);aspect-ratio:1;border:1px solid color-mix(in srgb,var(--ssx-kill-accent) 25%,transparent);border-radius:50%;transform:translate(-50%,-50%) rotate(-24deg);box-shadow:0 0 0 14px #78b4d008,inset 0 0 0 32px #78b4d005}
+    .ssx-kill-orbit::before,.ssx-kill-orbit::after{content:'';position:absolute;inset:-5%;border:2px solid transparent;border-top-color:var(--ssx-kill-accent);border-bottom-color:var(--ssx-kill-accent);border-radius:50%;opacity:.25}
+    .ssx-kill-orbit::after{inset:9%;transform:rotate(80deg);opacity:.12}
+    .ssx-kill-streaks{position:absolute;inset:8% 0;background:repeating-linear-gradient(-14deg,transparent 0 48px,#a3d8ee10 49px,transparent 50px 93px);opacity:0}
+    @keyframes ssx-kill-fin-left{from{opacity:0;transform:translateX(-26%)}to{opacity:1;transform:translateX(0)}}
+    @keyframes ssx-kill-fin-right{from{opacity:0;transform:translateX(26%)}to{opacity:1;transform:translateX(0)}}
+    @keyframes ssx-kill-orbit-enter{from{opacity:0;transform:translate(-50%,-50%) rotate(-38deg) scale(1.12)}to{opacity:1;transform:translate(-50%,-50%) rotate(-24deg) scale(1)}}
+    @keyframes ssx-kill-streak-enter{0%{opacity:0;transform:translateX(-8%)}35%{opacity:.8}100%{opacity:.35;transform:translateX(4%)}}
+    .ssx-kill-slash-on .ssx-kill-fin.left{animation:ssx-kill-fin-left .42s cubic-bezier(.16,.8,.25,1) both}
+    .ssx-kill-slash-on .ssx-kill-fin.right{animation:ssx-kill-fin-right .42s cubic-bezier(.16,.8,.25,1) both}
+    .ssx-kill-slash-on .ssx-kill-orbit{animation:ssx-kill-orbit-enter .7s ease-out both}
+    .ssx-kill-slash-on .ssx-kill-streaks{animation:ssx-kill-streak-enter .8s ease-out both}
+    @media(prefers-reduced-motion:reduce){.ssx-kill-slash-on :is(.ssx-kill-atmosphere,.ssx-kill-light,.ssx-kill-fin,.ssx-kill-orbit,.ssx-kill-streaks){animation:none}.ssx-kill-light{display:none}.ssx-kill-streaks{opacity:.2}}
+  </style><div class="ssx-kill-atmosphere"></div><div class="ssx-kill-rim"></div><div class="ssx-kill-fin left"></div><div class="ssx-kill-fin right"></div><div class="ssx-kill-orbit"></div><div class="ssx-kill-streaks"></div><div class="ssx-kill-light"></div>`;
   mount.append(slash,frame);
   return {
     frame,

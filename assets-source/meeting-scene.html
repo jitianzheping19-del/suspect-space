@@ -1005,6 +1005,7 @@ cv.addEventListener("pointerdown",e=>{
   let root=hit.object;while(root.parent&&!seats.some(p=>p.c.root===root))root=root.parent;
   const p=seats.find(s=>s.c.root===root);if(p&&!ownVoted&&!freeCam)askPick(p.id,`${p.name} に投票しますか？`);});
 addEventListener("message",e=>{const d=e.data||{};
+  if(e.source===parent&&d.type==="ss3d-close-keyboard"){document.activeElement?.blur?.();return;}
   if(d.type==="ss3d-state"){applyState(d);}
   if(d.type==="ss3d-result")playResult(d.result||{});
   if(d.type==="ss3d-ability")onAbility(d);

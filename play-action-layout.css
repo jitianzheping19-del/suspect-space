@@ -160,6 +160,33 @@
     body[data-phase="play"] #buttons { --play-action-height: 66px; }
   }
 
+  /* Tablet: preserve every grid slot and anchor, grow the existing controls. */
+  @media (pointer: coarse) and (min-width: 768px) and (min-height: 600px) {
+    body[data-phase="play"] #controls > div:last-child {
+      width: min(50vw, 540px) !important;
+      max-width: min(50vw, 540px) !important;
+    }
+    body[data-phase="play"] #buttons { --play-action-height: 90px; }
+    body[data-phase="play"] #buttons > :is(button, select):not(.hidden):not(#mapBtn) {
+      font-size: clamp(18px, 1.7vw, 24px) !important;
+    }
+    body:is([data-phase="play"], [data-phase="lobby"]) #controls #stick {
+      width: min(calc(var(--stick-size, 150px) * 1.18), 24vw, 28vh) !important;
+      height: min(calc(var(--stick-size, 150px) * 1.18), 24vw, 28vh) !important;
+      flex-basis: min(calc(var(--stick-size, 150px) * 1.18), 24vw, 28vh) !important;
+    }
+    body:is([data-phase="play"], [data-phase="lobby"]) #controls #knob {
+      width: calc(var(--knob-size, 64px) * 1.18) !important;
+      height: calc(var(--knob-size, 64px) * 1.18) !important;
+      left: calc(50% - var(--knob-size, 64px) * .59) !important;
+      top: calc(50% - var(--knob-size, 64px) * .59) !important;
+    }
+    body[data-phase="lobby"] #lobbyUseBtn:not(.hidden) {
+      width: 126px !important; min-width: 126px !important; max-width: 126px !important;
+      height: 75px !important; min-height: 75px !important; max-height: 75px !important;
+    }
+  }
+
   /* The start countdown stays visually quiet; crew are revealed on the
      dedicated role screen, and the progress bar is not useful here. */
   #gameCountdown #gameCountdownProgress,

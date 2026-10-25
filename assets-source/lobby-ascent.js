@@ -12,7 +12,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
     [3.9,1.8,23.6],[5.4,4.4,24.75],[4.7,7.3,25.9],[2.2,8.9,27.05],
     [-.7,8.5,28.2],[-2.9,6.5,29.35],[-2.6,3.6,30.5],[0,2.4,31.65],
     [2.5,4,32.8],[1.5,6.7,34]
-  ];
+  ].map(([x,z,y])=>[x*1.18,4+(z-4)*1.18,y]);
   const materials=[
     new THREE.MeshStandardMaterial({color:0x203c4c,roughness:.48,metalness:.6}),
     new THREE.MeshStandardMaterial({color:0x566f80,roughness:.33,metalness:.7}),
@@ -52,7 +52,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
     const ctx=canvas.getContext('2d');ctx.fillStyle='#0a1b29';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#d8b77c';ctx.lineWidth=5;ctx.strokeRect(4,4,504,120);ctx.fillStyle='#e7f9f6';ctx.font='bold 48px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,256,66,470);
     const map=new THREE.CanvasTexture(canvas),mat=new THREE.SpriteMaterial({map,depthWrite:false}),sprite=new THREE.Sprite(mat);sprite.position.set(x,y,z);sprite.scale.set(width,width/4,1);root.add(sprite);
   }
-  label('上空アスレ',-4,2.3,10.3,2.5);
+  label('上空アスレ',route[0][0],2.3,route[0][1],2.5);
   const [gx,gz,gy]=route.at(-1);
   label('SUMMIT',gx,gy+2.8,gz,2.7);
   const trophy=new THREE.Group();trophy.position.set(gx,gy,gz);root.add(trophy);

@@ -51,16 +51,26 @@ function startLoop(update){const clock=new THREE.Clock(),gate=meetingBudget.gate
  if(!html.includes(postprocessing))throw new Error('Meeting composer anchor missing');
  html=html.replace(postprocessing,`const composer=mobileMeetingGpu?{setSize(){},render(){renderer.render(scene,camera);},passes:[]}:new EffectComposer(renderer);if(!mobileMeetingGpu){composer.addPass(new RenderPass(scene,camera));const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.33,.5,1.35);composer.addPass(bloom);composer.addPass(new OutputPass());}\nconst meetingRenderRecovery=(${createMeetingRenderRecovery.toString()})({renderer,scene,camera,composer,mobile:mobileMeetingGpu,budget:meetingBudget,rebuildEnvironment:rebuildMeetingEnvironment,disposeEnvironment:()=>{meetingEnvironmentTarget?.dispose();scene.environment=null;}});`);
  const identityLayout=`
-const identityAnchor=new THREE.Vector3();
+const identityAnchor=new THREE.Vector3(),identityView=new THREE.Vector3();
 function alignMeetingIdentity(){
  camera.updateMatrixWorld(true);
  const height=Math.max(1,innerHeight),width=Math.max(1,innerWidth);
  for(const p of seats){
   if(!p.c?.root||p.gone)continue;
-  p.c.root.updateWorldMatrix(true,false);identityAnchor.set(0,1.85,0);p.c.root.localToWorld(identityAnchor);identityAnchor.project(camera);
+  p.c.root.updateWorldMatrix(true,false);identityAnchor.set(0,1.85,0);p.c.root.localToWorld(identityAnchor);
+  identityView.copy(identityAnchor).applyMatrix4(camera.matrixWorldInverse);
+  const pixelsPerUnit=height*camera.projectionMatrix.elements[5]/(2*Math.max(.1,-identityView.z));
+  identityAnchor.project(camera);
   if(identityAnchor.z < -1 || identityAnchor.z > 1)continue;
   const place=(L,x,y)=>{if(!L?.s?.visible)return;L.s.position.set(identityAnchor.x+x*2/width,identityAnchor.y+y*2/height,identityAnchor.z).unproject(camera);L.s.material.depthTest=false;L.s.renderOrder=40;};
-  place(p.tag,0,16);place(p.roleTag,0,34);place(p.voteCheck,0,54);place(p.voteTally,0,78);place(p.bub,0,112);
+  // Stack the actual projected sprite rectangles. Fixed pixel offsets overlap
+  // at close camera angles and when names use a larger canvas/sprite scale.
+  let top=8;
+  for(const label of[p.tag,p.roleTag,p.voteCheck,p.voteTally,p.bub]){
+   if(!label?.s?.visible)continue;
+   const halfHeight=Math.abs(label.s.scale.y)*pixelsPerUnit/2;
+   place(label,0,top+halfHeight);top+=halfHeight*2+5;
+  }
  }
 }
 `;
