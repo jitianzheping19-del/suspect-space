@@ -43,13 +43,16 @@ for(const match of scripts){
   const entry=src?resolve(root,src):null;
   const result=await build({
     ...(entry?{entryPoints:[entry]}:{stdin:{contents:source,resolveDir:root,sourcefile:'gas-game-entry.js',loader:'js'}}),
-    bundle:true,write:false,format:'esm',platform:'browser',target:'esnext',minify:false,
+    bundle:true,write:false,outfile:resolve(out,'inline-game-'+replacements.length+'.js'),format:'esm',platform:'browser',target:'esnext',minify:false,
     charset:'utf8',legalComments:'none',plugins,define:{'import.meta.env.BASE_URL':'"./"'},
   });
-  replacements.push({index:match.index,length:original.length,text:'<script type="module">\n'+result.outputFiles[0].text+'\n</script>'});
+  const bundledScript=result.outputFiles.find(file=>file.path.endsWith('.js'));
+  if(!bundledScript)throw new Error('Standalone game module was not generated');
+  const bundledStyles=result.outputFiles.filter(file=>file.path.endsWith('.css')).map(file=>'<style>\n'+file.text+'\n</style>').join('\n');
+  replacements.push({index:match.index,length:original.length,text:bundledStyles+'\n<script type="module">\n'+bundledScript.text+'\n</script>'});
 }
 for(const item of replacements.reverse())html=html.slice(0,item.index)+item.text+html.slice(item.index+item.length);
-// Read local stylesheet links before replacing them (there are no CSS imports).
+// Bundle imported styles above and inline the remaining local stylesheet links.
 async function inlineAssets(source){
   for(const match of [...source.matchAll(/<link\b[^>]*>/gi)]){
     const tag=match[0],href=tag.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1],rel=tag.match(/\brel\s*=\s*["']([^"']+)["']/i)?.[1];

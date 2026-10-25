@@ -20819,7 +20819,7 @@ function renderUI() {
         ? Math.max(0, Math.ceil(((game.countdownEndsAt || 0) - now()) / 1000)) : 0;
       $("gameCountdown").dataset.kind=game.countdownKind||"launch";
       $("gameCountdownLabel").textContent=game.countdownKind==="meeting-return"?"再開まで":"役職確認まで";
-      updateCountdownPresentation($("gameCountdown"),countdownValue);
+      updateCountdownPresentation($("gameCountdown"),countdownLeft,{visible:countdownLeft>0,remainingMs:(Number(game.countdownEndsAt)||0)-now(),sequence:code+":"+game.round+":"+game.countdownEndsAt});
       const waveCountdown=!!game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch";
       $("gameCountdown").classList.toggle("waveShieldCountdown",waveCountdown);
       $("gameCountdown").classList.toggle("waveBattleRoyaleCountdown",game.settings?.waveMode==="battleRoyale"&&game.countdownKind==="launch");
@@ -20834,7 +20834,7 @@ function renderUI() {
       const countdownProgress=document.querySelector("#gameCountdownProgress i");
       if(countdownProgress){const duration=game.settings?.waveMode&&game.settings.waveMode!=="normal"?10:5;countdownProgress.style.transform=`scaleX(${Math.max(0,Math.min(1,countdownLeft/duration))})`;}
 
-      if (countdownLeft > 0) {const number=$("gameCountdownNumber"),value=String(countdownLeft);if(number.textContent!==value){number.textContent=value;number.style.animation="none";void number.offsetWidth;number.style.animation="";}}
+      // Countdown presentation owns digit updates; avoid a forced layout on every tick.
       const lineup=$("launchLineup"),launchKey=code+":"+game.round+":"+game.countdownEndsAt;
       if(waveCountdown)lineup.replaceChildren();
       if(countdownLeft>0&&!waveCountdown&&lineup.dataset.key!==launchKey){

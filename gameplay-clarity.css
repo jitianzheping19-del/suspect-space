@@ -1,32 +1,3 @@
-/* Each countdown has a different composition, not just a different tint. */
-html body #gameCountdown{backdrop-filter:none!important;overflow:hidden}
-#gameCountdown .countdownLayout{position:relative;isolation:isolate;display:grid;align-content:center;justify-items:center;width:min(900px,94vw);height:min(560px,86dvh);gap:12px}
-#gameCountdown .countdownArt{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden;border-radius:28px}
-#gameCountdown .launchShutter{position:absolute;top:8%;bottom:8%;width:45%;border:1px solid #678b9c;background:repeating-linear-gradient(0deg,#142c3a 0 38px,#284552 39px 41px);box-shadow:inset 0 0 60px #020d1c}
-#gameCountdown .launchShutter.left{left:0;clip-path:polygon(0 0,100% 0,86% 50%,100% 100%,0 100%)}
-#gameCountdown .launchShutter.right{right:0;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,14% 50%)}
-#gameCountdown .launchSeal{position:absolute;left:50%;top:8%;transform:translateX(-50%);font:900 30px system-ui;color:#83e6df;border:1px solid #83e6df;border-radius:50%;width:52px;height:52px;display:grid;place-items:center;background:#0b1c29}
-html body #gameCountdown[data-kind="launch"]{background:radial-gradient(ellipse at center,#123342,#030a15 70%)!important}
-html body #gameCountdown #gameCountdownLabel{position:relative!important;inset:auto!important;transform:none!important;margin:0!important;font-size:clamp(22px,5vh,40px)!important;letter-spacing:.08em!important}
-html body #gameCountdown #gameCountdownNumber{position:relative!important;inset:auto!important;transform:none!important;margin:0!important;line-height:1!important;font-size:clamp(80px,26vh,180px)!important}
-#gameCountdown .departureLights,#gameCountdown .meetingReturnMark{display:none}
-html body #gameCountdown[data-kind="post-role"]{background:radial-gradient(ellipse at 50% 70%,#123d40,#040d17 72%)!important}
-#gameCountdown[data-kind="post-role"] .countdownLayout{grid-template-columns:1fr 1fr;gap:0;border:1px solid #476d79;border-radius:28px;background:linear-gradient(140deg,#142e3e,#071a26);height:min(320px,72dvh);width:min(740px,92vw);padding:20px}
-#gameCountdown[data-kind="post-role"] .countdownArt{position:relative;grid-column:1;grid-row:1 / span 2;align-self:stretch;z-index:0}
-#gameCountdown[data-kind="post-role"] .countdownArt>:not(.departureLights){display:none}
-#gameCountdown[data-kind="post-role"] .departureLights{display:flex;position:absolute;inset:15% 20%;flex-direction:column;justify-content:space-evenly;align-items:center;border:1px solid #486877;border-radius:24px;background:#07111b}
-#gameCountdown .departureLights i{width:clamp(20px,6vh,42px);height:clamp(20px,6vh,42px);border-radius:50%;background:#283e48;border:2px solid #506774}
-#gameCountdown .departureLights i.lit{background:#9bffe0;border-color:#d0fff0;box-shadow:0 0 18px #65ebaf77}
-#gameCountdown[data-kind="post-role"] #gameCountdownLabel{grid-column:2;align-self:end}
-#gameCountdown[data-kind="post-role"] #gameCountdownNumber{grid-column:2;align-self:start}
-html body #gameCountdown[data-kind="meeting-return"]{background:transparent!important;align-items:flex-end!important;padding-bottom:max(22px,env(safe-area-inset-bottom))!important}
-#gameCountdown[data-kind="meeting-return"]::before,#gameCountdown[data-kind="meeting-return"]::after{display:none!important}
-#gameCountdown[data-kind="meeting-return"] .countdownLayout{grid-template-columns:62px 1fr 64px;gap:12px;width:min(470px,90vw);height:88px;border:1px solid #94a9ba;border-radius:22px;background:linear-gradient(130deg,#213b4af5,#0a1926fa);padding:12px 18px;box-shadow:0 12px 36px #0008}
-#gameCountdown[data-kind="meeting-return"] .countdownArt{position:relative;inset:auto;grid-column:1;grid-row:1;z-index:0}
-#gameCountdown[data-kind="meeting-return"] .countdownArt>:not(.meetingReturnMark){display:none}
-#gameCountdown[data-kind="meeting-return"] .meetingReturnMark{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:#416368;color:#d9fff3;font-size:32px}
-html body #gameCountdown[data-kind="meeting-return"] #gameCountdownLabel{grid-column:2;grid-row:1;font-size:22px!important}
-html body #gameCountdown[data-kind="meeting-return"] #gameCountdownNumber{grid-column:3;grid-row:1;font-size:48px!important}
 html body #mapWorld .mapMe{width:23px!important;height:23px!important;z-index:80!important;border:3px solid #fff!important;background:#00c7be!important;box-shadow:0 0 0 5px #001922e8,0 0 0 9px #75ffda88!important;overflow:visible!important}
 #mapWorld .mapMe::after{content:"現在地";position:absolute;left:50%;top:calc(100% + 9px);transform:translateX(-50%);padding:3px 7px;border:1px solid #88f1de;border-radius:7px;color:white;background:#06232ef5;font:800 12px/1.3 system-ui;white-space:nowrap}
 #mapWorld .mapMe::before{content:"";position:absolute;inset:-15px;border:2px solid #7bffe3;border-radius:50%;animation:currentPositionPulse 2s ease-out infinite}
@@ -47,13 +18,6 @@ html body #mapWorld .mapMe{width:23px!important;height:23px!important;z-index:80
 html body[data-map-walking=true] #mapPanel{pointer-events:none!important}
 html body[data-map-walking=true] #mapPanel #mapCloseBtn{pointer-events:auto!important}
 html body[data-map-walking=true] #controls #stick{pointer-events:auto!important;z-index:2450!important}
-html body #gameCountdown .countdownLayout{box-sizing:border-box;flex:none;max-height:86dvh}
-html body #gameCountdown[data-kind="launch"] .countdownLayout{grid-template-columns:minmax(0,1fr);grid-template-rows:1fr auto auto 1fr;padding:18px}
-html body #gameCountdown[data-kind="launch"] #gameCountdownLabel{grid-row:2;grid-column:1;align-self:end}
-html body #gameCountdown[data-kind="launch"] #gameCountdownNumber{grid-row:3;grid-column:1;align-self:start;filter:drop-shadow(0 0 14px #53dbed66)}
-html body #gameCountdown #gameCountdownProgress,html body #gameCountdown #gameCountdownCrewLineup{display:none!important}
-html body #gameCountdown .countdownArt{box-sizing:border-box}
-html body #gameCountdown #launchLineup{display:none!important}
 /* Phone landscape: fixed-size action cells prevent inherited wide grid tracks
    from stretching the use button. Keep the same 3D icon layout as larger screens. */
 @media (pointer:coarse) and (max-height:600px){

@@ -12,4 +12,4 @@ Implemented changes:
 
 The editable meeting and lobby scenes were synchronized into all four game HTML entry points. No tests, browser playtests or deployment were run for this change.
 
-Countdown redesign is intentionally pending the user's choice: closing rings, releasing bulkheads, or converging light/impact. Existing countdown implementation remains unchanged in this revision.
+The subsequent countdown revision uses all three proposed directions in different phases; see `countdown-presentation-2026-10-25.md`.

@@ -21189,7 +21189,7 @@ function renderUI() {
       const countdownVisible=countdownLeft>0||postRoleCountdown,countdownValue=postRoleCountdown?Math.max(1,Math.ceil((playStartsAt-now())/1000)):countdownLeft;
       $("gameCountdown").dataset.kind=postRoleCountdown?"post-role":game.countdownKind||"launch";
       $("gameCountdownLabel").textContent=postRoleCountdown?"出撃まで":game.countdownKind==="meeting-return"?"再開まで":"役職確認まで";
-      updateCountdownPresentation($("gameCountdown"),countdownValue);
+      updateCountdownPresentation($("gameCountdown"),countdownValue,{visible:countdownVisible,remainingMs:(postRoleCountdown?playStartsAt:Number(game.countdownEndsAt)||0)-now(),sequence:code+":"+game.round+":"+(postRoleCountdown?playStartsAt:game.countdownEndsAt)});
       const waveCountdown=!!game.settings?.waveMode&&game.settings.waveMode!=="normal"&&game.countdownKind==="launch";
       $("gameCountdown").classList.toggle("waveShieldCountdown",waveCountdown);
       $("gameCountdown").classList.toggle("waveBattleRoyaleCountdown",game.settings?.waveMode==="battleRoyale"&&game.countdownKind==="launch");
@@ -21208,7 +21208,7 @@ function renderUI() {
       const countdownProgress=document.querySelector("#gameCountdownProgress i");
       if(countdownProgress){const duration=postRoleCountdown?3:game.settings?.waveMode&&game.settings.waveMode!=="normal"?10:5;countdownProgress.style.transform=`scaleX(${Math.max(0,Math.min(1,countdownValue/duration))})`;}
 
-      if (countdownVisible) {const number=$("gameCountdownNumber"),value=String(countdownValue);if(number.textContent!==value){number.textContent=value;number.style.animation="none";void number.offsetWidth;number.style.animation="";}}
+      // Countdown presentation owns digit updates; avoid a forced layout on every tick.
       const lineup=$("launchLineup"),launchKey=code+":"+game.round+":"+game.countdownEndsAt;
       if(waveCountdown)lineup.replaceChildren();
       if(countdownLeft>0&&!waveCountdown&&lineup.dataset.key!==launchKey){
