@@ -1,0 +1,13 @@
+#voteConfirm{border:1px solid #72b6b6!important;border-radius:20px!important;background:linear-gradient(145deg,#183c4d,#081c2a)!important;box-shadow:0 16px 55px #0009!important;padding:18px!important;width:min(390px,90vw)!important}
+#voteConfirmText{margin:0 0 14px!important;font-size:clamp(17px,3vw,24px)!important;overflow-wrap:anywhere}
+#voteConfirmYes,#voteConfirmNo{min-height:48px!important;border-width:1px!important;border-radius:12px!important;font-size:24px!important}
+#abilityTargetList button{border-radius:14px!important;text-align:left;transition:background .12s,border-color .12s}
+#abilityTargetList button:focus-visible,#abilityTargetList button[aria-pressed=true]{outline:2px solid #9af1de;outline-offset:2px}
+#abilityTargetList button:disabled{opacity:.4}
+#buttons{align-items:stretch!important;justify-content:end!important}
+#inputSettingsNav [hidden]{display:none!important}
+#settingsPanel_admin{min-width:0}
+#settingsPanel_admin button{border-radius:13px;border:1px solid #547c90;background:#153447;color:#edfaff}
+#settingsPanel_admin pre{padding:14px;background:#071926;border:1px solid #355a6b;border-radius:12px;font-size:12px}
+.reviewInboxButton{box-sizing:border-box;max-width:520px;justify-self:stretch}
+@media(pointer:coarse){button{touch-action:manipulation}#meetingChatMessages{font-size:13px;line-height:1.45}}

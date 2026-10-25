@@ -1,4 +1,6 @@
 // Keep the editable costume sculpts and all game/preview consumers synchronized.
+import './sync-costume-catalog.mjs';
+import './sync-lobby-ascent.mjs';
 import {readFile,writeFile} from 'node:fs/promises';
 import {gzipSync,gunzipSync} from 'node:zlib';
 const helper=(await readFile('assets-source/detailed-companions.js','utf8')).trim();

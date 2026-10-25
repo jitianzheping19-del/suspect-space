@@ -34,7 +34,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   canvas.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;user-select:none;outline:none';
   canvas.tabIndex = 0; canvas.setAttribute('role', 'application');
   canvas.setAttribute('aria-label', s.task.name + '。' + taskInstructions[mode] + '。Tabで操作箇所、矢印で調整、Enterで操作、Escapeで閉じる。');
-  host.replaceChildren(canvas);
+  host.classList.remove("task-complete");host.replaceChildren(canvas);
   scene.add(new THREE.HemisphereLight('#d9f5ff', '#102235', 2.6));
   for (const [color, intensity, x, y, z] of [['#e2f1ff', 4, -4, 6, 9], ['#65d5e8', 2.5, 7, 1, 5], ['#e8ad70', 1.4, -6, -4, 4]]) {
     const light = new THREE.DirectionalLight(color, intensity); light.position.set(x, y, z); scene.add(light);
@@ -103,7 +103,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   }
   function hit(id, x, y, w = .85, h = .85, kind = 'tap', parent = scene, z = 1.2) {
     const m = new THREE.MeshBasicMaterial({ visible: false }); materials.add(m);
-    const o = box(w, h, .05, m, x, y, z, parent);
+    const touch=matchMedia("(pointer:coarse)").matches;const o = box(w*(touch?1.16:1), h*(touch?1.16:1), .05, m, x, y, z, parent);
     o.userData.taskControl = { id, drag: kind === 'tap' ? '' : kind, index: controls.length };
     controls.push(o); return o;
   }
@@ -144,7 +144,6 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   }
   box(8.7, .02, .02, metal, 0, 1.84, 0);
   label(s.task.instrument || s.task.name, 0, 2.13, .3, 7.9, '#bddee8', scene, .29);
-  const instruction = label(taskInstructions[mode], 0, -2.15, .75, 8.9, '#a6c9d5', scene, .25);
   const statusScreen = screen(0, -1.83, 7.5, .26, false);
   const progressLight = box(.035, .035, .035, green, -4.3, 2.12, .2);
 
@@ -405,13 +404,14 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   function rayAt(event) { const r = canvas.getBoundingClientRect(); pointer.set((event.clientX - r.left) / r.width * 2 - 1, -(event.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(pointer, camera); return ray; }
   function world(event) { return rayAt(event).ray.intersectPlane(plane, new THREE.Vector3()); }
   function enabled(object) { for (let o = object; o; o = o.parent) if (!o.visible) return false; return true; }
-  function controlAt(event) { scene.updateMatrixWorld(true); return rayAt(event).intersectObjects(controls, false).find((h) => enabled(h.object))?.object; }
+  function controlAt(event) {scene.updateMatrixWorld(true);const hits=rayAt(event).intersectObjects(controls,false).filter(h=>enabled(h.object));let selected=null,best=Infinity;for(const h of hits){const local=h.object.worldToLocal(h.point.clone()),size=h.object.geometry.parameters,score=(local.x/size.width)**2+(local.y/size.height)**2;if(score<best){best=score;selected=h.object;}}return selected;}
+
   function down(event) {
     if (!s.accepting || dragging || (event.button !== undefined && event.button !== 0)) return;
     const object = controlAt(event), p = world(event); if (!object || !p) return;
     event.preventDefault(); event.stopPropagation(); canvas.focus({ preventScroll: true }); canvas.setPointerCapture(event.pointerId);
     const c = object.userData.taskControl, center = object.getWorldPosition(new THREE.Vector3()); keyboardIndex = c.index;
-    dragging = { pointer: event.pointerId, id: c.id, kind: c.drag, center, offset: c.drag === 'drag' ? [p.x - center.x, p.y - center.y] : [0, 0], angle: Math.atan2(p.y - center.y, p.x - center.x) };
+    dragging = { pointer: event.pointerId, id: c.id, kind: c.drag, center, offset: c.drag === 'drag' ? [p.x - center.x, p.y - center.y] : [0, 0], angle: Math.hypot(p.x-center.x,p.y-center.y)>.15?Math.atan2(p.y-center.y,p.x-center.x):null };
     run.dispatch({ type: 'press', id: c.id, x: p.x - dragging.offset[0], y: p.y - dragging.offset[1] });
     update(0); // Make a moved control's next hit test match its visible position.
   }
@@ -419,7 +419,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     if (!dragging || event.pointerId !== dragging.pointer) { canvas.style.cursor = s.accepting && controlAt(event) ? 'pointer' : 'default'; return; }
     event.preventDefault(); event.stopPropagation(); const p = world(event); if (!p) return;
     const d = dragging;
-    if (d.kind === 'rotate') { const angle = Math.atan2(p.y - d.center.y, p.x - d.center.x); if (Math.hypot(p.x - d.center.x, p.y - d.center.y) > .15) { run.dispatch({ type: 'rotate', id: d.id, delta: angleDelta(angle, d.angle) }); d.angle = angle; } }
+    if (d.kind === 'rotate') { const angle = Math.atan2(p.y - d.center.y, p.x - d.center.x); if (Math.hypot(p.x - d.center.x, p.y - d.center.y) > .15) { run.dispatch({ type: 'rotate', id: d.id, delta: d.angle===null?0:angleDelta(angle, d.angle) }); d.angle = angle; } }
     else if (d.kind) run.dispatch({ type: 'drag', id: d.id, x: p.x - d.offset[0], y: p.y - d.offset[1] });
     update(0);
   }
@@ -449,7 +449,9 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     lastW = w; lastH = h; renderer.setSize(w, h, false); const a = w / h, v = Math.max(2.62, 5.2 / a);
     camera.left = -v * a; camera.right = v * a; camera.top = v; camera.bottom = -v; camera.updateProjectionMatrix();
   }
+  let completedShown=false;
   function update(dt) {
+    if(s.finished&&!completedShown){completedShown=true;host.classList.add('task-complete');host.dispatchEvent(new CustomEvent('spacesuspect:task-completed',{bubbles:true}));}
     // Keep the mechanisms' timing consistent on a slower renderer. Substeps
     // preserve collision/temperature stability instead of slowing the task.
     for (let remaining = dt; remaining > 0; remaining -= .02) run.step(Math.min(.02, remaining));
@@ -459,7 +461,6 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     statusScreen.setVisible(!!message);
     statusScreen(message, (ctx, w, h) => { ctx.fillStyle = s.errorUntil > s.elapsed ? '#ff9ba5' : '#8df1c7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 30px system-ui,sans-serif'; ctx.fillText(message, w / 2, h / 2, w - 10); });
     progressLight.scale.x = Math.max(.3, Math.min(1, s.progress) * 18); progressLight.material = s.finished ? green : cyan;
-    instruction.material.opacity = s.finished ? .4 : 1;
     scene.updateMatrixWorld(true);
   }
   function tick(now) {
@@ -470,12 +471,15 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   }
   function lost(event) { event.preventDefault(); dispose(); onUnavailable?.(); }
   const observer = new ResizeObserver(resize); observer.observe(host);
-  const handlers = [['pointerdown', down], ['pointermove', move], ['pointerup', release], ['pointercancel', release], ['lostpointercapture', release], ['keydown', keyboard], ['keyup', keyup], ['blur', pause], ['contextmenu', (event) => event.preventDefault()], ['webglcontextlost', lost]];
+  const handlers = [['pointerdown', down], ['pointermove', move], ['pointerup', release], ['pointercancel', release], ['lostpointercapture', () => {}], ['keydown', keyboard], ['keyup', keyup], ['blur', pause], ['contextmenu', (event) => event.preventDefault()], ['webglcontextlost', lost]];
   for (const [name, fn] of handlers) canvas.addEventListener(name, fn);
+  const outsideMove=event=>{if(dragging&&event.pointerId===dragging.pointer&&!canvas.hasPointerCapture(event.pointerId))move(event);};
+  window.addEventListener('pointermove',outsideMove,{passive:false});window.addEventListener('pointerup',release);window.addEventListener('pointercancel',release);
   document.addEventListener('visibilitychange', pause);
   function dispose() {
     if (disposed) return; disposed = true; pause(); cancelAnimationFrame(raf); observer.disconnect();
     for (const [name, fn] of handlers) canvas.removeEventListener(name, fn);
+    window.removeEventListener('pointermove',outsideMove);window.removeEventListener('pointerup',release);window.removeEventListener('pointercancel',release);
     document.removeEventListener('visibilitychange', pause);
     for (const g of geometries) g.dispose(); for (const m of materials) m.dispose(); for (const t of textures) t.dispose();
     renderer.setRenderTarget(null); renderer.clear(); renderer.renderLists.dispose(); canvas.remove();

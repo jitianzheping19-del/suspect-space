@@ -14,13 +14,17 @@ html body #taskModal {
   overflow: hidden;
   clip-path: inset(50%);
 }
-#taskModal #taskStage { margin: 6px 6px 0; }
+#taskModal #taskStage { margin: 52px 6px 6px; }
 #taskModal .task-progress { display: none; }
 #taskModal .task-footer {
-  min-height: 46px;
-  padding: 6px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  pointer-events: none;
 }
-#taskModal #taskClose { min-width: 64px; height: 32px; min-height: 32px; padding: 5px 12px; font-size: 12px; }
+#taskModal #taskFeedback { display: none; }
 
 html body #taskGame[data-machine3d="true"]:not(.hidden) {
   z-index: 2400 !important;
@@ -50,25 +54,50 @@ html body #taskGame[data-machine3d="true"] #taskProgressTrack { display: none !i
 html body #taskGame[data-machine3d="true"] #taskMachineStage {
   display: block !important;
   position: absolute !important;
-  inset: 6px 6px 50px !important;
+  inset: 52px 6px 6px !important;
   width: auto !important;
   height: auto !important;
   min-height: 0 !important;
   max-height: none !important;
   margin: 0 !important;
 }
-html body #taskGame[data-machine3d="true"] #taskGameCloseBtn {
+/* One close control in the same place for both task engines. */
+html body #taskGame[data-machine3d="true"] #taskGameCloseBtn,
+html body #ssTaskTerminalHost #ssTaskTerminalClose,
+html body #taskModal #taskClose {
   position: absolute !important;
-  left: 8px !important;
-  bottom: 8px !important;
-  top: auto !important;
-  right: auto !important;
-  min-width: 64px !important;
-  height: 32px !important;
-  min-height: 32px !important;
-  padding: 5px 12px !important;
-  font-size: 12px !important;
+  left: auto !important;
+  bottom: auto !important;
+  top: max(6px, env(safe-area-inset-top)) !important;
+  right: max(8px, env(safe-area-inset-right)) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-width: 88px !important;
+  width: auto !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 0 13px !important;
+  border: 1px solid #718fa0 !important;
+  border-radius: 13px !important;
+  background: linear-gradient(155deg,#243e4d,#102330) !important;
+  color: #f1fafb !important;
+  box-shadow: inset 0 1px 0 #d5f5ff21,0 3px 10px #0005 !important;
+  font: 700 13px/1 system-ui,sans-serif !important;
+  z-index: 5 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
 }
+html body #taskGame[data-machine3d="true"] #taskGameCloseBtn::before,
+html body #ssTaskTerminalHost #ssTaskTerminalClose::before,
+html body #taskModal #taskClose::before {content:"";width:14px;height:14px;background:linear-gradient(45deg,transparent 44%,currentColor 45% 55%,transparent 56%),linear-gradient(-45deg,transparent 44%,currentColor 45% 55%,transparent 56%);opacity:.8}
+html body :is(#taskGameCloseBtn,#ssTaskTerminalClose,#taskClose):focus-visible {outline:2px solid #8cf2e0;outline-offset:2px}
+html body :is(#taskGameCloseBtn,#ssTaskTerminalClose,#taskClose):active {filter:brightness(1.2)}
+@media(hover:hover){html body :is(#taskGameCloseBtn,#ssTaskTerminalClose,#taskClose):hover {border-color:#a9d9dc!important;background:#234957!important}}
 html body:has(#taskGame[data-machine3d="true"]:not(.hidden)) :is(
   #hud, #controls, #buttons, #role, #taskProgressHud, #roundRoleBtn,
   #mapBtn, #titleInputSettingsBtn, #voiceToggleBtn, #ghostHud

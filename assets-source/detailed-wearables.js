@@ -2,11 +2,12 @@
  * Authored silhouettes and surface construction, generated only on outfit changes.
  * Each outfit owns its resources. The caller batches static pieces by material.
  */
-function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials}){
-  const hats=['dragon','ufo','hbnd','hstr','hfed','hrib','hlea','hice','hmoo','hsta','hmsk','hpuf','hsus','hbut','hhrt','hpar','hcap2','hdev','hsan','hgld','hpen','hfrg'];
-  const bags=['pack','jet','satchel','medic','oxygen','radio','hiking','shield','aquarium','rocket','wings','treasure','solar','guitar','bbag','bdrm','bcam','bgym','bshp','bwtr','bpar','bcrd','bfish','bjus','btrv','bflag','bbal','bcat','bbee','bnin','bstr','bbox','bmap','bgsd','camera','battery','lantern','toolbox','book'];
-  const accessories=['bhrt','bstf','brbw','bflw','bwng','bhmr','brkt','bgtr','bsld','bcrn','aswd','aflg','aneo','alan','aglb','abal','apiz','aclk','arob','ajet','asng','abrd','agem','aumb','arbt','asnw','apal','asub','abok','abom'];
-  if(!(category==='hat'?hats:category==='bag'?bags:category==='accessory'?accessories:[]).includes(kind))return false;
+function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials,clothingColor}){
+  const hats=['dragon','ufo','hbnd','hstr','hfed','hrib','hlea','hice','hmoo','hsta','hmsk','hpuf','hsus','hbut','hhrt','hpar','hcap2','hdev','hsan','hgld','hpen','hfrg','hpho','hdeep','hkabu','hmage','hveil','hrose','hgear','hstag','hcapn','hcrys'];
+  const bags=['pack','jet','satchel','medic','oxygen','radio','hiking','shield','aquarium','rocket','wings','treasure','solar','guitar','bbag','bdrm','bcam','bgym','bshp','bwtr','bpar','bcrd','bfish','bjus','btrv','bflag','bbal','bcat','bbee','bnin','bstr','bbox','bmap','bgsd','camera','battery','lantern','toolbox','book','bforge','bterr','bastro','bsteam','bsynth','bdiver','bfox','broll','bviolin','bmail'];
+  const accessories=['bhrt','bstf','brbw','bflw','bwng','bhmr','brkt','bgtr','bsld','bcrn','aswd','aflg','aneo','alan','aglb','abal','apiz','aclk','arob','ajet','asng','abrd','agem','aumb','arbt','asnw','apal','asub','abok','abom','ascyle','acello','akite','acoral','aclock','afan','aphone','acrys','arose','aorbit'];
+  const bottoms=['nknight', 'ndiver', 'nsamurai', 'nastral', 'naviator', 'nroyal', 'nchef', 'nmechanic', 'nskater', 'nfrost'];
+  if(!(category==='hat'?hats:category==='bag'?bags:category==='accessory'?accessories:category==='bottom'?bottoms:[]).includes(kind))return false;
   const root=new THREE.Group();root.name='detailed-'+category+'-'+kind;
   root.position.set(0,category==='hat'?1.655:category==='bag'?1:0,category==='bag'?-.57:0);
   root.userData.detailedWearable={category,kind,version:1};parent.add(root);
@@ -70,6 +71,133 @@ function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials}){
     for(const m of pieces)root.attach(m);
     for(const c of [...root.children])if(c.isGroup)root.remove(c);
     return true;
+  }
+  /* COSTUME_COLLECTION_OCT25: distinct sculpts; no textures or per-frame rebuilds. */
+  if(category==='hat'&&['hpho','hdeep','hkabu','hmage','hveil','hrose','hgear','hstag','hcapn','hcrys'].includes(kind)){
+    if(kind==='hpho'){
+      profile([[0,-.02],[.33,-.02],[.36,.08],[.31,.22],[.18,.30],[0,.32]],0x603744,0,0,0,'metal');hatBand(gold,.025,.34,.018);
+      for(const side of[-1,1])for(let i=0;i<4;i++){const g=group(side*(.16+i*.045),.15+i*.035,-.08-i*.045);g.rotation.z=-side*(.35+i*.14);const f=leaf(i%2?0xe7b660:0xb95d48,0,0,0,.42+i*.025,0,g);f.rotation.x=-.18;line([[0,-.02,.022],[.015,.17,.025],[.01,.38,.025]],gold,.006,'metal',g);}
+      poly([[-.13,.06],[0,.30],[.13,.06],[.06,-.04],[0,.03],[-.06,-.04]],gold,0,.08,.315,.026,'metal');part('gem',0xd77d63,0,.18,.358,.045,.075,.023,'enamel');for(const side of[-1,1])horn([[side*.26,.12,.13],[side*.35,.23,.10],[side*.32,.40,.01]],0xc88b4c,.045);
+    }else if(kind==='hdeep'){
+      ball(0xb58c53,0,-.22,-.025,.43,.39,.40,'metal');profile([[0,-.54],[.42,-.54],[.43,-.48],[.38,-.43],[0,-.43]],ink,0,0,0,'metal');
+      const faceplate=group(0,-.22,.327);ring(gold,0,0,0,.275,.035,0,0,0,'metal',faceplate);ball(0x55838e,0,0,.01,.245,.245,.07,'enamel',faceplate);ring(ivory,0,0,.041,.213,.008,0,0,0,'metal',faceplate);
+      for(let i=0;i<8;i++){const a=i*Math.PI/4;stud(Math.sin(a)*.274,Math.cos(a)*.274,.027,silver,.018,faceplate);}for(const side of[-1,1]){const valve=part('cylinder',brass,side*.42,-.21,-.03,.10,.06,.10,'metal');valve.rotation.z=Math.PI/2;ring(ink,side*.455,-.21,-.03,.062,.009,0,Math.PI/2);line([[side*.34,-.38,-.15],[side*.43,-.45,-.28],[side*.22,-.54,-.34]],ink,.032,'leather');}line([[-.12,-.08,.40],[-.18,-.14,.405],[-.19,-.22,.40]],0xd0f3e9,.014,'enamel');
+    }else if(kind==='hkabu'){
+      profile([[0,0],[.34,0],[.36,.08],[.30,.23],[.15,.31],[0,.32]],0x293c51,0,0,0,'metal');
+      for(let i=0;i<4;i++){const r=.35+i*.025;const m=profile([[r*.91,-.015],[r,-.015],[r,.035],[r*.91,.035]],i%2?0x31475b:0x526777,0,-.025-i*.065,-.035,'metal');m.scale.z=.95;}
+      for(const side of[-1,1]){poly([[0,0],[side*.15,.17],[side*.27,.55],[side*.20,.48],[side*.09,.24]],gold,side*.06,.04,.30,.033,'metal');box(0x8b4750,side*.33,-.10,.11,.07,.23,.16,'cloth');for(let i=0;i<3;i++)stud(side*.337,-.18+i*.07,.20,gold,.011);}part('gem',0xc46a65,0,.11,.346,.05,.08,.03,'enamel');line([[0,.15,-.29],[0,.28,-.12],[0,.33,.08],[0,.19,.29]],brass,.012,'metal');
+    }else if(kind==='hmage'){
+      const cap=box(0x33435e,0,.10,0,.62,.10,.55);cap.rotation.y=Math.PI/4;profile([[0,0],[.26,0],[.28,.10],[.24,.18],[0,.18]],0x28384f,0,-.07,0);line([[-.26,.16,-.02],[0,.17,.24],[.27,.16,-.01]],gold,.012,'metal');
+      const dome=ball(0x55778d,0,.17,0,.16,.10,.16,'enamel');ring(gold,0,.22,0,.19,.011,Math.PI/2);star(ivory,0,.26,.09,.075,.018);line([[.20,.13,.10],[.36,.09,.15],[.37,-.10,.17]],gold,.012);for(let i=0;i<4;i++)line([[.34+i*.015,-.08,.17],[.34+i*.015,-.22,.17]],0xcead64,.005);for(const side of[-1,1])star(gold,side*.21,.156,.16,.033,.01);
+    }else if(kind==='hveil'){
+      profile([[0,-.02],[.32,-.02],[.33,.07],[.25,.18],[0,.22]],0x414063,0,0,0);hatBand(silver,.02,.32,.012);
+      for(const side of[-1,1]){const veil=outline(s=>{s.moveTo(0,.13);s.bezierCurveTo(side*.17,.06,side*.12,-.16,side*.20,-.35);s.quadraticCurveTo(side*.04,-.30,-side*.035,-.33);s.quadraticCurveTo(-side*.04,-.06,0,.13);},0x777393,side*.29,0,-.09,.012);veil.rotation.y=side*.35;for(let i=0;i<3;i++)stud(side*(.31+i*.027),-.09-i*.075,.02,silver,.009);}
+      const moon=outline(s=>{s.moveTo(.10,.19);s.bezierCurveTo(-.25,.23,-.25,-.22,.10,-.20);s.bezierCurveTo(-.065,-.08,-.07,.08,.10,.19);},silver,0,.15,.26,.028,'metal');moon.scale.setScalar(.8);part('gem',0xb2a4d4,0,-.05,.33,.035,.075,.018,'enamel');
+    }else if(kind==='hrose'){
+      const brim=profile([[.23,-.03],[.38,-.03],[.40,.01],[.34,.08],[.23,.09]],0xe1c5b7,0,.06,0);brim.scale.z=.85;ball(0xa56e7d,0,.095,-.07,.28,.18,.25);for(let i=0;i<5;i++){const a=i*Math.PI/5-.3,g=group(Math.cos(a)*.27,.18,Math.sin(a)*.24);for(let n=0;n<7;n++){const q=n*2.4;const p=ball(n%2?0xb95b75:0xd68395,Math.cos(q)*.042,Math.sin(q)*.042,0,.055,.035,.022);g.add(p);p.rotation.z=q;}ball(0x84394f,0,0,.02,.022,.024,.018,'enamel',g);}for(const side of[-1,1]){const ribbon=poly([[0,0],[side*.08,-.19],[side*.17,-.32],[side*.08,-.29],[side*.06,-.34],[-side*.025,-.10]],0xae6a82,side*.28,0,.10,.014);ribbon.rotation.y=-side*.2;leaf(0x7a9879,side*.24,.12,.15,.18,-side*.8);}
+    }else if(kind==='hgear'){
+      brim(0x675242,.38,.015);profile([[0,.02],[.29,.02],[.30,.28],[.24,.35],[0,.35]],0x695646,0,0,0,'leather');hatBand(brass,.09,.302,.023);
+      for(const side of[-1,1]){ring(brass,side*.13,.16,.29,.108,.019);ball(0x638d99,side*.13,.16,.30,.088,.088,.026,'enamel');ring(ink,side*.13,.16,.333,.078,.006);for(let i=0;i<6;i++){const a=i*Math.PI/3;stud(side*.13+Math.sin(a)*.10,.16+Math.cos(a)*.10,.313,silver,.007);}}box(brass,0,.16,.29,.07,.026,.026,'metal');for(let i=0;i<3;i++){const m=part('cylinder',brass,-.25+i*.055,.35+i*.035,-.05,.027,.12+i*.04,.027,'metal');ring(silver,m.position.x,m.position.y+.07+i*.02,-.05,.030,.008,Math.PI/2);}
+    }else if(kind==='hstag'){
+      hatBand(0x5d7156,.035,.30,.03);for(const side of[-1,1]){horn([[side*.22,.07,-.02],[side*.33,.24,-.055],[side*.34,.47,-.10],[side*.47,.65,-.08]],0xb6a07c,.044);horn([[side*.34,.38,-.08],[side*.17,.49,-.055],[side*.14,.61,-.03]],0xc5b18b,.028);horn([[side*.38,.53,-.08],[side*.54,.46,-.12],[side*.60,.54,-.08]],0xb6a07c,.026);for(let i=0;i<3;i++)leaf(i%2?0x789f70:0x466e57,side*(.20+i*.06),.08+i*.01,.12,.18,-side*(.5+i*.4));}part('gem',0x9dba86,0,.08,.30,.065,.095,.032,'enamel');for(const x of[-.07,.07])stud(x,.02,.30,gold,.014);
+    }else if(kind==='hcapn'){
+      ball(0x283b52,0,.13,0,.32,.21,.29);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,g=group(Math.sin(a)*.20,.07,Math.cos(a)*.20);g.rotation.y=a;outline(s=>{s.moveTo(-.30,-.04);s.quadraticCurveTo(-.25,.27,0,.15);s.quadraticCurveTo(.25,.27,.30,-.04);s.lineTo(-.30,-.04);},0x243449,0,0,0,.055,'cloth',g);line([[-.28,.0,.06],[-.19,.15,.06],[0,.11,.06],[.19,.15,.06],[.28,0,.06]],gold,.011,'metal',g);}ring(gold,0,.13,.255,.055,.009);box(gold,0,.12,.277,.016,.13,.015,'metal');line([[-.055,.10,.28],[0,.065,.28],[.055,.10,.28]],gold,.009,'metal');feather(-.22,.35,-.02,.28,.045,-.3);for(let i=0;i<3;i++)stud(.26,.12+i*.025,.12,gold,.011);
+    }else if(kind==='hcrys'){
+      hatBand(silver,.025,.30,.019);for(let i=0;i<7;i++){const a=(i-3)*.28,x=Math.sin(a)*.29,z=Math.cos(a)*.29,y=.08,h=.12+(3-Math.abs(i-3))*.035;const c=part('gem',i%2?0xa7cfdc:0x8b9fc3,x,y+h*.50,z,.045,h,.038,'enamel');c.rotation.z=-a*.3;ring(silver,x,y,z,.055,.007,0,0,-a);ball(ivory,x-.012,y+h*.72,z+.04,.009,.026,.005,'enamel');}for(const side of[-1,1]){line([[side*.27,.02,.1],[side*.33,-.06,.12],[side*.30,-.14,.14]],silver,.006,'metal');part('gem',0xc3dfec,side*.30,-.17,.14,.025,.048,.018,'enamel');}
+    }
+    return finish();
+  }
+  if(category==='bag'&&['bforge','bterr','bastro','bsteam','bsynth','bdiver','bfox','broll','bviolin','bmail'].includes(kind)){
+    if(kind==='bforge'){
+      pack(0x42535b,.53,.62,.32);box(ink,0,-.05,-.25,.37,.33,.06,'metal');box(0xbc714d,0,-.05,-.29,.29,.25,.023,'enamel');for(let i=0;i<4;i++){box(0x34393c,-.12+i*.08,-.05,-.32,.020,.29,.018,'metal');ball(i%2?0xe5a65a:0xf5d592,-.09+i*.06,-.10,-.31,.026,.07,.012,'enamel');}profile([[0,0],[.075,0],[.075,.25],[.11,.28],[0,.28]],ink,-.17,.29,-.08,'metal');box(0x9aa9a8,.14,.36,-.07,.22,.07,.13,'metal');for(const side of[-1,1]){line([[side*.22,-.18,-.12],[side*.29,.05,-.08],[side*.26,.25,-.07]],brass,.018,'metal');stud(side*.21,.24,-.26,gold,.022);}buckle(0,.26,-.26);
+    }else if(kind==='bterr'){
+      straps();profile([[0,-.33],[.28,-.33],[.31,-.27],[.27,-.20],[0,-.20]],0x6e8075,0,0,-.12);box(0x284d45,0,-.22,-.12,.47,.05,.32);ball(0x95cab7,0,.03,-.12,.28,.32,.23,'glass');
+      for(const side of[-1,1])line([[side*.22,-.24,-.20],[side*.23,.18,-.20],[side*.12,.30,-.13],[0,.32,-.10]],brass,.012,'metal');profile([[0,.29],[.10,.29],[.10,.34],[0,.34]],brass,0,0,-.10,'metal');handle(brass,.42,.18,-.1);line([[0,-.22,-.19],[.01,-.05,-.23],[.05,.12,-.21]],0x547950,.013);for(const side of[-1,1])for(let i=0;i<3;i++)leaf(i%2?0x90b881:0x5b906b,side*(.03+i*.035),-.13+i*.09,-.25,.14,-side*.8);ball(0x9a7155,-.12,-.18,-.24,.05,.05,.04);ball(0xd2b38b,.12,-.19,-.14,.04,.04,.03);
+    }else if(kind==='bastro'){
+      pack(0x3e4e6b,.45,.55,.25);const tube=profile([[0,-.30],[.095,-.30],[.095,.32],[.14,.32],[.14,.42],[0,.42]],0x88795d,.20,.12,-.16,'metal');tube.rotation.z=-.17;ring(gold,.25,.50,-.16,.145,.013,Math.PI/2);ball(0x678eaf,.25,.52,-.16,.11,.025,.11,'enamel');ring(gold,-.11,-.03,-.28,.15,.017);ring(silver,-.11,-.03,-.29,.105,.006,0,0,.4);for(let i=0;i<4;i++){const a=i*Math.PI/2;star(ivory,-.11+Math.sin(a)*.11,-.03+Math.cos(a)*.11,-.31,.023,.01);}line([[-.12,-.03,-.32],[-.03,.06,-.32],[-.15,.11,-.32]],gold,.005,'metal');zip(0,-.20,-.25,.27);
+    }else if(kind==='bsteam'){
+      straps(0x5a4d42);tank(0xb18a58,0,0,-.12,.23,.64);for(const side of[-1,1]){const pipe=line([[side*.13,-.20,-.19],[side*.30,-.18,-.17],[side*.30,.32,-.14],[side*.23,.39,-.14]],brass,.027,'metal');ring(ink,side*.30,.31,-.14,.035,.011,Math.PI/2);}
+      badge(ivory,0,.12,-.36,.10);ring(gold,0,.12,-.38,.105,.014);line([[0,.12,-.40],[.043,.16,-.40]],ink,.008,'metal');for(let i=0;i<3;i++)box(ink,-.07+i*.07,-.14,-.35,.025,.14,.018);ring(0x9f5d4b,.30,-.05,-.15,.09,.013,0,Math.PI/2);for(let i=0;i<4;i++){const a=i*Math.PI/2;line([[.30,-.05,-.15],[.30,-.05+Math.sin(a)*.08,-.15+Math.cos(a)*.08]],0x9f5d4b,.007,'metal');}
+    }else if(kind==='bsynth'){
+      pack(0x3e4e62,.59,.52,.24);box(ink,0,-.05,-.228,.50,.25,.025);for(let i=0;i<9;i++){const x=-.215+i*.054;box(ivory,x,-.08,-.25,.049,.19,.025,'enamel');if(![2,6,8].includes(i))box(ink,x+.025,-.03,-.274,.027,.10,.025,'enamel');}for(let i=0;i<4;i++){badge([0xa3667d,0x6caba3,0xccad6e,0x7995c2][i],-.21+i*.07,.17,-.237,.019);}box(0x8ebaa6,.145,.17,-.242,.15,.07,.015,'enamel');for(let i=0;i<3;i++)box(ink,.10+i*.045,.17,-.254,.017,.042,.006);line([[-.29,-.1,-.07],[-.39,-.28,-.08],[-.20,-.36,-.22],[.26,-.31,-.18]],ink,.016,'leather');
+    }else if(kind==='bdiver'){
+      straps(ink);box(ink,0,0,.02,.36,.54,.08,'metal');for(const side of[-1,1]){tank(0xb1c5c5,side*.17,.02,-.12,.13,.66);for(const yy of[-.19,.21])ring(0x3e5a68,side*.17,yy,-.12,.136,.025,Math.PI/2);box(brass,side*.17,.40,-.12,.08,.07,.08,'metal');}line([[-.17,.42,-.12],[-.30,.51,-.14],[-.37,.31,-.19],[-.33,.0,-.30],[0,-.12,-.36]],ink,.023,'leather');badge(ivory,0,-.12,-.36,.078);ring(brass,0,-.12,-.37,.084,.012);line([[0,-.12,-.39],[.03,-.09,-.39]],ink,.006);buckle(0,.05,-.28);
+    }else if(kind==='bfox'){
+      straps(0x7d5845);ball(0xc98b59,0,-.035,-.09,.26,.31,.20);ball(ivory,0,-.12,-.25,.19,.20,.035);ball(0xd79b65,0,.20,-.14,.25,.19,.17);for(const side of[-1,1]){part('cone',0xb9764f,side*.17,.39,-.12,.095,.23,.07);part('cone',0xe6baa0,side*.17,.39,-.18,.045,.13,.015);ball(ivory,side*.09,.15,-.29,.105,.07,.04);eye(side*.085,.225,-.295,.026);ball(0xab704d,side*.22,-.14,-.12,.055,.15,.06);}ball(ink,0,.16,-.338,.028,.022,.017,'enamel');line([[-.04,.12,-.325],[0,.105,-.33],[.04,.12,-.325]],ink,.004);horn([[.18,-.2,-.03],[.31,-.20,-.17],[.29,-.03,-.25],[.16,.02,-.24]],0xbe8256,.10);ball(ivory,.17,.005,-.24,.075,.08,.07);zip(0,-.26,-.25,.20);
+    }else if(kind==='broll'){
+      pack(0x735c46,.46,.53,.24);for(const [x,y,s]of[[-.13,.24,.075],[.12,.16,.065],[.02,-.10,.06]]){const scroll=profile([[0,-.31],[s,-.31],[s,.31],[0,.31]],0xd8c6a0,x,y,-.24);scroll.rotation.z=.10;for(const yy of[-.20,.20])ring(0x996557,x,y+yy,-.24,s+.005,.012,Math.PI/2);ring(ivory,x,y+.32,-.24,s*.72,.008,Math.PI/2);ring(0xa9916a,x,y+.33,-.24,s*.36,.007,Math.PI/2);}line([[-.21,.21,-.25],[.20,-.20,-.26]],0x77513e,.028,'leather');badge(gold,-.15,-.18,-.27,.065);ring(ink,-.15,-.18,-.29,.045,.006);poly([[0,.04],[.024,-.025],[-.024,-.025]],0x638797,-.15,-.18,-.30,.012,'metal');
+    }else if(kind==='bviolin'){
+      straps(0x493d39);const g=group(0,-.05,-.10);g.rotation.y=Math.PI;outline(s=>{s.moveTo(0,-.29);s.bezierCurveTo(-.31,-.29,-.28,-.06,-.13,.01);s.bezierCurveTo(-.28,.18,-.19,.27,0,.23);s.bezierCurveTo(.19,.27,.28,.18,.13,.01);s.bezierCurveTo(.28,-.06,.31,-.29,0,-.29);},0xa7744c,0,0,0,.12,'leather',g);box(0x503e33,0,.36,.035,.075,.41,.06,'leather',g);box(ink,0,.18,.14,.052,.45,.017,'leather',g);box(brass,0,-.07,.146,.17,.033,.025,'metal',g);for(const x of[-.025,-.008,.008,.025])line([[x,-.20,.152],[x,.40,.16]],silver,.003,'metal',g);for(const side of[-1,1])line([[side*.105,.06,.143],[side*.14,.025,.144],[side*.10,-.02,.144],[side*.14,-.08,.144]],ink,.006,'leather',g);ring(brass,0,.60,.035,.047,.014);for(const side of[-1,1])for(const y of[.46,.53])stud(side*.062,y,.035,ink,.018,g);line([[.30,-.31,.02],[.31,.58,.02]],0x684b37,.012,'leather',g);line([[.28,-.28,.02],[.28,.55,.02]],ivory,.004,'cloth',g);
+    }else if(kind==='bmail'){
+      pack(0x6e8c9d,.47,.40,.28);const g=profile([[0,-.25],[.22,-.25],[.22,.15],[.18,.24],[0,.26]],0x698b99,0,.03,-.10);box(ivory,0,-.03,-.264,.28,.16,.018);line([[-.14,.05,-.279],[0,-.045,-.279],[.14,.05,-.279]],0xb89f76,.007);for(const side of[-1,1])for(let i=0;i<4;i++)feather(side*(.27+i*.055),.05-i*.035,-.08,.17,.035,-side*(.5+i*.13));box(brass,.24,.13,-.12,.025,.24,.025,'metal');poly([[0,0],[.13,0],[.13,-.09],[0,-.09]],0xb76d71,.25,.26,-.12,.018);zip(0,-.16,-.25,.28);
+    }
+    return finish();
+  }
+  if(category==='bottom'){
+    const cloth=clothingColor??{nknight:0x42596b,ndiver:0x244e5d,nsamurai:0x3c465e,nastral:0x4c4568,naviator:0x797255,nroyal:0x713e58,nchef:0x3f4854,nmechanic:0x536c70,nskater:0x49465e,nfrost:0x8babb8}[kind];
+    const edge=new THREE.Color(cloth).multiplyScalar(.66).getHex(),light=new THREE.Color(cloth).lerp(new THREE.Color(ivory),.30).getHex();
+    profile([[0,.39],[.42,.39],[.46,.49],[.45,.67],[0,.67]],cloth,0,0,0);ring(edge,0,.65,0,.45,.022,Math.PI/2);box(kind==='nknight'?silver:gold,0,.65,.448,.12,.075,.024,'metal');
+    for(const side of[-1,1]){
+      const g=group(side*.23,.64,0);(parent.userData.walkPants||=[]).push(g);
+      const wide=kind==='nsamurai',short=kind==='nroyal'||kind==='nskater',r=wide?.255:.23,y=short?-.17:-.35,h=short?.28:.52;
+      const m=part('cylinder',cloth,0,y,.015,r,h,r*1.08,'cloth',g);m.material.depthWrite=true;ring(edge,0,y-h/2+.015,.015,r+.002,.016,Math.PI/2,0,0,'cloth',g);
+      if(short){part('cylinder',kind==='nroyal'?ivory:ink,0,-.47,.015,.19,.21,.21,'cloth',g);ring(light,0,-.42,.015,.195,.012,Math.PI/2,0,0,'cloth',g);}
+      line([[side*.17,-.035,.16],[side*.20,-.26,.16],[side*.18,-.53,.15]],light,.005,'cloth',g);
+      if(kind==='nknight'){
+        for(let i=0;i<3;i++){box(i%2?0x7e96a6:0x9cabb3,0,-.11-i*.13,.22,.34,.13,.058,'metal',g);line([[-.15,-.08-i*.13,.256],[0,-.06-i*.13,.27],[.15,-.08-i*.13,.256]],silver,.006,'metal',g);}poly([[-.16,.03],[0,.12],[.16,.03],[.13,-.14],[0,-.18],[-.13,-.14]],silver,0,-.31,.27,.025,'metal',g);part('gem',0x6fa9bc,0,-.32,.315,.035,.055,.015,'enamel',g);box(0x3a4a54,0,-.57,.06,.38,.10,.44,'leather',g);for(const x of[-.13,.13])stud(x,-.51,.23,gold,.012,g);
+      }else if(kind==='ndiver'){
+        for(const dx of[-.17,.17])line([[dx,-.05,.13],[dx,-.25,.19],[dx*.9,-.52,.17]],0x82b8b7,.012,'enamel',g);box(ink,0,-.30,.24,.25,.19,.025,'leather',g);for(let i=0;i<3;i++)box(0x527b85,0,-.24-i*.055,.26,.23,.016,.012,'enamel',g);ring(0x9bb4b6,0,-.52,.015,.235,.022,Math.PI/2,0,0,'metal',g);box(ink,0,-.57,.14,.36,.09,.51,'leather',g);box(0x719ba5,0,-.51,.32,.27,.035,.10,'enamel',g);
+      }else if(kind==='nsamurai'){
+        for(let i=0;i<5;i++){const a=(i-2)*.32,x=Math.sin(a)*.252,z=Math.cos(a)*.255;line([[x*.8,-.02,z*.8],[x,-.27,z],[x*.95,-.58,z*.95]],i%2?light:edge,.011,'cloth',g);}box(ink,0,-.55,.035,.39,.07,.40,'leather',g);for(const dx of[-.08,.08])line([[dx,-.51,.22],[0,-.48,.16],[dx,-.50,.05]],ivory,.009,'cloth',g);
+      }else if(kind==='nastral'){
+        part('cylinder',0x37394e,0,-.47,.015,.20,.20,.22,'cloth',g);box(ink,0,-.58,.07,.36,.10,.43,'leather',g);for(const y of[-.05,-.16,-.27])stud(side*.17,y,.22,gold,.009,g);
+      }else if(kind==='naviator'){
+        box(edge,side*.17,-.12,.06,.08,.20,.24,'leather',g);box(light,side*.21,-.05,.07,.024,.045,.22,'leather',g);box(gold,side*.20,-.05,.21,.05,.04,.015,'metal',g);line([[-.15,-.34,.22],[.15,-.34,.22]],edge,.019,'leather',g);box(gold,side*.145,-.34,.23,.06,.055,.016,'metal',g);box(0x4c4438,0,-.55,.07,.36,.13,.43,'leather',g);for(let i=0;i<3;i++)line([[-.07,-.50+i*.025,.235],[.07,-.48+i*.025,.235]],0xbdad8a,.005,'cloth',g);
+      }else if(kind==='nroyal'){
+        ball(cloth,0,-.15,.025,.245,.21,.25,'cloth',g);for(const x of[-.13,0,.13])line([[x*.65,.01,.19],[x,-.13,.25],[x*.70,-.29,.19]],gold,.008,'metal',g);box(ink,0,-.57,.07,.35,.08,.43,'leather',g);box(gold,0,-.53,.27,.075,.055,.017,'metal',g);for(const yy of[-.37,-.43])ring(light,0,yy,.015,.193,.008,Math.PI/2,0,0,'cloth',g);
+      }else if(kind==='nchef'){
+        for(let row=0;row<5;row++)for(let col=0;col<4;col++){const a=(col-1.5)*.38,x=Math.sin(a)*.234,z=Math.cos(a)*.247;const tile=box((row+col)%2?light:edge,x,-.10-row*.093,z,.079,.075,.008,'cloth',g);tile.rotation.y=a;}box(ink,0,-.58,.09,.36,.10,.45,'leather',g);line([[-.12,-.55,.28],[.12,-.55,.28]],0x68777c,.006,'cloth',g);
+      }else if(kind==='nmechanic'){
+        box(edge,side*.19,-.16,.08,.06,.19,.23,'cloth',g);box(silver,side*.22,-.12,.15,.022,.13,.025,'metal',g);ring(ink,side*.22,-.05,.15,.035,.009);box(0x3d4b4c,0,-.57,.06,.36,.10,.44,'leather',g);box(brass,0,-.53,.26,.17,.025,.015,'metal',g);
+      }else if(kind==='nskater'){
+        box(edge,side*.18,-.12,.06,.065,.19,.21,'cloth',g);box(0x79b6b1,side*.22,-.17,.14,.021,.10,.045,'enamel',g);line([[side*.18,-.20,.20],[side*.15,-.29,.22]],silver,.008,'metal',g);box(ivory,0,-.56,.09,.36,.10,.45,'enamel',g);box(ink,0,-.60,.09,.38,.025,.47,'leather',g);for(let i=0;i<3;i++)line([[-.08,-.51+i*.022,.27],[.08,-.50+i*.022,.27]],0x8e8b9a,.004,'cloth',g);
+      }else if(kind==='nfrost'){
+        for(let i=0;i<5;i++)ring(light,0,-.08-i*.095,.015,.232,.008,Math.PI/2,0,0,'cloth',g);box(0x4c6371,0,-.55,.07,.38,.14,.44,'leather',g);for(let i=0;i<9;i++){const a=i*Math.PI*2/9;ball(ivory,Math.sin(a)*.20,-.47,Math.cos(a)*.22,.055,.042,.045,'cloth',g);}for(const x of[-.06,.06])line([[x,-.52,.27],[x,-.59,.28]],0x9bb3b9,.005,'cloth',g);
+      }
+    }
+    if(kind==='nastral'){
+      const skirt=profile([[.55,.18],[.56,.21],[.50,.41],[.44,.64]],cloth,0,0,0);skirt.scale.z=.93;ring(gold,0,.22,0,.545,.012,Math.PI/2);for(let i=0;i<9;i++){const a=(i-4)*.28,x=Math.sin(a)*.49,z=Math.cos(a)*.47;star(i%2?silver:gold,x,.34+(i%3)*.06,z,.026,.01);}
+    }else if(kind==='nsamurai'){
+      box(0x9a7157,0,.63,.455,.38,.07,.025);for(const side of[-1,1]){const bow=poly([[0,0],[side*.12,.055],[side*.13,-.05]],0xc19b74,0,.63,.48,.025);box(0x9a7157,side*.07,.55,.48,.045,.13,.018).rotation.z=-side*.2;}
+    }else if(kind==='nmechanic'){
+      const apron=poly([[-.35,.64],[.35,.64],[.39,.24],[-.39,.24]],0x9b7a51,0,0,.43,.025,'leather');line([[-.33,.61,.465],[-.36,.27,.47],[.36,.27,.47],[.33,.61,.465]],0xd1af7f,.006);for(const side of[-1,1]){box(0x775d42,side*.17,.43,.477,.25,.18,.035,'leather');line([[side*.17-.10,.48,.50],[side*.17+.10,.48,.50]],0xc7a67b,.006);}line([[-.17,.43,.51],[-.17,.67,.51]],silver,.018,'metal');box(ink,.16,.54,.51,.055,.15,.025,'leather');box(silver,.16,.65,.51,.16,.04,.06,'metal');
+    }else if(kind==='naviator'){box(0xd2c3a4,.27,.47,.38,.11,.14,.018);for(let i=0;i<3;i++)line([[.23,.50-i*.025,.395],[.30,.50-i*.025,.395]],0x797764,.003);}
+    // Keep the two leg pivots intact for the existing walk/seated animation.
+    return true;
+  }
+  if(category==='accessory'&&['ascyle','acello','akite','acoral','aclock','afan','aphone','acrys','arose','aorbit'].includes(kind)){
+    if(kind==='ascyle'){
+      line([[.73,.24,.08],[.76,1.10,.08],[.70,2.06,.08]],0x42495d,.038,'metal');for(let i=0;i<5;i++)ring(brass,.76,.62+i*.075,.08,.046,.009,Math.PI/2);outline(s=>{s.moveTo(.74,2.0);s.bezierCurveTo(.18,2.54,-.52,2.26,-.65,1.65);s.bezierCurveTo(-.22,2.08,.28,2.13,.74,1.90);},0xabc3cd,0,0,.07,.045,'metal');line([[.66,2.01,.13],[.20,2.20,.13],[-.25,2.14,.13],[-.57,1.78,.13]],gold,.012,'metal');part('gem',0x91bad7,.72,2.0,.15,.075,.12,.035,'enamel');for(const side of[-1,1])line([[.70,1.88,.10],[.70+side*.14,1.66,.10],[.70+side*.12,1.47,.10]],0x6a6a91,.018);
+    }else if(kind==='acello'){
+      const g=group(.77,.95,.10);g.rotation.z=-.09;outline(s=>{s.moveTo(0,-.49);s.bezierCurveTo(-.43,-.48,-.40,-.12,-.18,.04);s.bezierCurveTo(-.39,.26,-.26,.43,0,.35);s.bezierCurveTo(.26,.43,.39,.26,.18,.04);s.bezierCurveTo(.40,-.12,.43,-.48,0,-.49);},0x966542,0,0,0,.19,'leather',g);box(0x473c35,0,.56,.045,.10,.54,.08,'leather',g);box(ink,0,.35,.21,.055,.68,.025,'leather',g);box(gold,0,-.13,.215,.22,.035,.025,'metal',g);for(const x of[-.027,-.009,.009,.027])line([[x,-.35,.23],[x,.63,.24]],silver,.003,'metal',g);for(const side of[-1,1])line([[side*.13,.13,.22],[side*.18,.06,.22],[side*.13,-.06,.22],[side*.18,-.15,.22]],ink,.009,'leather',g);ring(brass,0,.89,.05,.057,.017,0,0,0,'metal',g);line([[0,-.49,.07],[0,-.76,.07]],silver,.016,'metal',g);line([[.36,-.49,.10],[.40,.91,.10]],0x6e4e39,.013,'leather',g);line([[.33,-.44,.10],[.36,.84,.10]],ivory,.004,'cloth',g);
+    }else if(kind==='akite'){
+      const g=group(0,1.72,-.57);g.rotation.x=-.12;poly([[0,.67],[.51,.12],[0,-.44],[-.51,.12]],0x3f8294,0,0,0,.025);for(const side of[-1,1])poly([[0,.64],[side*.47,.12],[side*.10,.03]],side<0?0x7db9ae:0xc5aa6d,0,0,.026,.008);line([[0,.66,.05],[0,-.44,.05]],brass,.012,'metal',g);line([[-.50,.12,.05],[.50,.12,.05]],brass,.012,'metal',g);for(const side of[-1,1]){eye(side*.12,.24,.057,.05,g);horn([[side*.19,.41,0],[side*.31,.57,0],[side*.30,.72,0]],gold,.022,g);}line([[0,-.44,0],[.23,-.67,.01],[-.10,-.92,.03],[.20,-1.12,.01]],0xcaa46c,.018,'cloth',g);for(const [x,y,r]of[[.19,-.65,.3],[-.03,-.90,-.2],[.16,-1.09,.4]]){const bow=poly([[-.12,.06],[0,0],[.12,.06],[.12,-.06],[0,0],[-.12,-.06]],0xc5766f,x,y,.02,.015,'cloth',g);bow.rotation.z=r;}line([[0,1.30,-.52],[.28,.92,-.44],[.18,.75,-.38]],ivory,.005);
+    }else if(kind==='acoral'){
+      line([[.78,.21,.10],[.78,2.12,.10]],0x477f85,.036,'metal');for(const side of[-1,1])horn([[.78,1.72,.10],[.78+side*.29,1.88,.10],[.78+side*.28,2.16,.10],[.78+side*.22,2.35,.10]],0x92bcbc,.044);horn([[.78,1.95,.10],[.78,2.25,.10],[.78,2.46,.10]],0xc6dad5,.05);for(const side of[-1,1]){line([[.78,1.52,.10],[.78+side*.13,1.63,.1],[.78+side*.15,1.80,.1]],0xc58582,.020);part('gem',0x8bc3c7,.78+side*.28,2.17,.12,.035,.065,.018,'enamel');}ring(gold,.78,1.82,.10,.08,.013,Math.PI/2);part('gem',0xc3d5c8,.78,1.88,.16,.07,.09,.023,'enamel');for(let i=0;i<4;i++)ring(brass,.78,.65+i*.08,.1,.044,.008,Math.PI/2);
+    }else if(kind==='aclock'){
+      const g=group(.77,1.48,.10);ball(0x4f687e,0,0,0,.31,.31,.31,'enamel',g);for(const [rx,ry,rz,r]of[[0,0,0,.43],[Math.PI/2,0,0,.36],[.6,.6,.3,.39]])ring(gold,0,0,0,r,.017,rx,ry,rz,'metal',g);for(let i=0;i<12;i++){const a=i*Math.PI/6;const p=box(ivory,Math.sin(a)*.42,Math.cos(a)*.42,.015,.018,.045,.016,'enamel',g);p.rotation.z=-a;}star(ivory,0,.02,.31,.12,.018,g);part('gem',0x9bbecb,-.12,.12,.27,.035,.055,.023,'enamel',g);profile([[0,.04],[.19,.04],[.14,.12],[.07,.17],[0,.17]],0x5b4f42,.77,.70,.10,'metal');line([[.77,.86,.10],[.77,1.10,.10]],gold,.035,'metal');ring(gold,.77,1.96,.10,.10,.018);
+    }else if(kind==='afan'){
+      const g=group(0,1.03,-.56);for(let i=0;i<9;i++){const a=(i-4)*.23,stem=group(0,0,0,g);stem.rotation.z=-a;const feather=outline(s=>{s.moveTo(0,0);s.bezierCurveTo(-.08,.30,-.19,.83,0,1.12);s.bezierCurveTo(.19,.83,.08,.30,0,0);},i%2?0x4d8984:0x447489,0,0,0,.018,'cloth',stem);line([[0,.05,.027],[0,1.03,.027]],gold,.007,'metal',stem);ball(0xbca365,0,.88,.027,.105,.15,.012,'enamel',stem);ball(0x439b9a,0,.88,.045,.072,.11,.012,'enamel',stem);ball(0x31465d,0,.9,.063,.036,.06,.011,'enamel',stem);for(const side of[-1,1])for(let j=0;j<5;j++)line([[0,.34+j*.10,.022],[side*(.035+j*.008),.40+j*.10,.022]],0x89b3aa,.0035,'cloth',stem);}box(gold,0,0,0,.18,.20,.09,'metal',g);for(const side of[-1,1])line([[side*.20,1.38,-.41],[side*.28,.92,-.44]],ink,.022,'leather');
+    }else if(kind==='aphone'){
+      const g=group(.78,1.0,.10);box(0x785941,0,0,0,.50,.24,.45,'leather',g);box(brass,0,.14,0,.53,.035,.48,'metal',g);const disk=part('cylinder',ink,-.06,.17,.01,.18,.025,.18,'enamel',g);for(const r of[.08,.12,.16])ring(0x61717a,-.06,.185,.01,r,.003,Math.PI/2,0,0,'metal',g);line([[.18,.20,-.10],[.25,.49,-.10],[.14,.64,-.08]],brass,.035,'metal',g);const horn=profile([[.035,0],[.05,.09],[.09,.17],[.18,.26],[.29,.31],[.32,.34]],gold,.12,.64,-.08,'metal',g);horn.rotation.x=Math.PI*.45;ring(0xb68d4e,.12,.67,.25,.32,.014,Math.PI*.95,0,0,'metal',g);line([[.24,.13,.08],[.34,.20,.10],[.38,.17,.10]],silver,.015,'metal',g);for(const side of[-1,1])for(const z of[-.13,.13])ball(brass,side*.18,-.15,z,.035,.07,.035,'metal',g);
+    }else if(kind==='acrys'){
+      const g=group(0,1.27,-.61);box(0x43526d,0,-.25,0,.64,.24,.43,'metal',g);for(const side of[-1,1]){box(gold,side*.28,-.23,.20,.024,.20,.022,'metal',g);part('gem',0x8aaec8,side*.24,.05,0,.12,.29,.13,'enamel',g);}part('gem',0xa9a4d4,0,.22,0,.22,.45,.19,'enamel',g);part('gem',0xcde3e9,-.04,.25,.16,.065,.28,.035,'enamel',g);ring(gold,0,.19,0,.39,.017,.4,.2,0,'metal',g);for(let i=0;i<6;i++){const a=i*Math.PI/3;part('gem',0xa0becb,Math.sin(a)*.39,.19+Math.cos(a)*.15,Math.cos(a)*.32,.030,.06,.025,'enamel',g);}line([[-.17,-.12,.23],[0,-.02,.24],[.17,-.12,.23]],silver,.010,'metal',g);
+    }else if(kind==='arose'){
+      const g=group(.73,.94,.14);g.rotation.z=-.12;poly([[-.025,.03],[0,1.28],[.025,.03]],silver,0,0,0,.032,'metal',g);line([[0,.05,.04],[0,1.15,.04]],ivory,.005,'enamel',g);ring(gold,0,0,0,.17,.016,.22,.4,0,'metal',g);line([[-.11,.03,0],[-.20,-.05,.06],[-.10,-.18,.12],[.03,-.12,.12]],gold,.013,'metal',g);box(0x785064,0,-.18,0,.07,.29,.07,'leather',g);for(let i=0;i<4;i++)ring(brass,0,-.08-i*.06,0,.040,.005,Math.PI/2,0,0,'metal',g);for(let i=0;i<8;i++){const a=i*2.4,p=ball(i%2?0xb76b81:0xce91a0,Math.cos(a)*.05,-.36+Math.sin(a)*.04,0,.06,.04,.03);g.add(p);p.rotation.z=a;}leaf(0x759373,-.08,-.30,-.01,.16,-.7,g);
+    }else if(kind==='aorbit'){
+      const g=group(0,1.15,-.27);for(const [r,rx,rz]of[[.78,.38,.13],[.88,-.5,-.20]])ring(0xa79c78,0,0,0,r,.018,rx,0,rz,'metal',g);for(const [a,r,c,s]of[[.15,.78,0x749dab,.13],[2.6,.78,0xc58d6c,.10],[4.5,.88,0xc7b67e,.12]]){const p=ball(c,Math.cos(a)*r,Math.sin(a)*r*.85,Math.sin(a)*.20,s,s,s,'enamel',g);ring(ivory,p.position.x,p.position.y,p.position.z,s*1.35,.009,.5,.3,0,'metal',g);}for(let i=0;i<7;i++){const a=i*.9;star(ivory,Math.sin(a)*.81,Math.cos(a)*.74,.02,.027,.01,g);}box(ink,0,0,-.21,.30,.40,.12,'metal',g);for(const side of[-1,1])line([[side*.14,.22,-.15],[side*.30,.05,-.20],[side*.16,-.20,-.18]],brass,.022,'metal',g);
+    }
+    return finish();
   }
   if(category==='accessory'){
     function reuse(c,id,x,y,z,size=1,ry=0,handheld=false){buildDetailedWearable(THREE,c,id,root,{geometry,materials});const g=root.children.at(-1);g.position.set(x,y,z);g.scale.setScalar(size);g.rotation.y=ry;if(handheld)for(const m of g.userData.mountPieces||[])m.removeFromParent();return g;}

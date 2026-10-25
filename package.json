@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node tools/export-kill-preview-assets.mjs && node tools/export-task-machine.mjs && node tools/export-ejection-preview.mjs && node tools/export-pet-preview.mjs && vite build"
+    "build": "node tools/sync-render-budgets.mjs && node tools/sync-costume-companions.mjs && node tools/export-kill-preview-assets.mjs && node tools/export-task-machine.mjs && node tools/export-ejection-preview.mjs && node tools/export-pet-preview.mjs && vite build"
   },
   "devDependencies": {
     "@skyway-sdk/room": "2.5.1",

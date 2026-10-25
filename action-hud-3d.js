@@ -59,6 +59,12 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     }else if(kind==='report'){
       mesh(group,polygon([[-.55,-.2],[-.55,.2],[-.22,.2],[.46,.58],[.46,-.48],[-.22,-.2]]),metal);
       mesh(group,cube,tint,-.18,-.45,.03,[.18,.42,.18]);mesh(group,cube,tint,.52,.04,.08,[.08,1.12,.18]);
+    }else if(kind==='vent'){
+      mesh(group,cube,metal,0,0,.04,[1.3,.92,.18]);for(let i=0;i<5;i++)mesh(group,cube,tint,0,-.30+i*.15,.16,[1.05,.07,.08]);
+    }else if(kind==='door'){
+      mesh(group,cube,metal,0,0,.04,[1.12,1.45,.15]);mesh(group,cube,tint,0,0,.15,[.83,1.15,.1]);mesh(group,crystal,metal,.25,-.05,.25,[.14,.14,.14]);
+    }else if(kind==='meeting'){
+      mesh(group,cube,metal,0,-.43,.03,[1.2,.24,.22]);mesh(group,geometry('meeting-cap',()=>new THREE.CylinderGeometry(.42,.48,.23,20)),tint,0,-.17,.08);for(const side of[-1,1]){const ray=mesh(group,cube,tint,side*.52,.48,.06,[.07,.42,.1]);ray.rotation.z=side*-.5;}
     }else if(kind==='use'){
       mesh(group,polygon([[-.36,-.56],[-.52,-.1],[-.47,.08],[-.3,.05],[-.18,-.12],[-.18,.67],[-.02,.75],[.13,.67],[.13,.11],[.39,.16],[.5,.02],[.36,-.56]]),metal);
       mesh(group,cube,tint,-.03,-.68,.04,[.76,.16,.2]);
@@ -151,6 +157,11 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
       if(b.dataset.threeActionLayout!==(symbolOnly?'symbol':roomy?'icon':'compact'))b.dataset.threeActionLayout=symbolOnly?'symbol':roomy?'icon':'compact';
       const inset=Math.round(box.width*(r.spec.utility ? .28 : .38))+'px';if(b.style.getPropertyValue('--three-action-label-inset')!==inset)b.style.setProperty('--three-action-label-inset',inset);
       const caption=b.querySelector('#abilityCaption,#rocketLaunchCaption'),text=(caption||b).textContent;
+      if(b.id==='taskBtn'){
+        const kind=/ベント|出る/.test(text)?'vent':/ドア|扉|開く/.test(text)?'door':/会議/.test(text)?'meeting':'use';
+        if(kind!==(r.useKind||'use')){r.useSymbols||=new Map([['use',r.symbol]]);r.symbol.visible=false;if(!r.useSymbols.has(kind)){const next=icon(kind,r.spec.color);r.cap.add(next);r.useSymbols.set(kind,next);}r.symbol=r.useSymbols.get(kind);r.useKind=kind;}
+      }
+
       const padding=roomy?parseFloat(inset)+7:12,available=Math.max(1,box.width-padding-3),maximum=Math.min(r.spec.utility?18:22,box.height*(r.spec.utility ? .3 : .25));
       if(textContext&&!symbolOnly){textContext.font=style.fontWeight+' '+maximum+'px '+style.fontFamily;const measured=textContext.measureText(text).width;
         const font=(Math.max(9,Math.min(maximum,maximum*available/Math.max(1,measured)))).toFixed(1)+'px';
@@ -196,12 +207,15 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     if(!visible)return;
     const previousTarget=renderer.getRenderTarget();if(previousTarget)return;
     const autoClear=renderer.autoClear,autoReset=renderer.info.autoReset,scissorTest=renderer.getScissorTest();
+    // The HUD has no shadow casters. Don't regenerate or consume the world's
+    // shadow atlas for this second scene rendered through the same renderer.
+    const shadowAutoUpdate=renderer.shadowMap.autoUpdate,shadowNeedsUpdate=renderer.shadowMap.needsUpdate;
     renderer.getViewport(viewport);renderer.getScissor(scissor);
     try{
-      renderer.autoClear=false;renderer.info.autoReset=false;renderer.setViewport(0,0,size.x,size.y);renderer.setScissorTest(false);
+      renderer.autoClear=false;renderer.info.autoReset=false;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=false;renderer.setViewport(0,0,size.x,size.y);renderer.setScissorTest(false);
       renderer.clearDepth();renderer.render(scene,camera);draws++;
     }catch(error){failed=true;setActive(false);console.warn('3D操作ボタンを通常表示へ切り替えました',error);
-    }finally{renderer.autoClear=autoClear;renderer.info.autoReset=autoReset;renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(scissorTest);}
+    }finally{renderer.shadowMap.autoUpdate=shadowAutoUpdate;renderer.shadowMap.needsUpdate=shadowNeedsUpdate;renderer.autoClear=autoClear;renderer.info.autoReset=autoReset;renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(scissorTest);}
   }
   function dispose(){if(disposed)return;disposed=true;setActive(false);observer.disconnect();resize?.disconnect();window.removeEventListener('resize',invalidate);window.visualViewport?.removeEventListener('resize',invalidate);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',invalidate);document.removeEventListener('pointerdown',press,true);document.removeEventListener('pointerover',over);document.removeEventListener('pointerout',out);for(const r of records.values()){delete r.button.dataset.threeAction;delete r.button.dataset.threeActionLayout;}for(const g of geometries)g.dispose();for(const m of materials)m.dispose();scene.clear();records.clear();}
   return {draw,dispose,invalidate,getStats:()=>({active,failed,draws,objects:records.size,geometries:geometries.size,materials:materials.size,

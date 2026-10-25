@@ -26,5 +26,18 @@ export const SKELD_TASK_INTERACTIONS = Object.freeze({
 export function configureSkeldTask(station) {
   const interaction = SKELD_TASK_INTERACTIONS[station.id];
   if (!interaction) throw new Error('Missing Skeld task interaction: ' + station.id);
-  return { ...station, ...interaction, taskEngine: interaction.mode ? 'frost' : 'terminal' };
+  // Replace legacy kind hints too. Leaving upload/wires on a different game
+  // lets older ID/name-based dispatchers and equipment pick the wrong task.
+  return { ...station, ...interaction, kind: interaction.mode || interaction.interaction,
+    taskEngine: interaction.mode ? 'frost' : 'terminal' };
+}
+
+export function configureSkeldTasks(stations) {
+  const tasks=stations.map(configureSkeldTask),ids=new Set(),mechanisms=new Set();
+  for(const task of tasks){
+    const key=task.taskEngine==='frost'?'frost:'+task.mode:'terminal:'+task.terminalIndex;
+    if(ids.has(task.id)||mechanisms.has(key))throw new Error('Duplicate Skeld task: '+task.id+' ('+key+')');
+    ids.add(task.id);mechanisms.add(key);
+  }
+  return tasks;
 }

@@ -1,4 +1,5 @@
 import {createCinematicArt} from './kill-cinematic-art.js';
+import {createRenderBudget} from './render-performance.js';
 
 // The same authored choreography and cinematic assets run in game and preview.
 export const authoredKillRoles = [
@@ -28,9 +29,10 @@ export function authoredKillSpec(assets,role) {
 
 // This function is serialized into one preloaded iframe. A single WebGL context
 // serves every original scene, without fetching modules again at the death event.
-function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt) {
-  const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt,makeRenderBudget) {
+  const budget=makeRenderBudget(),gate=budget.gate();let frameRequest=0;
+  const renderer=new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:budget.mobile?'default':'high-performance'});
+  renderer.setPixelRatio(budget.pixelRatio(budget.mobile?1:2));
   document.body.append(renderer.domElement);
   const host=document.querySelector('#originalControls');
   const nameLayer=document.createElement('div');nameLayer.id='actorNames';document.body.append(nameLayer);
@@ -65,6 +67,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     parsed.querySelectorAll('script,style,link,canvas').forEach(node=>node.remove());host.innerHTML=parsed.body.innerHTML;
     let code=script.replace(/^import .*;\s*$/gm,'')
       .replace(/new THREE\.WebGLRenderer\(\{[^}]*\}\)/g,'__runtime.renderer')
+      .replace(/renderer\.setPixelRatio\([^\n;]*\);/g,'renderer.setPixelRatio(__runtime.pixelRatio);')
       .replace('const scene=new THREE.Scene();','const scene=new THREE.Scene();__runtime.ownScene(scene);')
       .replace('document.body.prepend(renderer.domElement);','')
       .replace(/scene\.background\s*=\s*new THREE\.Color\([^;]*\);/g,'scene.background=null;')
@@ -126,7 +129,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
         step(dt,time){__runtime.update?.(dt,dt,time);stepParticles(dt);art.update(dt,time);shake=Math.max(0,shake-dt*2.4);flashV=0;if(flashEl)flashEl.style.opacity=0;},
         render(){art.renderCamera();composer.render();}};
     `;
-    const runtime={renderer,art:createArt(THREE),payload:data.payload||{},update:null,ownScene(scene){const add=scene.add;scene.add=function(...objects){for(const object of objects)collect(object);return add.apply(this,objects);};},get audio(){if(!sharedAudio){sharedAudio=new (window.AudioContext||window.webkitAudioContext)();audioOutput=sharedAudio.createGain();audioOutput.connect(sharedAudio.destination);}return sharedAudio;},get audioOutput(){this.audio;return audioOutput;}};
+    const runtime={renderer,pixelRatio:budget.pixelRatio(budget.mobile?1:2),art:createArt(THREE),payload:data.payload||{},update:null,ownScene(scene){const add=scene.add;scene.add=function(...objects){for(const object of objects)collect(object);return add.apply(this,objects);};},get audio(){if(!sharedAudio){sharedAudio=new (window.AudioContext||window.webkitAudioContext)();audioOutput=sharedAudio.createGain();audioOutput.connect(sharedAudio.destination);}return sharedAudio;},get audioOutput(){this.audio;return audioOutput;}};
     const listen=(type,handler,options)=>{listeners.push([type,handler,options]);window.addEventListener(type,handler,options);};
     const timeout=(fn,ms)=>{const id=setTimeout(()=>{timers.delete(id);fn();},ms);timers.add(id);return id;};
     if(audioOutput)audioOutput.gain.value=0;
@@ -140,10 +143,13 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
       nameLabels.push({actor,label,anchor:new THREE.Vector3()});
     }
     collect(controller.scene);
+    if(budget.mobile)controller.scene.traverse(object=>{if(object.shadow)object.shadow.mapSize.set(512,512);});
+    try{if(typeof parent.__spaceRenderShadowsEnabled==='boolean')renderer.shadowMap.enabled=parent.__spaceRenderShadowsEnabled;}catch{}
     if(audioOutput)audioOutput.gain.value=0;
     resize();controller.step(0,0);renderScene();dirty=false;
   }
   function renderScene(){
+    budget.shadows(renderer,performance.now());
     controller.render();
     for(const {actor,label,anchor} of nameLabels){
       let visible=actor.body.visible&&actor.suit.opacity>.05;
@@ -180,21 +186,30 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
         if(configuration.payload.volume>0)sharedAudio?.resume().catch(()=>{});
       }else if(data?.type==='authored-stop'){
         playing=false;audible=false;if(audioOutput)audioOutput.gain.value=0;dispose();configuration=null;
+      }else if(data?.type==='ss-render-shadows'&&typeof data.enabled==='boolean'){
+        renderer.shadowMap.enabled=data.enabled;renderer.shadowMap.needsUpdate=true;
       }
+      requestFrame();
     }catch(error){playing=false;send({type:'authored-error',message:String(error.message),id:data?.id});}
   });
   function frame(now){
+    frameRequest=0;if(document.hidden)return;
     const elapsed=Math.min((now-last)/1000,.05);last=now;
     if(controller&&configuration){
       if(audioOutput)audioOutput.gain.value=playing||audible?Math.max(0,Math.min(1,Number(configuration.payload?.volume)||0)):0;
       if(playing)target=Math.min(configuration.duration,target+elapsed);
       while(time+1e-6<target){const dt=Math.min(1/60,target-time);time+=dt;controller.step(dt,time);dirty=true;}
-      if(dirty){renderScene();dirty=false;}
-      if(time>=configuration.duration&&!finished){finished=true;playing=false;send({type:'authored-done',id:configuration.id});}
+      if(dirty&&(gate.due(now)||time>=configuration.duration)){renderScene();dirty=false;}
+      if(time>=configuration.duration&&!finished&&!dirty){finished=true;playing=false;send({type:'authored-done',id:configuration.id});}
     }
-    requestAnimationFrame(frame);
+    if(playing||dirty||time+1e-6<target)requestFrame();
   }
-  resize();requestAnimationFrame(frame);send({type:'authored-ready'});
+  function requestFrame(){if(frameRequest||document.hidden||!controller)return;frameRequest=requestAnimationFrame(frame);}
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){last=performance.now();gate.reset();requestFrame();}});
+  window.addEventListener('resize',requestFrame);
+  addEventListener('pagehide',event=>{cancelAnimationFrame(frameRequest);frameRequest=0;if(!event.persisted){dispose();sharedAudio?.close().catch(()=>{});renderer.dispose();renderer.forceContextLoss();}});
+  addEventListener('pageshow',()=>{last=performance.now();requestFrame();});
+  resize();send({type:'authored-ready'});
 }
 
 export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.net/npm/three@0.164.1',onDone=()=>{},onError=()=>{}}) {
@@ -212,7 +227,7 @@ export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.ne
   };
   window.addEventListener('message',receive);
   const base=cdnBase.replace(/\/$/,'');
-  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}));<\/script></body></html>`
+  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}),(${createRenderBudget.toString()}));<\/script></body></html>`
     .replace('<script type="module">',`<script type="importmap">${JSON.stringify({imports:{three:base+'/build/three.module.js','three/addons/':base+'/examples/jsm/'}})}<\/script><script type="module">`);
   const slash=document.createElement('div');
   slash.setAttribute('aria-hidden','true');

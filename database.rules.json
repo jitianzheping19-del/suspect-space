@@ -411,7 +411,7 @@
         ".write": "auth != null && auth.uid === $uid && !data.exists()",
         ".validate": "newData.hasChildren(['rating','message','name','createdAt'])",
         "rating": {
-          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 5 && newData.val() % 1 === 0"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5 && newData.val() % 1 === 0 && (newData.val() > 0 || newData.parent().child('message').val().length > 0)"
         },
         "message": {
           ".validate": "newData.isString() && newData.val().length <= 2000"
