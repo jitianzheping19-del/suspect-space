@@ -9,7 +9,8 @@ html body #gameCountdown[data-presentation][data-kind]{
  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important;
  box-shadow:none!important;pointer-events:none!important;isolation:isolate;
 }
-html body #gameCountdown[data-presentation][data-kind].hidden{display:none!important}
+html body #gameCountdown[data-presentation][data-kind].hidden,
+html body #gameCountdown[data-presentation][data-kind][data-countdown-active=false]{display:none!important}
 html body #gameCountdown[data-presentation][data-kind]::before,html body #gameCountdown[data-presentation][data-kind]::after{display:none!important;content:none!important}
 html body #gameCountdown[data-presentation][data-kind] :is(#gameCountdownProgress,#launchLineup,#gameCountdownCrewLineup){display:none!important}
 html body #gameCountdown[data-presentation][data-kind] .countdownLayout{

@@ -23,6 +23,7 @@ export function updateCountdownPresentation(stage,value,{visible=Number(value)>0
  }
  const kind=stage.dataset.kind||'launch',key=kind+':'+sequence;
  stage.dataset.presentation=kind;
+ stage.dataset.countdownActive=String(!!visible);
  if(!visible){
   if(state.visible){for(const animation of state.animations)animation.cancel();state.animations.length=0;}
   state.visible=false;stage.classList.remove('countdown-releasing');return;

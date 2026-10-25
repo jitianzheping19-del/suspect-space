@@ -4952,7 +4952,8 @@ html body #gameCountdown[data-presentation][data-kind] {
   pointer-events: none !important;
   isolation: isolate;
 }
-html body #gameCountdown[data-presentation][data-kind].hidden {
+html body #gameCountdown[data-presentation][data-kind].hidden,
+html body #gameCountdown[data-presentation][data-kind][data-countdown-active=false] {
   display: none !important;
 }
 html body #gameCountdown[data-presentation][data-kind]::before,
@@ -12779,6 +12780,7 @@ function updateCountdownPresentation(stage, value, { visible = Number(value) > 0
   }
   const kind = stage.dataset.kind || "launch", key = kind + ":" + sequence;
   stage.dataset.presentation = kind;
+  stage.dataset.countdownActive = String(!!visible);
   if (!visible) {
     if (state.visible) {
       for (const animation of state.animations) animation.cancel();
