@@ -1,0 +1,9 @@
+html body #roleReveal[data-reveal-phase]{overflow:hidden!important;backdrop-filter:none!important}
+html body #roleReveal[data-reveal-phase]>.card{position:relative;z-index:2;animation:none!important;filter:none!important}
+html body #roleReveal[data-reveal-phase] #roleRevealTitle{animation:none!important}
+.roleRevealFrame{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.revealArc{position:absolute;top:calc(50% - min(36vw,43vh));width:min(72vw,86vh);height:min(72vw,86vh);border:2px solid transparent;border-top-color:var(--role-color,#92e9ed);border-bottom-color:var(--role-color,#92e9ed);border-radius:50%;opacity:.7}
+.revealArc.left{left:calc(50% - min(36vw,43vh));transform:rotate(-18deg)}.revealArc.right{right:calc(50% - min(36vw,43vh));transform:rotate(18deg);scale:1.12}
+.revealArc::after{content:'';position:absolute;inset:6%;border:1px solid #a6dce022;border-radius:50%}
+.revealCut{position:absolute;left:8%;right:8%;top:50%;height:2px;opacity:0;background:linear-gradient(90deg,transparent,var(--role-color,#a9eaff),#fff,var(--role-color,#a9eaff),transparent)}
+@media(prefers-reduced-motion:reduce){html body #roleReveal[data-reveal-phase] *{animation:none!important;transition:none!important}.revealCut{display:none}}

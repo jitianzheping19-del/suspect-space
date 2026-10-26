@@ -1,0 +1,12 @@
+html body #ssxPhotoGalleryOpen{position:fixed!important;right:max(12px,env(safe-area-inset-right))!important;top:calc(max(12px,env(safe-area-inset-top)) + 112px)!important;z-index:2147483005!important;pointer-events:auto!important;min-height:42px;padding:8px 12px;border:1px solid #8ab8bf;border-radius:13px;background:linear-gradient(145deg,#284554,#102432);color:#e9faff;font:800 13px system-ui}
+html body #ssxPhotoGalleryOpen[hidden]{display:none!important}
+.meetingPhotoOverlay{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:#020a14f0;pointer-events:auto;box-sizing:border-box}
+.meetingPhotoCard{width:min(880px,95vw);max-height:92dvh;overflow:auto;background:#0b1e2c;border:1px solid #7697a5;border-radius:20px;padding:16px;box-sizing:border-box;color:#e9faff}
+.meetingPhotoCard header{position:sticky;top:-16px;background:#0b1e2c;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;z-index:1}
+.meetingPhotoCard figure{margin:12px 0}.meetingPhotoCard img{display:block;width:100%;border-radius:10px;cursor:zoom-in}
+.meetingPhotoOverlay button{min-height:42px;border:1px solid #8fbdc4;border-radius:12px;background:#1b4952;color:#effffc;padding:7px 14px;font:800 14px system-ui;touch-action:manipulation}
+.meetingPhotoOverlay button:disabled{opacity:.45}.meetingPhotoCard figure button{margin-top:8px}
+html body #meetingPhotoViewer{z-index:2147483647;grid-template-rows:minmax(0,1fr) auto;gap:10px}
+#meetingPhotoViewer>img{display:block;max-width:96vw;max-height:calc(100dvh - 80px);width:auto;height:auto;object-fit:contain;border-radius:10px}
+.meetingPhotoThumb{display:block;max-width:100%;border:1px solid #86bbc8;border-radius:10px;background:#173d4c;color:#e7faff;padding:4px;cursor:zoom-in;min-height:42px;touch-action:manipulation}
+.meetingPhotoThumb img{display:block;width:min(260px,40vw);max-width:100%;height:auto;border-radius:7px}

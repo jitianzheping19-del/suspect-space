@@ -1,6 +1,6 @@
 import {authoredKillRoles,resolveAuthoredKillRole} from './authored-kill-player.js';
 
-const durationFor=role=>(authoredKillRoles.find(([id])=>id===role)?.[2]||4.2)*1000;
+const durationFor=role=>Math.max(.1,(authoredKillRoles.find(([id])=>id===role)?.[2]||4.2)-.22)/1.16*1000;
 const currentPresentation=game=>{
   const presentation=game?.killPresentation;
   return ['play','ended'].includes(game?.phase)&&presentation?.round===game.round?presentation:null;
@@ -70,6 +70,7 @@ export function registerWinningPlayback(game,stamp){
 }
 export function presentationReadyAt(game){
   const presentation=currentPresentation(game);if(!presentation)return 0;
+  if(!pendingViewers(game,presentation).length&&Number(presentation.completedAt)>0)return Number(presentation.completedAt);
   return Math.max(Number(presentation.untilAt)||0,Number(presentation.completedAt)||0,
     pendingViewers(game,presentation).length?Number(presentation.deadlineAt)||0:0);
 }

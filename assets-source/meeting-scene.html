@@ -933,7 +933,9 @@ function buttonAction(id){
   if(id==="scalesBtn"){setMode(mode==="scales"?"":"scales");return;}
   if(id==="meetingSheriffBtn"){setMode(mode==="sheriff"?"":"sheriff");return;}
   parent.postMessage({type:"ss3d-btn",id},"*");}
+const meetingPhotos=new Map();let lastPhotoUi=null;
 function renderUi(d){
+  lastPhotoUi=d;
   parentTargetSelection=!!d.targetSelection;refreshTargetHint();
   window.__ui?.();
   const atBottom=chatLog.scrollTop+chatLog.clientHeight>=chatLog.scrollHeight-40;
@@ -947,6 +949,11 @@ function renderUi(d){
     const stack=document.createElement("div");stack.style.cssText=`display:flex;flex-direction:column;align-items:${mine?"flex-end":"flex-start"};min-width:0;max-width:calc(100% - 27px)`;
     const who=document.createElement("div");who.textContent=String(m.name||"クルー");who.style.cssText=`max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 5px 2px;color:${color};font:900 11px/1.2 system-ui,sans-serif;text-shadow:0 1px 3px #000`;
     const bubble=document.createElement("div");bubble.textContent=String(m.text||"");bubble.style.cssText=`max-width:100%;padding:7px 10px;border:1px solid ${mine?"#65d8ae66":"#b4d7ef44"};border-radius:${mine?"13px 13px 4px 13px":"13px 13px 13px 4px"};background:${mine?"#184d43":"#1a2d42"};color:#f3f8ff;font:500 13px/1.45 system-ui,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 2px 8px #0005`;
+    if(/^[a-f0-9]{24}$/.test(m.photoId||"")){
+      const photo=meetingPhotos.get(m.photoId),open=document.createElement("button");open.type="button";open.textContent="写真を表示";open.style.cssText="display:block;max-width:100%;min-height:42px;padding:3px;border:1px solid #83b9c4;border-radius:9px;background:#123947;color:white;cursor:zoom-in";
+      if(photo?.from===m.uid){const image=document.createElement("img");image.src=photo.url;image.alt="会議で共有された写真";image.style.cssText="display:block;width:min(240px,30vw);max-width:100%;height:auto;border-radius:6px";open.replaceChildren(image);}
+      open.onclick=()=>parent.postMessage({type:"ss3d-photo-open",id:m.photoId,from:m.uid},"*");bubble.replaceChildren(open);
+    }
     stack.append(who,bubble);row.append(avatar,stack);return row;
   }));
   if(atBottom)chatLog.scrollTop=chatLog.scrollHeight;
@@ -1005,6 +1012,7 @@ cv.addEventListener("pointerdown",e=>{
   let root=hit.object;while(root.parent&&!seats.some(p=>p.c.root===root))root=root.parent;
   const p=seats.find(s=>s.c.root===root);if(p&&!ownVoted&&!freeCam)askPick(p.id,`${p.name} に投票しますか？`);});
 addEventListener("message",e=>{const d=e.data||{};
+  if(e.source===parent&&d.type==="ss3d-photo-cache"&&/^[a-f0-9]{24}$/.test(d.id||"")&&typeof d.url==="string"&&d.url.length<=49152&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(d.url)){meetingPhotos.set(d.id,{url:d.url,from:d.from});while(meetingPhotos.size>12)meetingPhotos.delete(meetingPhotos.keys().next().value);if(lastPhotoUi)renderUi(lastPhotoUi);return;}
   if(e.source===parent&&d.type==="ss3d-close-keyboard"){document.activeElement?.blur?.();return;}
   if(d.type==="ss3d-state"){applyState(d);}
   if(d.type==="ss3d-result")playResult(d.result||{});

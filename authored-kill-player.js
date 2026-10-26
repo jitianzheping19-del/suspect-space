@@ -24,7 +24,7 @@ export function authoredKillSpec(assets,role) {
   const source=entry[0]==='impostor'?assets.KILL_ASSET_SRCDOC:
     entry[0]==='vampire'?assets.SS_VAMPIRE_KILL_SRCDOC:
     entry[0]==='viper'?assets.SS_VIPER_KILL_SRCDOC:assets.KILL_DEMOS[entry[0]==='triggerHappy'?'sheriff':entry[0]].html;
-  return {role:entry[0],label:entry[1],duration:entry[2],source};
+  return {role:entry[0],label:entry[1],duration:entry[2],playbackRate:1.16,trimStart:.08,trimEnd:.14,source};
 }
 
 // This function is serialized into one preloaded iframe. A single WebGL context
@@ -146,7 +146,10 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     if(budget.mobile)controller.scene.traverse(object=>{if(object.shadow)object.shadow.mapSize.set(512,512);});
     try{if(typeof parent.__spaceRenderShadowsEnabled==='boolean')renderer.shadowMap.enabled=parent.__spaceRenderShadowsEnabled;}catch{}
     if(audioOutput)audioOutput.gain.value=0;
-    resize();controller.step(0,0);renderScene();dirty=false;
+    resize();controller.step(0,0);
+    const start=Math.max(0,Number(data.trimStart)||0);
+    while(time+1e-6<start){const dt=Math.min(1/60,start-time);time+=dt;controller.step(dt,time);}
+    target=time;renderScene();dirty=false;
   }
   function renderScene(){
     budget.shadows(renderer,performance.now());
@@ -194,13 +197,14 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
   });
   function frame(now){
     frameRequest=0;if(document.hidden)return;
-    const elapsed=Math.min((now-last)/1000,.05);last=now;
+    const elapsed=Math.min(Math.max(0,(now-last)/1000),.25);last=now;
     if(controller&&configuration){
       if(audioOutput)audioOutput.gain.value=playing||audible?Math.max(0,Math.min(1,Number(configuration.payload?.volume)||0)):0;
-      if(playing)target=Math.min(configuration.duration,target+elapsed);
+      const end=Math.max(.1,configuration.duration-(Number(configuration.trimEnd)||0));
+      if(playing)target=Math.min(end,target+elapsed*(Number(configuration.playbackRate)||1));
       while(time+1e-6<target){const dt=Math.min(1/60,target-time);time+=dt;controller.step(dt,time);dirty=true;}
-      if(dirty&&(gate.due(now)||time>=configuration.duration)){renderScene();dirty=false;}
-      if(time>=configuration.duration&&!finished&&!dirty){finished=true;playing=false;send({type:'authored-done',id:configuration.id});}
+      if(dirty&&(gate.due(now)||time>=end)){renderScene();dirty=false;}
+      if(time>=end&&!finished&&!dirty){finished=true;playing=false;send({type:'authored-done',id:configuration.id});}
     }
     if(playing||dirty||time+1e-6<target)requestFrame();
   }

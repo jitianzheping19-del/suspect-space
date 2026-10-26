@@ -5,7 +5,7 @@
 export const POSE_NETWORK_VERSION = 1;
 export const POSE_CHECKPOINT_MS = 5000;
 export const POSE_FALLBACK_MS = 200;
-const HEARTBEAT_MS = 250, FRESH_MS = 750, RETRY_MS = 30000;
+const HEARTBEAT_MS = 250, FRESH_MS = 2500, RETRY_MS = 30000;
 const MAGIC = 0x5350, HEADER_BYTES = 9, ROW_BYTES = 33;
 const MAX_ROWS = 40, MAX_BUFFERED = 4096;
 export const POSE_FRAME_MS = 1000 / 60;
@@ -89,10 +89,11 @@ export function decodePosePacket(buffer) {
 }
 
 export class PeerPoseNetwork {
-  constructor({writePresence, writeSignal, onPoses = () => {}, onReset = () => {},
+  constructor({writePresence, writeSignal, onPoses = () => {}, onReset = () => {}, onEphemeral = () => {},
     clock = () => Date.now(), PeerConnection = globalThis.RTCPeerConnection, rtcConfiguration} = {}) {
     this.writePresence = writePresence; this.writeSignal = writeSignal;
     this.onPoses = onPoses; this.onReset = onReset; this.clock = clock;
+    this.onEphemeral=onEphemeral;
     this.PeerConnection = PeerConnection;
     this.rtcConfiguration = rtcConfiguration || {iceServers: [
       {urls: 'stun:stun.l.google.com:19302'}, {urls: 'stun:stun.cloudflare.com:3478'}
@@ -132,6 +133,8 @@ export class PeerPoseNetwork {
       for (const link of this.links.values()) {link.readyVersion = 0; this.sendConfig(link);}
     }
     const stamp = this.clock();
+    if(this.configuredAt&&stamp-this.configuredAt>2500)this.resumeGraceUntil=stamp+5000;
+    this.configuredAt=stamp;
     if (!this.advertised && !this.advertising && stamp >= this.advertiseAt) this.advertise();
     if (stamp - this.lastReconcile >= 250) {this.lastReconcile = stamp; this.reconcile();}
   }
@@ -197,6 +200,7 @@ export class PeerPoseNetwork {
     }
     for (const link of this.links.values()) {
       if (this.clock() - link.createdAt > 15000 && (!this.open(link) || !link.lastReceivedAt)) this.failLink(link);
+      else if(this.open(link)&&link.lastReceivedAt&&this.clock()-link.lastReceivedAt>8000&&this.clock()>=(this.resumeGraceUntil||0)&&!globalThis.document?.hidden)this.failLink(link);
     }
   }
 
@@ -223,9 +227,11 @@ export class PeerPoseNetwork {
     const key = channel.label === 'ss-pose-v1' ? 'data' : 'control';
     if (link[key] && link[key] !== channel) {channel.close(); return;}
     link[key] = channel; channel.binaryType = 'arraybuffer';
+    if(key==='control'){channel.bufferedAmountLowThreshold=2048;channel.onbufferedamountlow=()=>this.flushEphemeral(link);}
     channel.onopen = () => {
       if (!this.valid(link)) return;
       if (this.isHost) this.sendConfig(link);
+      this.flushEphemeral(link);
       if (this.open(link) && !link.signalCleared) {
         link.signalCleared = true;
         this.queueWrite(context => this.writeSignal(link.peerId, null, context)).catch(() => {});
@@ -293,6 +299,15 @@ export class PeerPoseNetwork {
     if (typeof value !== 'string' || value.length > 8192) return;
     let message; try {message = JSON.parse(value);} catch {return;}
     if (!message || typeof message !== 'object') return;
+    this.stats.receivedBytes+=encoder.encode(value).length;
+    if(message.t==='ephemeral'){
+      if(message.scope!==this.context?.scope||typeof message.from!=='string'||!this.context.roster[message.from]?.online||
+        !Array.isArray(message.targets)||message.targets.length>MAX_ROWS||message.targets.some(id=>typeof id!=='string'||!this.context.roster[id]?.online)||
+        (this.isHost?message.from!==link.peerId:link.peerId!==this.context.hostId))return;
+      if(message.targets.includes(this.context.uid))this.onEphemeral(message.payload,{from:message.from,scope:message.scope});
+      if(this.isHost)for(const id of new Set(message.targets))if(id!==this.context.uid&&id!==message.from)this.queueEphemeral(this.links.get(id),value);
+      return;
+    }
     if (this.isHost) {
       if (message.t === 'ack' && message.version === this.version) {link.readyVersion = this.version; this.forceFull = true;}
       return;
@@ -308,8 +323,31 @@ export class PeerPoseNetwork {
     this.send(link.control, JSON.stringify({t: 'ack', version: this.version}));
   }
 
+  // Bounded, reliable attachment traffic uses the separate control channel.
+  // It never queues pose packets or writes binary/image data to Firebase.
+  queueEphemeral(link,value){
+    if(!link||!this.valid(link)||link.control?.readyState!=='open')return false;
+    const queue=link.ephemeralQueue||(link.ephemeralQueue=[]);
+    if(queue.length>=128)return false;queue.push(value);this.flushEphemeral(link);return true;
+  }
+  flushEphemeral(link){
+    if(!link||!this.valid(link)||link.control?.readyState!=='open')return;
+    const queue=link.ephemeralQueue;if(!queue)return;
+    while(queue.length&&link.control.bufferedAmount<=2048){const value=queue.shift();try{link.control.send(value);this.stats.sentBytes+=encoder.encode(value).length;}catch{queue.unshift(value);break;}}
+  }
+  publishEphemeral(payload,recipients){
+    if(!this.context||!Array.isArray(recipients))return false;
+    const targets=[...new Set(recipients)].filter(id=>id!==this.context.uid&&this.context.roster[id]?.online&&!this.context.roster[id]?.bot).slice(0,MAX_ROWS);
+    if(!targets.length)return true;
+    const value=JSON.stringify({t:'ephemeral',from:this.context.uid,scope:this.context.scope,targets,payload});
+    if(value.length>8192)return false;
+    if(this.isHost){let ok=true;for(const id of targets)ok=this.queueEphemeral(this.links.get(id),value)&&ok;return ok;}
+    return this.queueEphemeral(this.links.get(this.context.hostId),value);
+  }
+
   publishLocal(value) {
     if (!this.context || !this.advertised || !this.ids?.includes(this.context.uid)) return;
+    if(!this.isHost)this.flushEphemeral(this.links.get(this.context.hostId));
     const pose = normalizePeerPose(value); if (!pose) return;
     const stamp = this.clock(), signature = JSON.stringify(pose);
     const deadline=this.nextLocalAt||stamp;
@@ -365,7 +403,7 @@ export class PeerPoseNetwork {
     }
     link.lastReceivedAt = stamp; this.stats.receivedBytes += value.byteLength;
     if (this.isHost) this.dirty = true;
-    else {this.lastSnapshotAt = stamp; this.coverageAt = packet.complete ? stamp : 0;}
+    else {this.lastSnapshotAt = stamp;if(packet.complete)this.coverageAt=stamp;}
     if (Object.keys(accepted).length) {
       if (this.isHost) Object.assign(this.pendingPoses, accepted);
       else this.onPoses(accepted);
@@ -402,6 +440,7 @@ export class PeerPoseNetwork {
       .map(row => ({...row, slot: this.ids.indexOf(row.id)}));
     const buffer = encodePosePacket(this.version, rows, this.canUseDirect());
     for (const link of this.links.values()) {
+      this.flushEphemeral(link);
       if (link.readyVersion !== this.version) {if (stamp - (link.configAt || 0) > 500) {link.configAt = stamp; this.sendConfig(link);} continue;}
       this.send(link.data, buffer);
     }
@@ -412,7 +451,9 @@ export class PeerPoseNetwork {
 
   failLink(link) {
     if (!this.valid(link)) return;
-    this.retryAt.set(link.peerId, this.clock() + RETRY_MS); this.closeLink(link);
+    // A proven connection that dies mid-match gets one prompt retry. Failed
+    // initial NAT negotiation retains the long backoff and its low DB traffic.
+    this.retryAt.set(link.peerId, this.clock() + (link.lastReceivedAt?2000:RETRY_MS)); this.closeLink(link);
   }
 
   closeLink(link) {
@@ -420,7 +461,7 @@ export class PeerPoseNetwork {
     this.poses.delete(link.peerId); this.rows.delete(link.peerId);
     link.pc.onconnectionstatechange = null; link.pc.ondatachannel = null;
     for (const channel of [link.data, link.control]) {
-      if (channel) {channel.onclose = null; channel.onmessage = null; channel.onopen = null; try {channel.close();} catch {}}
+      if (channel) {channel.onclose = null; channel.onmessage = null; channel.onopen = null;channel.onbufferedamountlow=null; try {channel.close();} catch {}}
     }
     try {link.pc.close();} catch {}
   }

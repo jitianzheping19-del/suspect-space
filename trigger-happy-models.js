@@ -36,7 +36,7 @@ export function buildTriggerHappyWeapon(THREE,scope){
  return{scope,root,muzzle,flash,shells,bolt};
 }
 export function buildTriggerHappyBullet(THREE,scope,radius){
- const size=Math.max(.055,Math.min(.13,radius*.35)),brass=scope.standard(0xd4b67b,{metalness:.9,roughness:.22}),tip=scope.standard(0xe3d2ad,{metalness:.75,roughness:.26}),bullet=new THREE.Group();scope.root.add(bullet);
+ const size=Math.max(.085,Math.min(.21,radius*.54)),brass=scope.standard(0xd4b67b,{metalness:.9,roughness:.22}),tip=scope.standard(0xe3d2ad,{metalness:.75,roughness:.26}),bullet=new THREE.Group();scope.root.add(bullet);
  const body=scope.mesh(new THREE.CylinderGeometry(size,size,size*3.6,12),brass,bullet);body.rotation.x=Math.PI/2;
  const nose=scope.mesh(new THREE.ConeGeometry(size,size*2.5,12),tip,bullet,0,0,size*3);nose.rotation.x=Math.PI/2;
  const band=scope.mesh(new THREE.TorusGeometry(size*1.02,size*.13,5,12),tip,bullet,0,0,-size*1.25);
