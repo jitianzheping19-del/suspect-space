@@ -56,6 +56,10 @@ function alignMeetingIdentity(){
  camera.updateMatrixWorld(true);
  const height=Math.max(1,innerHeight),width=Math.max(1,innerWidth);
  for(const p of seats){
+  if(p.ejectionNameHidden||(p.ejectionStarted&&!p.c?.root?.visible)){
+   for(const label of[p.tag,p.roleTag,p.voteCheck,p.voteTally,p.bub,p.alertLabel,p.boostLabel])if(label?.s)label.s.visible=false;
+   continue;
+  }
   if(!p.c?.root||p.gone)continue;
   p.c.root.updateWorldMatrix(true,false);identityAnchor.set(0,1.85,0);p.c.root.localToWorld(identityAnchor);
   identityView.copy(identityAnchor).applyMatrix4(camera.matrixWorldInverse);

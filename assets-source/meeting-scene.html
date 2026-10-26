@@ -198,16 +198,32 @@ function startShow(fn,dur,reset){show.t=0;show.on=true;show.fired={};show.fn=fn;
 function runRole(idle){startLoop((dt,rdt,time)=>{const sl=document.getElementById("slow");ts=(sl&&sl.checked)?.3:1;dt=rdt*ts;stepFx(dt);if(show.on){show.t+=dt;show.fn(show.t,dt,time);if(show.t>show.dur){show.on=false;document.querySelectorAll("#bar button").forEach(b=>b.disabled=false);if(show.after)show.after();}}else idle&&idle(dt,time);});}
 const cap=$("caption");let capT;function caption(t,c="#fff"){cap.textContent=t;cap.style.color=c;cap.style.opacity=1;clearTimeout(capT);capT=setTimeout(()=>cap.style.opacity=0,1600);}
 const meetingOutcome=document.createElement("div");meetingOutcome.id="meetingOutcome";meetingOutcome.setAttribute("aria-live","polite");meetingOutcome.style.cssText="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;display:none;width:min(88vw,900px);text-align:center;pointer-events:none;color:#fff;text-shadow:0 2px 12px #000,0 0 34px #000;font:800 clamp(19px,3.3vw,42px)/1.45 system-ui,sans-serif";document.body.append(meetingOutcome);
+let outcomeTypingTimer=0,outcomeTypingGeneration=0;
+function cancelMeetingOutcomeTyping(){clearTimeout(outcomeTypingTimer);outcomeTypingTimer=0;outcomeTypingGeneration++;}
 function showMeetingOutcome(text,r){
+ cancelMeetingOutcomeTyping();const generation=outcomeTypingGeneration;
  meetingOutcome.dataset.kind=r.outcome==="skip"||text.includes("スキップ")?"skip":text==="追放なし"?"no-ejection":"result";
- meetingOutcome.replaceChildren();const title=document.createElement("div");
- const details=r.revealMode!=="none"?(r.ejectedDisclosure||[]):[];
- if(details.length){for(const detail of details){const row=document.createElement("div"),role=document.createElement("span");row.append(document.createTextNode((byId(detail.id)?.name||"プレイヤー")+"は"));role.textContent=detail.label;if(detail.impostor===true||detail.label==="インポスター")role.style.color="#ff4e5e";row.append(role,document.createTextNode("だった"));title.append(row);}}
- else title.textContent=text;
- meetingOutcome.append(title);
- if(r.showImpostorCount){const remaining=document.createElement("div");remaining.textContent="残り人狼 "+Math.max(0,Number(r.remainingImpostors)||0)+" 人";remaining.style.cssText="margin-top:15px;font-size:.75em;font-weight:800;color:#e04752";meetingOutcome.append(remaining);}
-  notifyMeetingResultReveal(r);
- meetingOutcome.style.display="block";meetingOutcome.animate([{opacity:0,transform:"translate(-50%,-42%)"},{opacity:1,transform:"translate(-50%,-50%)"}],{duration:800,easing:"ease-out"});
+ meetingOutcome.replaceChildren();const title=document.createElement("div"),glyphs=[];
+ const appendRun=(parent,text,color)=>{const run=document.createElement("span");if(color)run.style.color=color;
+  const chars=typeof Intl.Segmenter==="function"?Array.from(new Intl.Segmenter('ja',{granularity:'grapheme'}).segment(String(text)),item=>item.segment):Array.from(String(text));
+  for(const char of chars){const glyph=document.createElement("span");glyph.textContent=char;glyph.style.visibility="hidden";glyph.setAttribute("aria-hidden","true");run.append(glyph);glyphs.push(glyph);}parent.append(run);
+ };
+ const details=r.revealMode!=="none"?(r.ejectedDisclosure||[]):[],spoken=[];
+ if(details.length){for(const detail of details){const row=document.createElement("div"),person=byId(detail.id),name=person?.fullName||person?.name||"プレイヤー";appendRun(row,name+"は");appendRun(row,detail.label,detail.impostor===true||detail.label==="インポスター"?"#ff4e5e":"");appendRun(row,"だった");spoken.push(name+"は"+detail.label+"だった");title.append(row);}}
+ else{appendRun(title,text);spoken.push(text);}
+ title.setAttribute("aria-label",spoken.join('　'));meetingOutcome.append(title);
+ let remaining=null;
+ if(r.showImpostorCount){remaining=document.createElement("div");remaining.textContent="残り人狼 "+Math.max(0,Number(r.remainingImpostors)||0)+" 人";remaining.style.cssText="margin-top:15px;font-size:.75em;font-weight:800;color:#e04752;visibility:hidden";meetingOutcome.append(remaining);}
+ meetingOutcome.style.display="block";
+ const typing=meetingOutcome.dataset.kind==="result"&&!matchMedia('(prefers-reduced-motion:reduce)').matches,start=performance.now(),interval=Math.min(42,1800/Math.max(1,glyphs.length));let revealed=0;
+ function step(){
+  if(generation!==outcomeTypingGeneration||meetingOutcome.style.display==="none")return;
+  const count=typing?Math.min(glyphs.length,1+Math.floor((performance.now()-start)/interval)):glyphs.length;
+  while(revealed<count)glyphs[revealed++].style.visibility="visible";
+  if(revealed<glyphs.length)outcomeTypingTimer=setTimeout(step,interval);
+  else{outcomeTypingTimer=0;if(remaining)remaining.style.visibility="visible";notifyMeetingResultReveal(r);}
+ }
+ step();
 }
 
 
@@ -628,7 +644,7 @@ function updateMeetingAbilityView(){
 }
 
 /* execution on the table (normal vote) */
-function resetAuthoredEjection(p){p.ejectionStarted=false;p.c.root.visible=true;p.c.root.rotation.x=0;p.tag.s.visible=true;}
+function resetAuthoredEjection(p){p.ejectionNameHidden=false;p.ejectionStarted=false;p.c.root.visible=true;p.c.root.rotation.x=0;p.tag.s.visible=true;}
 
 
 /* death during the meeting (ability kill): shot or ballot, then fall beside the chair */

@@ -144,7 +144,7 @@ function createMeetingEjections(api) {
     if (state.dead) return;
     state.dead = true;
     for (const p of state.actors) {
-      p.alive = false;p.gone = true;p.dying = false;
+      p.alive = false;p.gone = true;p.dying = false;p.ejectionNameHidden=true;
       if (p.chair) {p.chair.visible = false;p.chair.removeFromParent();p.chair = null;}
       for (const L of [p.tag, p.roleTag, p.voteCheck, p.voteTally, p.bub]) if (L) L.s.visible = false;
       if (p.heart) p.heart.visible = false;
@@ -153,7 +153,7 @@ function createMeetingEjections(api) {
       const detail = (state.result.ejectedDisclosure || []).find(d => d.id === p.id);
       return detail && state.result.revealMode !== 'none' ? `${p.name}は${detail.label}だった` : `${p.name}が追放された`;
     });
-    api.outcome(lines.join('　'), state.result);
+    state.resultLines=lines.join('　');
     if (state.isMe) api.voice('end');
   }
   function start(ids, result, mode) {
@@ -180,6 +180,9 @@ function createMeetingEjections(api) {
       state.prop=extended.create(mode,state);
       state.deathAt=state.prop.deathAt;state.finishAt=state.prop.finishAt;
     }
+    // Let the mechanical effect finish before announcing its outcome.
+    state.resultAt=Math.max(state.deathAt+.85,state.finishAt+.15);
+    state.finishAt=state.resultAt+.05;
     state.staging=createEjectionStaging({THREE,root:props,base:api.top+.13,mode,radius:(state.prop?.envelope?.radius||1.3)+.3});
     if (state.prop) state.prop.root.visible = false;
     if (mode === 'balance') {
@@ -302,6 +305,7 @@ function createMeetingEjections(api) {
       if (t >= state.deathAt) {
         actors.forEach(p => {p.c.root.visible = false;});death(state);
       }
+      if(state.dead&&!state.outcomeShown&&t>=state.resultAt){state.outcomeShown=true;api.outcome(state.resultLines||'',state.result);}
       if (t >= state.finishAt) {
         for (const p of actors) p.meetingActorBusy = false;
         api.setBusy(false);active = null;
@@ -335,6 +339,10 @@ function createMeetingEjections(api) {
     const selected=new Set((active||last)?.actors||[]);
     const ordered=[...api.getSeats()].sort((a,b)=>Number(selected.has(b))-Number(selected.has(a)));
     for(const p of ordered){
+      if(p.ejectionNameHidden||(p.ejectionStarted&&!p.c.root.visible)){
+        for(const label of[p.tag,p.roleTag,p.voteCheck,p.voteTally,p.bub,p.alertLabel,p.boostLabel])if(label?.s)label.s.visible=false;
+        continue;
+      }
       if(!p.c.root.visible||!p.tag?.s.visible)continue;
       const base=p.c.root.position,anchor=v(base.x,base.y+2.2,base.z),ndc=anchor.clone().project(camera);
       const depth=Math.max(.1,-anchor.clone().applyMatrix4(camera.matrixWorldInverse).z),pixels=focal/depth;
@@ -397,7 +405,7 @@ function getLiveMeetingEjections(){return liveMeetingEjections||(liveMeetingEjec
  impact,breakTable:mrBeginScaleBreak,hideCentre:()=>{mrCentralTable.visible=false;ped.visible=false;},
  pans:panGroups,chains:mrChainMeshes,scaleTargets:()=>scaleTargets,
  setBusy:value=>{busy=value;},voice:stage=>meetingDeathVoice(stage,'ejection'),
- hideOutcome:()=>{meetingOutcome.style.display='none';cap.style.opacity='0';},outcome:showMeetingOutcome
+ hideOutcome:()=>{cancelMeetingOutcomeTyping();meetingOutcome.style.display='none';cap.style.opacity='0';},outcome:showMeetingOutcome
 }));}
 function mrStartEjection(ids,result,forcedMode){
  getLiveMeetingEjections().start(ids,result,forcedMode||(result.catDrag?'cat':mrEjectionMode(ids)));

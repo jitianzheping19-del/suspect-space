@@ -12,7 +12,11 @@ export function animateRoleReveal(stage,kind='role'){
  play(stage.querySelector('.card'),[{opacity:0,transform:'translateY(18px) scale(.92)'},{opacity:1,transform:'translateY(0) scale(1)'}],620);
  play(stage.querySelector('#roleRevealTitle'),[{opacity:0,transform:'translateY(20px)',letterSpacing:'.32em'},{opacity:1,transform:'translateY(0)',letterSpacing:'.06em'}],640,120);
  play(stage.querySelector('#roleLineup'),[{opacity:0,transform:'translateY(26px) scale(.9)'},{opacity:1,transform:'translateY(0) scale(1)'}],650,200);
- play(frame.querySelector('.left'),[{opacity:0,transform:'translateX(-20%) rotate(-55deg)'},{opacity:.7,transform:'translateX(0) rotate(-18deg)'}],740);
- play(frame.querySelector('.right'),[{opacity:0,transform:'translateX(20%) rotate(55deg)'},{opacity:.7,transform:'translateX(0) rotate(18deg)'}],740);
+ const duration=kind==='faction'?2000:5000;
+ for(const[selector,start,direction]of[['.left',-18,1],['.right',18,-1]]){
+  const node=frame.querySelector(selector);
+  if(node?.animate)animations.push(node.animate([{transform:`rotate(${start}deg)`},{transform:`rotate(${start+direction*360}deg)`}],{duration,easing:'linear',fill:'forwards'}));
+ }
+ play(frame,[{opacity:0},{opacity:1}],400);
  play(frame.querySelector('.revealCut'),[{opacity:0,transform:'scaleX(.1)'},{opacity:.8,transform:'scaleX(1)',offset:.35},{opacity:0,transform:'scaleX(1.15)'}],760);
 }
