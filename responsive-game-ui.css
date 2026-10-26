@@ -135,3 +135,8 @@ html body[data-phase="lobby"] #lobbyRosterList{max-height:calc(100dvh - var(--st
 @layer play-action-layout{
  html body[data-phase="meeting"] #meeting .card>#meetingMapBtn:not(.hidden){display:flex!important}
 }
+
+/* Six wardrobe tabs: tablet grid, phone single row. */
+html body #costumeStudio #costumeSlots{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(42px,auto));grid-auto-flow:row}
+@media(pointer:coarse) and (min-width:701px){html body #costumeStudio #costumeSlots{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(42px,auto))!important}}
+@media(max-width:700px){html body #costumeStudio #costumeSlots{grid-template-columns:repeat(6,minmax(0,1fr))!important;grid-template-rows:1fr!important;gap:3px!important}html body #costumeStudio #costumeSlots button{min-height:36px!important;padding:2px!important}html body #costumeStudio #costumeSlots .slotIcon{font-size:18px!important}}
