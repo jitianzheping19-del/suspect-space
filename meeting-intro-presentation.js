@@ -33,7 +33,7 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    const m=mat(i===1?0xffcf9e:0xff586e,true);m.transparent=true;m.depthWrite=false;
    const o=mesh(new THREE.TorusGeometry(1,.035,6,48),m,0,.018+i*.006,0);o.rotation.x=-Math.PI/2;return o;
   });
-  let corpse,corpseTag,button,alarm;
+  let corpse,corpseTag,button,alarm,hand;
   if(report){
    corpse=createCrew(body||{});actors.push(corpse);ownCompanion(corpse);if(corpse.userData.petFollower)corpse.userData.petFollower.visible=false;corpse.traverse(o=>{if(o.isSprite)o.visible=false;});corpse.rotation.set(0,.2,-Math.PI/2);corpse.position.set(.55,.42,.18);scene.add(corpse);
    corpseTag=nameTag(body?.name||'クルー',0xffb8c3);corpseTag.position.set(1.5,1.45,.18);
@@ -45,7 +45,7 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    button=mesh(new THREE.CylinderGeometry(.46,.50,.25,32),red,.22,.75,0);
    mesh(new THREE.TorusGeometry(.57,.045,6,40),shine,.22,.65,0).rotation.x=Math.PI/2;
    for(const side of[-1,1])for(const end of[-1,1])mesh(new THREE.BoxGeometry(.12,.12,.12),shine,.22+side*.49,.63,end*.49);
-   const hand=mesh(new THREE.SphereGeometry(.135,12,8),actor.userData.suit||steel,0,-.43,0,actor.userData.arms?.[1]||actor);
+   hand=mesh(new THREE.SphereGeometry(.15,12,8),actor.userData.suit||steel,0,-.34,0,actor.userData.arms?.[1]||actor);
   }
   const sparkPositions=new Float32Array(28*3),sparkGeo=new THREE.BufferGeometry();geometries.add(sparkGeo);sparkGeo.setAttribute('position',new THREE.BufferAttribute(sparkPositions,3).setUsage(THREE.DynamicDrawUsage));
   const sparkMat=new THREE.PointsMaterial({color:0xffd19b,size:.065,transparent:true,depthWrite:false,toneMapped:false});materials.add(sparkMat);
@@ -79,20 +79,20 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    const impact=Math.max(0,t-impactAt),reveal=smooth((t-impactAt)/.16),decay=Math.exp(-impact*10);
    if(report){
     // Fast approach, planted stop, backward recoil, then a clear pointing pose.
-    const walk=smooth(t/.94),stride=reduced?0:Math.sin(t*23)*(1-walk);
-    actor.position.set(-3.3+2.65*walk,.06*Math.abs(stride),0);actor.rotation.set(0,Math.PI/2-.25*smooth((t-1.3)/.4),0);
+    const walk=smooth(t/.88),stride=reduced?0:Math.sin(t*27)*(1-walk);
+    actor.position.set(-3.55+2.90*walk,.11*Math.abs(stride),0);actor.rotation.set(0,Math.PI/2-.25*smooth((t-1.3)/.4),0);
     for(const[i,leg]of(actor.userData.legs||[]).entries())leg.rotation.x=(i?1:-1)*stride*.65;
     const recoil=smooth((t-.96)/.16)*(1-smooth((t-1.24)/.35));
-    actor.position.x-=recoil*.32;actor.position.y+=recoil*(reduced?0:.16);actor.rotation.x=-recoil*.20;
+    actor.position.x-=recoil*.48;actor.position.y+=recoil*(reduced?0:.23);actor.rotation.x=-recoil*.32;actor.rotation.z=recoil*.17;
     for(const[i,arm]of(actor.userData.arms||[]).entries()){arm.rotation.x=-recoil*(i?2:1.2)-(i?smooth((t-1.35)/.3)*1.1:0);arm.rotation.z=(i?-1:1)*recoil*.45;}
     alarm.visible=t>.98;const pop=reduced?1:1+.27*Math.exp(-Math.max(0,t-1.04)*8);alarm.scale.set(.95*pop,1.15*pop,1);alarm.position.set(actor.position.x-.10,tagHeight+.65,0);
    }else{
-    actor.position.set(-.65-.22*(1-smooth(t/.26)),0,.04);actor.rotation.set(0,Math.PI/2,0);
-    const windup=smooth((t-.1)/.3)*(1-smooth((t-.60)/.22)),press=smooth((t-.66)/.20)*(1-smooth((t-1.12)/.35));
-    actor.position.x+=press*.14;actor.rotation.x=-press*.12;
+    actor.position.set(-.48-.30*(1-smooth(t/.30)),0,.04);actor.rotation.set(0,Math.PI/2,0);
+    const windup=smooth((t-.08)/.42)*(1-smooth((t-.66)/.13)),press=smooth((t-.67)/.16)*(1-smooth((t-1.16)/.32));
+    actor.position.x+=press*.18-windup*.10;actor.position.y=windup*.10;actor.rotation.x=-press*.23;actor.rotation.z=windup*.18-press*.12;
     if(shoulder){
-     shoulder.quaternion.copy(shoulderRest);shoulder.rotation.x=windup*2.4;actor.updateMatrixWorld(true);
-     hit.set(-.10,.76-press*.14,-.12);actor.worldToLocal(aim.copy(hit));aim.sub(shoulder.position);const reach=aim.length();aim.normalize();quaternion.setFromUnitVectors(down,aim);shoulder.quaternion.slerp(quaternion,press);shoulder.scale.y=1+press*Math.max(0,Math.min(.45,reach/.46-1));
+     shoulder.quaternion.copy(shoulderRest);shoulder.rotation.x=windup*2.8;shoulder.rotation.z=-windup*.65;actor.updateMatrixWorld(true);
+     hit.set(.22,.88-press*.16,0);actor.worldToLocal(aim.copy(hit));aim.sub(shoulder.position);const reach=aim.length();aim.normalize();quaternion.setFromUnitVectors(down,aim);shoulder.quaternion.slerp(quaternion,press);shoulder.scale.y=1+press*Math.max(0,Math.min(.85,reach/.34-1));
     }
     const rebound=reduced?0:(t>1.12?Math.sin((t-1.12)*18)*Math.exp(-(t-1.12)*8)*.035:0);
     button.position.y=.75-press*.16+rebound;button.material.color.setHex(t>impactAt?0xff667b:0xd93c58);

@@ -11,3 +11,16 @@
 #settingsPanel_admin pre{padding:14px;background:#071926;border:1px solid #355a6b;border-radius:12px;font-size:12px}
 .reviewInboxButton{box-sizing:border-box;max-width:520px;justify-self:stretch}
 @media(pointer:coarse){button{touch-action:manipulation}#meetingChatMessages{font-size:13px;line-height:1.45}}
+/* A gift stays highlighted until the recipient explicitly accepts it. */
+body.ssGiftPending :is(.unifiedSettingsTrigger,.mobileModalSettingsButton){overflow:visible!important}
+body.ssGiftPending :is(.unifiedSettingsTrigger,.mobileModalSettingsButton)::after{content:''!important;display:block!important;position:absolute!important;right:-3px!important;top:-3px!important;width:12px!important;height:12px!important;border-radius:50%!important;background:#ff354b!important;border:2px solid #fff1ee!important;box-shadow:0 0 8px 3px #ff314eaa!important;pointer-events:none!important;animation:ssGiftPulse 1.4s ease-in-out infinite!important}
+body.ssGiftPending #inputSettingsNav [data-settings-target="inbox"],.ssGiftNotice{border-color:#ff6674!important;box-shadow:0 0 12px #ff384f9c!important;color:#fff1f1!important}
+.ssGiftSelect{box-sizing:border-box;width:100%;min-height:44px;padding:8px;border:1px solid #66899b;border-radius:10px;background:#10283a;color:#f0fbff;font:16px system-ui}
+.ssGiftPlayers{max-height:26vh;overflow:auto}.ssGiftPlayer{display:flex!important;align-items:center;gap:10px;margin:5px 0;padding:10px;border:1px solid #355362;border-radius:10px;background:#102536}.ssGiftPlayer input{width:20px;height:20px;accent-color:#65ddc7}
+.ssGiftCelebration{position:fixed;inset:0;z-index:2147483640;display:grid;place-content:center;justify-items:center;gap:12px;pointer-events:none;background:#050a1be8;animation:ssGiftOverlay 2.3s ease both}.ssGiftBurst{position:absolute;left:50%;top:50%;color:#fae29c;font-size:min(80vw,560px);line-height:1;transform:translate(-50%,-50%);text-shadow:0 0 40px #bb67ff;animation:ssGiftBurst 2.3s ease-out both}.ssGiftIcon,.ssGiftLabel{position:relative;text-shadow:0 4px 16px #000}.ssGiftIcon{font-size:clamp(86px,20vh,170px);animation:ssGiftBox 2.3s cubic-bezier(.2,.8,.25,1) both}.ssGiftLabel{padding:10px 22px;border:1px solid #e8c77c;border-radius:14px;background:#182237;color:#fff5d8;font:800 clamp(18px,4vw,28px) system-ui;animation:ssGiftLabel 2.3s ease both}
+@keyframes ssGiftPulse{50%{box-shadow:0 0 14px 6px #ff314ed0}}
+@keyframes ssGiftOverlay{0%{opacity:0}10%,80%{opacity:1}100%{opacity:0}}
+@keyframes ssGiftBurst{0%{opacity:0;transform:translate(-50%,-50%) scale(.1) rotate(-50deg)}30%{opacity:.6}100%{opacity:0;transform:translate(-50%,-50%) scale(1.4) rotate(45deg)}}
+@keyframes ssGiftBox{0%{transform:translateY(90px) scale(.2) rotate(-20deg);opacity:0}40%{transform:translateY(-20px) scale(1.15) rotate(8deg);opacity:1}62%,85%{transform:translateY(0) scale(1) rotate(0)}100%{opacity:0}}
+@keyframes ssGiftLabel{0%,30%{opacity:0;transform:translateY(20px)}45%,85%{opacity:1;transform:translateY(0)}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){body.ssGiftPending :is(.unifiedSettingsTrigger,.mobileModalSettingsButton)::after,.ssGiftCelebration *{animation:none!important}.ssGiftCelebration{animation:ssGiftOverlay 2.3s ease both}}

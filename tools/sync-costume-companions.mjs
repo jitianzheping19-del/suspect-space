@@ -5,6 +5,8 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {gzipSync,gunzipSync} from 'node:zlib';
 const helper=(await readFile('assets-source/detailed-companions.js','utf8')).trim();
 const wearables=(await readFile('assets-source/detailed-wearables.js','utf8')).trim();
+const premium='/* GIFT_SKIN_V1_BEGIN */\n'+(await readFile('premium-skins.js','utf8')).replace(/export (const|function) /g,'$1 ')+'\n/* GIFT_SKIN_V1_END */';
+const premiumMarker=/\/\* GIFT_SKIN_V1_BEGIN \*\/[\s\S]*?\/\* GIFT_SKIN_V1_END \*\//;
 const marker=/\/\* DETAILED_COMPANIONS_V1_BEGIN[\s\S]*?\/\* DETAILED_COMPANIONS_V1_END \*\//;
 const wearableMarker=/\/\* DETAILED_WEARABLES_V1_BEGIN[\s\S]*?\/\* DETAILED_WEARABLES_V1_END \*\//;
 const builderMarker=/function buildLightCostume\(THREE,code\)\{[\s\S]*?\n  return root;\n\}/;
@@ -16,6 +18,7 @@ for(const name of [...entries,'assets-source/lobby-lounge.html']){
  const source=await readFile(name,'utf8');if(!marker.test(source))throw new Error('Missing companion source marker: '+name);
  if(!builderMarker.test(source))throw new Error('Missing costume builder: '+name);
  let updated=source.replace(marker,()=>helper).replace(builderMarker,()=>builder);
+ if(name==='assets-source/lobby-lounge.html')updated=premiumMarker.test(updated)?updated.replace(premiumMarker,()=>premium):updated.replace('function buildLightCostume(THREE,code){',()=>premium+'\nfunction buildLightCostume(THREE,code){');
  updated=wearableMarker.test(updated)?updated.replace(wearableMarker,()=>wearables):updated.replace('function buildLightCostume(THREE,code){',()=>wearables+'\n\nfunction buildLightCostume(THREE,code){');
  if(updated!==source)await writeFile(name,updated);
 }
@@ -25,7 +28,7 @@ for(const name of entries){
  const source=await readFile(name,'utf8'),match=source.match(pattern);
  if(!match)throw new Error('Embedded assets missing: '+name);
  const assets=JSON.parse(gunzipSync(Buffer.from(JSON.parse(match[1]).join(''),'base64')));
- assets.COSTUME_LIB_SRC=helper+'\n\n'+wearables+'\n\n'+builder;assets.INTEGRATED_LOBBY_TEMPLATE=lobby;
+ assets.COSTUME_LIB_SRC=helper+'\n\n'+wearables+'\n\n'+premium+'\n\n'+builder;assets.INTEGRATED_LOBBY_TEMPLATE=lobby;
  const encoded=gzipSync(Buffer.from(JSON.stringify(assets)),{level:9,mtime:0}).toString('base64');
  const payload='const EMBEDDED_ASSET_PAYLOAD='+JSON.stringify(encoded.match(/.{1,120}/g),null,1)+'.join("");';
  await writeFile(name,source.replace(pattern,()=>payload));console.log('Updated costume models: '+name);
