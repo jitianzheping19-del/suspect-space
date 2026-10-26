@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#071323">
+<title>GASコード | SPACE SUSPECT</title>
+<style>
+:root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}*{box-sizing:border-box}body{margin:0;background:#071323;color:#e9f5ff}.top{position:sticky;top:0;background:#0b1c2d;border-bottom:1px solid #52758b;padding:12px max(12px,env(safe-area-inset-left));z-index:2}.title{font:600 16px system-ui,sans-serif;margin:0 0 10px}.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tabs{display:flex;gap:8px}.btn{border:1px solid #61879a;border-radius:9px;padding:9px 13px;color:#d9edf5;background:#152b3d;font:600 14px system-ui,sans-serif}.btn[aria-selected=true]{background:#087d70;border-color:#70dfce}.tools{margin-left:auto;display:flex;gap:8px}a.btn{text-decoration:none}#status{font:12px system-ui,sans-serif;color:#a7bdc9;margin-left:2px}main{padding:10px}pre{margin:0;white-space:pre;overflow:auto;max-height:calc(100dvh - 104px);background:#050d17;border:1px solid #20374a;border-radius:10px;padding:14px;color:#d5e6ef;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2;user-select:text;-webkit-user-select:text}@media(min-width:900px){pre{font-size:13px;padding:20px}}@media(max-width:480px){.btn{padding:8px 10px}.tools{margin-left:0}pre{font-size:11px;padding:10px}}
+</style>
+</head>
+<body>
+<header class="top"><h1 class="title">GASコード</h1><div class="bar"><div class="tabs" role="tablist"><button class="btn" role="tab" aria-selected="true" data-file="code.js.txt">code.js</button><button class="btn" role="tab" aria-selected="false" data-file="index.html.txt">index.html</button></div><div class="tools"><button class="btn" id="copy">コピー</button><a class="btn" id="raw" href="code.js.txt" target="_blank" rel="noopener">テキストで開く</a></div><span id="status" aria-live="polite">読み込み中</span></div></header>
+<main><pre><code id="source"></code></pre></main>
+<script>
+(()=>{const code=document.getElementById('source'),status=document.getElementById('status'),raw=document.getElementById('raw'),copy=document.getElementById('copy'),tabs=[...document.querySelectorAll('[role=tab]')];let current='code.js.txt';async function show(file){current=file;tabs.forEach(t=>t.setAttribute('aria-selected',String(t.dataset.file===file)));raw.href=file;status.textContent='読み込み中';code.textContent='';try{const r=await fetch(file,{cache:'no-cache'});if(!r.ok)throw Error('HTTP '+r.status);code.textContent=await r.text();status.textContent=code.textContent.length.toLocaleString()+' 文字'}catch(e){status.textContent='読み込めません: '+e.message}}tabs.forEach(t=>t.addEventListener('click',()=>show(t.dataset.file)));copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(code.textContent);status.textContent='コピーしました'}catch{status.textContent='コピーできませんでした'}});show(current)})();
+</script>
+</body>
+</html>
