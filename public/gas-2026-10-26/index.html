@@ -38612,7 +38612,15 @@ function renderStudioChoices() {
     const caption = document.createElement("span");
     caption.textContent = name;
     button.append(icon, caption);
-    button.onclick = () => {
+    const premiumLocked = studioCategory === 5 && !studioOwned.has(id) && !isSpaceSuspectAdmin();
+    if (premiumLocked) {
+      button.disabled = true;
+      button.classList.add("costumeUnknown");
+      button.setAttribute("aria-label", "未所持の課金装備");
+      button.title = "ギフトで受け取ると使用できます";
+      icon.textContent = "❔";
+      caption.textContent = "？";
+    } else button.onclick = () => {
       if (studioCategory === 5) studioPremium = id;
       else {
         studioPremium = "";
@@ -38621,7 +38629,6 @@ function renderStudioChoices() {
       renderStudioChoices();
       updateStudioPreview();
     };
-    if (studioCategory === 5 && !studioOwned.has(id) && !isSpaceSuspectAdmin()) caption.textContent = name + " 🔒";
     choices.append(button);
   }
 }
@@ -54495,6 +54502,8 @@ html body[data-phase="lobby"] #lobbyRosterList{max-height:calc(100dvh - var(--st
 html body #costumeStudio #costumeSlots{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(42px,auto));grid-auto-flow:row}
 @media(pointer:coarse) and (min-width:701px){html body #costumeStudio #costumeSlots{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(42px,auto))!important}}
 @media(max-width:700px){html body #costumeStudio #costumeSlots{grid-template-columns:repeat(6,minmax(0,1fr))!important;grid-template-rows:1fr!important;gap:3px!important}html body #costumeStudio #costumeSlots button{min-height:36px!important;padding:2px!important}html body #costumeStudio #costumeSlots .slotIcon{font-size:18px!important}}
+html body #costumeChoices button.costumeUnknown{opacity:.58;filter:saturate(.32);cursor:not-allowed}
+html body #costumeChoices button.costumeUnknown .costumeChoiceIcon{font-size:34px}
 
 </style>
 

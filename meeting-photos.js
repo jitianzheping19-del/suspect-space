@@ -6,13 +6,13 @@ export function createMeetingPhotoLibrary({getContext,capture,transport,sendChat
  const images=new Map(),incoming=new Map(),requested=new Map();let scope='',gallery=null,viewer=null,trigger=null,lastShare=0;
  const context=()=>getContext();
  function sync(){
-  const c=context(),key=c.room+':'+c.round;
-  if(key!==scope){scope=key;images.clear();incoming.clear();requested.clear();gallery?.remove();viewer?.remove();gallery=viewer=null;}
+  const c=context(),key=c.room+':'+c.round+':'+c.uid;
+  if(key!==scope){if(scope)try{sessionStorage.removeItem('ssx-photos:'+scope);}catch{}scope=key;images.clear();incoming.clear();requested.clear();gallery?.remove();viewer?.remove();gallery=viewer=null;if(c.room&&c.uid)try{for(const [id,item] of JSON.parse(sessionStorage.getItem('ssx-photos:'+scope)||'[]'))if(/^[a-f0-9]{24}$/.test(id)&&item?.from===c.uid&&validImage(item.url))images.set(id,item);}catch{}}
   if(!trigger){trigger=document.createElement('button');trigger.id='ssxPhotoGalleryOpen';trigger.type='button';trigger.textContent='写真ライブラリ';trigger.onclick=open;document.body.append(trigger);}
   trigger.hidden=c.blocked||!c.room||!['play','meeting','results'].includes(c.phase)||!(c.role==='photographer'||[...images.values()].some(image=>image.from===c.uid));
   if(trigger.hidden){gallery?.remove();gallery=null;if(c.blocked||!c.room){viewer?.remove();viewer=null;}}
  }
- function remember(id,item){images.set(id,item);while(images.size>12)images.delete(images.keys().next().value);onChange();if(gallery)open();}
+ function remember(id,item){images.set(id,item);while(images.size>12)images.delete(images.keys().next().value);if(item.from===context().uid)try{sessionStorage.setItem('ssx-photos:'+scope,JSON.stringify([...images].filter(([,photo])=>photo.from===context().uid)));}catch(error){console.warn('写真の一時保存に失敗しました',error);}onChange();if(gallery)open();}
  function recipients(c){const me=c.players[c.uid],ghost=me?.alive===false||me?.observer;return Object.keys(c.players).filter(id=>!c.players[id]?.bot&&!c.players[id]?.disconnected&&(!ghost||c.players[id].alive===false||c.players[id].observer));}
  function deliver(id,item,to){
   const total=Math.ceil(item.url.length/2048);let ok=true;
@@ -74,5 +74,5 @@ export function createMeetingPhotoLibrary({getContext,capture,transport,sendChat
  }
  function take(){sync();try{const url=capture();if(!validImage(url))throw Error('Invalid snapshot');const id=crypto.randomUUID().replaceAll('-','').slice(0,24);remember(id,{url,from:context().uid,at:Date.now()});notify('写真を保存しました。');open();}catch(error){console.warn('Game photo capture failed',error);notify('写真を保存できませんでした。');}}
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(viewer||gallery)){e.preventDefault();e.stopPropagation();if(viewer){viewer.remove();viewer=null;}else if(gallery){gallery.remove();gallery=null;}}});
- return{sync,open,take,receive,decorate,syncFrame,showImage,clear:()=>{scope='';images.clear();incoming.clear();requested.clear();gallery?.remove();viewer?.remove();trigger?.remove();gallery=viewer=trigger=null;}};
+ return{sync,open,take,receive,decorate,syncFrame,showImage,clear:()=>{if(scope)try{sessionStorage.removeItem('ssx-photos:'+scope);}catch{}scope='';images.clear();incoming.clear();requested.clear();gallery?.remove();viewer?.remove();trigger?.remove();gallery=viewer=trigger=null;}};
 }

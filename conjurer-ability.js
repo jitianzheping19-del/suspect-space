@@ -1,5 +1,5 @@
 // Host-only rules. Placing the third point arms the triangle; a later command
-// activates it. The placed triangle persists until the next meeting.
+// activates it and consumes the placed triangle.
 export function conjurerTriangleContains(points,point){
   if(points?.length!==3||![point?.x,point?.z,...points.flatMap(p=>[p?.x,p?.z])].every(Number.isFinite))return false;
   const cross=(a,b,c)=>(b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x);
@@ -39,6 +39,7 @@ export function useConjurerAbility({game,actor,location,profiles={},botPositions
   }
   const seconds=Math.max(5,Math.min(120,Number(game.settings?.conjurerCooldownSeconds)||45));
   p.abilityReadyAt=stamp+seconds*1000;p.readyAt=Math.max(Number(p.readyAt)||0,p.abilityReadyAt);
+  delete p.conjurerMarkers;delete p.conjurerArmedAt;
   emit('conjurer',{markers:points,targets,at:stamp});
   return {ok:true,fired:true,targets,message:`${targets.length}人を召喚陣で倒しました。`};
 }

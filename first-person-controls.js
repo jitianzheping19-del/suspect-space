@@ -1,6 +1,6 @@
 export function firstPersonLook(yaw,pitch,dx,dy,sensitivity=1){
   const scale=Math.max(.2,Math.min(3,Number(sensitivity)||1));
-  return{yaw:Math.atan2(Math.sin(yaw-dx*.0035*scale),Math.cos(yaw-dx*.0035*scale)),pitch:Math.max(-1.10,Math.min(1.10,pitch-dy*.0030*scale))};
+  return{yaw:Math.atan2(Math.sin(yaw-dx*.0025*scale),Math.cos(yaw-dx*.0025*scale)),pitch:Math.max(-1.10,Math.min(1.10,pitch-dy*.0022*scale))};
 }
 export function firstPersonMove(right,forward,yaw){
   const length=Math.hypot(right,forward),scale=length>1?1/length:1;
