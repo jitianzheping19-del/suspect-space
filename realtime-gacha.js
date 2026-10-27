@@ -11,7 +11,8 @@ export function createRealtimeGacha(api){
  try{
  if(action==='wallet'||action==='launchBonus'){
  const seen=(await get(refFor(null,`profiles/${uid}/lastSeenUpdate`))).val()===GACHA_RELEASE;if(action==='launchBonus'&&!seen)fail('アップデート情報を確認してください');
- return await transact(uid,null,w=>{if(seen&&!w.gachaLaunchBonus){if(!api.isAdmin())w.tickets+=50;w.gachaLaunchBonus=true;}return null;});}
+ let credited=false;const response=await transact(uid,null,w=>{credited=seen&&!w.gachaLaunchBonus;if(credited){if(!api.isAdmin())w.tickets+=50;w.gachaLaunchBonus=true;}return null;});response.bonusGranted=credited&&!api.isAdmin();return response;}
+
  if(action==='matchReward'){
  if(!/^[A-Za-z0-9_-]{1,64}$/.test(String(p.room||'')))fail('部屋が不正です');const g=(await get(refFor(null,`rooms/${p.room}/game`))).val();if(g?.phase!=='ended'||!g.players?.[uid]||g.players[uid].bot||g.players[uid].observer)fail('試合結果を確認できません');
  const humans=Object.entries(g.players).filter(([id,v])=>!id.startsWith('bot-')&&!v.bot&&!v.observer);const player=g.players[uid];const key=`${p.room}_${g.round}_${g.playStartsAt||g.countdownEndsAt||0}`;

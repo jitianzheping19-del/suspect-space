@@ -1116,7 +1116,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
       if(!lobbySimulationGate.due(stamp))return;
       // タブ復帰時などの急激な移動を防止
       const dt = Math.min(clock.getDelta(), 0.05);
-      elapsed += dt;window.__lobbyGachaUpdate?.(elapsed);
+      elapsed += dt;window.__lobbyGachaUpdate?.(elapsed);window.__lobbyGachaGuideUpdate?.(stamp);
 
       updatePlayer(dt, elapsed);if(lobbyTouchLookPointer===null){const settle=Math.exp(-8*dt),difference=Math.atan2(Math.sin(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)),Math.cos(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)));if(lobbyTouchLookYaw!==null){lobbyTouchLookYaw+=difference*(1-settle);if(Math.abs(difference)<.002)lobbyTouchLookYaw=null;}lobbyTouchLookPitch*=settle;} if(!window.__lobbyKartCircuit?.active){const cameraMode=window.__lobbyCameraPerspective||'third'; if(window.__lobbyCameraFixedUntil>performance.now()){player.root.visible=true;controls.enabled=false;camera.position.set(window.__lobbyCameraFocusX||0,5.8,6);camera.lookAt(window.__lobbyCameraFocusX||0,1,-4.8);}else if(cameraMode==='first'){player.root.visible=false;controls.enabled=false;const yaw=lobbyTouchLookYaw??player.root.rotation.y,lookReach=8*Math.cos(lobbyTouchLookPitch),own=lobbyVisualStates.get(visualSelfUid),sitting=own?.seated===true||own?.sitting===true,eyeY=player.root.position.y+1.95;camera.up.set(0,1,0);camera.position.set(player.root.position.x,eyeY,player.root.position.z);camera.lookAt(player.root.position.x+Math.sin(yaw)*lookReach,eyeY+Math.sin(lobbyTouchLookPitch)*8,player.root.position.z+Math.cos(yaw)*lookReach);}else if(cameraMode==='overhead'){player.root.visible=true;controls.enabled=false;camera.position.set(player.root.position.x,player.root.position.y+12,player.root.position.z+8);camera.lookAt(player.root.position.x,player.root.position.y,player.root.position.z);}else{player.root.visible=true;controls.rotateSpeed=.25;if(window.__lastLobbyCameraMode!=='third'){camera.position.set(player.root.position.x+7.5,player.root.position.y+10,player.root.position.z+11.5);controls.target.copy(player.root.position);}controls.enabled=true;const follow=1-Math.exp(-4*dt);camera.position.x+=(player.root.position.x-controls.target.x)*follow;camera.position.y+=(player.root.position.y-controls.target.y)*follow;camera.position.z+=(player.root.position.z-controls.target.z)*follow;controls.target.lerp(player.root.position,follow);controls.update();}window.__lastLobbyCameraMode=cameraMode;}
 
@@ -2896,6 +2896,17 @@ function installLobbyWinBoard(THREE,scene){
   window.addEventListener("message",event=>{if(event.source===parent&&event.data?.type==="lobby-config")draw(event.data.winLeaderboard||[]);});
   draw([]);return {root,draw};
 }
+/* GACHA_NAVIGATION_START */
+function planGachaRoute(start,goal,obstacles){
+ const step=.4,cache=new Map(),key=(x,z)=>x+','+z;
+ const free=(ix,iz)=>{const k=key(ix,iz);if(cache.has(k))return cache.get(k);const x=ix*step,z=iz*step;let ok=x>=-11.2&&x<=11.2&&z>=-5.2&&z<=13.2&&!(Math.abs(x-7.8)<2.95&&Math.abs(z-8.45)<2.95);if(ok)for(const o of obstacles){if(o.top<=.08||(o.ascent&&o.bottom>1.9))continue;const dx=Math.max(0,Math.abs(x-o.x)-o.w/2),dz=Math.max(0,Math.abs(z-o.z)-o.d/2);if(dx*dx+dz*dz<.45*.45){ok=false;break;}}cache.set(k,ok);return ok;};
+ let sx=Math.round(start.x/step),sz=Math.round(start.z/step);if(!free(sx,sz)){let best=null;for(let r=1;r<=5&&!best;r++)for(let dx=-r;dx<=r&&!best;dx++)for(let dz=-r;dz<=r;dz++)if(free(sx+dx,sz+dz)){best=[sx+dx,sz+dz];break;}if(!best)return[];[sx,sz]=best;}
+ const gx=Math.round(goal.x/step),gz=Math.round(goal.z/step);if(!free(gx,gz))return[];
+ const queue=[[sx,sz]],parents=new Map([[key(sx,sz),null]]);let found=false;
+ for(let head=0;head<queue.length;head++){const [x,z]=queue[head];if(x===gx&&z===gz){found=true;break;}for(const [dx,dz]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,nz=z+dz,k=key(nx,nz);if(parents.has(k)||!free(nx,nz))continue;parents.set(k,[x,z]);queue.push([nx,nz]);}}
+ if(!found)return[];const path=[];let node=[gx,gz];while(node){path.push({x:node[0]*step,z:node[1]*step});node=parents.get(key(...node));}return path.reverse();
+}
+/* GACHA_NAVIGATION_END */
 function installLobbyExpansion(THREE,scene,addObstacle){
   const root=new THREE.Group();root.name="lobby-leisure-deck";scene.add(root);
   const mats={};
@@ -2910,7 +2921,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   cube(10,.014,7,0x162633,0,.016,8.6);
   for(let z=5;z<12;z+=1.5)cube(.10,.025,.6,0xc9b98f,0,.031,z,{emissive:0x358c91,emissiveIntensity:.4});
   // Recessed basin shares its floor height with lobbyPlatformAt and network lobbyY.
-  for(const [x,z,color] of [[-10.6,5.3,0x739dbc],[-10.6,11.8,0x65aab0],[-3.8,12.5,0x9d7ab0],[2.3,12.5,0x79ac8c],[10.7,12.4,0xb39b68]]){
+  for(const [x,z,color] of [[-3.8,12.5,0x9d7ab0],[2.3,12.5,0x79ac8c],[10.7,12.4,0xb39b68]]){
     cube(.85,.85,.7,0x263a41,x,.425,z);cube(.74,.08,.6,color,x,.89,z);cube(.5,.28,.16,0x45687a,x,1.1,z-.16);cube(.36,.16,.025,0x73dae8,x,1.13,z-.065,{emissive:0x399da5,emissiveIntensity:.6});addObstacle(x,z,.88,.73,.93,true);
   }
   const poolX=7.8,poolZ=8.45;
@@ -2936,7 +2947,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   const lens=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,.2,12),material(0x59d5ef,{metalness:.4}));lens.rotation.x=Math.PI/2;lens.position.set(0,1.45,.21);cameraStand.add(lens);
   for(const side of [-1,1]){const post=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,1.55,6),material(0x7892a8));post.position.set(side*.23,.72,0);post.rotation.z=side*.25;cameraStand.add(post);}addObstacle(0,9.5,.67,.42,1.625,true);
   function plant(x,z){cube(.7,.58,.7,0x53615a,x,.29,z);addObstacle(x,z,.78,.78,.58,true);for(let n=0;n<6;n++){const leaf=new THREE.Mesh(new THREE.SphereGeometry(.36,8,6),material(n%2?0x61ba8d:0x348d73));leaf.scale.set(.32,1.35,.55);leaf.position.set(x+Math.sin(n)*.17,.8+n*.055,z+Math.cos(n)*.17);leaf.rotation.z=Math.sin(n)*.55;root.add(leaf);}}
-  plant(-10.6,4.9);plant(-10.8,11.9);plant(10.9,4.9);plant(10.9,12.4);
+  plant(10.9,4.9);plant(10.9,12.4);
   // Extra furnishings stay outside the main walking and arrival paths.
   for(const [x,z] of [[-8.7,-3.8]]){
     cube(1.15,1.65,.72,0x223741,x,.825,z);cube(.82,.7,.03,0x69ddec,x,1.15,z+.38,{emissive:0x2ba6b7,emissiveIntensity:.6});addObstacle(x,z,1.2,.8,1.65,true);
@@ -3016,8 +3027,22 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   }
   // The capsule machine replaces the shelf against the west wall.
 
+  // Dedicated premium machine: a levitating reliquary with a sapphire core.
+  const premium=new THREE.Group();premium.name="lobby-premium-gacha";premium.position.set(-11.1,0,9.3);premium.rotation.y=Math.PI/2;root.add(premium);
+  const obsidian=material(0x12162b,{metalness:.8,roughness:.23}),gold=material(0xe9c789,{metalness:.85,roughness:.2}),plasma=material(0x8586ff,{emissive:0x5144db,emissiveIntensity:1.1,roughness:.22});
+  function royal(geo,mat,x,y,z,parent=premium){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);parent.add(m);return m;}
+  royal(new THREE.CylinderGeometry(.77,.92,.22,8),obsidian,0,.12,0);royal(new THREE.CylinderGeometry(.83,.83,.055,8),gold,0,.25,0);
+  royal(new THREE.CylinderGeometry(.63,.75,.84,8),obsidian,0,.7,0);royal(new THREE.CylinderGeometry(.67,.67,.07,8),gold,0,1.12,0);
+  const crystal=royal(new THREE.IcosahedronGeometry(.38,1),plasma,0,1.94,0);crystal.scale.set(.8,1.5,.8);
+  const orbitals=[];for(let i=0;i<3;i++){const ring=royal(new THREE.TorusGeometry(.59+i*.07,.019,8,56),gold,0,1.95,0);ring.rotation.set(.65+i*.8,i*.7,.3);orbitals.push(ring);}
+  for(const side of[-1,1]){royal(new THREE.BoxGeometry(.15,1.55,.28),obsidian,side*.69,1.93,-.25);royal(new THREE.BoxGeometry(.035,1.42,.03),gold,side*.69,1.93,-.09);const fin=royal(new THREE.ConeGeometry(.22,.65,4),gold,side*.69,2.98,-.25);fin.rotation.z=-side*.15;}
+  royal(new THREE.BoxGeometry(1.45,.15,.7),obsidian,0,2.79,-.19);royal(new THREE.OctahedronGeometry(.16),gold,0,2.96,-.1);
+  royal(new THREE.BoxGeometry(.56,.34,.04),obsidian,0,.67,.69);royal(new THREE.BoxGeometry(.44,.025,.04),plasma,0,.52,.72);
+  const premiumSign=caption("特別ガチャ",-10.92,3.5,9.3,1.9,"#e5d2ff");premiumSign.mesh.position.x=-10.9;
+  caption("通常ガチャ",-11.15,3.3,6,1.8,"#f4dcab");addObstacle(-11.1,9.3,1.7,1.85,3.3,true);
+  const oldGachaUpdate=window.__lobbyGachaUpdate;window.__lobbyGachaUpdate=t=>{oldGachaUpdate?.(t);crystal.rotation.y=t*.45;crystal.position.y=1.94+Math.sin(t*1.6)*.07;orbitals.forEach((ring,i)=>ring.rotation.z=t*(i%2?-.2:.25));};
   // These objects never move locally. Parent/world matrices remain automatic.
-  const animatedRoots=new Set([float,water,...fish.map(f=>f.group)]);
+  const animatedRoots=new Set([float,water,gacha,premium,...fish.map(f=>f.group)]);
   root.traverse(object=>{for(let p=object;p&&p!==root;p=p.parent)if(animatedRoots.has(p))return;object.updateMatrix();object.matrixAutoUpdate=false;});
   // Identical opaque box materials share one unit cube, in spatial cells so
   // Three.js can still cull distant furniture. Obstacles stay in their own grid.
@@ -3055,6 +3080,16 @@ function installLobbyExpansion(THREE,scene,addObstacle){
 }
     window.__lobbyWinBoard=null;
     window.__lobbyExpansion=installLobbyExpansion(THREE,scene,addObstacle);
+    const guide=new THREE.Group();guide.name="gacha-navigation";scene.add(guide);guide.visible=false;
+    const guideMat=new THREE.MeshBasicMaterial({color:0x9cf9ed,transparent:true,opacity:.85,depthWrite:false});
+    const guideShape=new THREE.Shape();guideShape.moveTo(0,.2);guideShape.lineTo(-.14,-.10);guideShape.lineTo(0,-.035);guideShape.lineTo(.14,-.10);guideShape.closePath();const guideGeo=new THREE.ShapeGeometry(guideShape);
+    const arrows=new THREE.InstancedMesh(guideGeo,guideMat,180);arrows.count=0;arrows.frustumCulled=false;guide.add(arrows);const arrowTransform=new THREE.Object3D();arrowTransform.rotation.x=-Math.PI/2;
+
+    let guideKind=null,guideAt=0,guideOrigin=null;
+    function refreshGachaGuide(){const goal={x:-9.6,z:guideKind==='premium'?9.3:6},p=player.root.position,path=planGachaRoute(p,goal,obstacles);arrows.count=Math.min(180,Math.ceil(path.length/2));for(let i=0;i<arrows.count;i++){const a=path[i*2],b=path[i*2+1]||a;arrowTransform.position.set(a.x,.095,a.z);arrowTransform.rotation.z=-Math.atan2(b.x-a.x,-(b.z-a.z));arrowTransform.updateMatrix();arrows.setMatrixAt(i,arrowTransform.matrix);}arrows.instanceMatrix.needsUpdate=true;guideOrigin={x:p.x,z:p.z};guideAt=performance.now();}
+    window.addEventListener('message',event=>{if(event.source!==parent)return;if(event.data?.type==='lobby-gacha-guide'){guideKind=event.data.kind==='premium'?'premium':'normal';guideMat.color.set(guideKind==='premium'?0xbb9dff:0x9cf9ed);guide.visible=true;refreshGachaGuide();}if(['lobby-reset','lobby-return-reset','lobby-kart-session-reset'].includes(event.data?.type)){guideKind=null;guide.visible=false;}});
+    window.__lobbyGachaGuideUpdate=time=>{if(!guideKind)return;const p=player.root.position;if(Math.hypot(p.x+11.2,p.z-(guideKind==='premium'?9.3:6))<2){guide.visible=false;guideKind=null;return;}if(time-guideAt>1200&&Math.hypot(p.x-guideOrigin.x,p.z-guideOrigin.z)>.8)refreshGachaGuide();guideMat.opacity=.6+Math.sin(time*.004)*.25;};
+
 /* SS_LOBBY_KART_CIRCUIT_V1 */
 /* Track attribution: https://github.com/bridge-mind/turbo-kart-rally
 MIT License

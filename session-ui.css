@@ -33,3 +33,5 @@ body.ssGiftPending #inputSettingsNav [data-settings-target="inbox"],.ssGiftNotic
 .reviewCard .ssGiftPlayer span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .costumeGachaEmpty{grid-column:1/-1;display:grid;place-items:center;align-content:center;gap:12px;min-height:140px;padding:20px;text-align:center;color:#bce6e8}
 .costumeGachaEmpty button{border:1px solid #e0c18a;border-radius:12px;background:#dec69a;color:#102634;padding:12px 24px;font-size:16px;font-weight:800}
+/* Initial ticket acknowledgement also stays visible over the fullscreen gacha. */
+#toast[data-kind="gift"]{z-index:22000!important;pointer-events:none!important}

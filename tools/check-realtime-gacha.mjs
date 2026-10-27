@@ -7,7 +7,7 @@ const write=(p,v)=>{const keys=p.split('/'),last=keys.pop();let node=data;for(co
 let activeUid='user',database=null,transactions=0;
 const api={get db(){return database;},ref:(db,p)=>{assert.equal(db,'connected-db');return p;},get:async p=>({val:()=>clone(read(p))}),set:async(p,v)=>write(p,v),runTransaction:async(p,fn)=>{transactions++;const v=fn(clone(read(p)));if(v!==undefined)write(p,v);return{committed:v!==undefined,snapshot:{val:()=>clone(read(p))}};},uid:()=>activeUid,isAdmin:()=>activeUid==='admin'};
 const request=createRealtimeGacha(api);database='connected-db';
-let result=await request('wallet');assert.equal(result.wallet.tickets,50);result=await request('launchBonus');assert.equal(result.wallet.tickets,50);
+let result=await request('wallet');assert.equal(result.wallet.tickets,50);assert.equal(result.bonusGranted,true);result=await request('launchBonus');assert.equal(result.wallet.tickets,50);assert.equal(result.bonusGranted,false);
 const payload={requestId:'normal-1234567890',kind:'normal',category:0,count:10};result=await request('draw',payload);assert.equal(result.items.length,10);assert.equal(result.wallet.tickets,40);const again=await request('draw',payload);assert.equal(again.wallet.tickets,40);assert.deepEqual(again.items,result.items);
 write('economy/poor',{tickets:9,premium:0});activeUid='poor';await assert.rejects(()=>request('draw',{...payload,requestId:'poor-batch-123456'}),/足りません/);assert.equal(read('economy/poor/tickets'),9);assert.equal(read('economy/poor/owned'),null);
 activeUid='user';await assert.rejects(()=>request('gift',{requestId:'gift-test-1234567',target:'user',count:2}),/管理者/);
