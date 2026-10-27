@@ -1116,7 +1116,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
       if(!lobbySimulationGate.due(stamp))return;
       // タブ復帰時などの急激な移動を防止
       const dt = Math.min(clock.getDelta(), 0.05);
-      elapsed += dt;
+      elapsed += dt;window.__lobbyGachaUpdate?.(elapsed);
 
       updatePlayer(dt, elapsed);if(lobbyTouchLookPointer===null){const settle=Math.exp(-8*dt),difference=Math.atan2(Math.sin(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)),Math.cos(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)));if(lobbyTouchLookYaw!==null){lobbyTouchLookYaw+=difference*(1-settle);if(Math.abs(difference)<.002)lobbyTouchLookYaw=null;}lobbyTouchLookPitch*=settle;} if(!window.__lobbyKartCircuit?.active){const cameraMode=window.__lobbyCameraPerspective||'third'; if(window.__lobbyCameraFixedUntil>performance.now()){player.root.visible=true;controls.enabled=false;camera.position.set(window.__lobbyCameraFocusX||0,5.8,6);camera.lookAt(window.__lobbyCameraFocusX||0,1,-4.8);}else if(cameraMode==='first'){player.root.visible=false;controls.enabled=false;const yaw=lobbyTouchLookYaw??player.root.rotation.y,lookReach=8*Math.cos(lobbyTouchLookPitch),own=lobbyVisualStates.get(visualSelfUid),sitting=own?.seated===true||own?.sitting===true,eyeY=player.root.position.y+1.95;camera.up.set(0,1,0);camera.position.set(player.root.position.x,eyeY,player.root.position.z);camera.lookAt(player.root.position.x+Math.sin(yaw)*lookReach,eyeY+Math.sin(lobbyTouchLookPitch)*8,player.root.position.z+Math.cos(yaw)*lookReach);}else if(cameraMode==='overhead'){player.root.visible=true;controls.enabled=false;camera.position.set(player.root.position.x,player.root.position.y+12,player.root.position.z+8);camera.lookAt(player.root.position.x,player.root.position.y,player.root.position.z);}else{player.root.visible=true;controls.rotateSpeed=.25;if(window.__lastLobbyCameraMode!=='third'){camera.position.set(player.root.position.x+7.5,player.root.position.y+10,player.root.position.z+11.5);controls.target.copy(player.root.position);}controls.enabled=true;const follow=1-Math.exp(-4*dt);camera.position.x+=(player.root.position.x-controls.target.x)*follow;camera.position.y+=(player.root.position.y-controls.target.y)*follow;camera.position.z+=(player.root.position.z-controls.target.z)*follow;controls.target.lerp(player.root.position,follow);controls.update();}window.__lastLobbyCameraMode=cameraMode;}
 
@@ -2949,7 +2949,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   for(const [x,z] of [[-5.5,11.8],[5.3,12.4]]){cube(1.25,.65,.7,0x293b40,x,.325,z);addObstacle(x,z,1.3,.75,.65,true);for(const dx of [-.36,.36])cube(.1,.68,.74,0xbca67d,x+dx,.34,z);}
   // Capsule machine beside the front left banquette; the old orb table sits inland.
   const gacha=new THREE.Group();gacha.name="lobby-capsule-machine";gacha.position.set(-8.3,0,4.25);root.add(gacha);
-  const enamel=new THREE.MeshPhysicalMaterial({color:0xc94364,metalness:.22,roughness:.26,clearcoat:.9,clearcoatRoughness:.2});
+  const enamel=new THREE.MeshPhysicalMaterial({color:0x173d50,metalness:.58,roughness:.22,clearcoat:.9,clearcoatRoughness:.2});
   const cream=material(0xf5ead5,{roughness:.32,metalness:.12});
   const chrome=material(0xbfcbd3,{metalness:.86,roughness:.22});
   const dark=material(0x142735,{roughness:.36});
@@ -2989,10 +2989,15 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   softBox(.68,.065,.23,.022,cream,0,.365,.60);
   const flap=part(new THREE.PlaneGeometry(.57,.23),new THREE.MeshPhysicalMaterial({color:0x8ea7b0,transparent:true,opacity:.38,roughness:.22,metalness:.3,side:THREE.DoubleSide}),0,.57,.59);flap.rotation.x=-.18;
   const signCanvas=document.createElement("canvas");signCanvas.width=512;signCanvas.height=128;
-  const signContext=signCanvas.getContext("2d");signContext.fillStyle="#f5ead5";signContext.fillRect(0,0,512,128);signContext.fillStyle="#773148";signContext.textAlign="center";signContext.textBaseline="middle";signContext.font="900 65px system-ui,sans-serif";signContext.fillText("ガチャガチャ",256,65,480);
+  const signContext=signCanvas.getContext("2d");signContext.fillStyle="#102b3c";signContext.fillRect(0,0,512,128);signContext.fillStyle="#f3d7a0";signContext.textAlign="center";signContext.textBaseline="middle";signContext.font="700 42px system-ui,sans-serif";signContext.fillText("CAPSULE ATELIER",256,65,480);
   const signTexture=new THREE.CanvasTexture(signCanvas);signTexture.colorSpace=THREE.SRGBColorSpace;
   part(new THREE.PlaneGeometry(1.12,.28),new THREE.MeshBasicMaterial({map:signTexture,toneMapped:false}),0,2.88,.555);
   for(const x of [-.52,.52])softBox(.055,.05,.05,.012,material(0x8df2df,{emissive:0x55c7b0,emissiveIntensity:.65}),x,1.48,.51);
+  const accent=new THREE.MeshStandardMaterial({color:0xeac990,metalness:.8,roughness:.23,emissive:0x8f6026,emissiveIntensity:.25});
+  for(const side of[-1,1]){softBox(.04,1.14,.055,.012,accent,side*.57,.9,.49);for(let n=0;n<3;n++)softBox(.055,.035,.035,.008,accent,side*.46,.37+n*.1,.51);}
+  const orbit=part(new THREE.TorusGeometry(.68,.012,6,64),accent,0,2.11,0);orbit.rotation.x=1.1;
+  const emblem=part(new THREE.OctahedronGeometry(.075),accent,0,1.29,.51);
+  window.__lobbyGachaUpdate=time=>{orbit.rotation.z=time*.18;emblem.rotation.y=time*.4;};
   addObstacle(-8.3,4.25,1.5,1.3,2.92,true);
   // Register the existing role monitor frame as a finite platform; do not add another mesh.
   addObstacle(3.75,-5.42,4.05,.22,3.73,true);

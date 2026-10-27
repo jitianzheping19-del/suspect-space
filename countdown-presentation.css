@@ -85,3 +85,8 @@ html body #gameCountdown[data-kind][data-presentation=meeting-return] #gameCount
  html body #gameCountdown[data-presentation][data-kind] *{transition:none!important;animation:none!important}
  .impulseRay,.impulseWave{display:none}
 }
+
+/* Keep the launch role list visible over the opening animation. */
+html body #gameCountdown.withAutoLaunchRoles[data-presentation=launch]{z-index:1404!important}
+html body #roundRoles.autoLaunchRoles[data-source="game"]{z-index:1405!important;background:transparent!important;pointer-events:none!important}
+html body #roundRoles.autoLaunchRoles[data-source="game"]>.card{pointer-events:auto!important;background:#071522e8!important}
