@@ -53,3 +53,31 @@ body .ssGacha .gachaResult:not(.gachaBatchResult){left:30%;right:30%;top:16%;bot
 @media(prefers-reduced-motion:reduce){body .ssGacha .gachaSelection{transition:none}}
 body .ssGacha[data-stage=reveal] .gachaCount{visibility:hidden;pointer-events:none}
 body .ssGacha .gachaResult .gachaResultBack{padding:6px 16px;background:#173142;color:#d5e6e8;border:1px solid #6b8d9d}
+
+/* Choose the draw category directly above the planet. */
+body .ssGacha .gachaPanel>.gachaCategories{position:absolute;top:calc(60px + env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));z-index:5;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:4px 0 8px;scrollbar-width:thin}
+body .ssGacha .gachaPanel>.gachaCategories[hidden]{display:none}
+body .ssGacha .gachaPanel>.gachaCategories button{flex:0 0 auto;min-height:36px;padding:8px 14px;white-space:nowrap}
+body .ssGacha .gachaPanel>.gachaCategories button:disabled{opacity:.5}
+body .ssGacha[data-kind=normal] .gachaSelection{top:calc(112px + env(safe-area-inset-top))}
+body .ssGacha[data-stage=drawing] .gachaPanel>.gachaCategories,body .ssGacha[data-stage=reveal] .gachaPanel>.gachaCategories{visibility:hidden;pointer-events:none}
+@media(max-height:600px){body .ssGacha .gachaPanel>.gachaCategories{top:calc(50px + env(safe-area-inset-top))}body .ssGacha .gachaPanel>.gachaCategories button{min-height:32px;padding:5px 12px;font-size:12px}body .ssGacha[data-kind=normal] .gachaSelection{top:calc(96px + env(safe-area-inset-top))}}
+
+/* Staggered holographic controls and prize entrances. */
+body .ssGacha .gachaPanel>.gachaCategories{perspective:700px;padding-top:12px;margin-top:-8px}
+body .ssGacha .gachaPanel>.gachaCategories button{position:relative;overflow:hidden;border-color:#91c9e055;background:linear-gradient(145deg,#214b5ae8,#102333ee);box-shadow:inset 0 1px #d5f6ff1a,0 5px 16px #0004;transform-origin:50% 0;animation:gachaCategoryEnter .55s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--category-index,0)*65ms + 90ms);transition:background .22s,border-color .22s,box-shadow .22s,color .22s}
+body .ssGacha .gachaPanel>.gachaCategories button[aria-pressed=true]{color:#fff1c8;border-color:#f2d38f;background:linear-gradient(135deg,#77633a,#263d48);box-shadow:inset 0 1px #fff1c866,0 0 18px #e5c77b33}
+body .ssGacha .gachaPanel>.gachaCategories button::after{content:"";position:absolute;inset:-50% -75%;background:linear-gradient(110deg,transparent 40%,#fff2cb66 50%,transparent 60%);transform:translateX(-65%);pointer-events:none}
+body .ssGacha .gachaPanel>.gachaCategories button[aria-pressed=true]::after{animation:gachaControlSweep .85s ease-out both;animation-delay:calc(var(--category-index,0)*65ms + 120ms)}
+body .ssGacha .gachaPanel>.gachaCategories button:focus-visible{outline:2px solid #fff0bb;outline-offset:2px}
+@media(hover:hover){body .ssGacha .gachaPanel>.gachaCategories button:not(:disabled):hover{border-color:#c5e8ff;box-shadow:inset 0 1px #effaff55,0 0 20px #80d8ff33}}
+body .ssGacha[data-view=collection] .gachaRail article{animation:gachaCardEnter .45s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--reveal-index,0)*30ms + 100ms)}
+body .ssGacha .gachaResult:not(.gachaBatchResult){animation:gachaPrizeArrive .7s cubic-bezier(.16,1,.3,1) both}
+body .ssGacha .gachaPrizeModel{animation:gachaModelArrive .85s cubic-bezier(.16,1,.3,1) both}
+body .ssGacha .gachaBatchGrid article{animation:gachaCardEnter .6s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--reveal-index,0)*75ms);box-shadow:inset 0 1px #ffffff18,0 0 18px color-mix(in srgb,var(--rarity) 18%,transparent)}
+@keyframes gachaCategoryEnter{from{opacity:0;transform:translateY(-16px) rotateX(28deg) scale(.92)}to{opacity:1;transform:translateY(0) rotateX(0) scale(1)}}
+@keyframes gachaControlSweep{from{transform:translateX(-65%)}to{transform:translateX(65%)}}
+@keyframes gachaCardEnter{from{opacity:0;transform:translateY(24px) scale(.87)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes gachaPrizeArrive{from{opacity:0;transform:translateY(32px) scale(.8);box-shadow:0 0 100px #fff0bb77}to{opacity:1;transform:translateY(0) scale(1);box-shadow:0 0 35px #80d8ff22}}
+@keyframes gachaModelArrive{from{opacity:0;transform:translateY(30px) rotateY(-35deg) scale(.6)}to{opacity:1;transform:translateY(0) rotateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){body .ssGacha .gachaPanel>.gachaCategories button,body .ssGacha .gachaPanel>.gachaCategories button::after,body .ssGacha[data-view=collection] .gachaRail article,body .ssGacha .gachaResult:not(.gachaBatchResult),body .ssGacha .gachaPrizeModel,body .ssGacha .gachaBatchGrid article{animation:none;transition:none}}
