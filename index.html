@@ -3252,7 +3252,8 @@ window.buildAstraMap=buildAstraMap;
     import {patchMeetingRuntime} from "./meeting-scene-ejections.js";
     import {SightPolygonSolver} from "./sight-polygon.js";
     import {InviteDirectDelivery} from "./invite-direct-delivery.js";
-    import {createActionHud3D} from "./action-hud-3d.js";
+    import {createLobbyAction3D} from "./lobby-action-3d.js";
+import {createActionHud3D} from "./action-hud-3d.js";
     import {buildFrostGameMap,frostGameLayout} from "./frost-game-map.js";
     import {requiredTaskIdsFor} from "./frost-game-layout.js";
 import {createFrostTaskRun} from "./frost-task-rules.js";
@@ -21614,7 +21615,7 @@ function renderUI() {
       $("lobbyUseBtn").disabled=leaving;
       const lobbyActionFull=Math.min(Math.hypot(position.x+11.35,position.z-6),Math.hypot(position.x+11.1,position.z-9.3))<2.2?"ガチャを回す":lobbyKartAction?(lobbyKartAction==="spawn"?"車を出す":lobbyKartAction==="exit"?"降りる":lobbyKartAction==="enter"?"乗る":lobbyKartAction==="locked"?"スタート待機中":"乗降中…"):lobbyNearUpdates?"アプデ情報を見る [F]":lobbyNearMonitor?"役職モニターを見る":useMode==="customize"?"使用 [F]":useMode==="seat"?(seated?"立つ [F]":"座る [F]"):"使用 [F]";
       const lobbyActionShort=Math.min(Math.hypot(position.x+11.35,position.z-6),Math.hypot(position.x+11.1,position.z-9.3))<2.2?"ガチャ":lobbyKartAction?(lobbyKartAction==="spawn"?"車を出す":lobbyKartAction==="exit"?"降車":lobbyKartAction==="enter"?"乗る":lobbyKartAction==="locked"?"待機":"待機"):lobbyNearUpdates?"更新":lobbyNearMonitor?"監視":useMode==="customize"?"着替え":useMode==="seat"?(seated?"立つ":"座る"):"使用";
-      setActionButtonCaption($("lobbyUseBtn"),lobbyActionFull,lobbyActionShort);
+      setActionButtonCaption($("lobbyUseBtn"),lobbyActionFull,lobbyActionShort);$("lobbyUseBtn").dataset.actionIcon=lobbyActionShort==="ガチャ"?"capsule":lobbyKartAction?"car":lobbyNearCustomize?"outfit":lobbyNearSeat||seated?"seat":lobbyNearMonitor?"monitor":lobbyNearUpdates?"roles":"use";
       if(lobbyKartAction||lobbyKartRiding){const frame=$("lobbyAttachedFrame"),bounds=frame.getBoundingClientRect(),rects=[];for(const id of['stick','startBtn','readyBtn','lobbyUseBtn','jumpBtn','voiceToggleBtn','roundRoleBtn','lobbyRoomCode']){const node=$(id);if(!node||node.classList.contains('hidden')||!node.getClientRects().length)continue;const r=node.getBoundingClientRect();rects.push({left:r.left-bounds.left,top:r.top-bounds.top,right:r.right-bounds.left,bottom:r.bottom-bounds.top});}const signature=JSON.stringify(rects);if(frame.dataset.reservedRects!==signature){frame.dataset.reservedRects=signature;frame.contentWindow?.postMessage({type:'lobby-ui-reserved',rects},'*');}}
 
       show("lobbyKartStartBtn",phase==="lobby"&&lobbyCircuitLocation&&!lobbyPanelOpen);$("lobbyKartStartBtn").disabled=!connected||!!KartRaceProtocol.active(game.kartRace);$("lobbyKartStartBtn").textContent=KartRaceProtocol.active(game.kartRace)?"レース進行中":"レース開始";
@@ -22247,6 +22248,8 @@ $("uiRecoveryRetry")?.addEventListener("click",safeRenderUI);
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)resetFrameBudgets();});
 function scheduleFrame(){if(frameScheduled||renderContextLost)return;frameScheduled=true;frameRequestId=requestAnimationFrame(frame);}
 
+const lobbyAction3D=createLobbyAction3D({THREE,button:$("lobbyUseBtn"),isActive:()=>!!code&&game.phase==="lobby"&&!$("lobbyUseBtn").classList.contains("hidden"),isObscured:()=>modalVisible()||document.body.dataset.loggingOut==="true"});
+window.addEventListener("pagehide",event=>{if(!event.persisted)lobbyAction3D.dispose();});
 const reducedMotionQuery=window.matchMedia("(prefers-reduced-motion: reduce)");
 const actionHud3D=createActionHud3D({THREE,renderer,root:$("buttons"),reducedMotion:()=>reducedMotionQuery.matches,isObscured:()=>document.body.dataset.taskOpen==="true"||modalVisible()||!$("killAnimation").classList.contains("hidden")||!$("deathIntro").classList.contains("hidden"),
   isActive:()=>game.phase==="play"&&!activeCrewDroneView()&&!isWaitingLobbyForRunningMatch()&&!$("controls").classList.contains("hidden")&&
@@ -22755,7 +22758,7 @@ if (time - uiStamp > 500) {
       if(!taskViewActive){
         renderBudget.shadows(renderer,time);
         if(game.phase!=="lobby"&&!isWaitingLobbyForRunningMatch())drawVisibilityFrame();
-        actionHud3D.draw(time);
+        actionHud3D.draw(time);lobbyAction3D.draw(time);
       }
       recordPerformanceFrame(time,performance.now()-frameWorkStarted);
     }

@@ -13,7 +13,7 @@ const ACTIONS = {
   voiceToggleBtn: {kind:'mic', color:0x6cdeb5, utility:true, symbolOnly:true}
 };
 
-export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>false,reducedMotion=()=>false}) {
+export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>false,reducedMotion=()=>false,actions=ACTIONS,stateAttribute="threeActions"}) {
   const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(0,1,1,0,.1,1000);
   camera.position.z=600;
   scene.add(new THREE.HemisphereLight(0xc5efff,0x101928,1.65));
@@ -47,7 +47,17 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   function mesh(parent,g,m,x=0,y=0,z=0,scale){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);if(scale)o.scale.set(...scale);parent.add(o);return o;}
   function icon(kind,accent) {
     const group=new THREE.Group(),metal=material(0xdbedf4,{metalness:.7,roughness:.25}),tint=material(accent,{emissive:accent,emissiveIntensity:.2});
-    if(kind==='knife'){
+    if(kind==='outfit'){
+      mesh(group,polygon([[-.65,.42],[-.3,.65],[-.16,.5],[.16,.5],[.3,.65],[.65,.42],[.44,.14],[.27,.25],[.27,-.6],[-.27,-.6],[-.27,.25],[-.44,.14]]),metal);mesh(group,cube,tint,0,-.05,.18,[.16,.75,.07]);
+    }else if(kind==='capsule'){
+      mesh(group,geometry('capsule-top',()=>new THREE.SphereGeometry(.56,18,10,0,Math.PI*2,0,Math.PI/2)),tint,0,0,.02);mesh(group,geometry('capsule-bottom',()=>new THREE.SphereGeometry(.56,18,10,0,Math.PI*2,Math.PI/2,Math.PI/2)),metal,0,0,.02);const seam=mesh(group,geometry('capsule-seam',()=>new THREE.TorusGeometry(.56,.025,6,22)),metal);seam.rotation.x=Math.PI/2;
+    }else if(kind==='seat'){
+      mesh(group,cube,tint,0,.25,0,[.8,.85,.18]);mesh(group,cube,metal,0,-.18,.24,[.85,.15,.62]);for(const side of[-1,1])mesh(group,cube,metal,side*.3,-.48,.18,[.1,.5,.1]);
+    }else if(kind==='monitor'){
+      mesh(group,cube,metal,0,.15,0,[1.2,.85,.16]);mesh(group,cube,tint,0,.15,.12,[1,.65,.09]);mesh(group,cube,metal,0,-.42,0,[.16,.35,.12]);mesh(group,cube,metal,0,-.6,0,[.65,.12,.28]);
+    }else if(kind==='car'){
+      mesh(group,cube,tint,0,-.05,.1,[1.1,.4,.5]);mesh(group,cube,metal,0,.25,.07,[.65,.3,.4]);for(const side of[-1,1])mesh(group,geometry('wheel',()=>new THREE.CylinderGeometry(.18,.18,.12,12)),metal,side*.38,-.28,.32).rotation.x=Math.PI/2;
+    }else if(kind==='knife'){
       mesh(group,polygon([[-.11,-.12],[.36,.52],[.36,.85],[.02,.68],[-.3,.08]]),metal);
       const grip=mesh(group,cube,tint,-.26,-.31,.04,[.18,.47,.2]);grip.rotation.z=-.56;
       const guard=mesh(group,cube,metal,-.14,-.1,.05,[.49,.1,.24]);guard.rotation.z=-.56;
@@ -120,7 +130,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     const record={button,spec,group,cap,shell,edge,face,shellMat,edgeMat,faceMat,symbol,headset,arc,spent,muteSlash,w:0,h:0,press:0,pressUntil:0,hover:false,cooling:0,disabled:false};
     records.set(button.id,record);button.dataset.threeAction='true';return record;
   }
-  for(const [id,spec] of Object.entries(ACTIONS)){const b=spec.utility?document.getElementById(id):root?.querySelector('#'+id);if(b)build(b,spec);}
+  for(const [id,spec] of Object.entries(actions)){const b=spec.utility||spec.external?document.getElementById(id):root?.querySelector('#'+id);if(b)build(b,spec);}
   const invalidate=()=>{dirty=true;if(active&&(!isActive()||isObscured()))setActive(false);};
   const lost=()=>setActive(false);
   renderer.domElement.addEventListener('webglcontextlost',lost);
@@ -128,7 +138,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   const watchedDialogs=new WeakSet();
   const observer=new MutationObserver(changes=>{if(changes.some(c=>c.type==='childList'&&c.target===document.body))watchDialogs();invalidate();});
   function watchDialogs(){for(const dialog of document.querySelectorAll('[aria-modal="true"]'))if(!watchedDialogs.has(dialog)){watchedDialogs.add(dialog);observer.observe(dialog,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden','aria-modal']});}}
-  if(root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','disabled','hidden','data-exhausted']});
+  if(root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','disabled','hidden','data-exhausted','data-action-icon']});
   const controls=root?.closest('#controls'),holder=root?.parentElement;
   if(controls)observer.observe(controls,{attributes:true,attributeFilter:['class','style','hidden']});
   if(holder)observer.observe(holder,{attributes:true,attributeFilter:['class','style','hidden']});
@@ -144,7 +154,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   const out=event=>{const r=hit(event);if(r)r.hover=false;};
   document.addEventListener('pointerdown',press,{capture:true,passive:true});
   document.addEventListener('pointerover',over,{passive:true});document.addEventListener('pointerout',out,{passive:true});
-  function setActive(value){if(active===value)return;active=value;document.body.dataset.threeActions=String(value);if(value)dirty=true;}
+  function setActive(value){if(active===value)return;active=value;document.body.dataset[stateAttribute]=String(value);if(value)dirty=true;}
   function layout(stamp) {
     dirty=false;lastLayoutAt=stamp;const canvas=renderer.domElement.getBoundingClientRect();
     renderer.getSize(size);camera.left=0;camera.right=size.x;camera.top=size.y;camera.bottom=0;camera.updateProjectionMatrix();
@@ -157,8 +167,8 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
       if(b.dataset.threeActionLayout!==(symbolOnly?'symbol':roomy?'icon':'compact'))b.dataset.threeActionLayout=symbolOnly?'symbol':roomy?'icon':'compact';
       const inset=Math.round(box.width*(r.spec.utility ? .28 : .38))+'px';if(b.style.getPropertyValue('--three-action-label-inset')!==inset)b.style.setProperty('--three-action-label-inset',inset);
       const caption=b.querySelector('#abilityCaption,#rocketLaunchCaption'),text=(caption||b).textContent;
-      if(b.id==='taskBtn'){
-        const kind=/ベント|出る/.test(text)?'vent':/ドア|扉|開く/.test(text)?'door':/会議/.test(text)?'meeting':'use';
+      if(b.id==='taskBtn'||b.id==='lobbyUseBtn'){
+        const kind=b.id==='lobbyUseBtn'?(b.dataset.actionIcon||'use'):/ベント|出る/.test(text)?'vent':/ドア|扉|開く/.test(text)?'door':/会議/.test(text)?'meeting':'use';
         if(kind!==(r.useKind||'use')){r.useSymbols||=new Map([['use',r.symbol]]);r.symbol.visible=false;if(!r.useSymbols.has(kind)){const next=icon(kind,r.spec.color);r.cap.add(next);r.useSymbols.set(kind,next);}r.symbol=r.useSymbols.get(kind);r.useKind=kind;}
       }
 
@@ -219,5 +229,5 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   }
   function dispose(){if(disposed)return;disposed=true;setActive(false);observer.disconnect();resize?.disconnect();window.removeEventListener('resize',invalidate);window.visualViewport?.removeEventListener('resize',invalidate);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',invalidate);document.removeEventListener('pointerdown',press,true);document.removeEventListener('pointerover',over);document.removeEventListener('pointerout',out);for(const r of records.values()){delete r.button.dataset.threeAction;delete r.button.dataset.threeActionLayout;}for(const g of geometries)g.dispose();for(const m of materials)m.dispose();scene.clear();records.clear();}
   return {draw,dispose,invalidate,getStats:()=>({active,failed,draws,objects:records.size,geometries:geometries.size,materials:materials.size,
-    visible:[...records.values()].filter(r=>r.group.visible).map(r=>({id:r.button.id,width:r.w,height:r.h,disabled:r.disabled,cooldown:r.cooling,cooldownIndices:r.arc.geometry.drawRange.count,spent:r.spent.visible,icon:r.spec.kind,pressed:r.press}))})};
+    visible:[...records.values()].filter(r=>r.group.visible).map(r=>({id:r.button.id,width:r.w,height:r.h,disabled:r.disabled,cooldown:r.cooling,cooldownIndices:r.arc.geometry.drawRange.count,spent:r.spent.visible,icon:r.useKind||r.spec.kind,pressed:r.press}))})};
 }

@@ -35,3 +35,8 @@ body.ssGiftPending #inputSettingsNav [data-settings-target="inbox"],.ssGiftNotic
 .costumeGachaEmpty button{border:1px solid #e0c18a;border-radius:12px;background:#dec69a;color:#102634;padding:12px 24px;font-size:16px;font-weight:800}
 /* Initial ticket acknowledgement also stays visible over the fullscreen gacha. */
 #toast[data-kind="gift"]{z-index:22000!important;pointer-events:none!important}
+.lobbyActionCanvas{position:fixed;z-index:44;pointer-events:none!important;display:block}
+.lobbyActionCanvas[hidden]{display:none!important}
+body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]{background:transparent!important;background-image:none!important;border-color:transparent!important;box-shadow:none!important;clip-path:none!important;text-shadow:0 2px 3px #020b17!important;overflow:visible!important;transform:none!important;animation:none!important;white-space:nowrap!important}
+body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"][data-three-action-layout="icon"]{padding-left:var(--three-action-label-inset,42px)!important;padding-right:5px!important}
+body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]::before,body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]::after{display:none!important}
