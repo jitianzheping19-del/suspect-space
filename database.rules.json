@@ -487,7 +487,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$skin": {
-          ".write": "auth != null && auth.uid === $uid && newData.isString() && root.child('reviewGifts').child($uid).child(newData.val()).child('category').val() === 5 && root.child('reviewGifts').child($uid).child(newData.val()).child('item').val() === $skin && root.child('giftClaims').child($uid).child(newData.val()).val() === true",
+          ".write": "(auth != null && auth.uid === $uid && newData.isString() && root.child('reviewGifts').child($uid).child(newData.val()).child('category').val() === 5 && root.child('reviewGifts').child($uid).child(newData.val()).child('item').val() === $skin && root.child('giftClaims').child($uid).child(newData.val()).val() === true) || (auth != null && auth.uid === $uid && newData.isString() && (($skin === 'neonphantom' && root.child('economy').child($uid).child('owned').child('6000').val() === true) || ($skin === 'galaxylord' && root.child('economy').child($uid).child('owned').child('6001').val() === true) || ($skin === 'frostemperor' && root.child('economy').child($uid).child('owned').child('6002').val() === true) || ($skin === 'onimusha' && root.child('economy').child($uid).child('owned').child('6003').val() === true) || ($skin === 'spacebunny' && root.child('economy').child($uid).child('owned').child('6004').val() === true) || ($skin === 'error404' && root.child('economy').child($uid).child('owned').child('6005').val() === true) || ($skin === 'celestial' && root.child('economy').child($uid).child('owned').child('6006').val() === true) || ($skin === 'boxgod' && root.child('economy').child($uid).child('owned').child('6007').val() === true)))",
           ".validate": "$skin === 'neonphantom' || $skin === 'galaxylord' || $skin === 'frostemperor' || $skin === 'onimusha' || $skin === 'spacebunny' || $skin === 'error404' || $skin === 'celestial' || $skin === 'boxgod'"
         }
       }
@@ -495,13 +495,44 @@
     "economy": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": false
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['tickets','premium']) && (data.child('gachaLaunchBonus').val() !== true || newData.child('gachaLaunchBonus').val() === true)",
+        "tickets": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000"
+        },
+        "premium": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000"
+        },
+        "gachaLaunchBonus": {
+          ".validate": "newData.isBoolean()"
+        },
+        "owned": {
+          "$item": {
+            ".validate": "newData.val() === true && $item.matches(/^[0-9]{4}$/)"
+          }
+        },
+        "receipts": {
+          "$operation": {
+            ".validate": "$operation.matches(/^[A-Za-z0-9_-]{1,90}$/) && newData.hasChildren(['at']) && newData.child('at').isNumber()"
+          }
+        },
+        "rewards": {
+          "$round": {
+            ".validate": "newData.val() === 3 || newData.val() === 5 || newData.val() === 10"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "ticketGifts": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": false
+        ".read": "auth != null && (auth.uid === $uid || (auth.uid === 'dUAYnvjlbvTUluFXyQkTsAFMs1c2' || auth.uid === 'Lv0aTXfHM7M3CItek3dNwjjd0si1'))",
+        "$gift": {
+          ".write": "auth != null && (auth.uid === 'dUAYnvjlbvTUluFXyQkTsAFMs1c2' || auth.uid === 'Lv0aTXfHM7M3CItek3dNwjjd0si1') && (!data.exists() || newData.val() === data.val())",
+          ".validate": "newData.hasChildren(['count','kind','sender','createdAt']) && newData.child('sender').val() === auth.uid && newData.child('count').isNumber() && newData.child('count').val() >= 1 && newData.child('count').val() <= 999 && (newData.child('kind').val() === 'normal' || newData.child('kind').val() === 'premium') && newData.child('createdAt').isNumber()"
+        }
       }
     }
   }

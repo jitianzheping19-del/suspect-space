@@ -2948,7 +2948,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   }
   for(const [x,z] of [[-5.5,11.8],[5.3,12.4]]){cube(1.25,.65,.7,0x293b40,x,.325,z);addObstacle(x,z,1.3,.75,.65,true);for(const dx of [-.36,.36])cube(.1,.68,.74,0xbca67d,x+dx,.34,z);}
   // Capsule machine beside the front left banquette; the old orb table sits inland.
-  const gacha=new THREE.Group();gacha.name="lobby-capsule-machine";gacha.position.set(-8.3,0,4.25);root.add(gacha);
+  const gacha=new THREE.Group();gacha.name="lobby-capsule-machine";gacha.position.set(-11.35,0,6);gacha.rotation.y=Math.PI/2;root.add(gacha);
   const enamel=new THREE.MeshPhysicalMaterial({color:0x173d50,metalness:.58,roughness:.22,clearcoat:.9,clearcoatRoughness:.2});
   const cream=material(0xf5ead5,{roughness:.32,metalness:.12});
   const chrome=material(0xbfcbd3,{metalness:.86,roughness:.22});
@@ -2998,7 +2998,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   const orbit=part(new THREE.TorusGeometry(.68,.012,6,64),accent,0,2.11,0);orbit.rotation.x=1.1;
   const emblem=part(new THREE.OctahedronGeometry(.075),accent,0,1.29,.51);
   window.__lobbyGachaUpdate=time=>{orbit.rotation.z=time*.18;emblem.rotation.y=time*.4;};
-  addObstacle(-8.3,4.25,1.5,1.3,2.92,true);
+  addObstacle(-11.35,6,1.3,1.5,2.92,true);
   // Register the existing role monitor frame as a finite platform; do not add another mesh.
   addObstacle(3.75,-5.42,4.05,.22,3.73,true);
   const updatesLabel=caption("アプデ情報",-6.3,2.45,-4.68,2.2,"#e5d3a8").mesh;
@@ -3014,10 +3014,8 @@ function installLobbyExpansion(THREE,scene,addObstacle){
     cube(1.05,.68,.03,0x5bdbdb,x,1.37,-4.77,{emissive:0x2c979e,emissiveIntensity:.5});
     for(let n=0;n<4;n++)cube(.16,.075,.05,n%2?0xf8cb76:0xf07b96,x-.4+n*.27,.8,-4.75);
   }
-  for(const [x,z] of [[-10.6,6]]){
-    cube(.85,1.55,.6,0x526a83,x,.775,z);addObstacle(x,z,.9,.65,1.55,true);
-    for(let n=0;n<3;n++){cube(.65,.04,.46,0xc2d5db,x,.4+n*.45,z+.05);cube(.22,.28,.2,[0xebae64,0x61bdac,0x839fdc][n],x,.56+n*.45,z+.08);}
-  }
+  // The capsule machine replaces the shelf against the west wall.
+
   // These objects never move locally. Parent/world matrices remain automatic.
   const animatedRoots=new Set([float,water,...fish.map(f=>f.group)]);
   root.traverse(object=>{for(let p=object;p&&p!==root;p=p.parent)if(animatedRoots.has(p))return;object.updateMatrix();object.matrixAutoUpdate=false;});
