@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {waveCannonTargetOnBeam,waveCannonSegments,waveCannonVisibleSegments,waveCannonMovementLock,createWaveCannonEffect,WAVE_CANNON_HALF_WIDTH as H,WAVE_CANNON_START as START} from '../wave-cannon-runtime.js';
-const source=await(await fetch('https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js')).text(),THREE=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const source=process.env.THREE_MODULE_PATH?await readFile(process.env.THREE_MODULE_PATH,'utf8'):await(await fetch('https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js')).text(),THREE=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const wave={id:'w',by:'a',x:2,z:-1,yaw:0,startedAt:1000,fireAt:3000,endsAt:8000};
 const point=(yaw,along,side)=>({x:2+Math.sin(yaw)*along+Math.cos(yaw)*side,z:-1+Math.cos(yaw)*along-Math.sin(yaw)*side});
 for(let i=0;i<32;i++){const yaw=i*Math.PI/16,w={...wave,yaw};for(const side of[-H-.01,-H+.01,0,H-.01,H+.01])assert.equal(waveCannonTargetOnBeam(w,point(yaw,8,side)),Math.abs(side)<H);assert(!waveCannonTargetOnBeam(w,point(yaw,START-.01,0)));assert(!waveCannonTargetOnBeam(w,point(yaw,80.01,0)));assert(!waveCannonTargetOnBeam(w,point(yaw,41,0),.5));assert(waveCannonTargetOnBeam(w,point(yaw,39,0),.5));}

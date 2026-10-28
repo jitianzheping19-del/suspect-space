@@ -323,6 +323,7 @@ function createMeetingEjections(api) {
     for(const p of api.getSeats())if(p.costumeRoot){
       // Costumes use the same rig and hip pivots as the actor, including corpses.
       p.costumeRoot.position.copy(p.c.rig.position);p.costumeRoot.rotation.copy(p.c.rig.rotation);
+      if(p.costumeRoot.userData.tailoredRevision===2)p.costumeRoot.userData.updateGiftSkin?.(api.now(),{moving:!!p.meetingActorBusy,jumping:false});
       const pants=p.costumeRoot.userData.walkPants||[];
       pants.forEach((leg,i)=>{leg.rotation.x=p.c.legs[i]?.rotation.x||0;});
       const fabric=pants[0]?.children.find(m=>m.isMesh)?.material;

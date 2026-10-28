@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {hueFromSuitColor} from '../suit-colors.js';
 import {matchResumePose,repairableOwnPresence,isHostConnectionNotice} from '../room-resume-state.js';
 
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
@@ -18,11 +19,11 @@ for(const file of ['index.html','space-suspect-complete.html']){
  const c={$:id=>controls.get(id),document:{querySelectorAll:()=>[...controls.values()]},localStorage:{getItem:()=>null},
   clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),roleCooldownSettingsFromInputs:()=>({}),selectedRoleCounts:()=>({samurai:1}),
   readLastMatchSettings:()=>null,game:{phase:'lobby',settings:{},lobbySettings:{}},now:()=>stamp,token:()=>String(stamp),
-  roleCounts:{samurai:1},impostorCount:1,botCount:2,waveModeSelected:'normal',selectedTaskCount:6,nextRound:2,
+  impostorStreak:{},expansionKillCooldown:(_p,_s,base)=>base,isMiniPlayer:p=>p?.mini||p?.subrole==='mini',roleCounts:{samurai:1},impostorCount:1,botCount:2,waveModeSelected:'normal',selectedTaskCount:6,nextRound:2,
   waveSetup:{countdownEndsAt:50000,playStartsAt:50000},roster:{a:{role:'impostor',subrole:'samurai'}},
   lobbySettingsPayload:s=>({matchSettings:s}),code:'1234',roomCode:'1234',db:{},ref:(_,path)=>path,set:async(_,body)=>{stored=body;},
   upgradedRoleCooldownMs:()=>0,roleBehaviorValue:()=>0,
-  players:{a:{x:0,z:0,online:true},b:{x:1,z:0,online:true}},botPositions:{},wallBetween:()=>false,
+  players:{a:{x:0,z:0,online:true},b:{x:1,z:0,online:true}},botPositions:{},expansionKillRange:()=>3.6,wallBetween:()=>false,
   distance:(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),commandOrigin:loc=>loc,runModRoleHooks:()=>null,
   emitModRoleEvent:()=>{},recordDeath:(g,id)=>{g.players[id].alive=false;return true;},setCommandResult:()=>{}};
  vm.createContext(c);
@@ -38,24 +39,25 @@ for(const file of ['index.html','space-suspect-complete.html']){
  c.initialClockSettings=stored.settings;
  vm.runInContext(initial,c);
  assert.equal(c.roster.a.readyAt,60000);assert.equal(c.roster.a.abilityReadyAt,60000);
- // A 40-second slash cannot overwrite the normal 10-second kill clock.
+ // Samurai uses the configured slash clock initially and after a slash;
+ // subsequent ordinary kills use the separate normal kill setting.
  c.initialClockSettings={...stored.settings,samuraiCooldownSeconds:40};c.roster={a:{role:'impostor',subrole:'samurai'}};
  vm.runInContext(initial.replace('const initialRoleCooldown=','globalThis.initialRoleCooldownAgain=').replace('initialRoleCooldown(player,','initialRoleCooldownAgain(player,'),c);
- assert.equal(c.roster.a.readyAt,60000);assert.equal(c.roster.a.abilityReadyAt,90000);
+ assert.equal(c.roster.a.readyAt,90000);assert.equal(c.roster.a.abilityReadyAt,90000);
  vm.runInContext(between('const modCombatClamp=','function modCombatBeforeKill('),c);
  let g={phase:'play',settings:{killCooldownSeconds:10,samuraiCooldownSeconds:40},players:{a:{role:'impostor',subrole:'samurai',alive:true,readyAt:0,abilityReadyAt:0},b:{role:'crew',alive:true}}};
  c.modCombatAbility({g,p:g.players.a,actor:'a',loc:c.players.a,cmd:{ability:'samurai'},now:stamp,players:c.players,botPositions:{},setResult:ok=>assert(ok),markDirty:()=>{}});
- assert.equal(g.players.a.readyAt,60000);assert.equal(g.players.a.abilityReadyAt,90000);
+ assert.equal(g.players.a.readyAt,90000);assert.equal(g.players.a.abilityReadyAt,90000);
  const normal=between('const doubleKillSlot=p.subrole===','\nif (cmd.type === "report"');
  vm.runInContext('globalThis.normalKill=function(g){const p=g.players.a,actor="a",cmd={type:"kill",target:"b"},loc=players.a;let dirty=false;for(const _ of [0]){'+normal+'}return g;}',c);
  for(let i=0;i<3;i++){
-  stamp=70000+i*10000;g.players.b.alive=true;c.normalKill(g);assert.equal(g.players.a.readyAt,stamp+10000,'repeated normal kill must stay at 10 seconds');
+  stamp=90000+i*10000;g.players.b.alive=true;c.normalKill(g);assert.equal(g.players.a.readyAt,stamp+10000,'repeated normal kill must stay at 10 seconds');
  }
  const returning=between('              const actionStart=g.playStartsAt,shortActionLock=','              const reservedReturnSpawns=[];');
  g.playStartsAt=100000;g.players.a.readyAt=0;g.players.a.abilityReadyAt=0;c.g=g;
- vm.runInContext(returning,c);assert.equal(g.players.a.readyAt,110000);assert.equal(g.players.a.abilityReadyAt,140000);
+ vm.runInContext(returning,c);assert.equal(g.players.a.readyAt,140000);assert.equal(g.players.a.abilityReadyAt,140000);
  // Meeting respawns queue bare x/z poses, with no timestamp attached.
- const writes=[];c.session=1;c.code='1234';c.game={round:2};
+ const writes=[];c.peerPoseNetwork=null;c.session=1;c.code='1234';c.game={round:2};
  c.update=async(path,patch)=>writes.push({path,patch});c.console={warn:()=>{}};
  vm.runInContext(between('function compactPosePatch(','let publishBusy ='),c);
  vm.runInContext(between('let pendingBotPose={},','function syncCostumeColorToggle('),c);
@@ -66,7 +68,7 @@ for(const file of ['index.html','space-suspect-complete.html']){
  vm.runInContext('pendingBotPose={b:{x:2,z:2,updatedAt:120000}};flushBotPose("1234");',c);await settle();assert.equal(writes[1].patch['b/updatedAt'],120000);
  assert(!source.includes('<div id="meetingStatusBar"'),'removed count HUD must not be created');
  c.uid='a';c.CENTER={x:0,z:0};c.matchResumePose=matchResumePose;c.readStored=()=>'';c.accountCostume='new-account-costume';
- c.serverTimestamp=()=>({'.sv':'timestamp'});c.THREE={Color:class{getHSL(){return {h:.8};}}};
+ c.serverTimestamp=()=>({'.sv':'timestamp'});c.hueFromSuitColor=hueFromSuitColor;c.THREE={Color:class{getHexString(){return "42c8f5";}getHSL(){return {h:.8,s:1,l:.5};}}};
  let lobbyPlacements=0;c.placeLobbyEntry=p=>{lobbyPlacements++;return {...p,x:99,z:99};};
  vm.runInContext(between('function applyAccountCostume(','let roomOperationBusy='),c);
  const profile={name:'試合中の名前',hue:.25,costume:'captain',x:13,z:-7},roundPlayer={name:'試合中の名前',hue:.25,costume:'captain',x:1,z:2,role:'impostor'};

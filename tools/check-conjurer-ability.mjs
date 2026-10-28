@@ -17,10 +17,12 @@ for(const [id,extra]of Object.entries({b:{role:'crew'},c:{role:'impostor'},d:{ro
 const profiles=Object.fromEntries(Object.keys(g.players).map(id=>[id,{x:1,z:1,online:true}]));profiles.outside.x=9;profiles.offline.online=false;
 const result=use({x:100,z:100},profiles);
 assert(result.fired);assert.deepEqual(killed.map(p=>p.id),['b','c','d'],'All eligible players in the triangle are hit, even from a distant caster');
-assert(g.players.a.alive);assert.equal(g.players.a.abilityReadyAt,13000);assert.equal(g.players.a.conjurerMarkers.length,3,'The field remains until a meeting');
+assert(g.players.a.alive);assert.equal(g.players.a.abilityReadyAt,13000);assert(!g.players.a.conjurerMarkers&&!g.players.a.conjurerArmedAt,'Activation consumes the field');
 assert.equal(events.at(-1).type,'conjurer');assert(!use().ok,'Cannot bypass activation cooldown');
 g.players.new={alive:true,role:'crew'};profiles.new={x:1,z:2,online:true};stamp=13000;
-assert(use(undefined,profiles).targets.some(t=>t.id==='new'),'The same field can be activated after cooldown');
+for(const point of triangle)assert(use(point,profiles).placed);
+assert(use(undefined,profiles).targets.some(t=>t.id==='new'),'A newly placed field can activate after cooldown');
+assert(use({x:0,z:0}).ok===false,'Cooldown applies to placement as well');stamp+=12000;assert(use({x:0,z:0}).placed);
 assert(resetConjurerMarkers(g));assert(!g.players.a.conjurerMarkers&&!g.players.a.conjurerArmedAt);assert(!resetConjurerMarkers(g));
 for(const point of [{x:1,z:1},{x:0,z:0},{x:3,z:3}])assert(conjurerTriangleContains(triangle,point));
 assert(!conjurerTriangleContains(triangle,{x:4,z:4}));assert(!conjurerTriangleContains(triangle,{x:NaN,z:1}));assert(!conjurerTriangleContains([{x:0,z:0},{x:1,z:1},{x:2,z:2}],{x:1,z:1}));
@@ -29,14 +31,14 @@ for(const alive of [true,false])assert(canSeeConjurerMarkers({role:'impostor',al
 g=game();assert(use({x:0,z:0}).ok);assert(!use({x:.1,z:0}).ok);assert(!use({x:Infinity,z:0}).ok);assert(use({x:2,z:0}).ok);assert(!use({x:4,z:0}).ok);assert(use({x:0,z:2}).ok);
 for(const state of [{alive:false},{role:'crew'},{subrole:'impostor'},{ventId:'v'},{observer:true},{disconnected:true},{penguinCapturedBy:'b'},{rocketCapturedBy:'b'}]){g=game();Object.assign(g.players.a,state);assert(!use().ok);}
 g=game();g.phase='meeting';assert(!use().ok);g.phase='play';g.playStartsAt=stamp+1;assert(!use().ok);
-console.log('PASS: three safe placements, explicit activation, remote multi-target triangle, cooldown, retained field, meeting reset, impostor-only markers, invalid/blocked commands');
+console.log('PASS: three safe placements, explicit activation, remote multi-target triangle, cooldown, consumed field, meeting reset, impostor-only markers, invalid/blocked commands');
 
 // Exercise the actual shared death handler and ability hook: self destruction
 // must kill the caster, while a protected neighbouring player remains protected.
 for(const filename of ['index.html','space-suspect-complete.html']){
   const html=readFileSync(new URL('../'+filename,import.meta.url),'utf8');let serial=0;
   const hooks={beforeDeath:()=>({blocked:true})},ctx={now:()=>2000,token:()=>`test-${++serial}`,players:{a:{x:0,z:0,online:true},b:{x:1,z:0,online:true}},botPositions:{},ROOMS:[],
-    runModRoleHooks:(kind,args)=>hooks[kind]?.(args),markSoul:()=>{},registerDeathPlayback:()=>{},recordDeathAudit:()=>{},appendMeetingDeathNotice:()=>{},assignGhostRole:()=>{},roleNameFor:p=>p.subrole,
+    expansionRules:{beforeDeath:()=>null},isMiniPlayer:p=>p?.mini||p?.subrole==="mini",vampireRoutes:{finish:()=>null},runModRoleHooks:(kind,args)=>hooks[kind]?.(args),markSoul:()=>{},registerDeathPlayback:()=>{},recordDeathAudit:()=>{},appendMeetingDeathNotice:()=>{},assignGhostRole:()=>{},roleNameFor:p=>p.subrole,
     clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),wallBetween:()=>false,distance:(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),emitModRoleEvent:(g,type,by,data)=>(g.modRoleEvents||=[]).push({type,by,...data})};
   vm.createContext(ctx);
   const start=html.indexOf('function recordDeath(g,'),end=html.indexOf('\nfunction ',start+1);

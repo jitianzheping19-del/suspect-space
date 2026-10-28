@@ -1853,6 +1853,594 @@ function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials,cl
 /* DETAILED_WEARABLES_V1_END */
 
 /* GIFT_SKIN_V1_BEGIN */
+// Finishing work for the fifteen remaining outfits. Uses the owner's resources and clock.
+const REMAINING_COUTURE_IDS=['streetdj','honeykeeper','mushroomoracle','jellyveil','origamitsuru','patisserie','scarabpharaoh','rainwalker','railconductor','inkmonk','carnivaljoker','rescueworker','cactusmariachi','bathduck','retroarcade'];
+
+// Keep the game's ghost/fade treatment working for custom shader decorations too.
+function coutureMaterial(T,options){
+ options.uniforms.coutureOpacity={value:1};
+ options.fragmentShader='uniform float coutureOpacity;'+options.fragmentShader.replace(/}\s*$/,'gl_FragColor.a*=coutureOpacity;}');
+ const material=new T.ShaderMaterial(options);
+ material.onBeforeRender=()=>{material.uniforms.coutureOpacity.value=material.opacity;material.uniformsNeedUpdate=true;};
+ return material;
+}
+
+function refineRemainingDesigns(T,h){
+ const {id,cloth,gold,lining,dark,leather,ivory,glow,silver,sculpt,fx,own,cached,materials,textures,uniforms,mobile,held,mesh,orb,block,node,motion,hoop,cylinder,tube,plate,stud,bodyPatch,belt,panel,seam,flower,surface}=h;
+ if(!REMAINING_COUTURE_IDS.includes(id))return;
+ sculpt.userData.coutureFinish=1;
+ const texture=(paint,w=256,height=256)=>{const c=document.createElement('canvas');c.width=w;c.height=height;paint(c.getContext('2d'),w,height);const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;textures.add(tex);return tex;};
+ // Real fabric/paper patterns, authored once; they do not repaint each frame.
+ const fabricMap=texture((c,w,height)=>{
+  c.fillStyle='#f3f3f3';c.fillRect(0,0,w,height);c.lineWidth=1;
+  for(let y=0;y<height;y+=4){c.strokeStyle=y%8?'#dadada':'#eeeeee';c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();}
+  for(let x=0;x<w;x+=4){c.strokeStyle='#eeeeee';c.beginPath();c.moveTo(x,0);c.lineTo(x,height);c.stroke();}
+  if(['streetdj','retroarcade'].includes(id)){c.strokeStyle='#b8b8b8';for(let y=12;y<height;y+=40)for(let x=12;x<w;x+=48){c.beginPath();c.moveTo(x,y);c.lineTo(x+18,y);c.lineTo(x+18,y+12);c.lineTo(x+30,y+12);c.stroke();c.strokeRect(x+28,y+10,4,4);}}
+  else if(id==='carnivaljoker'){for(let y=-32;y<height;y+=48)for(let x=-32;x<w;x+=48){c.fillStyle=(x+y)%96?'#f9f9f9':'#939393';c.beginPath();c.moveTo(x,y-24);c.lineTo(x+24,y);c.lineTo(x,y+24);c.lineTo(x-24,y);c.closePath();c.fill();}}
+  else if(['honeykeeper','patisserie','cactusmariachi'].includes(id)){c.strokeStyle='#c5c5c5';for(let y=12;y<height;y+=36)for(let x=12;x<w;x+=36){c.beginPath();if(id==='honeykeeper'){for(let j=0;j<6;j++){const a=j*Math.PI/3;c.lineTo(x+Math.sin(a)*14,y+Math.cos(a)*14);}}else{c.moveTo(x,y-14);c.lineTo(x+14,y);c.lineTo(x,y+14);c.lineTo(x-14,y);}c.closePath();c.stroke();}}
+  else if(id==='railconductor'){c.strokeStyle='#bfbfbf';for(let x=0;x<w;x+=18){c.beginPath();c.moveTo(x,0);c.lineTo(x,height);c.stroke();}}
+  else if(['origamitsuru','inkmonk','scarabpharaoh'].includes(id)){c.strokeStyle='#d4d4d4';for(let j=0;j<14;j++){c.beginPath();c.moveTo(j*20,0);c.lineTo(j*20+70,height);c.stroke();}}
+  else if(id==='mushroomoracle'){c.strokeStyle='#c7c7c7';for(let j=0;j<10;j++){c.beginPath();c.moveTo(j*28,height);c.bezierCurveTo(j*28-20,160,j*28+15,90,j*28,0);c.stroke();}}
+ });
+ fabricMap.wrapS=fabricMap.wrapT=T.RepeatWrapping;fabricMap.repeat.set(2,2);
+ const textile=id==='bathduck'||id==='inkmonk'||id==='origamitsuru'?ivory:cloth;textile.map=fabricMap;textile.needsUpdate=true;
+ function pipedPanel(p,w,height,depth=.08,m=dark){const shape=new T.Shape(),r=.06;shape.moveTo(-w/2+r,-height/2);shape.lineTo(w/2-r,-height/2);shape.quadraticCurveTo(w/2,-height/2,w/2,-height/2+r);shape.lineTo(w/2,height/2-r);shape.quadraticCurveTo(w/2,height/2,w/2-r,height/2);shape.lineTo(-w/2+r,height/2);shape.quadraticCurveTo(-w/2,height/2,-w/2,height/2-r);shape.lineTo(-w/2,-height/2+r);shape.quadraticCurveTo(-w/2,-height/2,-w/2+r,-height/2);const g=own(new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSize:.014,bevelThickness:.012,bevelSegments:2}));g.translate(0,0,-depth/2);return mesh(g,m,0,0,0,1,1,1,p);}
+ function star(p,x,y,z,r,m=gold){const points=[];for(let j=0;j<10;j++){const a=j*Math.PI/5,k=j%2?.42:1;points.push([Math.sin(a)*r*k,Math.cos(a)*r*k]);}return plate(points,.015,m,x,y,z,p);}
+ function arc(points,m=gold,r=.007,p=sculpt){return tube(points,r,m,p);}
+ function embroideredWing(p,side,x,y,z){for(let j=0;j<5;j++){const o=plate([[0,0],[side*(.17+j*.028),.09-j*.025],[side*(.14+j*.028),.045-j*.025]],.012,gold,x,y,z,p);o.rotation.y=side*.12;}}
+ function screen(p,x,y,z,w,height,theme){
+  const u={time:{value:0},color:{value:new T.Color(theme)}};uniforms.push(u);const digital=theme===0xff77b6;
+  const m=coutureMaterial(T,{uniforms:u,side:T.DoubleSide,vertexShader:'varying vec2 v;void main(){v=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:digital?
+   'uniform float time;uniform vec3 color;varying vec2 v;void main(){vec2 cell=floor(v*vec2(14.,20.));float maze=step(.65,fract(sin(dot(cell,vec2(34.17,81.91)))*1937.));float scan=.87+.13*sin(v.y*180.-time*3.);float player=step(length(cell-vec2(mod(floor(time*2.),10.)+2.,3.)),1.);vec3 c=vec3(.025,.055,.08)+color*maze*.25+vec3(.35,1.,.84)*player;gl_FragColor=vec4(c*scan,1.);}' :
+   'uniform float time;uniform vec3 color;varying vec2 v;void main(){float wave=.5+.16*sin(v.x*22.+time*2.)+.09*sin(v.x*41.-time*3.);float line=1.-smoothstep(.008,.027,abs(v.y-wave));float grid=step(.97,fract(v.x*12.))*.07+step(.97,fract(v.y*8.))*.07;gl_FragColor=vec4(vec3(.015,.035,.055)+color*(line*.85+grid),1.);}'});materials.add(m);const o=mesh(own(new T.PlaneGeometry(w,height)),m,x,y,z,1,1,1,p);o.rotation.y=Math.PI;return o;
+ }
+ function silverZip(x,y,z,p=sculpt){block(dark,x,y,z,.025,.23,.018,p);for(let j=0;j<7;j++)block(silver,x+(j%2?.006:-.006),y-.09+j*.03,z+.012,.012,.014,.009,p);}
+ switch(id){
+ case 'streetdj':{
+  const violet=surface(0x9958c9,.36,.29,.2),cyan=surface(0x72e9e3,.35,.3,.9);
+  for(const s of[-1,1]){const pad=node(s*.46,1.42,0);hoop(violet,s*.08,0,0,.126,0,Math.PI/2,pad);hoop(cyan,s*.09,0,0,.108,0,Math.PI/2,pad);for(let j=0;j<12;j++){const a=j*Math.PI/6;stud(silver,s*.104,Math.sin(a)*.11,Math.cos(a)*.11,.008,pad);}silverZip(s*.25,.72,.408);}
+  const deck=node(0,1.06,-.708);pipedPanel(deck,.55,.72,.045);screen(deck,0,0,-.035,.37,.15,0x77e8db);for(const y of[-.20,.20]){for(const r of[.065,.089,.115])hoop(silver,0,y,-.034,r,0,0,deck);stud(glow,0,y,-.044,.017,deck);}for(let j=0;j<3;j++)block(cyan,-.12+j*.12,-.31,-.04,.05,.012,.01,deck);
+  embroideredWing(sculpt,-1,-.02,.93,.49);embroideredWing(sculpt,1,.02,.93,.49);break;
+ }
+ case 'honeykeeper':{
+  const wax=surface(0xe7b35d,.12,.46),amber=surface(0xffcf69,.25,.23,.18);bodyPatch(ivory,{bottom:1.10,top:1.74,offset:.006});
+  for(const s of[-1,1]){const pin=node(s*.30,.88,.36);plate([[-.04,-.07],[.04,-.07],[.04,.07],[-.04,.07]],.03,gold,0,0,0,pin);block(dark,0,0,.02,.025,.055,.012,pin);}
+  const hive=node(0,1.05,-.83);for(let j=0;j<7;j++){const x=(j%3-1)*.10,y=.15-Math.floor(j/3)*.09;const points=Array.from({length:6},(_,k)=>[x+Math.sin(k*Math.PI/3)*.062,y+Math.cos(k*Math.PI/3)*.062,-.01]);tube(points,.006,gold,hive,true);orb(amber,x,y,0,.045,.045,.018,hive);}
+  for(let j=0;j<3;j++){const drop=node(-.10+j*.09,-.17,-.02,hive);orb(wax,0,0,0,.012,.03,.012,drop);motion(drop,(n,t)=>n.scale.y=.8+.2*Math.sin(t*1.3+j));}flower(sculpt,.29,.58,.28,.055,ivory);break;
+ }
+ case 'mushroomoracle':{
+  const moss=surface(0x627d68,.12,.77),faint=surface(0x89d9b2,.1,.6,.25);
+  const back=node(0,1.04,-.70);for(const s of[-1,1]){arc([[0,-.21,0],[s*.17,0,0],[s*.12,.26,.01]],gold,.009,back);for(let j=0;j<4;j++){const leaf=plate([[0,0],[s*.12,.03],[s*.16,.12],[s*.05,.10]],.018,moss,s*.04,-.15+j*.10,.02,back);leaf.rotation.z=-s*.12;}}
+  const mushroom=node(0,1.65,-.04);hoop(faint,0,-.005,0,.65,Math.PI/2,0,mushroom).scale.z=.68;for(let j=0;j<9;j++){const a=j*2.4;orb(ivory,Math.sin(a)*.48,.28+Math.cos(a)*.02,Math.cos(a)*.39,.014,.007,.014,mushroom);}
+  for(const s of[-1,1]){const cord=node(s*.36,1.03,-.19);arc([[0,0,0],[s*.08,-.22,-.02],[0,-.40,0]],leather,.013,cord);const lantern=node(0,-.41,0,cord);orb(faint,0,0,0,.055,.075,.055,lantern);for(let j=0;j<4;j++){const a=j*Math.PI/2;arc([[0,.10,0],[Math.sin(a)*.07,0,Math.cos(a)*.07],[0,-.10,0]],gold,.004,lantern);}motion(cord,(n,t)=>n.rotation.z=Math.sin(t*.9+s)*.025);}
+  break;
+ }
+ case 'jellyveil':{
+  for(const m of materials)if(m.color?.getHex()===0xa4b9ed&&m.transparent){m.opacity=.29;m.roughness=.16;}
+  const pearl=surface(0xd9d9f7,.45,.22,.15);for(const s of[-1,1]){const shoulder=node(s*.38,1.08,-.03);orb(pearl,0,0,0,.115,.055,.14,shoulder);for(let j=0;j<5;j++)stud(glow,(j-2)*.025,.04,.08,.008,shoulder);}
+  const core=node(0,1.92,-.08);mesh(cached('couture-gem',()=>new T.IcosahedronGeometry(1,0)),glow,0,0,0,.06,.095,.06,core);for(let j=0;j<3;j++){const r=hoop(pearl,0,0,0,.10+j*.024,Math.PI/2,j*.6,core);motion(r,(n,t)=>n.rotation.z=t*(.16+j*.04));}
+  for(let j=0;j<12;j++){const a=j*Math.PI/6;stud(pearl,Math.sin(a)*.56,1.66,Math.cos(a)*.50-.07,.011);}break;
+ }
+ case 'origamitsuru':{
+  const ink=surface(0x4d6571,.1,.73),red=surface(0xc05b59,.2,.55);const crane=node(0,1.18,-.607);
+  for(const s of[-1,1]){plate([[0,.03],[s*.18,.22],[s*.63,.35],[s*.26,.11]],.012,ivory,0,0,-.035,crane);plate([[0,.03],[s*.26,.11],[s*.44,.10],[s*.25,-.05]],.012,lining,0,0,-.054,crane);arc([[0,.03,-.06],[s*.26,.11,-.06],[s*.63,.35,-.05]],gold,.005,crane);}
+  const beltSeal=node(0,.77,.475);plate([[0,.05],[.045,0],[0,-.05],[-.045,0]],.025,red,0,0,0,beltSeal);for(const s of[-1,1]){seam([s*.21,.62],[s*.13,.52],ink,.004);seam([s*.28,.63],[s*.22,.50],gold,.004);}break;
+ }
+ case 'patisserie':{
+  const pink=surface(0xe4a9a9,.10,.56),chocolate=surface(0x3c221d,.18,.36);
+  for(const s of[-1,1]){const macaron=node(s*.38,1.06,-.015);orb(pink,0,.015,0,.13,.047,.14,macaron);orb(ivory,0,-.015,0,.13,.02,.14,macaron);orb(chocolate,0,-.045,0,.13,.028,.14,macaron);for(let j=0;j<5;j++){const a=j*Math.PI/2.5;stud(gold,Math.sin(a)*.11,.03,Math.cos(a)*.11,.007,macaron);}}
+  const parcel=node(0,.98,-.675);pipedPanel(parcel,.50,.55,.02,chocolate);block(pink,0,0,-.025,.065,.53,.01,parcel);block(pink,0,0,-.03,.48,.055,.01,parcel);for(const s of[-1,1]){const loop=hoop(gold,s*.075,.08,-.04,.08,0,0,parcel);loop.scale.set(.075,.035,.06);}star(parcel,0,-.12,-.04,.055,gold);
+  for(let j=0;j<6;j++)orb(ivory,-.17+j*.064,1.89,.13,.032,.026,.03);break;
+ }
+ case 'scarabpharaoh':{
+  const lapis=surface(0x1b5e78,.5,.25),carnelian=surface(0xb95548,.48,.25);bodyPatch(lapis,{bottom:1.37,top:1.76,offset:.006});
+  for(const s of[-1,1]){for(let j=0;j<3;j++)arc([[s*.04,.96-j*.04,.46],[s*.23,.96-j*.04,.40],[s*.35,1.025-j*.035,.27]],gold,.012);for(let j=0;j<3;j++)stud(carnelian,s*.27,.89-j*.043,.397,.009);}
+  const scarab=node(0,1.10,-.675);orb(lapis,0,0,0,.075,.16,.02,scarab);block(gold,0,0,-.025,.008,.29,.01,scarab);for(const s of[-1,1])for(let j=0;j<3;j++)arc([[s*.06,.08-j*.07,-.015],[s*.18,.10-j*.10,-.018],[s*.22,.04-j*.10,-.018]],gold,.008,scarab);
+  const cobra=node(0,1.85,.31);orb(gold,0,0,0,.035,.07,.027,cobra);for(const s of[-1,1])stud(carnelian,s*.019,.014,.028,.005,cobra);break;
+ }
+ case 'rainwalker':{
+  const wet=texture((c,w,h)=>{c.fillStyle='#d6d6d6';c.fillRect(0,0,w,h);for(let j=0;j<44;j++){const x=(j*61)%w,y=(j*83)%h,r=2+j%3;const g=c.createRadialGradient(x-1,y-1,0,x,y,r);g.addColorStop(0,'#fff');g.addColorStop(.45,'#b3b3b3');g.addColorStop(1,'#d6d6d6');c.fillStyle=g;c.beginPath();c.ellipse(x,y,r,r*1.5,0,0,Math.PI*2);c.fill();}});cloth.roughnessMap=wet;cloth.roughness=.23;
+  bodyPatch(cloth,{bottom:.40,top:.58,offset:.012,fold:.025,faceOpen:false});for(const s of[-1,1]){const boot=node(0,-.03,0,sculpt.getObjectByName("tailored-boot-"+s)||sculpt);hoop(lining,0,.13,0,.189,Math.PI/2,0,boot);block(ivory,0,0,.205,.10,.018,.016,boot);}
+  for(let j=0;j<10;j++){const a=j*2.4,x=Math.sin(a)*.32,y=.58+(j%5)*.072;stud(ivory,x,y,Math.sqrt(Math.max(.01,.477**2-x*x)),.005);}break;
+ }
+ case 'railconductor':{
+  const enamel=surface(0x233a52,.5,.31);const train=node(0,1.07,-.685);pipedPanel(train,.43,.56,.045,enamel);
+  for(const s of[-1,1]){const window=node(s*.104,.09,-.035,train);pipedPanel(window,.14,.20,.015,gold);block(dark,0,0,-.014,.112,.165,.014,window);block(glow,0,-.03,-.023,.008,.07,.008,window);orb(dark,s*.13,-.26,-.03,.072,.072,.028,train);hoop(gold,s*.13,-.26,-.056,.044,0,0,train);embroideredWing(sculpt,s,s*.07,.93,.47);}
+  for(let j=0;j<6;j++)block(gold,-.14+j*.055,-.11,-.04,.018,.08,.01,train);block(gold,0,.33,0,.47,.04,.15,train);
+  arc([[.30,1.045,.32],[.23,.96,.39],[.32,.86,.34]],gold,.010);arc([[.34,1.04,.29],[.28,.92,.39],[.35,.86,.32]],gold,.006);break;
+ }
+ case 'inkmonk':{
+  const calligraphy=texture((c,w,h)=>{c.fillStyle='#e4e1ce';c.fillRect(0,0,w,h);c.fillStyle='#d4d0bc';for(let j=0;j<160;j++)c.fillRect(j*37%w,j*71%h,1,14);c.fillStyle='#16252c';c.font='700 165px serif';c.textAlign='center';c.textBaseline='middle';c.fillText('墨',w/2,h*.43,w*.78);c.font='42px serif';c.fillText('影',w*.78,h*.80);c.strokeStyle='#a84e45';c.lineWidth=4;c.strokeRect(w*.15,h*.74,35,40);c.fillStyle='#a84e45';c.fillRect(w*.15+7,h*.74+8,21,5);},256,384);
+  const u={time:{value:0},map:{value:calligraphy}};uniforms.push(u);const m=coutureMaterial(T,{uniforms:u,side:T.DoubleSide,vertexShader:'uniform float time;varying vec2 v;void main(){v=uv;vec3 p=position;p.z+=sin(uv.y*6.+time*1.2)*.028*(1.-uv.y);gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}',fragmentShader:'uniform sampler2D map;varying vec2 v;void main(){vec3 c=texture2D(map,v).rgb;gl_FragColor=vec4(c*(.78+.13*sin(v.y*9.)),1.);}'});materials.add(m);
+  const scroll=mesh(own(new T.PlaneGeometry(.48,.71,5,12)),m,0,1.05,-.595);scroll.rotation.y=Math.PI;scroll.userData.dynamic=true;
+  for(const y of[.675,1.425]){const roller=cylinder(gold,0,y,-.57,.032,.58);roller.rotation.z=Math.PI/2;for(const s of[-1,1])orb(dark,s*.305,y,-.57,.032,.041,.041);}break;
+ }
+ case 'carnivaljoker':{
+  for(const s of[-1,1]){const tassel=node(s*.50,1.98,0);orb(gold,0,0,0,.048,.053,.048,tassel);hoop(dark,0,-.008,0,.035,0,0,tassel);stud(glow,0,-.017,.047,.008,tassel);motion(tassel,(n,t)=>n.rotation.z=Math.sin(t*2+s)*.08);}
+  const wand=held(1,.10,.09,0);cylinder(dark,0,.06,0,.018,.42,wand);star(wand,0,.29,0,.105,glow);hoop(gold,0,.29,0,.13,0,0,wand);motion(wand,(n,t)=>n.rotation.z=Math.sin(t*1.7)*.06);
+  const collar=node(0,1.005,-.05);for(let j=0;j<9;j++){const a=-1.3+j*.325;stud(glow,Math.sin(a)*.43,0,Math.cos(a)*.43,.008,collar);}break;
+ }
+ case 'rescueworker':{
+  const carbon=surface(0x293d43,.45,.38);for(const s of[-1,1]){const pad=node(s*.38,1.075,-.04);orb(carbon,0,.0,0,.13,.085,.17,pad);arc([[-.08,.04,.12],[0,.07,.15],[.08,.04,.12]],lining,.009,pad);for(let j=0;j<4;j++)stud(silver,(j-1.5)*.04,.055,.11,.006,pad);}
+  const harness=node(0,1.07,-.66);block(carbon,0,0,0,.09,.59,.10,harness);for(const s of[-1,1])arc([[s*.24,.25,-.015],[s*.29,.04,-.02],[s*.25,-.27,0]],silver,.014,harness);for(let j=0;j<5;j++)block(lining,-.024,.98-j*.027,.48,.075,.012,.013).rotation.z=.45;
+  const clamp=node(-.38,.80,-.46);block(silver,0,0,0,.05,.41,.05,clamp);for(const s of[-1,1])arc([[0,.16,0],[s*.09,.25,0],[s*.12,.14,0]],silver,.024,clamp);break;
+ }
+ case 'cactusmariachi':{
+  const rosewood=surface(0x814234,.20,.38),jade=surface(0x416a4b,.15,.56);for(const s of[-1,1]){const patch=node(s*.34,.84,.28);flower(patch,0,0,0,.045,lining);for(let j=0;j<5;j++){const a=j*Math.PI/2.5;arc([[Math.sin(a)*.035,Math.cos(a)*.035,0],[Math.sin(a)*.085,Math.cos(a)*.085,0]],gold,.003,patch);}}
+  const guitar=node(0,1.03,-.654);guitar.rotation.z=-.22;orb(rosewood,0,-.14,0,.225,.255,.024,guitar);orb(rosewood,0,.10,0,.167,.18,.024,guitar);orb(dark,0,.04,-.025,.075,.075,.012,guitar);for(const r of[.077,.087,.096])hoop(gold,0,.04,-.04,r,0,0,guitar);for(let j=0;j<6;j++)block(silver,(j-2.5)*.009,.07,-.045,.002,.51,.005,guitar);
+  for(const s of[-1,1])for(let j=0;j<3;j++){orb(gold,s*.06,.67+j*.045,-.56,.014,.014,.025);arc([[s*.42,.86,-.12],[s*.55,.93,-.13],[s*.54,1.08,-.13]],jade,.029);}break;
+ }
+ case 'bathduck':{
+  ivory.roughness=.87;for(const s of[-1,1]){const collar=[];for(let j=0;j<8;j++){const f=j/7,x=s*(.30-f*.23),y=1.04-f*.25;collar.push([x,y,Math.sqrt(Math.max(.01,.473**2-x*x))]);}arc(collar,lining,.025);}
+  const bundle=node(0,1.23,-.55);const towel=cylinder(ivory,0,.01,-.03,.087,.38,bundle);towel.rotation.z=Math.PI/2;for(const s of[-1,1]){hoop(gold,s*.11,.01,-.03,.089,0,Math.PI/2,bundle);const ends=hoop(lining,s*.197,.01,-.03,.056,0,Math.PI/2,bundle);}
+  const badge=node(-.20,.86,.42);orb(gold,0,0,0,.034,.025,.015,badge);orb(gold,.007,.027,.003,.022,.022,.015,badge);stud(dark,.014,.033,.018,.003,badge);break;
+ }
+ case 'retroarcade':{
+  const cyan=surface(0x5debd3,.30,.25,.7);const cabinet=node(0,1.07,-.697);pipedPanel(cabinet,.49,.72,.04,cloth);screen(cabinet,0,.04,-.031,.34,.40,0xff77b6);block(gold,0,.29,-.03,.39,.06,.02,cabinet);for(let j=0;j<5;j++){const lamp=block(j%2?cyan:glow,-.14+j*.07,.29,-.045,.028,.018,.01,cabinet);motion(lamp,(n,t)=>n.visible=(Math.floor(t*4)+j)%6!==0);}for(const s of[-1,1]){arc([[s*.23,-.28,-.02],[s*.23,.30,-.02],[s*.15,.34,-.02]],glow,.008,cabinet);silverZip(s*.26,.71,.405);}
+  const crest=node(0,1.73,-.04);for(let j=0;j<5;j++)block(j%2?glow:cyan,-.10+j*.05,.0,.025,.03,.027,.027,crest);break;
+ }
+ }
+}
+
+// A single themed floor shader, not fifteen copies of the same generic glowing disc.
+function createRemainingAura(T,{id,fx,own,materials,uniforms,color,secondary}){
+ const kind=REMAINING_COUTURE_IDS.indexOf(id);if(kind<0)return;
+ const patterns=[
+  'float bands=pow(.5+.5*sin(a*24.),16.);float beat=.05+.05*sin(time*3.+floor(a*12.));f=band(r,.64+beat,.016)+band(r,.82,.008)*bands;',
+  'vec2 q=p*8.;q.x+=mod(floor(q.y),2.)*.5;float hex=length(fract(q)-.5);f=band(r,.77,.012)+band(hex,.33,.025)*(1.-smoothstep(.66,.87,r))*.50;',
+  'float root=.72+.07*sin(a*7.+sin(a*3.+time*.3));f=band(r,root,.014)*(.5+.5*sin(a*19.))+band(r,.85,.005);',
+  'float wave=.69+.07*sin(a*6.+time*1.1);f=band(r,wave,.022)+band(r,wave+.10,.009);',
+  'float edge=.59/(max(abs(cos(a)),abs(sin(a)))+.08);f=band(r,edge,.009)+band(r,.83,.006)*pow(.5+.5*cos(a*12.-time*.4),12.);',
+  'f=band(r,.72,.016)+band(r,.84,.008);f+=pow(.5+.5*cos(a*10.+time*.5),24.)*band(r,.78,.045);',
+  'f=band(r,.63,.011)+band(r,.81,.011);f+=pow(.5+.5*cos(a*32.-time*.3),28.)*band(r,.73,.06);',
+  'float wave=fract(time*.35);f=band(r,.5+wave*.40,.014)*(1.-wave)+band(r,.68+fract(wave+.5)*.3,.007)*.5;',
+  'f=band(r,.69,.008)+band(r,.85,.008);f+=pow(.5+.5*cos(a*28.+time*.4),30.)*band(r,.77,.05);',
+  'float brush=.68+.055*sin(a*3.+time*.2);f=band(r,brush,.035)*(.4+.6*pow(.5+.5*sin(a*9.-time*.3),2.));',
+  'f=band(r,.72,.014)+pow(.5+.5*cos(a*8.-time*.6),16.)*band(r,.83,.035);',
+  'f=band(r,.73,.008)+band(r,.82,.008)*step(.5,fract(a*7.+time*.2));',
+  'float petals=.69+.08*cos(a*5.+time*.25);f=band(r,petals,.013)+band(r,petals+.08,.006);',
+  'float wave=fract(time*.22);f=band(r,.45+wave*.45,.015)*(1.-wave)+band(r,.70,.007);',
+  'vec2 q=floor(p*18.)/18.;float square=max(abs(q.x),abs(q.y));f=band(square,.62,.016)+band(square,.77,.012)*step(.3,fract((q.x+q.y)*9.+time));'
+ ];
+ const u={time:{value:0},color:{value:color},secondary:{value:secondary}};uniforms.push(u);
+ const m=coutureMaterial(T,{uniforms:u,transparent:true,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending,
+  vertexShader:'varying vec2 v;void main(){v=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+  fragmentShader:`uniform float time;uniform vec3 color,secondary;varying vec2 v;float band(float x,float at,float width){return 1.-smoothstep(width,width*2.,abs(x-at));}void main(){vec2 p=(v-.5)*2.;float r=length(p),a=atan(p.y,p.x),f=0.;${patterns[kind]}float haze=exp(-pow((r-.72)*7.,2.))*.035;float alpha=min(.55,f*.38+haze)*(1.-smoothstep(.94,1.,r));gl_FragColor=vec4(mix(color,secondary,.4+.3*sin(a+time*.25)),alpha);}`});materials.add(m);
+ const ring=new T.Mesh(own(new T.PlaneGeometry(2.08,2.08)),m);ring.name='couture-aura-floor-'+id;ring.rotation.x=-Math.PI/2;ring.position.y=.033;fx.add(ring);
+}
+
+// Individual silhouettes built on the same capsule envelope and limb bindings.
+function addTailoredDesign(T,h){
+ const {id,cloth,gold,lining,dark,leather,ivory,glow,silver,sculpt,fx,own,cached,materials,mesh,orb,block,node,motion,hoop,cylinder,tube,plate,stud,bodyPatch,belt,panel,seam,arm,boot,held,flower,surface}=h;
+ const both=(sleeve=cloth,shoe=leather,wide=false)=>{for(const s of[-1,1]){arm(s,sleeve,{wide});boot(s,shoe);}};
+ const jacket=(m=cloth)=>{bodyPatch(m,{bottom:.40,top:1.12});for(const s of[-1,1])seam([s*.31,1.055],[s*.10,.79],gold,.012);};
+ const tail=(x,y,z,m,w=.2,length=.45)=>{const n=node(x,y,z);plate([[-w,.14],[w,.14],[w*.9,-length],[0,-length-.05],[-w*.9,-length]],.025,m,0,0,0,n);motion(n,(o,t,moving)=>o.rotation.x=Math.sin(t*2+x*5)*(moving?.13:.035));return n;};
+ const star=(m,x,y,z,r,p=sculpt)=>{const pts=[];for(let j=0;j<10;j++){const a=j*Math.PI/5,rr=j%2?r*.43:r;pts.push([Math.sin(a)*rr,Math.cos(a)*rr]);}return plate(pts,.018,m,x,y,z,p);};
+ const leaf=(m,x,y,z,r,p=sculpt)=>plate([[0,0],[-r*.45,r*.4],[-r*.35,r*.8],[0,r],[r*.35,r*.8],[r*.45,r*.4]],.015,m,x,y,z,p);
+ const cap=(m,y=1.64)=>{const n=node(0,y,0);cylinder(m,0,.055,0,.34,.12,n,.37);const brim=orb(dark,0,-.015,.16,.40,.025,.36,n);hoop(gold,0,.015,0,.36,Math.PI/2,0,n);return n;};
+ const gemGeo=cached('design-gem',()=>new T.OctahedronGeometry(1));
+ if(id==='streetdj'){
+  jacket();both(cloth,dark);belt(dark,.57,.10);panel(dark,0,.84,.34,.25,.032);
+  const cyan=surface(0x53e5ed,.45,.3,.8);for(const s of[-1,1]){seam([s*.29,.98],[s*.29,.61],cyan,.013);tube([[s*.41,1.39,.01],[s*.38,1.69,-.01],[0,1.77,-.02]],.04,dark);const ear=node(s*.45,1.42,0);orb(dark,0,0,0,.105,.16,.14,ear);hoop(glow,s*.055,0,0,.102,0,Math.PI/2,ear);orb(gold,s*.1,0,0,.025,.08,.08,ear);}
+  for(let j=0;j<6;j++){const n=block(j%2?cyan:glow,-.12+j*.048,.79,.488,.022,.08,.009);motion(n,(o,t)=>o.scale.y=.08*(.4+Math.abs(Math.sin(t*2.8+j))*.7));}
+  const deck=node(0,1.06,-.56);block(dark,0,0,0,.56,.69,.13,deck);for(const y of[-.18,.18]){hoop(gold,0,y,-.081,.14,0,0,deck);orb(dark,0,y,-.095,.12,.12,.01,deck);const pin=block(glow,0,y,-.11,.013,.21,.012,deck);motion(pin,(o,t)=>o.rotation.z=t*1.3+y);}
+  for(const s of[-1,1]){const lace=node(s*.24,.28,.206);for(let j=0;j<3;j++)block(ivory,0,-j*.05,0,.12,.013,.014,lace);}star(glow,0,.91,.49,.06);
+ }
+ if(id==='honeykeeper'){
+  jacket(ivory);both(ivory,leather);belt(leather,.67,.09);panel(cloth,0,.82,.46,.28,.028);for(const s of[-1,1])seam([s*.25,1.03],[s*.19,.66],leather,.025);
+  const hat=cap(cloth);orb(cloth,0,.12,-.03,.36,.15,.33,hat);hoop(dark,0,.04,0,.37,Math.PI/2,0,hat);flower(hat,.29,.09,.17,.075);
+  const hive=node(0,1.05,-.55);for(let j=0;j<6;j++)cylinder(gold,0,-.23+j*.085,0,.28-Math.abs(j-2.5)*.025,.07,hive);cylinder(leather,0,.30,0,.08,.12,hive);for(const s of[-1,1])tube([[s*.29,1.12,-.43],[s*.37,.91,-.52],[s*.24,.69,-.45]],.025,leather);
+  const comb=held(1,.05,.08,-.05);const hex=own(new T.CylinderGeometry(.16,.16,.045,6));mesh(hex,gold,0,0,0,1,1,1,comb).rotation.x=Math.PI/2;for(let j=0;j<6;j++){const a=j*Math.PI/3;hoop(glow,Math.sin(a)*.09,Math.cos(a)*.09,.03,.033,0,0,comb);}tube([[0,-.08,0],[0,-.33,0]],.023,leather,comb);motion(comb,(o,t)=>o.rotation.z=Math.sin(t)*.08);
+  for(const s of[-1,1]){leaf(cloth,s*.39,.54,.27,.17).rotation.z=-s*.4;flower(sculpt,s*.28,.73,.39,.04);}
+ }
+ if(id==='mushroomoracle'){
+  bodyPatch(cloth,{bottom:.40,top:1.12});both(cloth,leather,true);belt(leather,.73,.07);for(const s of[-1,1])seam([s*.31,1.04],[s*.13,.64],glow,.008);
+  const hat=node(0,1.65,-.04);mesh(own(new T.SphereGeometry(1,32,16,0,Math.PI*2,0,Math.PI/2)),cloth,0,0,0,.69,.40,.59,hat);orb(lining,0,.005,0,.68,.025,.58,hat);for(let j=0;j<20;j++){const a=j*Math.PI/10;tube([[Math.sin(a)*.12,-.015,Math.cos(a)*.1],[Math.sin(a)*.40,-.025,Math.cos(a)*.35],[Math.sin(a)*.65,0,Math.cos(a)*.55]],.008,glow,hat);}for(let j=0;j<11;j++){const a=j*2.4,r=.23+j%3*.13;orb(glow,Math.cos(a)*r,Math.sqrt(1-(r/.7)**2)*.40,Math.sin(a)*r*.8,.035,.015,.035,hat);}
+  const pack=node(0,.94,-.55);orb(leather,0,0,0,.30,.38,.15,pack);for(let j=0;j<3;j++){const x=(j-1)*.18;const n=node(x,.19+j%2*.14,-.14,pack);cylinder(ivory,0,0,0,.025,.27,n);orb(j%2?glow:cloth,0,.15,0,.13,.08,.12,n);}const lantern=held(1,.10,.10,0);tube([[0,-.38,0],[0,.39,0],[.10,.45,0],[.15,.33,0]],.028,leather,lantern);orb(glow,.15,.19,0,.065,.11,.065,lantern);hoop(gold,.15,.22,0,.09,Math.PI/2,0,lantern);motion(lantern,(o,t)=>o.rotation.z=Math.sin(t*.8)*.06);leaf(lining,0,.77,.49,.15);
+ }
+ if(id==='jellyveil'){
+  jacket();both(cloth,ivory);belt(silver,.63,.06);for(const s of[-1,1])seam([s*.28,1.03],[s*.21,.66],glow,.014);
+  const glass=surface(0xa4b9ed,.4,.18,.18);glass.transparent=true;glass.opacity=.53;glass.depthWrite=false;
+  const bell=node(0,1.68,-.07);mesh(own(new T.SphereGeometry(1,32,16,0,Math.PI*2,0,Math.PI*.55)),glass,0,0,0,.60,.34,.55,bell);hoop(glow,0,-.045,0,.58,Math.PI/2,0,bell);orb(glow,0,.19,-.05,.09,.09,.09,bell);
+  for(let j=0;j<9;j++){const a=.8+j*(Math.PI*2-1.6)/8,x=Math.sin(a)*.48,z=Math.cos(a)*.45;const n=node(x,-.02,z,bell),pts=[];for(let k=0;k<9;k++)pts.push([Math.sin(k*.8+j)*.055,-k*.115,Math.cos(k*.6+j)*.035]);tube(pts,.012,j%2?silver:glow,n);mesh(gemGeo,glow,pts[8][0],-.97,pts[8][2],.035,.09,.035,n);motion(n,(o,t)=>{o.rotation.z=Math.sin(t*1.1+j)*.13;o.rotation.x=Math.sin(t*.7+j)*.08;});}
+  const back=node(0,1.05,-.51);mesh(gemGeo,glass,0,0,0,.25,.44,.16,back);for(let j=0;j<3;j++)hoop(silver,0,-.15+j*.16,-.14,.17,Math.PI/2,0,back);mesh(gemGeo,glow,0,.78,.49,.055,.095,.03);
+ }
+ if(id==='origamitsuru'){
+  bodyPatch(ivory,{top:1.12,bottom:.40});both(ivory,dark,true);belt(cloth,.77,.14);seam([-.31,1.06],[.22,.74],gold,.018);seam([.31,1.06],[-.12,.78],lining,.012);
+  const crane=(p,r)=>{const n=node(0,0,0,p);plate([[0,0],[-.18,.22],[-.63,.35],[-.28,-.07]],.016,ivory,0,0,0,n);plate([[0,0],[.18,.22],[.63,.35],[.28,-.07]],.016,lining,0,0,0,n);plate([[-.11,-.02],[.10,.10],[.17,.34],[.23,.27],[.19,.08],[.06,-.10]],.025,ivory,0,0,.04,n);for(const s of[-1,1])tube([[0,0,.02],[s*.18,.22,.02],[s*.63,.35,.02]],.008,gold,n);n.scale.setScalar(r);return n;};
+  const back=node(0,1.18,-.55),bird=crane(back,1);bird.rotation.y=Math.PI;motion(back,(o,t)=>o.rotation.z=Math.sin(t*.7)*.06);const crown=node(-.28,1.67,0);crane(crown,.3).rotation.y=-.5;for(const s of[-1,1])tail(s*.20,.65,-.31,cloth,.13,.32);
+  for(let j=0;j<5;j++)plate([[0,.045],[.035,0],[0,-.045],[-.035,0]],.008,gold,-.18+j*.09,.64+(j%2)*.055,.436);star(gold,0,.77,.479,.06);
+ }
+ if(id==='patisserie'){
+  jacket();both(cloth,dark);panel(ivory,0,.74,.50,.33,.028);belt(lining,.59,.07);for(const s of[-1,1]){seam([s*.25,1.02],[s*.24,.56],gold,.01);for(let j=0;j<3;j++)stud(gold,s*.13,.70+j*.09,.485,.016);}
+  const beret=node(0,1.66,-.02);orb(cloth,0,.1,0,.43,.18,.35,beret);hoop(gold,0,0,0,.34,Math.PI/2,0,beret);for(let j=0;j<7;j++)orb(ivory,-.20+j*.067,.22,.15,.048,.038,.045,beret);orb(lining,.21,.26,.13,.055,.065,.05,beret);leaf(gold,.21,.30,.14,.07,beret);
+  const tray=held(1,.12,.05,.07),trayY=tray.position.y;cylinder(gold,0,0,0,.25,.02,tray);cylinder(cloth,0,.06,0,.16,.11,tray);cylinder(ivory,0,.13,0,.16,.025,tray);for(let j=0;j<6;j++){const a=j*Math.PI/3;orb(lining,Math.cos(a)*.115,.16,Math.sin(a)*.115,.034,.045,.034,tray);}star(gold,0,.25,0,.09,tray);motion(tray,(o,t)=>o.position.y=trayY+Math.sin(t*1.5)*.018);
+  const box=node(0,.98,-.55);block(cloth,0,0,0,.49,.54,.21,box);block(gold,0,0,-.12,.055,.56,.018,box);block(gold,0,0,-.125,.50,.05,.015,box);for(const s of[-1,1])orb(lining,s*.08,.09,-.15,.095,.045,.025,box);tail(0,.76,-.69,ivory,.09,.24);
+ }
+ if(id==='scarabpharaoh'){
+  bodyPatch(cloth,{top:1.12,bottom:.40});both(gold,dark);belt(gold,.66,.12);for(let j=0;j<3;j++)belt(j%2?gold:lining,.83+j*.065,.025,.02);
+  const crown=node(0,1.67,0);hoop(gold,0,0,0,.34,Math.PI/2,0,crown);for(const s of[-1,1]){const n=node(s*.40,-.11,-.08,crown);plate([[-.10,.14],[.10,.14],[.16,-.54],[-.09,-.64]],.065,cloth,0,0,0,n);for(let j=0;j<7;j++)block(gold,.015,-.02-j*.08,.046,.21,.025,.018,n);motion(n,(o,t)=>o.rotation.z=Math.sin(t*.8)*s*.015);}tube([[0,0,.31],[0,.18,.31],[0,.28,.31],[.04,.31,.32]],.026,gold,crown);mesh(gemGeo,glow,0,.25,.34,.035,.055,.018,crown);
+  const scarab=node(0,1.1,-.55);orb(gold,0,0,0,.15,.21,.09,scarab);for(const s of[-1,1])for(let j=0;j<6;j++){const p=plate([[0,0],[s*.52,.32-j*.085],[s*.50,.23-j*.085],[s*.08,-.12]],.022,j%2?gold:cloth,0,0,0,scarab);p.rotation.y=s*.25;}hoop(glow,0,.26,0,.19,0,0,scarab);mesh(gemGeo,glow,0,.78,.49,.07,.095,.035);tail(0,.62,.41,gold,.14,.29);
+ }
+ if(id==='rainwalker'){
+  jacket();both(cloth,cloth);panel(dark,0,.80,.045,.44,.035);for(const s of[-1,1]){panel(lining,s*.23,.68,.13,.13,.03);stud(gold,s*.15,.89,.46,.017);}
+  const hood=node(0,1.60,-.08);mesh(own(new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI*.45)),cloth,0,0,0,.45,.24,.43,hood);orb(cloth,0,.015,.25,.45,.022,.25,hood);hoop(lining,0,0,0,.43,Math.PI/2,0,hood);
+  const umbrella=node(0,1.20,-.55);tube([[0,-.41,0],[0,.24,0],[.02,.83,0]],.019,silver,umbrella);const canopy=node(0,.43,0,umbrella);mesh(own(new T.ConeGeometry(.72,.33,12,1,true)),cloth,0,.16,0,1,1,1,canopy);for(let j=0;j<12;j++){const a=j*Math.PI/6;tube([[0,.33,0],[Math.sin(a)*.45,.14,Math.cos(a)*.45],[Math.sin(a)*.72,0,Math.cos(a)*.72]],.008,lining,canopy);orb(glow,Math.sin(a)*.72,-.025,Math.cos(a)*.72,.018,.035,.018,canopy);}motion(umbrella,(o,t)=>o.rotation.z=Math.sin(t*.7)*.04);
+  for(const s of[-1,1]){hoop(lining,s*.24,.27,0,.192,Math.PI/2);block(dark,s*.24,.13,.196,.11,.06,.018);}leaf(glow,-.24,.87,.40,.10);
+ }
+ if(id==='railconductor'){
+  jacket();both(cloth,dark);belt(leather,.60,.065);for(const s of[-1,1]){for(let j=0;j<3;j++)stud(gold,s*.16,.70+j*.09,.451,.018);panel(gold,s*.27,.91,.11,.035,.025);}const hat=cap(cloth);block(gold,0,.08,.36,.21,.035,.025,hat);star(gold,0,.07,.38,.047,hat);
+  const pack=node(0,1.07,-.55);block(leather,0,0,0,.48,.58,.18,pack);for(const s of[-1,1])block(gold,s*.17,0,-.10,.025,.58,.015,pack);const watch=node(.25,.78,.43);hoop(gold,0,0,0,.073,0,0,watch);orb(ivory,0,0,.008,.064,.064,.012,watch);block(dark,0,.022,.023,.008,.05,.008,watch);tube([[.24,.84,.43],[.08,.72,.48],[-.05,.86,.46]],.009,gold);
+  const lamp=held(1,.1,.06,.03);cylinder(dark,0,-.11,0,.10,.045,lamp);cylinder(gold,0,.13,0,.105,.04,lamp);orb(glow,0,.01,0,.062,.115,.062,lamp);for(const s of[-1,1])tube([[s*.08,-.10,0],[s*.08,.14,0],[s*.05,.25,0],[0,.27,0]],.009,gold,lamp);motion(lamp,(o,t)=>o.rotation.z=Math.sin(t*1.3)*.08);
+  for(let j=0;j<3;j++)plate([[-.06,-.035],[.06,-.035],[.06,.035],[-.06,.035]],.012,ivory,-.19+j*.035,.77+j*.04,.43+j*.01);
+ }
+ if(id==='inkmonk'){
+  bodyPatch(ivory,{top:1.12,bottom:.40});both(ivory,dark,true);belt(dark,.78,.11);seam([-.31,1.05],[.22,.72],dark,.025);seam([.30,1.045],[-.10,.78],gold,.012);for(const s of[-1,1])tail(s*.20,.65,-.32,ivory,.19,.30);
+  const scroll=node(0,1.05,-.55);block(ivory,0,0,0,.44,.61,.04,scroll);for(const y of[-.32,.32]){const r=cylinder(leather,0,y,0,.04,.56,scroll);r.rotation.z=Math.PI/2;}for(let j=0;j<7;j++){const y=.23-j*.073;tube([[-.13,y,-.032],[-.04,y+.025,-.034],[.07,y-.019,-.034],[.14,y+.015,-.033]],.011,dark,scroll);}
+  const brush=held(1,.12,.1,-.08);brush.rotation.z=-.23;cylinder(leather,0,0,0,.027,.89,brush);cylinder(gold,0,-.38,0,.043,.09,brush);mesh(own(new T.ConeGeometry(.058,.22,16)),ivory,0,-.53,0,1,1,1,brush).rotation.z=Math.PI;orb(dark,0,-.61,0,.026,.035,.026,brush);motion(brush,(o,t)=>o.rotation.z=-.23+Math.sin(t*.8)*.06);
+  const hat=node(0,1.65,-.02);cylinder(dark,0,.06,0,.33,.13,hat);hoop(gold,0,0,0,.34,Math.PI/2,0,hat);for(let j=0;j<4;j++)tube([[-.19+j*.12,.095,.29],[-.18+j*.12,.16,.27]],.008,ivory,hat);tube([[-.11,.93,.46],[0,.89,.49],[.09,.94,.47]],.011,dark);
+ }
+ if(id==='carnivaljoker'){
+  jacket();bodyPatch(lining,{bottom:.40,top:1.03,start:0,end:Math.PI,faceOpen:false,offset:.006});both(cloth,dark);belt(gold,.60,.055);
+  for(let j=0;j<7;j++){const a=-1.1+j*.37,x=Math.sin(a)*.40,z=Math.cos(a)*.40;const n=node(x,1.025,z);plate([[-.07,0],[.07,0],[0,-.14]],.016,j%2?gold:lining,0,0,0,n);orb(gold,0,-.15,0,.018,.018,.018,n);}
+  const hat=node(0,1.65,0);hoop(gold,0,0,0,.34,Math.PI/2,0,hat);for(const s of[-1,1]){const points=[];for(let j=0;j<12;j++){const f=j/11;points.push([s*(.16+f*.34),.05+Math.sin(f*2.3)*.38,-.01]);}tube(points,.085,s<0?cloth:lining,hat);orb(gold,s*.50,.33,0,.055,.055,.055,hat);}star(glow,0,.81,.47,.055);
+  const cards=node(0,1.05,-.55);for(let j=0;j<5;j++){const n=node((j-2)*.13,0,0,cards);n.rotation.z=(j-2)*-.20;plate([[-.15,-.26],[.15,-.26],[.15,.26],[-.15,.26]],.026,ivory,0,0,0,n);star(j%2?cloth:gold,0,0,-.024,.10,n);}motion(cards,(o,t)=>o.rotation.y=Math.sin(t*.8)*.07);for(const s of[-1,1])tail(s*.24,.64,-.31,cloth,.17,.31);
+ }
+ if(id==='rescueworker'){
+  jacket();both(cloth,dark);for(const y of[.65,.93])belt(lining,y,.035,.02);for(const s of[-1,1]){panel(dark,s*.24,.78,.13,.17,.035);seam([s*.27,1.04],[s*.24,.60],lining,.012);}belt(dark,.56,.08);
+  const helmet=node(0,1.62,-.02);mesh(own(new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI/2)),cloth,0,0,0,.43,.25,.39,helmet);orb(cloth,0,0,0,.48,.025,.43,helmet);block(lining,0,.20,.07,.05,.10,.45,helmet);orb(dark,0,.06,.40,.11,.075,.04,helmet);orb(glow,0,.06,.439,.074,.045,.016,helmet);
+  const tank=node(0,1.07,-.54);for(const s of[-1,1]){cylinder(gold,s*.14,0,0,.105,.51,tank);orb(dark,s*.14,.27,0,.106,.075,.106,tank);orb(dark,s*.14,-.27,0,.106,.075,.106,tank);for(const y of[-.15,.15])cylinder(dark,s*.14,y,0,.11,.037,tank);}tube([[.24,1.26,-.47],[.44,1.1,-.37],[.45,.67,-.20],[.30,.59,-.32]],.021,dark);
+  const wrench=held(1,.10,.08,-.02);block(silver,0,0,0,.055,.47,.04,wrench);hoop(silver,0,.24,0,.095,0,0,wrench);block(dark,0,-.09,0,.078,.23,.05,wrench);motion(wrench,(o,t)=>o.rotation.z=Math.sin(t*.9)*.07);star(gold,0,.86,.48,.07);
+ }
+ if(id==='cactusmariachi'){
+  jacket();both(cloth,leather);belt(leather,.61,.10);for(const s of[-1,1]){seam([s*.30,1.045],[s*.13,.80],lining,.026);for(let j=0;j<4;j++)stud(gold,s*.23,.68+j*.065,.415,.017);}
+  const sombrero=node(0,1.64,-.03);orb(gold,0,0,0,.72,.035,.59,sombrero);mesh(own(new T.ConeGeometry(.28,.40,28)),cloth,0,.20,0,1,1,1,sombrero);hoop(lining,0,.03,0,.64,Math.PI/2,0,sombrero);for(let j=0;j<24;j++){const a=j*Math.PI/12;orb(lining,Math.sin(a)*.65,.035,Math.cos(a)*.53,.025,.015,.025,sombrero);}flower(sombrero,.22,.15,.12,.065);
+  const guitar=node(0,1.03,-.56);guitar.rotation.z=-.22;orb(gold,0,-.14,0,.24,.27,.075,guitar);orb(gold,0,.10,0,.18,.20,.075,guitar);orb(dark,0,.03,-.077,.06,.06,.008,guitar);block(leather,0,.42,0,.075,.65,.065,guitar);block(gold,0,.78,0,.13,.17,.075,guitar);for(let j=0;j<4;j++)tube([[(j-1.5)*.012,-.30,-.084],[(j-1.5)*.012,.82,-.05]],.0025,silver,guitar);
+  const cactus=held(1,.10,.08,0);cylinder(gold,0,-.06,0,.09,.12,cactus,.075);orb(cloth,0,.08,0,.069,.17,.069,cactus);tube([[0,.08,0],[.12,.10,0],[.12,.21,0]],.035,cloth,cactus);flower(cactus,0,.24,0,.045);motion(cactus,(o,t)=>o.rotation.z=Math.sin(t*1.3)*.05);flower(sculpt,-.22,.89,.41,.05);
+ }
+ if(id==='bathduck'){
+  bodyPatch(ivory,{top:1.11,bottom:.40});both(ivory,gold,true);belt(lining,.75,.105);seam([-.31,1.04],[.20,.72],lining,.028);seam([.31,1.04],[-.1,.78],gold,.009);for(const s of[-1,1])tail(s*.23,.60,-.29,ivory,.15,.20);
+  const towel=node(0,1.66,-.03);block(ivory,0,0,0,.49,.11,.38,towel);for(let j=0;j<4;j++)tube([[-.22,-.03+j*.025,.20],[.20,-.03+j*.025,.20]],.006,lining,towel);const duck=node(.04,.10,.02,towel);orb(gold,0,.04,0,.12,.085,.14,duck);orb(gold,0,.13,.08,.078,.078,.073,duck);orb(leather,0,.115,.15,.055,.018,.044,duck);for(const s of[-1,1])orb(dark,s*.039,.15,.14,.009,.009,.009,duck);
+  const basket=node(0,.99,-.55);cylinder(leather,0,0,0,.26,.43,basket);for(let j=0;j<5;j++)hoop(gold,0,-.19+j*.095,0,.266,Math.PI/2,0,basket);for(let j=0;j<12;j++){const a=j*Math.PI/6;tube([[Math.sin(a)*.264,-.21,Math.cos(a)*.264],[Math.sin(a)*.264,.21,Math.cos(a)*.264]],.012,lining,basket);}orb(ivory,0,.24,0,.22,.08,.20,basket);hoop(gold,0,.30,0,.21,0,0,basket);motion(duck,(o,t)=>o.rotation.y=Math.sin(t*1.2)*.17);panel(gold,-.22,.87,.10,.07,.027);
+ }
+ if(id==='retroarcade'){
+  jacket(dark);both(cloth,dark);belt(gold,.59,.065);for(const s of[-1,1])seam([s*.29,1.04],[s*.24,.65],glow,.013);panel(cloth,0,.83,.39,.24,.032);panel(dark,0,.83,.32,.17,.045);
+  const cyan=surface(0x6eecdf,.3,.3,.9);for(let j=0;j<7;j++){block(j%2?glow:cyan,-.12+j*.04,.80+(j%3)*.023,.503,.025,.025,.013);}for(const s of[-1,1]){const ear=node(s*.43,1.48,-.03);block(cloth,0,0,0,.095,.18,.18,ear);block(glow,s*.055,0,0,.013,.10,.12,ear);}tube([[-.40,1.50,-.05],[-.27,1.77,-.05],[.27,1.77,-.05],[.40,1.50,-.05]],.025,dark);
+  const cabinet=node(0,1.07,-.56);block(cloth,0,0,0,.47,.69,.19,cabinet);block(gold,0,.26,-.105,.43,.035,.02,cabinet);block(dark,0,.07,-.115,.37,.29,.035,cabinet);for(let j=0;j<15;j++){const x=(j%5-2)*.055,y=.02+Math.floor(j/5)*.055;if(j%3!==0)block(j%2?cyan:glow,x,y,-.14,.035,.035,.012,cabinet);}block(gold,0,-.19,-.15,.39,.08,.12,cabinet);const stick=node(-.10,-.15,-.20,cabinet);cylinder(silver,0,.055,0,.009,.10,stick);orb(glow,0,.11,0,.035,.035,.035,stick);for(const x of[.04,.11])orb(cyan,x,-.14,-.20,.023,.012,.023,cabinet);star(gold,0,.96,.49,.045);
+ }
+ // Couture details remain on the fitted shell; the animated sleeves keep their bindings.
+ const remaining=['streetdj','honeykeeper','mushroomoracle','jellyveil','origamitsuru','patisserie','scarabpharaoh','rainwalker','railconductor','inkmonk','carnivaljoker','rescueworker','cactusmariachi','bathduck','retroarcade'];
+ if(remaining.includes(id)){
+  cloth.roughness=['rainwalker','jellyveil'].includes(id)?.27:.58;
+  gold.roughness=.22;
+  const stitch=(a,b,m=gold)=>{const at=f=>{const x=a[0]+(b[0]-a[0])*f,y=a[1]+(b[1]-a[1])*f,cap=y<.775?.775:y>1.325?1.325:y,r=Math.sqrt(Math.max(0,.448**2-(y-cap)**2))+.024;return[x,y,Math.sqrt(Math.max(.01,r*r-x*x))];};for(let j=0;j<9;j++){const f=j/9,g=(j+.44)/9;tube([at(f),at((f+g)/2),at(g)],.003,m);}};
+  for(const side of[-1,1])stitch([side*.31,.96],[side*.27,.58],id==='inkmonk'?dark:gold);
+  if(id==='streetdj'){
+   for(const side of[-1,1]){const shoulder=node(side*.39,1.055,-.02);orb(dark,0,0,0,.13,.065,.16,shoulder);for(let j=0;j<4;j++)block(glow,(j-1.5)*.034,.035,.075,.014,.012,.12,shoulder);}
+   for(let j=0;j<12;j++){const a=j*Math.PI/6;stud(gold,Math.sin(a)*.10,.84+Math.cos(a)*.10,.491,.008);}
+   const disc=node(0,1.06,-.645);for(let j=0;j<4;j++)hoop(silver,0,.18,-.008,.055+j*.022,0,0,disc);
+   tube([[-.28,.74,.39],[-.20,.63,.45],[.07,.66,.48]],.009,silver);panel(glow,.22,.87,.045,.08,.035);
+  }else if(id==='honeykeeper'){
+   for(let j=0;j<7;j++){const x=(j%3-1)*.07,y=.85-Math.floor(j/3)*.063;const pts=Array.from({length:6},(_,k)=>[x+Math.sin(k*Math.PI/3)*.035,y+Math.cos(k*Math.PI/3)*.035,.49]);tube(pts,.005,gold,sculpt,true);}
+   for(const side of[-1,1]){const pouch=node(side*.31,.60,.25);orb(leather,0,0,0,.10,.10,.06,pouch);hoop(gold,0,.025,.06,.052,0,0,pouch);}
+   const bee=node(-.48,1.77,.05);orb(dark,0,0,0,.065,.04,.038,bee);for(const x of[-.025,.02])hoop(gold,x,0,0,.041,0,Math.PI/2,bee);for(const side of[-1,1])orb(ivory,0,.045,side*.039,.055,.012,.042,bee);motion(bee,(o,t)=>{o.position.y=1.77+Math.sin(t*3)*.06;o.rotation.y=Math.sin(t)*.5;});
+  }else if(id==='mushroomoracle'){
+   for(const side of[-1,1]){const n=node(side*.34,.72,.26);for(let j=0;j<5;j++){const l=leaf(lining,(j%2?1:-1)*.035,j*.045,0,.09,n);l.rotation.z=(j%2?1:-1)*.6;}tube([[0,0,0],[0,.23,0]],.006,gold,n);}
+   const stalk=node(-.25,1.78,-.15);for(let j=0;j<3;j++){const a=j*2.1;tube([[0,0,0],[Math.sin(a)*.14,.24+j*.05,Math.cos(a)*.12]],.012,silver,stalk);orb(glow,Math.sin(a)*.14,.25+j*.05,Math.cos(a)*.12,.045,.028,.045,stalk);}
+   for(let j=0;j<9;j++){const a=j*2.4;stud(glow,Math.sin(a)*.27,.55+(j%3)*.05,.42,.011);}
+  }else if(id==='jellyveil'){
+   for(const side of[-1,1])for(let j=0;j<3;j++)seam([side*(.16+j*.04),.98],[side*(.08+j*.06),.62],j%2?silver:glow,.005);
+   for(let j=0;j<7;j++){const a=j*Math.PI/3.5;orb(silver,Math.sin(a)*.42,1.74,Math.cos(a)*.38-.07,.024,.018,.024);}
+   const core=node(0,1.08,-.70);mesh(gemGeo,glow,0,0,0,.075,.17,.06,core);motion(core,(o,t)=>o.rotation.y=t*.55);
+  }else if(id==='origamitsuru'){
+   for(let j=0;j<6;j++){const x=-.25+j*.10;stitch([x,.55],[x+.055,.63],gold);}
+   for(const side of[-1,1]){const cord=node(side*.24,.73,.32);tube([[0,0,0],[side*.05,-.15,.03],[side*.02,-.24,.02]],.008,gold,cord);for(let j=0;j<5;j++)tube([[side*.02,-.24,.02],[side*.02+(j-2)*.008,-.34,.02]],.003,cloth,cord);motion(cord,(o,t)=>o.rotation.z=Math.sin(t*1.7)*.06);}
+   for(const side of[-1,1])tube([[side*.10,1.18,-.60],[side*.27,1.31,-.60],[side*.50,1.40,-.60]],.004,gold);
+  }else if(id==='patisserie'){
+   for(let j=0;j<7;j++){const n=node(-.23+j*.076,.58,.44);orb(gold,0,0,0,.035,.018,.008,n);}
+   for(const side of[-1,1]){panel(cloth,side*.20,.67,.10,.09,.042);stitch([side*.25,.71],[side*.15,.71]);}
+   const whisk=node(-.29,.76,.40);cylinder(leather,0,0,0,.012,.13,whisk);for(let j=0;j<4;j++){const a=j*Math.PI/2;tube([[0,.06,0],[Math.sin(a)*.035,.14,Math.cos(a)*.035],[0,.19,0]],.003,silver,whisk);}
+   for(let j=0;j<6;j++)orb(gold,-.17+j*.067,1.81,.24,.009,.009,.009);
+  }else if(id==='scarabpharaoh'){
+   for(let j=0;j<13;j++){const a=-1.15+j*.19;const x=Math.sin(a)*.37,z=Math.cos(a)*.43;mesh(gemGeo,j%2?gold:glow,x,.90-Math.cos(a)*.055,z,.018,.033,.015);}
+   for(let j=0;j<5;j++){const y=.48+j*.042;block(dark,0,y,.453,.10,.009,.007);block(glow,(j%2?1:-1)*.025,y+.012,.459,.008,.024,.006);}
+   const sun=node(0,1.91,-.18);hoop(gold,0,0,0,.15,0,0,sun);mesh(gemGeo,glow,0,0,0,.07,.10,.025,sun);for(let j=0;j<12;j++){const a=j*Math.PI/6;const r=block(gold,Math.sin(a)*.20,Math.cos(a)*.20,0,.01,.06,.014,sun);r.rotation.z=-a;}
+  }else if(id==='rainwalker'){
+   for(const side of[-1,1]){seam([side*.31,.61],[side*.08,.54],silver,.008);panel(silver,side*.23,.74,.12,.018,.043);tube([[side*.12,1.045,.43],[side*.14,.92,.47]],.008,ivory);orb(gold,side*.14,.91,.47,.014,.025,.012);}
+   for(let j=0;j<11;j++){const a=j*2.4;orb(glow,Math.sin(a)*.48,1.76+Math.cos(a)*.07,Math.cos(a)*.4-.55,.009,.015,.009);}
+   const clasp=node(0,.93,.49);hoop(silver,0,0,0,.022,0,0,clasp);
+  }else if(id==='railconductor'){
+   for(const side of[-1,1]){for(let j=0;j<3;j++)seam([side*.37,.99-j*.025],[side*.29,.96-j*.025],gold,.008);stitch([side*.30,.57],[side*.09,.57]);}
+   const badge=node(-.22,.87,.427);hoop(gold,0,0,0,.06,0,0,badge);star(glow,0,0,.007,.036,badge);for(let j=0;j<5;j++){const a=j*Math.PI/2.5;stud(gold,Math.sin(a)*.064,Math.cos(a)*.064,.01,.007,badge);}
+   for(let j=0;j<7;j++)block(gold,-.15+j*.05,1.19,-.65,.022,.008,.008);tube([[-.17,1.03,-.66],[0,.96,-.66],[.17,1.03,-.66]],.007,gold);
+  }else if(id==='inkmonk'){
+   for(const side of[-1,1]){for(let j=0;j<3;j++)seam([side*.27,.63+j*.03],[side*.10,.56+j*.03],dark,.005);}
+   const beads=node(-.30,.84,.32);for(let j=0;j<11;j++){const a=j*Math.PI*2/11;orb(leather,Math.sin(a)*.10,Math.cos(a)*.12,0,.019,.019,.019,beads);}const seal=node(.24,.59,.385);block(dark,0,0,0,.065,.07,.018,seal);for(const x of[-.017,.017])tube([[x,-.02,.013],[x,.02,.013],[0,.02,.013]],.004,gold,seal);
+   for(let j=0;j<7;j++)tube([[-.16+j*.05,1.35,-.59],[-.16+j*.05,1.43,-.59]],.005,gold);
+  }else if(id==='carnivaljoker'){
+   for(const side of[-1,1])for(let j=0;j<4;j++)plate([[0,.035],[.022,0],[0,-.035],[-.022,0]],.008,j%2?gold:lining,side*.24,.63+j*.079,.415);
+   for(const side of[-1,1]){const n=node(side*.33,.59,-.31);hoop(gold,0,0,0,.027,0,0,n);orb(glow,0,-.04,0,.026,.026,.026,n);}
+   for(let j=0;j<3;j++){const card=node((j-1)*.14,1.08,-.575);for(const side of[-1,1])star(cloth,side*.07,side*.14,-.01,.025,card);}
+  }else if(id==='rescueworker'){
+   for(const side of[-1,1]){for(let j=0;j<5;j++)seam([side*.29,.75+j*.021],[side*.20,.73+j*.021],silver,.004);}
+   const gauge=node(-.30,.91,.37);hoop(silver,0,0,0,.051,0,0,gauge);orb(dark,0,0,0,.043,.043,.008,gauge);block(glow,0,.015,.013,.006,.03,.005,gauge);
+   const scanner=node(.31,.65,.31);block(dark,0,0,0,.10,.15,.04,scanner);block(glow,0,.025,.025,.07,.045,.008,scanner);for(let j=0;j<3;j++)block(silver,0,-.026-j*.017,.024,.06,.006,.007,scanner);cylinder(dark,.025,.14,0,.009,.15,scanner);
+   for(const side of[-1,1])hoop(glow,side*.14,1.23,-.54,.112,Math.PI/2);
+  }else if(id==='cactusmariachi'){
+   for(const side of[-1,1]){flower(sculpt,side*.28,.94,.37,.034,lining);for(let j=0;j<4;j++){const x=side*(.08+j*.05);seam([x,.59],[x+side*.02,.65],gold,.006);}}
+   for(let j=0;j<9;j++){const a=j*Math.PI/4.5;leaf(lining,Math.sin(a)*.55,1.68,Math.cos(a)*.45-.03,.055).rotation.x=-Math.PI/2;}
+   for(const side of[-1,1])for(let j=0;j<3;j++)orb(gold,side*.05,.87+j*.045,-.57,.018,.012,.018);
+  }else if(id==='bathduck'){
+   for(const side of[-1,1]){panel(lining,side*.23,.64,.13,.11,.035);for(let j=0;j<3;j++)stitch([side*.29,.62+j*.02],[side*.17,.62+j*.02],gold);}
+   const tie=node(0,.75,.49);for(const side of[-1,1])plate([[0,0],[side*.10,.04],[side*.09,-.06]],.02,lining,0,0,0,tie);tail(.04,.73,.47,lining,.035,.12);
+   const bottle=node(-.24,1.18,-.61);cylinder(glow,0,0,0,.055,.17,bottle);cylinder(gold,0,.10,0,.029,.045,bottle);block(ivory,0,0,-.055,.06,.07,.005,bottle);
+  }else if(id==='retroarcade'){
+   for(const side of[-1,1]){for(let j=0;j<3;j++)panel(j%2?glow:silver,side*.28,.71+j*.045,.035,.025,.045);}
+   const antenna=node(.27,1.67,-.10);tube([[0,0,0],[.07,.19,0]],.012,silver,antenna);orb(glow,.07,.20,0,.035,.035,.035,antenna);motion(antenna,(o,t)=>o.rotation.z=Math.sin(t*2)*.07);
+   for(const side of[-1,1]){tube([[side*.20,.80,-.68],[side*.20,1.35,-.68],[0,1.40,-.68]],.008,glow);for(let j=0;j<3;j++)block(silver,side*.13,.80+j*.035,-.67,.05,.009,.005);}
+   for(let j=0;j<5;j++){const n=block(glow,-.08+j*.04,1.36,-.68,.023,.018,.008);motion(n,(o,t)=>o.visible=(Math.floor(t*4)+j)%5!==0);}
+  }
+ }
+
+ refineRemainingDesigns(T,h);
+}
+
+// A bounded instanced motif adds a distinct moving signature to every outfit.
+function addTailoredMotif(T,{id,fx,own,materials,mobile,color,secondary}){
+ const ids=['abyssdiver','sakurakimono','chronokeeper','starchef','piratecaptain','streetdj','honeykeeper','mushroomoracle','jellyveil','origamitsuru','patisserie','scarabpharaoh','rainwalker','railconductor','inkmonk','carnivaljoker','rescueworker','cactusmariachi','bathduck','retroarcade'];
+ const kind=ids.indexOf(id),style=kind%5,shape=new T.Shape();
+ if(kind>=5)return addDistinctPremiumAura(T,{id,fx,own,materials,mobile,color,secondary});
+ if([1,9,14].includes(kind)){shape.moveTo(0,.10);shape.quadraticCurveTo(.12,.03,.035,-.07);shape.lineTo(0,-.04);shape.lineTo(-.025,-.09);shape.quadraticCurveTo(-.08,.03,0,.10);}
+ else if([3,10,15].includes(kind)){for(let j=0;j<10;j++){const a=j*Math.PI/5,r=j%2?.035:.09;j?shape.lineTo(Math.sin(a)*r,Math.cos(a)*r):shape.moveTo(0,r);}shape.closePath();}
+ else{shape.moveTo(0,.10);shape.lineTo(.065,0);shape.lineTo(0,-.10);shape.lineTo(-.065,0);shape.closePath();}
+ const geometry=own([0,4,12,18].includes(kind)?new T.TorusGeometry(.065,.005,4,16):kind===5?new T.BoxGeometry(.035,.20,.035):[6,11].includes(kind)?new T.CylinderGeometry(.065,.065,.012,6):[7,8].includes(kind)?new T.OctahedronGeometry(.065):kind===19?new T.BoxGeometry(.065,.065,.065):new T.ShapeGeometry(shape));
+ const material=new T.MeshBasicMaterial({color,transparent:true,opacity:.66,side:T.DoubleSide,depthWrite:false,blending:T.AdditiveBlending});materials.add(material);
+ const count=mobile?14:24,motifs=new T.InstancedMesh(geometry,material,count);motifs.name='tailored-signature-'+id;motifs.frustumCulled=false;fx.add(motifs);const dummy=new T.Object3D();
+ for(let j=0;j<count;j++)motifs.setColorAt(j,j%3===0?secondary:color);
+ return t=>{for(let j=0;j<count;j++){const a=j*2.39996+t*(style===2?.17:.30),rise=(j/count+t*.10)%1,r=.65+(j%3)*.055;let y=.10+rise*1.8,x=Math.cos(a)*r,z=Math.sin(a)*r;
+   if([1,9,12,14,15].includes(kind))y=2-rise*1.85;
+   if([4,5,10,11,16,17].includes(kind)){y=.07+Math.sin(t*1.7+j)*.025;x=Math.cos(a)*(.74+j%2*.15);z=Math.sin(a)*(.74+j%2*.15);}
+   dummy.position.set(x,y,z);dummy.rotation.set(kind===6?Math.PI/2:Math.sin(t+j)*.4,a,kind===19?0:a*.6);dummy.scale.setScalar(.65+Math.sin(rise*Math.PI)*.45);if(kind===5){dummy.rotation.set(0,a,0);dummy.scale.y=.5+Math.abs(Math.sin(t*3+j))*.9;}dummy.updateMatrix();motifs.setMatrixAt(j,dummy.matrix);
+  }motifs.instanceMatrix.needsUpdate=true;};
+}
+
+
+// One instanced draw for each signature; geometry has actual thematic silhouettes.
+function addDistinctPremiumAura(T,{id,fx,own,materials,mobile,color,secondary}){
+ const parts=[];
+ const part=(g,x=0,y=0,z=0,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0)=>{g.applyMatrix4(new T.Matrix4().compose(new T.Vector3(x,y,z),new T.Quaternion().setFromEuler(new T.Euler(rx,ry,rz)),new T.Vector3(sx,sy,sz)));parts.push(g);};
+ const poly=points=>{const s=new T.Shape();points.forEach(([x,y],j)=>j?s.lineTo(x,y):s.moveTo(x,y));s.closePath();return new T.ShapeGeometry(s);};
+ const ring=(r,t=.006,n=24)=>new T.TorusGeometry(r,t,4,n);
+ const stroke=(points,r=.006)=>new T.TubeGeometry(new T.CatmullRomCurve3(points.map(p=>new T.Vector3(...p))),mobile?12:20,r,4,false);
+ switch(id){
+  case 'streetdj': part(new T.BoxGeometry(.025,.22,.025));for(const y of[-.065,0,.065])part(new T.BoxGeometry(.055,.012,.025),0,y);break;
+  case 'honeykeeper': part(ring(.085,.006,6));part(ring(.045,.004,6));break;
+  case 'mushroomoracle':part(new T.SphereGeometry(.085,12,6,0,Math.PI*2,0,Math.PI/2),0,.025,0,1,.6,1);part(new T.CylinderGeometry(.012,.02,.10,6),0,-.025);break;
+  case 'jellyveil':part(new T.SphereGeometry(.075,12,6,0,Math.PI*2,0,Math.PI/2),0,.03,0,1,.6,1);for(let j=0;j<3;j++)part(stroke([[(j-1)*.044,.03,0],[(j-1)*.06,-.04,0],[(j-1)*.03,-.13,.015]],.003));break;
+  case 'origamitsuru':for(const side of[-1,1])part(poly([[0,0],[side*.045,.055],[side*.18,.095],[side*.08,-.04]]),0,0,0,1,1,1,0,side*.3);part(poly([[-.03,-.01],[.02,.02],[.05,.12],[.09,.08],[.055,.07],[.03,-.04]]));break;
+  case 'patisserie':part(new T.OctahedronGeometry(.06));for(let j=0;j<4;j++){const a=j*Math.PI/2;part(new T.BoxGeometry(.005,.05,.005),Math.sin(a)*.095,Math.cos(a)*.095,0,1,1,1,0,0,-a);}break;
+  case 'scarabpharaoh':part(new T.SphereGeometry(.045,8,6),0,0,0,1,1.4,.35);for(const side of[-1,1])for(let j=0;j<3;j++)part(poly([[side*.03,.01],[side*.14,.065-j*.04],[side*.12,.005-j*.04],[side*.03,-.035]]));part(ring(.035,.004,16),0,.11);break;
+  case 'rainwalker':part(poly([[0,.105],[-.038,-.015],[-.026,-.055],[0,-.066],[.026,-.055],[.038,-.015]]));break;
+  case 'railconductor':{
+   const s=new T.Shape();s.moveTo(-.10,-.05);s.lineTo(.10,-.05);s.lineTo(.10,-.016);s.quadraticCurveTo(.075,0,.10,.016);s.lineTo(.10,.05);s.lineTo(-.10,.05);s.lineTo(-.10,.016);s.quadraticCurveTo(-.075,0,-.10,-.016);s.closePath();
+   for(const x of[-.045,.045]){const hole=new T.Path();hole.absarc(x,0,.013,0,Math.PI*2,true);s.holes.push(hole);}part(new T.ShapeGeometry(s));break;
+  }
+  case 'inkmonk':{const s=new T.Shape();s.moveTo(-.10,-.075);s.bezierCurveTo(.10,-.10,-.07,.04,.10,.11);s.bezierCurveTo(.03,.01,.10,-.13,-.10,-.075);part(new T.ShapeGeometry(s));break;}
+  case 'carnivaljoker':{const s=new T.Shape();s.moveTo(-.055,-.085);s.lineTo(.055,-.085);s.lineTo(.055,.085);s.lineTo(-.055,.085);s.closePath();const h=new T.Path();h.moveTo(0,.039);h.lineTo(.024,0);h.lineTo(0,-.039);h.lineTo(-.024,0);h.closePath();s.holes.push(h);part(new T.ShapeGeometry(s));break;}
+  case 'rescueworker':part(poly([[0,.13],[-.014,.025],[-.035,.025],[0,-.11],[.012,-.015],[.035,-.015]]));break;
+  case 'cactusmariachi':for(let j=0;j<5;j++){const a=j*Math.PI/2.5;part(new T.SphereGeometry(1,8,5),Math.sin(a)*.047,Math.cos(a)*.047,0,.032,.045,.006,0,0,-a);}part(new T.SphereGeometry(.022,8,5),0,0,.005,1,1,.4);break;
+  case 'bathduck':part(ring(.085,.004));part(stroke([[-.054,.025,.003],[-.035,.055,.003],[.003,.065,.003]],.004));part(ring(.025,.003,12),.092,-.05);break;
+  case 'retroarcade':for(const [x,y]of[[-2,2],[2,2],[-1,1],[0,1],[1,1],[-2,0],[0,0],[2,0],[-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],[-1,-2],[1,-2]])part(new T.BoxGeometry(.025,.025,.016),x*.028,y*.028);break;
+ }
+ const values={position:[],normal:[],uv:[]};
+ for(const p of parts){const g=p.index?p.toNonIndexed():p;for(const key of Object.keys(values)){const a=g.getAttribute(key);if(a)for(const v of a.array)values[key].push(v);else for(let j=0;j<g.attributes.position.count*(key==='uv'?2:3);j++)values[key].push(0);}if(g!==p)g.dispose();p.dispose();}
+ const geo=own(new T.BufferGeometry());for(const key of Object.keys(values))geo.setAttribute(key,new T.Float32BufferAttribute(values[key],key==='uv'?2:3));geo.computeBoundingSphere();
+ const ink=id==='inkmonk',mat=new T.MeshBasicMaterial({color:ink?0x365463:0xffffff,transparent:true,opacity:ink?.72:.63,side:T.DoubleSide,depthWrite:false,blending:ink?T.NormalBlending:T.AdditiveBlending});materials.add(mat);
+ const count=mobile?12:20,motif=new T.InstancedMesh(geo,mat,count);motif.name='tailored-signature-'+id;motif.frustumCulled=false;motif.instanceMatrix.setUsage(T.DynamicDrawUsage);fx.add(motif);
+ const dummy=new T.Object3D();for(let j=0;j<count;j++)motif.setColorAt(j,j%3?color:secondary);
+ return t=>{
+  for(let j=0;j<count;j++){
+   const phase=j/count,cycle=(phase+t*.12)%1,a=phase*Math.PI*2+t*.25,r=.78+Math.sin(j*2.4)*.07;
+   let x=Math.cos(a)*r,z=Math.sin(a)*r,y=.18+cycle*1.8,scale=.5+.4*Math.sin(cycle*Math.PI);dummy.rotation.set(Math.sin(t+j)*.15,-a+.4,Math.sin(t*.6+j)*.25);dummy.scale.setScalar(scale);
+   switch(id){
+    case 'streetdj':y=.10;dummy.rotation.set(0,-a,0);dummy.scale.set(.8,.25+Math.abs(Math.sin(t*3+j*.5))*1.5,.8);break;
+    case 'honeykeeper':x=Math.cos(a)*(.80+.08*Math.sin(t+j));y=.32+(j%4)*.34;dummy.rotation.set(0,-a,Math.PI/6);break;
+    case 'mushroomoracle':y=.12+((phase+t*.07)%1)*1.7;dummy.scale.setScalar(.35+.5*Math.sin(cycle*Math.PI));break;
+    case 'jellyveil':y=.20+((phase+t*.09)%1)*1.85;dummy.scale.set(.6,.6+Math.sin(t*2+j)*.10,.6);break;
+    case 'origamitsuru':y=.28+(j%5)*.34+Math.sin(t*1.8+j)*.10;dummy.rotation.set(Math.sin(t*2+j)*.22,-a,Math.sin(t*1.4+j)*.15);break;
+    case 'patisserie':y=.10+cycle*.95;dummy.rotation.set(t*.25+j,t*.3+j,t*.2);break;
+    case 'scarabpharaoh':y=.24+(j%3)*.12;dummy.rotation.set(-.6,-a+.3,0);break;
+    case 'rainwalker':y=2.15-((phase+t*.6)%1)*2.1;dummy.rotation.set(0,-a,.10);dummy.scale.setScalar(.50);break;
+    case 'railconductor':y=.14+cycle*1.7;dummy.rotation.set(Math.sin(t+j)*.25,t*.35+j,j*.3);break;
+    case 'inkmonk':y=.26+(j%6)*.19+Math.sin(a*2)*.10;dummy.rotation.set(0,-a,t*.18+j*.2);break;
+    case 'carnivaljoker':y=.28+(j%5)*.32+Math.sin(t*1.5+j)*.07;dummy.rotation.set(Math.sin(t+j)*.15,t*.55+j,Math.sin(t+j)*.45);break;
+    case 'rescueworker':y=.12+cycle*.85;dummy.rotation.set(0,-a,-Math.cos(a)*.4);dummy.scale.setScalar((1-cycle)*.65+.1);break;
+    case 'cactusmariachi':y=1.90-cycle*1.8;x+=Math.sin(t+j)*.08;dummy.rotation.set(Math.sin(t+j)*.4,-a,t*.3+j);break;
+    case 'bathduck':y=.14+cycle*1.9;dummy.scale.setScalar(.35+cycle*.70);dummy.rotation.set(0,-a,0);break;
+    case 'retroarcade':x=Math.round(x*9)/9;z=Math.round(z*9)/9;y=.20+Math.round(cycle*14)/8;dummy.rotation.set(0,-a,0);dummy.scale.setScalar(.65);break;
+   }
+   // Tall effects orbit behind the visor; the wearer remains recognizable.
+   if(y>1.04&&y<1.53&&z>0&&Math.abs(x)<.48)z=-z;
+   dummy.position.set(x,y,z);dummy.updateMatrix();motif.setMatrixAt(j,dummy.matrix);
+  }
+  motif.instanceMatrix.needsUpdate=true;
+ };
+}
+
+// Fitted to the shipped capsule avatar, with the original face and limbs exposed.
+const TAILORED_GIFT_IDS=Object.freeze(['abyssdiver','sakurakimono','chronokeeper','starchef','piratecaptain','streetdj','honeykeeper','mushroomoracle','jellyveil','origamitsuru','patisserie','scarabpharaoh','rainwalker','railconductor','inkmonk','carnivaljoker','rescueworker','cactusmariachi','bathduck','retroarcade']);
+
+function createTailoredGiftSkin(T,spec,{mobile=false}={}){
+ const id=spec.id,group=new T.Group();group.name='gift-skin-'+id;
+ const sculpt=new T.Group(),fx=new T.Group();sculpt.name='tailored-sculpt';fx.name='signature-aura';group.add(sculpt,fx);
+ const geometries=new Set(),materials=new Set(),textures=new Set(),geometryCache=new Map(),assemblies=[sculpt],motions=[],uniforms=[];
+ let disposed=false,previous=-1,wasJumping=false,jumpAt=-10,lastTrail=-1,trailCursor=0,owner=null,bindings=[];
+ const own=g=>(geometries.add(g),g),cached=(key,make)=>{if(!geometryCache.has(key))geometryCache.set(key,own(make()));return geometryCache.get(key);};
+ const surface=(color,metalness=.15,roughness=.5,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness,roughness,emissive:emission?color:0,emissiveIntensity:emission,envMapIntensity:.8});materials.add(m);return m;};
+ const colors={abyssdiver:[0x123f46,0xc39455,0x5dffe1],sakurakimono:[0x842a50,0xe4bd79,0xff9ac5],chronokeeper:[0x2d3040,0xc39752,0xffd78c],starchef:[0xf0e7d4,0xb77c42,0xffc274],piratecaptain:[0x152e40,0xcfaa64,0x5ff2dc]}[id]||[spec.color,spec.trim,spec.accent];
+ const cloth=surface(colors[0],id==='abyssdiver'?.47:.1,id==='abyssdiver'?.38:.68),gold=surface(colors[1],.78,.27),lining=surface(id==='sakurakimono'?0xedc8bb:id==='piratecaptain'?0x7d2745:0xddd6bf,.1,.7),dark=surface(0x111e2b,.18,.5),leather=surface(0x453027,.12,.65),ivory=surface(0xf2ead9,.1,.61),glow=surface(colors[2],.25,.3,1.45),silver=surface(0x839ca5,.8,.29);
+ const ball=cached('ball',()=>new T.SphereGeometry(1,mobile?12:20,mobile?8:12)),box=cached('box',()=>new T.BoxGeometry(1,1,1)),gem=cached('gem',()=>new T.OctahedronGeometry(1)),torus=cached('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
+ function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,p=sculpt){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.castShadow=false;n.userData.lightCostume=true;p.add(n);return n;}
+ const orb=(m,x,y,z,sx,sy,sz,p=sculpt)=>mesh(ball,m,x,y,z,sx,sy,sz,p);
+ const block=(m,x,y,z,w,h,d,p=sculpt)=>mesh(box,m,x,y,z,w,h,d,p);
+ function node(x,y,z,p=sculpt){const n=new T.Group();n.position.set(x,y,z);p.add(n);assemblies.push(n);return n;}
+ function motion(n,fn){n.userData.dynamic=true;motions.push({node:n,fn});return n;}
+ function hoop(m,x,y,z,r,rx=0,ry=0,p=sculpt){const n=mesh(torus,m,x,y,z,r,r,r,p);n.rotation.set(rx,ry,0);return n;}
+ function cylinder(m,x,y,z,r,h,p=sculpt,top=r){return mesh(cached(`cyl:${r}:${top}:${h}`,()=>new T.CylinderGeometry(top,r,h,mobile?20:32)),m,x,y,z,1,1,1,p);}
+ function tube(points,r,m,p=sculpt,closed=false){const curve=new T.CatmullRomCurve3(points.map(v=>new T.Vector3(...v)),closed);return mesh(own(new T.TubeGeometry(curve,Math.max(12,points.length*(mobile?3:5)),r,6,closed)),m,0,0,0,1,1,1,p);}
+ function plate(points,depth,m,x,y,z,p=sculpt){const shape=new T.Shape();points.forEach(([a,b],i)=>i?shape.lineTo(a,b):shape.moveTo(a,b));shape.closePath();const g=own(new T.ExtrudeGeometry(shape,{depth,steps:1,bevelEnabled:true,bevelSegments:2,bevelSize:.012,bevelThickness:.009}));g.translate(0,0,-depth/2);return mesh(g,m,x,y,z,1,1,1,p);}
+ function stud(m,x,y,z,r=.018,p=sculpt){return mesh(cached('stud',()=>new T.SphereGeometry(1,10,8)),m,x,y,z,r,r,.012,p);}
+ // A capsule envelope, not an ellipsoid: .43 radius and .55 cylinder in the lobby.
+ function radius(y){const cap=y<.775?.775:y>1.325?1.325:y;return Math.sqrt(Math.max(0,.448**2-(y-cap)**2));}
+ function point(y,a,pad=0){const r=radius(y)+pad;return[Math.sin(a)*r,y,Math.cos(a)*r];}
+ function bodyPatch(m,{bottom=.39,top=1.76,start=-Math.PI,end=Math.PI,offset=0,faceOpen=true,fold=0,parent=sculpt}={}){
+  const columns=Math.max(12,Math.ceil((end-start)/(Math.PI*2)*(mobile?48:72))),rows=Math.max(2,Math.ceil((top-bottom)/1.4*(mobile?26:40))),positions=[],uvs=[],indices=[];
+  for(let j=0;j<=rows;j++)for(let k=0;k<=columns;k++){const v=j/rows,y=bottom+(top-bottom)*v;let r=radius(y)+offset,cut=0;
+   if(faceOpen&&Math.abs(y-1.205)<.272){const aperture=.405*Math.sqrt(1-((y-1.205)/.272)**2);cut=Math.min(Math.asin(Math.min(.995,aperture/Math.max(r,.01))),Math.acos(Math.min(1,.13/Math.max(r,.01))));}
+   const a=faceOpen?cut+(Math.PI*2-cut*2)*k/columns:start+(end-start)*k/columns;if(fold)r+=Math.pow(1-v,2)*fold*(.6+.4*Math.cos(a*14));positions.push(Math.sin(a)*r,y,Math.cos(a)*r);uvs.push(k/columns,v);}
+  for(let j=0;j<rows;j++)for(let k=0;k<columns;k++){const a=j*(columns+1)+k,b=a+1,c=a+columns+1,d=c+1;indices.push(a,b,c,b,d,c);}
+  const g=own(new T.BufferGeometry());g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();g.computeBoundingSphere();return mesh(g,m,0,0,0,1,1,1,parent);
+ }
+ function belt(m,y,h,depth=.013){return bodyPatch(m,{bottom:y-h/2,top:y+h/2,offset:depth,faceOpen:false});}
+ function panel(m,x,y,w,h,pad=.025,p=sculpt){const samples=16,positions=[],uvs=[],idx=[];for(let j=0;j<=1;j++)for(let k=0;k<=samples;k++){const xx=x+(k/samples-.5)*w,yy=y+(j-.5)*h,rr=radius(yy)+pad;positions.push(xx,yy,Math.sqrt(Math.max(.015,rr*rr-xx*xx)));uvs.push(k/samples,j);}for(let k=0;k<samples;k++){const a=k,b=k+1,c=k+samples+1,d=c+1;idx.push(a,b,c,b,d,c);}const g=own(new T.BufferGeometry());g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.setIndex(idx);g.computeVertexNormals();return mesh(g,m,0,0,0,1,1,1,p);}
+ function seam(a,b,m=gold,r=.008){const points=[];for(let j=0;j<=12;j++){const f=j/12,x=a[0]+(b[0]-a[0])*f,y=a[1]+(b[1]-a[1])*f;points.push([x,y,Math.sqrt(Math.max(.01,(radius(y)+.024)**2-x*x))]);}return tube(points,r,m);}
+ // Fabric grain and engraved metal are baked once per instance, not regenerated by animation.
+ const grain=document.createElement('canvas');grain.width=grain.height=128;const gc=grain.getContext('2d');gc.fillStyle='#adadad';gc.fillRect(0,0,128,128);for(let j=0;j<128;j++){gc.strokeStyle=j%2?'#b4b4b4':'#979797';gc.beginPath();gc.moveTo(j,0);gc.lineTo(j,128);gc.stroke();if(j%3===0){gc.strokeStyle='#9e9e9e';gc.beginPath();gc.moveTo(0,j);gc.lineTo(128,j);gc.stroke();}}
+ const grainTex=new T.CanvasTexture(grain);grainTex.wrapS=grainTex.wrapT=T.RepeatWrapping;grainTex.repeat.set(4,4);textures.add(grainTex);cloth.roughnessMap=grainTex;lining.roughnessMap=grainTex;leather.roughnessMap=grainTex;
+ const armRoots=[],bootRoots=[];
+ function held(side,x=0,y=0,z=0){const arm=armRoots.find(a=>a.side===side);return arm?node(side*.08+x,arm.centerY-.25+y,.10+z,arm.node):node(side*.57,.85,.10);}
+ function boot(side,m=leather){const n=node(side*.24,.25,0);n.name='tailored-boot-'+side;mesh(cached('boot',()=>new T.CapsuleGeometry(.186,.255,5,16)),m,0,0,0,1,1,1.08,n);orb(dark,0,-.23,.045,.193,.055,.235,n);hoop(gold,0,.12,0,.187,Math.PI/2,0,n).scale.set(.187,.187,.10);bootRoots.push({side,node:n});return n;}
+ function arm(side,m=cloth,{wide=false}={}){const n=node(side*.40,1.12,.02);n.name='tailored-sleeve-'+side;
+  if(wide){const g=own(new T.CylinderGeometry(.135,.23,.48,12,5,true));mesh(g,m,side*.035,-.12,0,1,1,.86,n);const cuff=hoop(lining,side*.035,-.36,0,.215,Math.PI/2,0,n);cuff.scale.z=.55;}
+  else{const g=cached('sleeve',()=>new T.CapsuleGeometry(.116,.29,5,14));mesh(g,m,0,-.03,0,1,1,1,n);cylinder(gold,0,-.19,0,.118,.042,n);}
+  armRoots.push({side,node:n,centerY:wide?-.12:-.03});return n;
+ }
+ function flower(p,x,y,z,r,petal=lining){const g=cached('petal',()=>new T.SphereGeometry(1,mobile?8:12,mobile?6:8));for(let j=0;j<5;j++){const a=j*Math.PI*2/5,pet=mesh(g,petal,x+Math.sin(a)*r*.6,y+Math.cos(a)*r*.6,z,r*.43,r*.58,.016,p);pet.rotation.z=-a;}stud(gold,x,y,z+.019,r*.18,p);}
+ function gear(r,m=gold,p=sculpt){const n=node(0,0,0,p);hoop(m,0,0,0,r,0,0,n);hoop(dark,0,0,.003,r*.7,0,0,n);for(let j=0;j<16;j++){const a=j*Math.PI/8,b=block(m,Math.sin(a)*r,Math.cos(a)*r,0,r*.13,r*.24,.055,n);b.rotation.z=-a;}for(let j=0;j<6;j++){const b=block(m,0,0,0,.025,r*1.8,.035,n);b.rotation.z=j*Math.PI/3;}orb(m,0,0,.02,r*.18,r*.18,.025,n);return n;}
+ function badgeCanvas(paint){const c=document.createElement('canvas');c.width=c.height=256;paint(c.getContext('2d'));const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;textures.add(tex);return tex;}
+ function dial(r,x,y,z,p=sculpt){const map=badgeCanvas(c=>{c.translate(128,128);c.fillStyle='#101f29';c.beginPath();c.arc(0,0,120,0,Math.PI*2);c.fill();c.strokeStyle='#dab87b';c.lineWidth=2;for(const radius of[113,100,20]){c.beginPath();c.arc(0,0,radius,0,Math.PI*2);c.stroke();}c.textAlign='center';c.textBaseline='middle';c.font='17px serif';for(let j=0;j<60;j++){const a=j*Math.PI/30;c.save();c.rotate(a);c.fillStyle='#ebd3a1';c.fillRect(-1,-110,2,j%5===0?12:5);c.restore();if(j%5===0)c.fillText(['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'][j/5],Math.sin(a)*82,-Math.cos(a)*82);}});const m=new T.MeshStandardMaterial({map,roughness:.48,metalness:.35});materials.add(m);const n=node(x,y,z,p);const face=mesh(own(new T.CircleGeometry(r,48)),m,0,0,0,1,1,1,n);hoop(gold,0,0,.015,r,0,0,n);hoop(gold,0,0,.02,r*.88,0,0,n);const hours=node(0,0,.03,n),minutes=node(0,0,.04,n);block(gold,0,r*.23,0,.018,r*.50,.014,hours);block(glow,0,r*.32,0,.009,r*.74,.012,minutes);orb(gold,0,0,.065,.035,.035,.022,n);motion(hours,(o,t)=>o.rotation.z=-t*.055);motion(minutes,(o,t)=>o.rotation.z=-t*.36);return n;}
+
+ if(id==='abyssdiver'){
+  bodyPatch(cloth,{top:1.20});bodyPatch(gold,{bottom:1.10,top:1.768,offset:.009});bodyPatch(dark,{bottom:.47,top:.59,faceOpen:false,offset:.012});
+  const rim=[];for(let j=0;j<64;j++){const a=j*Math.PI/32,x=Math.cos(a)*.395,y=1.205+Math.sin(a)*.256;rim.push([x,y,Math.sqrt(Math.max(.012,(radius(y)+.022)**2-x*x))+.015]);}tube(rim,.025,dark,sculpt,true);tube(rim.map(p=>[p[0]*1.025,p[1],p[2]-.008]),.014,gold,sculpt,true);
+  for(let j=0;j<12;j++){const a=j*Math.PI/6,x=Math.cos(a)*.414,y=1.205+Math.sin(a)*.279;stud(silver,x,y,Math.sqrt(Math.max(.01,(radius(y)+.033)**2-x*x)),.014);}
+  for(const s of[-1,1]){
+   const cuff=arm(s,dark);cylinder(gold,0,-.12,0,.122,.09,cuff);boot(s);for(let j=0;j<4;j++)seam([s*(.23+j*.045),.62],[s*(.26+j*.04),.87],gold,.005);
+   const tank=node(s*.23,1.06,-.52);cylinder(cloth,0,0,0,.132,.65,tank);orb(gold,0,.33,0,.133,.12,.133,tank);orb(dark,0,-.33,0,.134,.10,.134,tank);for(const y of[-.20,.20])cylinder(leather,0,y,0,.14,.05,tank);cylinder(gold,0,.46,0,.038,.15,tank);const valve=hoop(glow,0,.53,0,.065,Math.PI/2,0,tank);motion(valve,(o,t)=>o.rotation.z=t*.45);
+   tube([[s*.40,1.40,-.04],[s*.54,1.32,-.14],[s*.54,.76,-.27],[s*.23,.70,-.52]],.031,dark);tube([[s*.41,1.42,-.07],[s*.48,1.30,-.13],[s*.48,.90,-.33]],.008,glow);
+   for(let j=0;j<8;j++)orb(gold,s*.437,1.40-j*.024,-.04,.024,.008,.034);
+  }
+  const pressure=dial(.105,-.36,.88,.37);pressure.rotation.y=-.4;panel(gold,0,.77,.30,.21,.023);panel(dark,0,.77,.25,.15,.037);for(let j=0;j<4;j++)stud(glow,-.072+j*.048,.78,.493,.011);
+  const spine=node(0,1.12,-.69);hoop(gold,0,0,0,.17,0,0,spine);hoop(glow,0,0,-.025,.12,0,0,spine);const turbine=gear(.115,silver,spine);motion(turbine,(o,t)=>o.rotation.z=t*.30);
+  for(let j=0;j<7;j++){const a=-1.2+j*.4;tube([point(1.49,a,.024),point(1.61,a,.026),point(1.72,a,.015)],.007,silver);}cylinder(gold,0,1.76,-.04,.105,.028);hoop(glow,0,1.78,-.04,.077,Math.PI/2);
+ }
+ if(id==='sakurakimono'){
+  bodyPatch(cloth,{top:1.13,bottom:.48,faceOpen:false});belt(gold,.79,.16,.017);
+  // Rounded lapels begin below the face. They follow the chest instead of crossing the visor.
+  seam([-.31,1.055],[.17,.72],ivory,.024);seam([-.27,1.06],[.22,.75],gold,.007);seam([.30,1.045],[-.10,.78],lining,.020);
+  const hem=node(0,0,0);const g=own(new T.LatheGeometry(Array.from({length:12},(_,j)=>{const f=j/11;return new T.Vector2(.45+(.13*Math.pow(1-f,1.5)),.35+f*.38);}),mobile?40:64));mesh(g,cloth,0,0,0,1,1,.85,hem);hoop(gold,0,.36,0,.57,Math.PI/2,0,hem).scale.set(.57,.48,.045);motion(hem,(o,t,m)=>o.rotation.z=Math.sin(t*2.3)*(m?.015:.003));
+  for(const s of[-1,1]){const sleeve=arm(s,cloth,{wide:true});flower(sleeve,s*.04,-.18,.20,.070);flower(sleeve,-s*.07,-.10,.18,.040);tube([[-.14,-.33,.17],[0,-.37,.19],[.19,-.32,.14]],.008,gold,sleeve);boot(s,dark);}
+  const knot=node(0,.80,-.47);for(const s of[-1,1]){const bow=plate([[0,.06],[s*.27,.18],[s*.31,-.12],[0,-.05]],.10,gold,0,0,0,knot);bow.rotation.y=s*.15;for(let j=0;j<5;j++)tube([[s*.02,.025,-.07],[s*.26,.12-j*.047,-.07]],.006,lining,knot);}block(lining,0,0,-.07,.13,.18,.08,knot);
+  for(let j=0;j<11;j++){const a=-1.1+j*.23,y=.50+(j%4)*.09,p=point(y,a,.02);flower(sculpt,p[0],p[1],p[2],.028+(j%3)*.008);}
+  const fan=node(.05,1.21,-.58);const fanGroup=node(0,0,0,fan);const fanR=.66;for(let j=0;j<11;j++){const a=-1.05+j*.21,points=[[0,0],[Math.sin(a-.105)*fanR,Math.cos(a-.105)*fanR],[Math.sin(a+.105)*fanR,Math.cos(a+.105)*fanR]];plate(points,.016,j%2?cloth:lining,0,0,0,fanGroup);tube([[0,0,.022],[Math.sin(a)*fanR,Math.cos(a)*fanR,.022]],.008,gold,fanGroup);if(j%2===0)flower(fanGroup,Math.sin(a)*.48,Math.cos(a)*.48,-.02,.043);}
+  motion(fan,(o,t,m)=>{o.rotation.y=Math.sin(t*.6)*.10;o.rotation.z=Math.sin(t*.9)*.035;});
+  const hair=node(-.32,1.65,.035);flower(hair,0,0,0,.11,lining);flower(hair,.10,-.06,.015,.07);for(let j=0;j<3;j++){tube([[j*.035,0,0],[j*.035,-.13,.01],[j*.035+.015,-.27,.02]],.006,gold,hair);orb(glow,j*.035+.015,-.28,.02,.016,.025,.016,hair);}motion(hair,(o,t)=>o.rotation.z=Math.sin(t*1.8)*.025);
+ }
+ if(id==='chronokeeper'){
+  bodyPatch(cloth,{top:1.14,bottom:.48});bodyPatch(leather,{top:.94,bottom:.58,start:-.68,end:.68,faceOpen:false,offset:.009});belt(gold,.61,.05,.018);
+  for(const s of[-1,1]){arm(s,cloth);boot(s);seam([s*.34,1.06],[s*.08,.80],gold,.017);seam([s*.30,1.06],[s*.04,.83],ivory,.008);for(let j=0;j<3;j++)stud(gold,s*.17,.67+j*.105,.446,.023);const tail=node(s*.22,.61,-.30);plate([[-.16,.17],[.16,.17],[.21,-.33],[.04,-.40],[-.19,-.31]],.05,cloth,0,0,0,tail);tube([[-.18,-.29,-.04],[.04,-.38,-.04],[.18,-.31,-.04]],.010,gold,tail);motion(tail,(o,t,m)=>o.rotation.x=Math.sin(t*2)*(m?.13:.025));}
+  const watch=dial(.10,.24,.83,.415);watch.rotation.y=.22;tube([[-.18,.89,.441],[-.08,.70,.475],[.15,.72,.455],[.22,.83,.439]],.010,gold);
+  const clock=dial(.39,0,1.18,-.56);clock.rotation.y=Math.PI;const caseRing=hoop(gold,0,1.18,-.62,.435);hoop(dark,0,1.18,-.605,.46);for(let j=0;j<20;j++){const a=j*Math.PI/10;stud(gold,Math.sin(a)*.43,1.18+Math.cos(a)*.43,-.65,.013);}
+  for(const [x,y,r,speed]of[[-.39,1.57,.20,.29],[.40,.91,.18,-.38],[-.31,.74,.125,.45]]){const axle=node(x,y,-.57),g=gear(r,gold,axle);motion(g,(o,t)=>o.rotation.z=t*speed);hoop(glow,x,y,-.62,r*.76);}
+  // A compact leather cap and brass goggles sit above the face, not across it.
+  const cap=mesh(own(new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI*.46)),leather,0,1.56,-.02,.414,.22,.40);hoop(gold,0,1.58,0,.409,Math.PI/2);
+  for(const s of[-1,1]){const g=node(s*.145,1.66,.32);hoop(gold,0,0,0,.108,0,0,g);orb(dark,0,0,.01,.095,.095,.022,g);hoop(glow,0,0,.035,.071,0,0,g);tube([[s*.25,1.65,.20],[s*.41,1.65,0],[s*.35,1.64,-.20]],.024,leather);}tube([[-.035,1.66,.33],[0,1.68,.34],[.035,1.66,.33]],.014,gold);
+ }
+ if(id==='starchef'){
+  bodyPatch(ivory,{top:1.12,bottom:.48});panel(ivory,0,.75,.55,.37,.018);for(const s of[-1,1]){arm(s,ivory);boot(s,dark);seam([s*.28,1.02],[s*.28,.54],gold,.006);for(let j=0;j<3;j++)stud(dark,s*.115,.65+j*.105,.469,.021);}
+  const scarfMat=lining;scarfMat.color.set(0x8b3444);tube([[-.32,1.06,.29],[0,1.01,.46],[.32,1.06,.29]],.035,scarfMat);plate([[-.075,.06],[.06,.06],[.045,-.16],[0,-.22],[-.04,-.12]],.025,scarfMat,.03,.98,.48);
+  panel(leather,0,.57,.46,.10,.026);for(const s of[-1,1]){tube([[s*.26,.92,-.33],[s*.28,.73,-.40],[s*.20,.54,-.37]],.020,leather);}
+  const hat=node(0,1.64,-.015);cylinder(ivory,0,.095,0,.325,.22,hat,.34);cylinder(gold,0,-.005,0,.34,.025,hat);for(let j=0;j<24;j++){const a=j*Math.PI/12;tube([[Math.sin(a)*.33,.0,Math.cos(a)*.33],[Math.sin(a)*.35,.23,Math.cos(a)*.35],[Math.sin(a)*.31,.34,Math.cos(a)*.31]],.008,lining,hat);}
+  const toque=own(new T.LatheGeometry([[0,.41],[.20,.405],[.32,.36],[.37,.27],[.35,.19],[.325,.17]].map(p=>new T.Vector2(...p)),mobile?32:48));mesh(toque,ivory,0,0,0,1,1,1,hat);for(let j=0;j<12;j++){const a=j*Math.PI/6;orb(ivory,Math.sin(a)*.28,.27,Math.cos(a)*.28,.092,.13,.092,hat);}const hatBadge=plate([[-.045,-.02],[0,.05],[.045,-.02],[0,-.07]],.02,gold,0,.06,.343,hat);
+  const pan=node(.61,.91,.15);pan.rotation.z=-.18;const vessel=own(new T.LatheGeometry([[0,0],[.18,0],[.255,.015],[.28,.045],[.29,.085]].map(p=>new T.Vector2(...p)),mobile?24:40));mesh(vessel,dark,0,0,0,1,1,1,pan);hoop(gold,0,.085,0,.29,Math.PI/2,0,pan);block(leather,-.31,.04,0,.32,.055,.07,pan);block(gold,-.20,.04,0,.07,.07,.09,pan);orb(ivory,0,.025,0,.17,.012,.13,pan);orb(glow,.04,.047,.02,.065,.025,.062,pan);for(let j=0;j<3;j++){const herb=plate([[-.018,0],[.012,.01],[.005,.07],[-.012,.04]],.008,cloth,-.10+j*.05,.042,-.05,pan);herb.rotation.x=-Math.PI/2;}motion(pan,(o,t,m,j)=>{o.rotation.z=-.18+Math.sin(t*2)*.04+(j?.13:0);o.position.y=.91+Math.sin(t*2)*.012;});
+  const roll=node(0,1.05,-.51);block(leather,0,0,0,.50,.61,.10,roll);for(const s of[-1,1])cylinder(gold,s*.22,.0,0,.038,.66,roll);for(let j=0;j<3;j++){const x=-.15+j*.15;block(gold,x,.16,-.10,.027,.52,.027,roll);if(j===0){for(let k=0;k<4;k++)tube([[x,.30,-.10],[x+(k-1.5)*.035,.49,-.10],[x+(k-1.5)*.025,.56,-.10]],.007,silver,roll);}else if(j===1)orb(silver,x,.43,-.10,.055,.10,.02,roll);else{block(silver,x+.035,.42,-.10,.09,.23,.02,roll);block(gold,x,.20,-.10,.04,.18,.04,roll);}}
+ }
+ if(id==='piratecaptain'){
+  bodyPatch(cloth,{top:1.15,bottom:.47});belt(leather,.66,.13,.022);panel(gold,0,.66,.14,.12,.042);panel(dark,0,.66,.09,.07,.054);
+  for(const s of[-1,1]){arm(s,cloth);boot(s);seam([s*.32,1.075],[s*.11,.78],gold,.027);seam([s*.29,1.08],[s*.08,.80],lining,.013);for(let j=0;j<4;j++)stud(gold,s*.22,.73+j*.079,Math.sqrt(.481**2-.22**2),.020);const epaulette=node(s*.405,1.13,-.015);orb(gold,0,.035,0,.18,.07,.17,epaulette);for(let j=0;j<7;j++)tube([[(j-3)*.04,.03,.15],[(j-3)*.04,-.065,.16],[(j-3)*.04,-.115,.14]],.008,gold,epaulette);}
+  const coat=node(0,.76,-.31);plate([[-.34,.30],[.34,.30],[.43,-.39],[.20,-.45],[0,-.31],[-.20,-.45],[-.43,-.39]],.06,lining,0,0,0,coat);plate([[-.32,.28],[.32,.28],[.40,-.37],[.20,-.41],[0,-.28],[-.20,-.41],[-.40,-.37]],.026,cloth,0,0,-.045,coat);tube([[-.38,-.36,-.065],[-.20,-.41,-.065],[0,-.28,-.065],[.20,-.41,-.065],[.38,-.36,-.065]],.012,gold,coat);motion(coat,(o,t,m)=>o.rotation.x=Math.sin(t*2)*(m?.12:.025));
+  // A shaped tricorne: a bent three-corner brim, not an extruded flat sign.
+  const hat=node(0,1.62,-.025),positions=[],uvs=[],idx=[],segments=mobile?54:84;
+  for(let j=0;j<=8;j++)for(let k=0;k<=segments;k++){const v=j/8,a=k/segments*Math.PI*2,r=.23+v*(.29+.10*Math.cos(a*3)),lift=Math.pow(v,2)*(.15+.11*(1+Math.cos(a*3)));positions.push(Math.sin(a)*r,lift,Math.cos(a)*r);uvs.push(k/segments,v);}
+  for(let j=0;j<8;j++)for(let k=0;k<segments;k++){const a=j*(segments+1)+k,b=a+1,c=a+segments+1,d=c+1;idx.push(a,c,b,b,c,d);}const brim=own(new T.BufferGeometry());brim.setAttribute('position',new T.Float32BufferAttribute(positions,3));brim.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));brim.setIndex(idx);brim.computeVertexNormals();const hatMat=dark.clone();hatMat.side=T.DoubleSide;materials.add(hatMat);mesh(brim,hatMat,0,0,0,1,1,1,hat);mesh(own(new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI/2)),dark,0,.01,0,.33,.25,.31,hat);const border=[];for(let j=0;j<84;j++){const a=j*Math.PI/42,r=.52+.1*Math.cos(a*3);border.push([Math.sin(a)*r,.15+.11*(1+Math.cos(a*3)),Math.cos(a)*r]);}tube(border,.014,gold,hat,true);
+  const crest=node(0,.19,.40,hat);orb(ivory,0,0,0,.057,.065,.018,crest);for(const s of[-1,1]){orb(dark,s*.023,.012,.016,.013,.016,.007,crest);tube([[s*.055,-.02,.012],[-s*.055,-.10,.012]],.008,ivory,crest);}const feather=node(-.32,.19,-.03,hat);for(let j=0;j<10;j++){const f=plate([[-.015,0],[.06,.03],[.09,.13],[0,.09]],.012,j%2?lining:gold,-j*.015,j*.037,0,feather);f.rotation.z=-.35;}tube([[0,0,0],[-.08,.22,0],[-.14,.40,0]],.009,gold,feather);motion(feather,(o,t)=>o.rotation.z=Math.sin(t*1.7)*.05);
+  const cutlass=node(-.45,.63,-.04);cutlass.rotation.z=-.27;block(leather,0,-.12,0,.085,.76,.095,cutlass);tube([[-.04,-.48,.053],[.02,-.40,.053],[.04,.23,.053]],.007,gold,cutlass);block(gold,0,.29,0,.24,.05,.16,cutlass);cylinder(leather,0,.40,0,.035,.20,cutlass);tube([[-.10,.28,0],[-.14,.51,0],[0,.54,0]],.018,gold,cutlass);
+  const compass=dial(.13,.40,.84,.28);compass.rotation.y=.52;hoop(glow,0,1.15,-.51,.23);for(let j=0;j<8;j++){const a=j*Math.PI/4;const t=block(gold,Math.sin(a)*.24,1.15+Math.cos(a)*.24,-.54,.02,.09,.035);t.rotation.z=-a;}
+ }
+
+ addTailoredDesign(T,{id,cloth,gold,lining,dark,leather,ivory,glow,silver,sculpt,fx,own,cached,materials,textures,uniforms,mobile,mesh,orb,block,node,motion,hoop,cylinder,tube,plate,stud,bodyPatch,belt,panel,seam,arm,boot,held,flower,surface});
+ // Each aura has its own surface motion and motif. The face opening stays clear.
+ const auraColor=new T.Color(colors[2]),secondary=new T.Color(({streetdj:0x56e0e4,honeykeeper:0xffb545,mushroomoracle:0x72cbdc,jellyveil:0x83e3e8,origamitsuru:0xffe6ba,patisserie:0xf4cf89,scarabpharaoh:0x49c6dc,rainwalker:0xb4ddff,railconductor:0x8daeff,inkmonk:0x5b8293,carnivaljoker:0xb7a0db,rescueworker:0xff9854,cactusmariachi:0xf4a5bd,bathduck:0xffe6ac,retroarcade:0x6eece1})[id]||(id==='sakurakimono'?0xffd6a2:id==='piratecaptain'?0x4487ff:id==='abyssdiver'?0x2f95ed:0xfff0cb));
+ const updateMotif=addTailoredMotif(T,{id,fx,own,materials,mobile,color:auraColor,secondary});
+ const au={time:{value:0},color:{value:auraColor},secondary:{value:secondary},strength:{value:1},kind:{value:TAILORED_GIFT_IDS.indexOf(id)}};uniforms.push(au);
+ const auraMat=new T.ShaderMaterial({uniforms:au,transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,
+  vertexShader:'uniform float time;varying vec2 v;varying vec3 n,eye;void main(){v=uv;vec3 p=position;p.xz*=1.+sin(uv.y*11.+uv.x*18.-time*1.4)*.025;vec4 mv=modelViewMatrix*vec4(p,1.);n=normalize(normalMatrix*normal);eye=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}',
+  fragmentShader:`uniform float time,strength,kind;uniform vec3 color,secondary;varying vec2 v;varying vec3 n,eye;void main(){float tau=6.2831853;float wave=.5+.5*sin(v.x*tau*4.-v.y*10.+time*1.5);float threads=pow(max(0.,sin(v.x*tau*7.+v.y*13.-time*2.)),18.);float base=pow(1.-v.y,2.)*.025;float style=kind<.5?pow(wave,6.)*.20:kind<1.5?pow(wave,12.)*.19:kind<2.5?pow(.5+.5*sin(v.y*60.-time*3.),18.)*.16:kind<3.5?pow(wave,8.)*.14:pow(wave,5.)*.22;if(kind>4.5){float mode=mod(kind,5.);style=mode<.5?pow(.5+.5*sin(v.x*tau*12.+time*2.),14.)*.21:mode<1.5?pow(.5+.5*cos(v.y*44.+sin(v.x*tau*8.)*2.-time),16.)*.20:mode<2.5?pow(wave,9.)*.22:mode<3.5?pow(.5+.5*sin(v.x*tau*3.-time-v.y*24.),14.)*.22:step(.90,fract(v.x*16.+time*.2))*step(.45,fract(v.y*12.-time*.3))*.18;}float ends=smoothstep(0.,.09,v.y)*(1.-smoothstep(.30,1.,v.y));float edge=pow(1.-abs(dot(normalize(n),normalize(eye))),1.2);vec3 tint=mix(color,secondary,wave*.55);gl_FragColor=vec4(tint,(base+style+threads*.20)*ends*strength*(.14+.86*edge));}`});materials.add(auraMat);
+ const aura=mesh(own(new T.CylinderGeometry(.55,.75,1.85,mobile?32:48,8,true)),auraMat,0,.96,0,1,1,1,fx);aura.name='tailored-body-aura';aura.userData.dynamic=true;
+ // A soft illuminated contact disc and a motif, not a solid opaque platform.
+ const seal=badgeCanvas(c=>{c.translate(128,128);c.strokeStyle='#fff';c.lineWidth=2;for(const r of[85,103,116]){c.beginPath();c.arc(0,0,r,0,Math.PI*2);c.stroke();}for(let j=0;j<24;j++){const a=j*Math.PI/12;c.save();c.rotate(a);c.beginPath();c.moveTo(0,-113);c.lineTo(0,j%3===0?-91:-103);c.stroke();if(j%3===0){c.beginPath();c.moveTo(0,-83);c.lineTo(-5,-75);c.lineTo(0,-67);c.lineTo(5,-75);c.closePath();c.stroke();}c.restore();}});
+ const sealMat=new T.MeshBasicMaterial({map:seal,color:auraColor,transparent:true,opacity:id==='starchef'?.25:.43,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide});materials.add(sealMat);const floorSeal=mesh(own(new T.PlaneGeometry(1.65,1.65)),sealMat,0,.025,0,1,1,1,fx);floorSeal.rotation.x=-Math.PI/2;floorSeal.name='tailored-foot-seal';
+ if(TAILORED_GIFT_IDS.indexOf(id)>=5){floorSeal.material.opacity=.14;createRemainingAura(T,{id,fx,own,materials,uniforms,color:auraColor,secondary});}
+ const ribbons=[];for(let j=0;j<(TAILORED_GIFT_IDS.indexOf(id)>=5?1:mobile?2:3);j++){
+  const u={time:{value:0},color:{value:j%2?secondary:auraColor},phase:{value:j*2.094},kind:{value:au.kind.value}};uniforms.push(u);
+  const m=new T.ShaderMaterial({uniforms:u,transparent:true,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending,
+   vertexShader:`uniform float time,phase,kind;varying vec2 v;void main(){v=uv;float a=uv.x*6.2831853+time*(kind==2.? .35:.45)+phase;float r=.61+.07*sin(a*3.-time);float y=.11+uv.x*(kind==2.? .8:1.35)+.10*sin(a*1.5);float width=(uv.y-.5)*(.025+.025*sin(uv.x*3.1415926));vec3 p=vec3(cos(a)*(r+width),y+width*.5,sin(a)*(r+width));gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
+   fragmentShader:'uniform vec3 color;varying vec2 v;void main(){float a=sin(v.x*3.1415926)*sin(v.y*3.1415926);gl_FragColor=vec4(color,a*.50);}'});materials.add(m);const r=mesh(own(new T.PlaneGeometry(1,1,mobile?48:72,2)),m,0,0,0,1,1,1,fx);ribbons.push(r);
+ }
+ // Particles share an atlas and draw call. Local seeds make deterministic previews possible.
+ const sprite=document.createElement('canvas');sprite.width=sprite.height=64;const c=sprite.getContext('2d');c.translate(32,32);c.fillStyle=c.strokeStyle='#fff';c.lineWidth=3;
+ if(id==='sakurakimono'){c.beginPath();c.moveTo(0,-24);c.bezierCurveTo(24,-15,20,13,0,25);c.bezierCurveTo(-20,12,-24,-15,0,-24);c.fill();}
+ else if(id==='abyssdiver'){c.beginPath();c.arc(0,0,21,0,Math.PI*2);c.stroke();c.beginPath();c.arc(-3,-3,13,Math.PI,Math.PI*1.5);c.stroke();}
+ else if(id==='chronokeeper'){c.beginPath();c.arc(0,0,16,0,Math.PI*2);c.stroke();for(let j=0;j<8;j++){c.rotate(Math.PI/4);c.fillRect(-2,-24,4,9);}}
+ else if(id==='piratecaptain'){c.beginPath();c.moveTo(-26,8);c.bezierCurveTo(-8,-18,5,28,26,-6);c.stroke();}
+
+ else if(['rain','foam'].includes(spec.effect)){c.beginPath();if(spec.effect==='foam'){c.arc(0,0,21,0,Math.PI*2);c.stroke();c.beginPath();c.arc(-3,-3,13,Math.PI,Math.PI*1.5);c.stroke();}else{c.moveTo(0,-25);c.quadraticCurveTo(-26,19,0,24);c.quadraticCurveTo(26,19,0,-25);c.fill();}}
+ else if(spec.effect==='honey'){c.beginPath();for(let j=0;j<6;j++){const a=j*Math.PI/3;c.lineTo(Math.sin(a)*22,Math.cos(a)*22);}c.closePath();c.stroke();}
+ else if(['cards','ticket','paper'].includes(spec.effect)){c.strokeRect(-17,-23,34,46);c.beginPath();c.moveTo(0,-11);c.lineTo(8,0);c.lineTo(0,11);c.lineTo(-8,0);c.closePath();c.fill();}
+ else if(['beat','pixel'].includes(spec.effect)){for(let j=0;j<5;j++)c.fillRect(-23+j*10,-18+(j%3)*8,6,36-(j%3)*8);}
+ else if(spec.effect==='ink'){c.lineWidth=8;c.beginPath();c.moveTo(-18,20);c.bezierCurveTo(16,20,-17,-14,19,-23);c.stroke();}
+ else if(['spore','prism'].includes(spec.effect)){const g=c.createRadialGradient(0,0,1,0,0,25);g.addColorStop(0,'#fff');g.addColorStop(.25,'#fff9');g.addColorStop(1,'#fff0');c.fillStyle=g;c.fillRect(-32,-32,64,64);}
+ else if(spec.effect==='pollen'){for(let j=0;j<5;j++){const a=j*Math.PI/2.5;c.beginPath();c.ellipse(Math.sin(a)*11,Math.cos(a)*11,8,13,-a,0,Math.PI*2);c.fill();}}
+ else if(spec.effect==='weld'){c.beginPath();c.moveTo(-3,-27);c.lineTo(5,-5);c.lineTo(1,25);c.lineTo(-5,3);c.closePath();c.fill();}
+ else {c.beginPath();for(let j=0;j<8;j++){const a=j*Math.PI/4,r=j%2?5:25;c.lineTo(Math.cos(a)*r,Math.sin(a)*r);}c.closePath();c.fill();}
+ const spriteTex=new T.CanvasTexture(sprite);textures.add(spriteTex);
+ const count=TAILORED_GIFT_IDS.indexOf(id)>=5?(mobile?18:32):(mobile?28:52),positions=new Float32Array(count*3),particleGeo=own(new T.BufferGeometry());particleGeo.setAttribute('position',new T.BufferAttribute(positions,3).setUsage(T.DynamicDrawUsage));
+ const particleMat=new T.PointsMaterial({map:spriteTex,color:auraColor,size:id==='sakurakimono'?.085:id==='abyssdiver'?.07:.06,transparent:true,opacity:.83,depthWrite:false,blending:T.AdditiveBlending});materials.add(particleMat);const particles=new T.Points(particleGeo,particleMat);particles.frustumCulled=false;particles.name='tailored-motif-particles';fx.add(particles);
+ const trailCount=mobile?12:20,trailPositions=new Float32Array(trailCount*3),trailGeo=own(new T.BufferGeometry());trailGeo.setAttribute('position',new T.BufferAttribute(trailPositions,3).setUsage(T.DynamicDrawUsage));const trailMat=particleMat.clone();trailMat.size=.12;trailMat.opacity=.65;materials.add(trailMat);const trails=new T.Points(trailGeo,trailMat);trails.frustumCulled=false;fx.add(trails);const slots=Array.from({length:trailCount},()=>({x:0,y:0,z:0,until:-1}));
+ const jumpMat=new T.MeshBasicMaterial({color:auraColor,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending});materials.add(jumpMat);const jumpRing=hoop(jumpMat,0,.04,0,.65,Math.PI/2,0,fx);jumpRing.visible=false;
+ // Static sculpt geometry is merged by material per animated assembly.
+ for(const parent of assemblies){const buckets=new Map();for(const o of[...parent.children]){if(!o.isMesh||o.userData.dynamic)continue;o.updateMatrix();if(!buckets.has(o.material))buckets.set(o.material,[]);buckets.get(o.material).push(o);}
+  for(const [m,objects]of buckets){if(objects.length<2)continue;const arrays={position:[],normal:[],uv:[]};for(const o of objects){const temp=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();temp.applyMatrix4(o.matrix);for(const attr of Object.keys(arrays)){const data=temp.getAttribute(attr);if(data)for(const n of data.array)arrays[attr].push(n);else for(let j=0;j<temp.getAttribute('position').count*(attr==='uv'?2:3);j++)arrays[attr].push(0);}temp.dispose();parent.remove(o);}const g=own(new T.BufferGeometry());for(const attr of Object.keys(arrays))g.setAttribute(attr,new T.Float32BufferAttribute(arrays[attr],attr==='uv'?2:3));g.computeBoundingSphere();mesh(g,m,0,0,0,1,1,1,parent);}
+ }
+ // Bind sleeves and boots to the real limbs; no second independent walking cycle.
+ function bindOwner(){owner=group.parent;bindings=[];if(!owner)return;const rig=owner.userData.tailoredAvatar||owner.userData,arms=rig.arms||rig.walkArms||owner.children.filter(n=>n.isGroup&&n.children.some(c=>c.geometry?.type==='CapsuleGeometry'&&c.geometry.parameters.radius<.13));const legs=rig.legs||owner.children.filter(n=>n.geometry?.type==='CapsuleGeometry'&&n.geometry.parameters.radius<.22);
+  for(const b of armRoots){const target=arms.find(n=>Math.sign(n.position.x)===b.side);if(target){const limb=target.children.find(c=>c.isMesh);bindings.push({node:b.node,target,offsetY:limb?limb.position.y-b.centerY:0});}}
+  for(const b of bootRoots){const target=legs.find(n=>Math.sign(n.position.x)===b.side);if(target){const limb=target.isMesh?null:target.children.find(c=>c.isMesh);bindings.push({node:b.node,target,offsetY:limb?.position.y||0});}}
+ }
+ const world=new T.Vector3(),local=new T.Vector3(),inverse=new T.Matrix4(),poseInverse=new T.Matrix4(),limbMatrix=new T.Matrix4(),limbOffset=new T.Matrix4();
+ function update(seconds,{moving=false,jumping=false}={}){
+  if(disposed)return;const t=Number(seconds)||0;if(t===previous&&owner===group.parent)return;previous=t;if(owner!==group.parent)bindOwner();group.updateWorldMatrix(true,false);poseInverse.copy(group.matrixWorld).invert();for(const b of bindings){b.target.updateWorldMatrix(true,false);limbOffset.makeTranslation(0,b.offsetY||0,0);limbMatrix.multiplyMatrices(poseInverse,b.target.matrixWorld).multiply(limbOffset);limbMatrix.decompose(b.node.position,b.node.quaternion,b.node.scale);b.node.visible=b.target.visible;}
+  updateMotif(t);for(const {node:n,fn}of motions)fn(n,t,moving,jumping);for(const u of uniforms)u.time.value=t;au.strength.value=jumping?1.35:moving?1.10:1;glow.emissiveIntensity=1.2+.20*Math.sin(t*1.7);floorSeal.rotation.z=t*(id==='chronokeeper'?.12:.07);
+  for(let j=0;j<count;j++){const k=j*3,a=j*2.39996+t*(id==='chronokeeper'?.32:.19),r=.53+(j%6)*.047;let y=(j/count*1.95+t*.25)%1.95,x=Math.cos(a)*r,z=Math.sin(a)*r;if(id==='sakurakimono'){y=1.95-(j/count*1.95+t*.25)%1.95;x+=Math.sin(t*.9+j)*.10;}if(id==='piratecaptain'){y=.09+(j/count*.56+t*.16)%.56;x=Math.cos(a)*(.63+j%4*.035);z=Math.sin(a)*(.63+j%4*.035);}if(['rain','paper','cards','pollen'].includes(spec.effect)){y=2.05-(j/count*2.05+t*(spec.effect==='rain'?.95:.22))%2.05;x+=Math.sin(t+j)*.07;}if(['beat','pixel'].includes(spec.effect)){x=Math.round(x*12)/12;z=Math.round(z*12)/12;y=spec.effect==='beat'?.09+Math.abs(Math.sin(t*2+j))*.16:Math.round(y*12)/12;}if(spec.effect==='ink'){y=.15+(j%8)*.09;x*=1.2;z*=1.2;}if(['weld','sand','sugar'].includes(spec.effect))y=.08+(j/count*.8+t*.22)%.8;if(y>1.04&&y<1.53&&z>0&&Math.abs(x)<.48)z=-z;positions[k]=x;positions[k+1]=y;positions[k+2]=z;}particleGeo.attributes.position.needsUpdate=true;
+  if(jumping&&!wasJumping)jumpAt=t;wasJumping=jumping;const jump=t-jumpAt;jumpRing.visible=jump>=0&&jump<.7;if(jumpRing.visible){jumpRing.scale.setScalar(.65+jump*.9);jumpMat.opacity=(1-jump/.7)*.65;}
+  group.updateWorldMatrix(true,false);group.getWorldPosition(world);inverse.copy(group.matrixWorld).invert();if((moving&&t-lastTrail>.08)||(jumping&&jump<.05)){lastTrail=t;const s=slots[trailCursor++%trailCount];s.x=world.x;s.y=world.y+.05;s.z=world.z;s.until=t+.9;}
+  for(let j=0;j<trailCount;j++){const s=slots[j],k=j*3;if(s.until>t){local.set(s.x,s.y,s.z).applyMatrix4(inverse);trailPositions[k]=local.x;trailPositions[k+1]=local.y;trailPositions[k+2]=local.z;}else{trailPositions[k]=0;trailPositions[k+1]=-999;trailPositions[k+2]=0;}}trailGeo.attributes.position.needsUpdate=true;
+ }
+ function dispose(){if(disposed)return;disposed=true;group.traverse(n=>{if(n.isInstancedMesh)n.dispose();});group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const tex of textures)tex.dispose();}
+ group.userData.tailoredRevision=3;group.userData.fittedFace={centerY:1.205,halfWidth:.405,halfHeight:.272};group.userData.auraType=id;group.userData.fitBindings=()=>bindings.map(b=>{const m=new T.Matrix4().copy(group.matrixWorld).invert().multiply(b.target.matrixWorld).multiply(new T.Matrix4().makeTranslation(0,b.offsetY||0,0)),p=new T.Vector3(),q=new T.Quaternion(),s=new T.Vector3();m.decompose(p,q,s);return{name:b.node.name,attached:!!b.target.parent,error:b.node.position.distanceTo(p),rotationError:b.node.quaternion.angleTo(q)};});
+ update(0);return{group,update,dispose,spec};
+}
+
 // Twenty authored silhouettes. Presentation only: no lights, colliders or game state.
 const EXPANDED_GIFT_SKINS = Object.freeze([
  {id:'abyssdiver',name:'圧海潜航士',color:0x275855,accent:0x71f3d6,trim:0xb78c51,effect:'bubble',glyph:'⚓'},
@@ -1878,6 +2466,7 @@ const EXPANDED_GIFT_SKINS = Object.freeze([
 ].map(s=>Object.freeze({...s,access:'gift'})));
 
 function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
+ if(TAILORED_GIFT_IDS.includes(spec.id))return createTailoredGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+spec.id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),assemblies=[group],motions=[];
  let disposed=false,previous=-1,wasJumping=false,jumpAt=-100,trailAt=-1,trailCursor=0;

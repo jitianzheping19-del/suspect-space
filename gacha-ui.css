@@ -88,4 +88,9 @@ body .ssGacha[data-kind=premium] .gachaBatchGrid article{background:linear-gradi
 body .ssGacha[data-kind=premium] .gachaPrizeModel{width:min(270px,70%);flex-basis:260px;max-height:48dvh}
 body .ssGacha[data-planet-mode=breaking] .gachaToolbar{opacity:.15;transition:opacity .4s;pointer-events:none}
 body .ssGacha[data-planet-mode=complete] .gachaToolbar,body .ssGacha[data-planet-mode=idle] .gachaToolbar{opacity:1;transition:opacity .3s}
+@media(max-width:480px) and (orientation:portrait){
+ body .ssGacha .gachaCount{left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ body .ssGacha .gachaToolbar .gachaCount button{width:100%;min-width:0;height:60px;min-height:60px}
+ body .ssGacha .gachaResult:not(.gachaBatchResult){left:5%;right:5%;top:17%;bottom:14%}
+}
 @media(prefers-reduced-motion:reduce){body .ssGacha .gachaPanel>.gachaCategories button,body .ssGacha .gachaPanel>.gachaCategories button::after,body .ssGacha[data-view=collection] .gachaRail article,body .ssGacha .gachaResult:not(.gachaBatchResult),body .ssGacha .gachaPrizeModel,body .ssGacha .gachaBatchGrid article{animation:none;transition:none}}

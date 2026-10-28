@@ -1,3 +1,4 @@
+import {TAILORED_GIFT_IDS,createTailoredGiftSkin} from './premium-tailored-skins.js';
 // Twenty authored silhouettes. Presentation only: no lights, colliders or game state.
 export const EXPANDED_GIFT_SKINS = Object.freeze([
  {id:'abyssdiver',name:'圧海潜航士',color:0x275855,accent:0x71f3d6,trim:0xb78c51,effect:'bubble',glyph:'⚓'},
@@ -23,6 +24,7 @@ export const EXPANDED_GIFT_SKINS = Object.freeze([
 ].map(s=>Object.freeze({...s,access:'gift'})));
 
 export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
+ if(TAILORED_GIFT_IDS.includes(spec.id))return createTailoredGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+spec.id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),assemblies=[group],motions=[];
  let disposed=false,previous=-1,wasJumping=false,jumpAt=-100,trailAt=-1,trailCursor=0;

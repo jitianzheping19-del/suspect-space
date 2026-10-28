@@ -1,3 +1,4 @@
+import {createCelestialVault} from './gacha-celestial-vault.js';
 // Drawn by the planet's renderer and clock; no post-processing or additional RAF.
 export function createGachaCeremony(T,{scene,premium,mobile,geo,mat,textures,reduced}){
  const root=new T.Group();root.name=premium?'premium-astral-vault':'gacha-energy-chamber';scene.add(root);
@@ -24,12 +25,14 @@ export function createGachaCeremony(T,{scene,premium,mobile,geo,mat,textures,red
  const dot=document.createElement('canvas');dot.width=dot.height=32;const dc=dot.getContext('2d');const grad=dc.createRadialGradient(16,16,0,16,16,16);grad.addColorStop(0,'#fff');grad.addColorStop(.2,'#fff9');grad.addColorStop(1,'#fff0');dc.fillStyle=grad;dc.fillRect(0,0,32,32);const dotMap=new T.CanvasTexture(dot);textures.add(dotMap);
  const particleMat=mat(new T.PointsMaterial({map:dotMap,color,size:premium?.065:.045,transparent:true,opacity:.65,depthWrite:false,blending:T.AdditiveBlending})),particles=new T.Points(particleGeo,particleMat);particles.frustumCulled=false;root.add(particles);
  const streakCount=premium?42:20,streakPositions=new Float32Array(streakCount*6),streakGeo=geo(new T.BufferGeometry());streakGeo.setAttribute('position',new T.BufferAttribute(streakPositions,3).setUsage(T.DynamicDrawUsage));const streakMat=mat(new T.LineBasicMaterial({color,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending})),streaks=new T.LineSegments(streakGeo,streakMat);root.add(streaks);
- function update(t,{rank=-1,power=0,shake=0,burst=0,charging=false,complete=false}={}){
+ const vault=createCelestialVault(T,{root,premium,mobile,geo,mat,reduced});
+ function update(t,{rank=-1,power=0,shake=0,burst=0,charging=false,complete=false,x=0,size=1}={}){
+  root.position.x=x;root.scale.setScalar(size);vault.update(t,{power,burst,charging,color});
   energy.color.copy(color);runeMat.color.copy(color);particleMat.color.copy(color);streakMat.color.copy(color);
   root.visible=!complete;const b=Math.min(1,burst),charge=charging?power:0;
   if(!reduced){sigil.rotation.z=-t*(premium?.075:.035);seals.rotation.z=t*.10;for(let j=0;j<gates.length;j++){gates[j].rotation.z=t*(j%2?-.12:.09)+j*.3;gates[j].rotation.y=Math.sin(t*.3+j)*(.18+charge*.22);}}
-  sigil.scale.setScalar(1+charge*.12+b*.5);runeMat.opacity=(premium?.42:.15)+charge*.22+shake*.15;
-  energy.opacity=.2+charge*.42;metal.emissive.copy(color);metal.emissiveIntensity=.04+charge*.28;
+  sigil.scale.setScalar(1+charge*.12+b*.5);runeMat.opacity=((premium?.42:.15)+charge*.22+shake*.15)*(1-b*.5);
+  energy.opacity=(.2+charge*.42)*(1-b*.6);metal.emissive.copy(color);metal.emissiveIntensity=.04+charge*.28;
   for(let j=0;j<gates.length;j++)gates[j].scale.setScalar((1.65+j*.24)*(1+b*.8+shake*.025));
   beam.visible=premium||burst>0;plumeUniforms.power.value=premium?(charge*.45+Math.sin(b*Math.PI)*2):Math.sin(b*Math.PI)*.7;
   beam.rotation.y=t*.15;beam.scale.set(1+charge*.5,1+b*.4,1+charge*.5);
@@ -39,5 +42,5 @@ export function createGachaCeremony(T,{scene,premium,mobile,geo,mat,textures,red
   for(let j=0;j<shockwaves.length;j++){const phase=Math.max(0,Math.min(1,(b-j*.09)*1.2));shockwaves[j].scale.setScalar(.8+phase*(premium?5:3.5));shockwaves[j].material.opacity=burst>0?Math.sin(phase*Math.PI)*.6:0;}
   if(rank>=0)color.lerp(premium?white:blue,.002);
  }
- return{update,setColor(value){color.set(value);},dispose(){root.removeFromParent();}};
+ return{update,setColor(value){color.set(value);},dispose(){root.traverse(n=>{if(n.isInstancedMesh)n.dispose();});root.removeFromParent();}};
 }
