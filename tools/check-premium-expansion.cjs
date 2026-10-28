@@ -1,0 +1,10 @@
+const{chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs');
+(async()=>{const browser=await chromium.launch({args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader']});try{
+ const page=await browser.newPage({viewport:{width:640,height:540}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ await page.route('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js',r=>r.fulfill({path:'/workspace/emergency-3d-revision/three.module.js',contentType:'text/javascript'}));
+ await page.goto('http://localhost:4173/suspect-space/gift-skins-preview.html');await page.waitForFunction(()=>window.giftSkinPreview);
+ const ids=await page.locator('#skin option').evaluateAll(o=>o.map(e=>e.value));assert.equal(ids.length,28);assert.equal(new Set(ids).size,28);
+ fs.mkdirSync('/workspace/artifacts/premium-expansion',{recursive:true});const stats=[];
+ for(const id of ids.slice(8)){await page.evaluate(id=>{window.giftSkinPreview.select(id);window.giftSkinPreview.pose();},id);await page.waitForTimeout(90);const s=await page.evaluate(()=>window.giftSkinPreview.stats());assert(s.finite,id);assert(Math.abs(s.focus[0])<.1&&Math.abs(s.focus[1])<.1,id+" outside camera");assert(s.meshes<60,id+' draw calls '+s.meshes);assert(s.triangles<50000,id+' triangles '+s.triangles);await page.screenshot({path:`/workspace/artifacts/premium-expansion/${id}.png`});stats.push({id,...s});}
+ const first=stats[0],last=stats.at(-1);assert(last.textures<first.textures+5,'textures accumulate across skin switches');assert(last.geometries<first.geometries+35,'geometries accumulate');assert.deepEqual(errors,[]);fs.writeFileSync('/workspace/artifacts/premium-expansion/stats.json',JSON.stringify(stats,null,2));console.log('PASS 20 unique premium models, finite animated geometry, render budgets, switch disposal and all 28 previews');
+ }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});

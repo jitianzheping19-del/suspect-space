@@ -37,7 +37,7 @@ export function useConjurerAbility({game,actor,location,profiles={},botPositions
     const at={x:Number(pose.x),z:Number(pose.z)};
     if(conjurerTriangleContains(points,at)&&kill(id,at))targets.push({id,...at});
   }
-  const seconds=Math.max(5,Math.min(120,Number(game.settings?.conjurerCooldownSeconds)||45));
+  const seconds=Math.max(5,Math.min(120,Number(game.settings?.conjurerCooldownSeconds)||30));
   p.abilityReadyAt=stamp+seconds*1000;p.readyAt=Math.max(Number(p.readyAt)||0,p.abilityReadyAt);
   delete p.conjurerMarkers;delete p.conjurerArmedAt;
   emit('conjurer',{markers:points,targets,at:stamp});

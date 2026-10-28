@@ -37,6 +37,13 @@ body.ssGiftPending #inputSettingsNav [data-settings-target="inbox"],.ssGiftNotic
 #toast[data-kind="gift"]{z-index:22000!important;pointer-events:none!important}
 .lobbyActionCanvas{position:fixed;z-index:44;pointer-events:none!important;display:block}
 .lobbyActionCanvas[hidden]{display:none!important}
+#mayorConfirm[hidden]{display:none!important}
+#mayorConfirm{position:fixed;inset:0;z-index:19000;display:grid;place-items:center;background:#020a16a8;padding:18px;color:#eef8ff}
+.mayorConfirmCard{width:min(440px,90vw);padding:26px;border:1px solid #dfc98b;border-radius:20px;background:linear-gradient(145deg,#223747,#101c2e);box-shadow:0 18px 70px #000b}
+.mayorConfirmCard h2{margin:0 0 24px;font:800 clamp(17px,2.5vw,21px)/1.65 system-ui}
+.mayorConfirmCard>div{display:flex;justify-content:flex-end;gap:12px}
+.mayorConfirmCard button{padding:12px 20px;border:1px solid #6f8f9d;border-radius:10px;background:#213c50;color:#e7f5ff;font-weight:800}
+.mayorConfirmCard .mayorConfirmYes{background:#e1c88e;border-color:#fff0bd;color:#15283a}
 body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]{background:transparent!important;background-image:none!important;border-color:transparent!important;box-shadow:none!important;clip-path:none!important;text-shadow:0 2px 3px #020b17!important;overflow:visible!important;transform:none!important;animation:none!important;white-space:nowrap!important}
 body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"][data-three-action-layout="icon"]{padding-left:var(--three-action-label-inset,42px)!important;padding-right:5px!important}
 body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]::before,body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]::after{display:none!important}

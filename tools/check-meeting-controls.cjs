@@ -18,7 +18,7 @@ const p=await b.newPage({viewport:{width:1024,height:768},hasTouch:true}),errors
 for(const [w,h]of[[1024,768],[844,390],[1366,768]]){
  await p.setViewportSize({width:w,height:h});await p.waitForTimeout(120);
  const hit=await p.locator('#meetingMapBtn').evaluate(e=>{const r=e.getBoundingClientRect();return {rect:r.toJSON(),hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.id,inert:!!e.closest('[inert]')}});assert.equal(hit.hit,'meetingMapBtn');assert(!hit.inert);
- const mic=await p.locator('#voiceToggleBtn').boundingBox();assert(mic&&mic.x>w-85&&mic.y<25,JSON.stringify({w,h,mic}));assert(mic.x>hit.rect.right,'mic and map overlap');
+ const mic=await p.locator('#voiceToggleBtn').boundingBox();assert(mic&&mic.x>w-175&&mic.y<25,JSON.stringify({w,h,mic}));assert(mic.x+mic.width<hit.rect.x,'mic and map overlap');const timer=await f.locator('#meetingTimerBar').boundingBox();assert(timer.x+timer.width<mic.x,'timer overlaps controls');
  await p.locator('#meetingMapBtn').click({timeout:7000});await p.waitForFunction(()=>window.__batchQA.state().map,{},{timeout:5000});await p.locator('#mapCloseBtn').click({timeout:7000});await p.waitForFunction(()=>!window.__batchQA.state().map);rows.push({w,h,mic,map:hit.rect});console.log('PASS actual map pointer opens/closes; microphone top-right without overlap',w,h);
 }
 for(const [role,id,mode]of[['evilGuesser','guessBtn','guess'],['guesser','guessBtn','guess'],['scales','scalesBtn','scales'],['swapper','swapVotesBtn','swap'],['meetingSheriff','meetingSheriffBtn','sheriff']]){

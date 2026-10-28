@@ -1,3 +1,4 @@
+import {EXPANDED_GIFT_SKINS,createExpandedGiftSkin} from './premium-skins-expansion.js';
 // Gift-only visual equipment. No colliders, lights, timers, or gameplay state.
 export const GIFT_SKINS=Object.freeze([
  {id:'neonphantom',name:'ネオン・ファントム',access:'gift',color:0x141025,accent:0xaf42ff,effect:'neon'},
@@ -7,10 +8,12 @@ export const GIFT_SKINS=Object.freeze([
  {id:'spacebunny',name:'うさぎ宇宙飛行士',access:'gift',color:0xede5eb,accent:0xff88c7,effect:'sparkle'},
  {id:'error404',name:'ERROR 404',access:'gift',color:0x151a26,accent:0x43f5df,effect:'glitch'},
  {id:'celestial',name:'天界の守護者',access:'gift',color:0xf0ece0,accent:0xffd779,effect:'radiance'},
- {id:'boxgod',name:'ダンボール神',access:'gift',color:0xb48a56,accent:0xffd887,effect:'box'}
+ {id:'boxgod',name:'ダンボール神',access:'gift',color:0xb48a56,accent:0xffd887,effect:'box'},
+ ...EXPANDED_GIFT_SKINS
 ]);
 export function createGiftSkin(T,id,{mobile=false}={}){
  const spec=GIFT_SKINS.find(s=>s.id===id);if(!spec)throw new Error('Unknown gift skin');
+ if(EXPANDED_GIFT_SKINS.some(s=>s.id===id))return createExpandedGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),containers=[group],animated=[],uniforms=[];
  let disposed=false,lastTime=0;

@@ -1,11 +1,12 @@
 // Keep the editable costume sculpts and all game/preview consumers synchronized.
 import './sync-costume-catalog.mjs';
+import './sync-premium-catalog.mjs';
 import './sync-lobby-ascent.mjs';
 import {readFile,writeFile} from 'node:fs/promises';
 import {gzipSync,gunzipSync} from 'node:zlib';
 const helper=(await readFile('assets-source/detailed-companions.js','utf8')).trim();
 const wearables=(await readFile('assets-source/detailed-wearables.js','utf8')).trim();
-const premium='/* GIFT_SKIN_V1_BEGIN */\n'+(await readFile('premium-skins.js','utf8')).replace(/export (const|function) /g,'$1 ')+'\n/* GIFT_SKIN_V1_END */';
+const premium='/* GIFT_SKIN_V1_BEGIN */\n'+(await readFile('premium-skins-expansion.js','utf8')).replace(/export (const|function) /g,'$1 ')+'\n'+(await readFile('premium-skins.js','utf8')).replace(/^import .*?;\s*/m,'').replace(/export (const|function) /g,'$1 ')+'\n/* GIFT_SKIN_V1_END */';
 const premiumMarker=/\/\* GIFT_SKIN_V1_BEGIN \*\/[\s\S]*?\/\* GIFT_SKIN_V1_END \*\//;
 const marker=/\/\* DETAILED_COMPANIONS_V1_BEGIN[\s\S]*?\/\* DETAILED_COMPANIONS_V1_END \*\//;
 const wearableMarker=/\/\* DETAILED_WEARABLES_V1_BEGIN[\s\S]*?\/\* DETAILED_WEARABLES_V1_END \*\//;

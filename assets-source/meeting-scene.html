@@ -908,7 +908,7 @@ document.body.appendChild(chatPanel);
 const chatLog=chatPanel.querySelector("#chatLog"),chatTyping=chatPanel.querySelector("#chatTyping");
 chatPanel.querySelector("#chatSend").addEventListener("submit",e=>{e.preventDefault();const input=chatPanel.querySelector("#chatText");const t=input.value.trim();if(t){parent.postMessage({type:"ss3d-chat",text:t},"*");input.value="";}});
 const voteWarning=document.createElement("div");voteWarning.style.cssText="position:fixed;inset:0;z-index:4;pointer-events:none;background:#c9002355;display:none";document.body.append(voteWarning);
-const timerBar=document.createElement("div");timerBar.id="meetingTimerBar";timerBar.style.cssText="position:fixed;top:0;left:190px;right:58px;padding:8px 10px;box-sizing:border-box;background:#050b16e6;color:#eef6ff;font:800 14px sans-serif;z-index:5;pointer-events:none";
+const timerBar=document.createElement("div");timerBar.id="meetingTimerBar";timerBar.style.cssText="position:fixed;top:0;left:190px;right:174px;padding:8px 10px;box-sizing:border-box;background:#050b16e6;color:#eef6ff;font:800 14px sans-serif;z-index:5;pointer-events:none";
 timerBar.innerHTML='<div style="display:flex;justify-content:space-between;align-items:baseline"><span id="tPhase">会議</span><span id="tSec" style="font-size:22px;font-variant-numeric:tabular-nums">--</span></div><div style="height:8px;background:#ffffff22;border-radius:4px;margin-top:6px;overflow:hidden"><div id="tFill" style="height:100%;width:100%;background:linear-gradient(90deg,#43dfff,#d9fbff)"></div></div>';
 document.body.appendChild(timerBar);
 const tPhase=timerBar.querySelector("#tPhase"),tSec=timerBar.querySelector("#tSec"),tFill=timerBar.querySelector("#tFill");
@@ -920,7 +920,7 @@ window.__ui=function(){const narrow=isNarrow(),fs=narrow?"11px":"13px",w=PANEL_W
   chatPanel.style.width=w+"px";chatPanel.style.fontSize=fs;
   const chatRight=Math.ceil(chatPanel.getBoundingClientRect().right);
   document.documentElement.style.setProperty("--meeting-chat-width",chatRight+"px");
-  timerBar.style.left=(chatRight+8)+"px";timerBar.style.right="58px";timerBar.style.top="max(6px, env(safe-area-inset-top))";timerBar.style.maxWidth=`calc(100vw - ${chatRight+74}px)`;timerBar.style.padding=narrow?"6px 7px":"8px 10px";timerBar.style.fontSize=narrow?"11px":"14px";
+  timerBar.style.left=(chatRight+8)+"px";timerBar.style.right="calc(174px + env(safe-area-inset-right, 0px))";timerBar.style.top="max(6px, env(safe-area-inset-top))";timerBar.style.maxWidth=`calc(100vw - ${chatRight+190}px)`;timerBar.style.padding=narrow?"6px 7px":"8px 10px";timerBar.style.fontSize=narrow?"11px":"14px";
   const phaseRow=timerBar.firstElementChild;if(phaseRow){phaseRow.style.gap="8px";phaseRow.style.minWidth="0";}
   tPhase.style.minWidth="0";tPhase.style.maxWidth="calc(100% - 52px)";tPhase.style.overflow="hidden";tPhase.style.textOverflow="ellipsis";tPhase.style.whiteSpace="nowrap";
   tSec.style.flex="0 0 auto";tSec.style.fontSize=narrow?"15px":"22px";
