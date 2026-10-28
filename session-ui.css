@@ -47,3 +47,8 @@ body.ssGiftPending #inputSettingsNav [data-settings-target="inbox"],.ssGiftNotic
 body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]{background:transparent!important;background-image:none!important;border-color:transparent!important;box-shadow:none!important;clip-path:none!important;text-shadow:0 2px 3px #020b17!important;overflow:visible!important;transform:none!important;animation:none!important;white-space:nowrap!important}
 body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"][data-three-action-layout="icon"]{padding-left:var(--three-action-label-inset,42px)!important;padding-right:5px!important}
 body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]::before,body[data-phase="lobby"] #lobbyUseBtn[data-lobby-three="true"]::after{display:none!important}
+
+/* Unclaimed gifts are marked at every step of the inbox path. */
+body.ssGiftPending #inputSettingsNav [data-settings-target="inbox"],.ssGiftUnclaimed{position:relative!important;overflow:visible!important}
+body.ssGiftPending #inputSettingsNav [data-settings-target="inbox"]::after,.ssGiftUnclaimed::after{content:''!important;position:absolute!important;top:3px!important;right:3px!important;width:10px!important;height:10px!important;border-radius:50%!important;background:#ff354b!important;border:2px solid #fff1ee!important;box-shadow:0 0 7px #ff314eaa!important;pointer-events:none!important}
+.ssGiftUnclaimed{border-color:#ff6674!important}
