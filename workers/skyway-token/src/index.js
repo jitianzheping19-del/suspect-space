@@ -1,6 +1,7 @@
 const ALLOWED_ORIGIN = "https://jitianzheping19-del.github.io";
 const FIREBASE_JWKS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
 const TOKEN_TTL_SECONDS = 3 * 24 * 60 * 60;
+const SUPPORTED_FIREBASE_PROJECTS = new Set(["among-us-c7bae", "among-d587b"]);
 
 let cachedFirebaseJwks = null;
 let cachedFirebaseJwksUntil = 0;
@@ -71,13 +72,17 @@ async function getFirebaseJwks() {
   return cachedFirebaseJwks;
 }
 
-async function verifyFirebaseIdToken(idToken, projectId) {
+async function verifyFirebaseIdToken(idToken) {
   const parts = idToken.split(".");
   if (parts.length !== 3) throw new Error("firebase-token-invalid");
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
   const header = decodeBase64urlJson(encodedHeader);
   const claims = decodeBase64urlJson(encodedPayload);
   if (header.alg !== "RS256" || typeof header.kid !== "string") throw new Error("firebase-token-invalid");
+  // Only these two game projects are trusted. An arbitrary token audience must
+  // never extend the allowlist, even when its Google signature is valid.
+  const projectId = claims.aud;
+  if (!SUPPORTED_FIREBASE_PROJECTS.has(projectId)) throw new Error("firebase-project-not-allowed");
 
   const jwks = await getFirebaseJwks();
   const jwk = jwks.find((candidate) => candidate.kid === header.kid && candidate.kty === "RSA");
@@ -144,7 +149,7 @@ export default {
     if (url.pathname !== "/api/token") return new Response("Not Found", { status: 404 });
     if (request.method !== "POST") return jsonResponse(405, { error: "Method not allowed" }, origin);
     if (origin !== ALLOWED_ORIGIN) return jsonResponse(403, { error: "Origin not allowed" });
-    if (!env.SKYWAY_APP_ID || !env.SKYWAY_SECRET_KEY || !env.FIREBASE_PROJECT_ID) {
+    if (!env.SKYWAY_APP_ID || !env.SKYWAY_SECRET_KEY) {
       return jsonResponse(500, { error: "Worker configuration is incomplete" }, origin);
     }
 
@@ -169,7 +174,7 @@ export default {
 
     let firebaseClaims;
     try {
-      firebaseClaims = await verifyFirebaseIdToken(idToken, env.FIREBASE_PROJECT_ID);
+      firebaseClaims = await verifyFirebaseIdToken(idToken);
     } catch {
       return jsonResponse(401, { error: "Firebase sign-in is invalid or expired" }, origin);
     }

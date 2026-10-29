@@ -11296,7 +11296,7 @@ function rollbackWaitingLobby(reason="待機ロビーへの切替が拒否され
       const response=await fetch(SKYWAY_TOKEN_ENDPOINT,{method:"POST",mode:"cors",cache:"no-store",headers:{"Authorization":`Bearer ${idToken}`,"Content-Type":"application/json"},body:JSON.stringify({roomId:String(roomName),memberName:String(memberName||"プレイヤー").slice(0,24)})});
       let data={};try{data=await response.json();}catch{}
       if(!response.ok||typeof data.token!=="string"){
-        const reason=response.status===401?"Firebaseログインを確認できません。いったんログアウトして再ログインしてください。":response.status===403?"SkyWay WorkerのOrigin設定を確認してください。":response.status===500?"SkyWay WorkerのSecrets設定を確認してください。":String(data.error||`SkyWayトークンの取得に失敗しました（${response.status}）`);
+        const reason=response.status===401?"通話サーバーがログインを拒否しました。接続先Firebaseに通話サーバーが対応しているか確認してください。":response.status===403?"SkyWay WorkerのOrigin設定を確認してください。":response.status===500?"SkyWay WorkerのSecrets設定を確認してください。":String(data.error||`SkyWayトークンの取得に失敗しました（${response.status}）`);
         throw new Error(reason);
       }
       return data.token;

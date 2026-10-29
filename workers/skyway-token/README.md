@@ -12,7 +12,7 @@ npx wrangler secret put SKYWAY_SECRET_KEY
 npx wrangler deploy
 ```
 
-Do not put either secret in this repository or the game HTML. `FIREBASE_PROJECT_ID` is a public identifier in `wrangler.jsonc`.
+Do not put either secret in this repository or the game HTML. The Worker accepts verified Firebase ID tokens from `among-us-c7bae` and `among-d587b` only. The signature, audience, issuer and expiry are validated for both projects. `FIREBASE_PROJECT_ID` in older deployments is retained for compatibility but no longer controls authentication.
 
 The endpoint is `https://skyway-toooken.jitianzheping19.workers.dev/api/token`.
 
