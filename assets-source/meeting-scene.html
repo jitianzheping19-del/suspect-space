@@ -740,7 +740,7 @@ function applyState(state){
     p.nick=s.nick||"";const micTxt=s.mic?"🎙 ":"";
     const fullName=String(s.name||""),meetingName=seats.length<=6?fullName:String(p.nick||fullName);
     nameTag(p.tag,micTxt+meetingName,p.ally?"#ff526b":(s.mic==="speaking"?"#7dffb0":"#ffffff"));
-    if(p.voteCheck){p.voteCheck.s.visible=p.voted;nameTag(p.voteCheck,"✅","#70ffc2");}
+    if(p.voteCheck){p.voteCheck.s.visible=p.voted&&!p.ejectionStarted&&!p.dying&&!p.gone;nameTag(p.voteCheck,"✅","#70ffc2");}
     if(s.costume&&libCostume&&s.costume!==p.costumeCode){if(p.costumeRoot){p.c.root.remove(p.costumeRoot);}p.costumeRoot=libCostume.buildLightCostume(THREE,s.costume);p.c.root.add(p.costumeRoot);p.costumeCode=s.costume;}
     if(typeof s.bubble==="string"&&s.bubble&&s.bubble!==p.bubText){setBubble(p,s.bubble);}
     if(!p.roleTag){p.roleTag=makeLabel(512,112,1.15);}

@@ -1,4 +1,5 @@
 // Host-side role rules. No DOM, timers, network writes or rendering decisions.
+import {SELECTED_ROLES,SELECTED_SETTINGS,createSelectedRoleRules} from './selected-roles.js';
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const numeric=(settings,key,fallback,min=0,max=180)=>{const v=settings?.[key];return clamp(v!==undefined&&v!==null&&Number.isFinite(Number(v))?Number(v):fallback,min,max);};
 const cooldown=(g,role)=>numeric(g.settings,role+'CooldownSeconds',30,5,120)*1000;
@@ -6,21 +7,23 @@ const living=p=>p?.alive===true&&!p.observer&&!p.disconnected;
 export const JACKAL_RECRUITERS=Object.freeze(['jackal','teleportJackal','waveCannonJackal','jackalWaveCannon']);
 
 export const EXPANSION_ROLES=Object.freeze({
- overloader:{side:'impostor',name:'オーバーローダー',description:'能力で正体を全員に公開し、移動速度・キル距離を強化してキル待ち時間を半減します。もう一度使うか会議開始で解除します。',action:'オーバーロード',color:'#ff8563',icon:'⚡'},
+ ...SELECTED_ROLES,
+ overloader:{side:'impostor',name:'オーバーローダー',description:'能力で移動速度・キル距離を強化し、キル待ち時間を半減します。使用しても正体は公開されません。もう一度使うか会議開始で解除します。',action:'オーバーロード',color:'#ff8563',icon:'⚡'},
  cracker:{side:'impostor',name:'クラッカー',description:'近くの死体をクラックして通報できなくします。死体を消す設定も可能です。死亡の確認と痕跡は会議開始で処理されます。',action:'クラック',color:'#d08eff',icon:'⌁'},
  missionary:{side:'neutral',name:'ミッショナリー（宣教師）',description:'近くの相手に宣教し、10〜20秒後に自決させます。自分が倒れても宣教は残ります。自分以外の最後の生存者がクルーか無害な第三陣営なら勝利します。',action:'宣教',color:'#daa8f4',icon:'✟'},
  bodyguard:{side:'crew',name:'ボディーガード',description:'近くの相手を護衛します。通常キルされた時に身代わりで倒れ、対象を守ります。護衛は会議をまたいで続き、護衛者が倒れると解除されます。',action:'ガード',color:'#6fe6d4',icon:'⛨'},
  sandworm:{side:'impostor',name:'サンドワーム',description:'ベント内から近くの相手を強襲します。キル待ち時間はベント内か停電中だけ進みます。通常キルで待ち時間が増え、強襲・停電中のキルで短くなります。',action:'強襲',color:'#dcb87d',icon:'◒'},
  eater:{side:'neutral',name:'イーター',description:'近くの死体を喰らうか、生存者に接触し続けて丸呑みします。丸呑みは防御を貫通し、死体を残しません。合計3人を食べると単独勝利します。',action:'喰らう／丸呑み',color:'#becc79',icon:'◉'},
- freezer:{side:'impostor',name:'フリーザー',description:'使用者を含む生存者全員を5秒間停止させます。停止中は移動とプレイ中の操作ができません。',action:'時間停止',color:'#84dcff',icon:'❄'},
- madJester:{side:'crew',name:'マッドてるてる',description:'人狼陣営の協力者です。投票で追放されると人狼陣営を勝利させます。必要タスク数と人狼の認識を設定できます。個人タスクは全体タスクに加算されません。',action:'追放を狙う',color:'#ef91b4',icon:'☂'}
+ freezer:{side:'crew',name:'フリーザー',description:'使用者を含む生存者全員を5秒間停止させます。停止中は移動とプレイ中の操作ができません。',action:'時間停止',color:'#84dcff',icon:'❄'},
+ madJester:{side:'impostor',name:'マッドてるてる',description:'人狼陣営の協力者です。投票で追放されると人狼陣営を勝利させます。必要タスク数と人狼の認識を設定できます。個人タスクは全体タスクに加算されません。',action:'追放を狙う',color:'#ef91b4',icon:'☂'}
 });
 export const EXPANSION_LABELS=Object.freeze({...Object.fromEntries(Object.entries(EXPANSION_ROLES).map(([id,r])=>[id,[r.name,r.description]])),vampireDependent:['ヴァンパイアの眷属','ヴァンパイアに作られた人狼陣営の眷属です。通常キルを使えます。親の死亡・追放で後追いします。']});
 export const EXPANSION_OPTIONS=Object.freeze(Object.entries(EXPANSION_ROLES).map(([id,r])=>({id,side:r.side,count:0})));
 export const EXPANSION_LOOKS=Object.freeze(Object.fromEntries(Object.entries(EXPANSION_ROLES).map(([id,r])=>[id,{color:r.color,icon:r.icon,action:r.action,theme:r.side==='impostor'?'danger':r.side==='neutral'?'wave':'halo'}])));
 export const EXPANSION_DEFINITIONS=Object.freeze({...Object.fromEntries(Object.entries(EXPANSION_ROLES).map(([id,r])=>[id,{side:r.side,humanOnly:true}])),vampire:{side:'impostor',humanOnly:true}});
-export const EXPANSION_COOLDOWNS=Object.freeze(Object.fromEntries(Object.keys(EXPANSION_ROLES).filter(id=>id!=='madJester').map(id=>[id+'CooldownSeconds',{roles:[id],label:id==='sandworm'?'強襲クールダウン':'能力クールダウン',default:30,min:5,max:120,step:5}])));
+export const EXPANSION_COOLDOWNS=Object.freeze(Object.fromEntries(Object.keys(EXPANSION_ROLES).filter(id=>id!=='madJester'&&!EXPANSION_ROLES[id].passive).map(id=>[id+'CooldownSeconds',{roles:[id],label:id==='sandworm'?'強襲クールダウン':'能力クールダウン',default:30,min:5,max:120,step:5}])));
 export const EXPANSION_SETTINGS=Object.freeze({
+ ...SELECTED_SETTINGS,
  vampireCanCreateDependent:{roles:['vampire'],label:'眷属を作成できる',default:true,type:'checkbox'},
  vampireDependentCooldownSeconds:{roles:['vampire'],label:'眷属のキルクールダウン',default:30,min:5,max:120,step:5,unit:'秒'},
  vampireDependentCanVent:{roles:['vampire'],label:'眷属はベントを使える',default:true,type:'checkbox'},
@@ -41,6 +44,7 @@ export const EXPANSION_SETTINGS=Object.freeze({
 export function isTimeFrozen(g,stamp){return g?.phase==='play'&&Number(g.freeze?.until)>stamp;}
 export function expansionKillRange(p){return p?.subrole==='overloader'&&p.overloaded?5:3.6;}
 export function expansionKillCooldown(p,settings,base){
+ if(p?.subrole==='evolver')return Math.max(1000,base*Math.max(.2,Math.min(1,Number(p.evolverFactor)||1)));
  if(p?.subrole==='vampireDependent')return numeric(settings,'vampireDependentCooldownSeconds',30,5,120)*1000;
  if(p?.subrole==='overloader'&&p.overloaded)return Math.max(2500,base*.5);
  if(p?.subrole==='sandworm')return Math.max(5000,base+(Number(p.sandwormCooldownAdjustmentMs)||0));
@@ -49,12 +53,14 @@ export function expansionKillCooldown(p,settings,base){
 export function madJesterKnowsImpostors(p,settings){return p?.subrole==='madJester'&&settings?.madJesterRecognizeImpostors===true&&(p.assignedTasks||[]).filter(id=>p.tasks?.[id]).length>=numeric(settings,'madJesterRecognizeTasks',0,0,5);}
 export function madJesterVoteWin(g,p){return p?.subrole==='madJester'&&(g.settings?.madJesterRequiresTasks!==true||(p.assignedTasks||[]).filter(id=>p.tasks?.[id]).length>=numeric(g.settings,'madJesterRequiredTasks',2,1,5));}
 
-export function createExpansionRoleRules({clock,token,pose,wallBetween,kill,killCooldown,emit,random=Math.random}){
+export function createExpansionRoleRules({clock,token,pose,wallBetween,canStand,kill,killCooldown,emit,report=()=>false,random=Math.random}){
+ const selected=createSelectedRoleRules({clock,token,pose,wallBetween,canStand,kill,killCooldown,emit,report,random});
  const distance=(a,b)=>Math.hypot(Number(a.x)-Number(b.x),Number(a.z)-Number(b.z));
  const near=(g,actor,id,range=2.9,{allowVent=false}={})=>{const target=g.players?.[id],a=pose(g,actor),b=pose(g,id);return actor!==id&&living(target)&&(allowVent||!target.ventId)&&a&&b&&distance(a,b)<range&&!wallBetween(a,b);};
- const bodyNear=(g,actor,id)=>{const at=pose(g,actor),b=g.bodies?.[id];return b&&!b.fake&&!b.removed&&!b.dissolved&&at&&distance(at,b)<3&&!wallBetween(at,b);};
+ const bodyNear=(g,actor,id)=>{const at=pose(g,actor),b=g.bodies?.[id];return b&&!b.carriedBy&&!b.fake&&!b.removed&&!b.dissolved&&at&&distance(at,b)<3&&!wallBetween(at,b);};
  const event=(g,type,actor,data={})=>emit(g,type,actor,data);
  function ability(ctx){
+  if(selected.ability(ctx))return true;
   const {g,actor,cmd,p,setResult}=ctx,role=p?.subrole;
   const dependent=role==='vampire'&&cmd.ability==='createVampireDependent';
   const recruiting=JACKAL_RECRUITERS.includes(role)&&cmd.ability==='createSidekick';
@@ -74,7 +80,7 @@ export function createExpansionRoleRules({clock,token,pose,wallBetween,kill,kill
    g.players[cmd.target]={name:old.name,hue:old.hue??0,costume:old.costume||'standard',x:old.x||0,z:old.z||0,alive:true,role:'impostor',subrole:'vampireDependent',vampireMasterId:actor,assignedTasks:[],tasks:{},readyAt:ready,abilityReadyAt:ready};
    p.vampireDependentId=cmd.target;event(g,'vampireDependentCreated',actor,{...pose(g,cmd.target),target:cmd.target,visibleTo:[actor,cmd.target]});
   }else if(role==='overloader'){
-   if(p.overloaded&&stamp-Number(p.overloadedAt)<3000)return fail('公開から3秒経つと解除できます。');
+   if(p.overloaded&&stamp-Number(p.overloadedAt)<3000)return fail('強化から3秒経つと解除できます。');
    p.overloaded=!p.overloaded;
    if(p.overloaded)p.overloadedAt=stamp;else p.abilityReadyAt=stamp+cooldown(g,role);
    event(g,'overloader',actor,{...at,active:p.overloaded});
@@ -122,16 +128,17 @@ export function createExpansionRoleRules({clock,token,pose,wallBetween,kill,kill
   }else if(role==='freezer'){
    g.freeze={id:token(),by:actor,startedAt:stamp,until:stamp+5000};p.abilityReadyAt=stamp+5000+cooldown(g,role);event(g,'freezer',actor,{...at,until:stamp+5000});
   }
-  p.abilityEvent=token();setResult(true,dependent?'眷属を作りました。':role==='freezer'?'全員を5秒間停止しました。':recruiting?'サイドキックを作りました。':role==='overloader'?(p.overloaded?'正体を公開し、能力を強化しました。':'公開を解除しました。'):'能力を使用しました。');return true;
+  p.abilityEvent=token();setResult(true,dependent?'眷属を作りました。':role==='freezer'?'全員を5秒間停止しました。':recruiting?'サイドキックを作りました。':role==='overloader'?(p.overloaded?'能力を強化しました。':'強化を解除しました。'):'能力を使用しました。');return true;
  }
  function beforeDeath({g,victimId,killerId,victim,killer,location,options={},cause}){
+  const counter=selected.beforeDeath({g,victimId,killerId,victim,killer,location,options,cause});if(counter)return counter;
   if(options.ignoreDefenses||victimId===killerId||['suicide','serialKillerSuicide','sheriffMisfire','loverFollow','missionary','切断による離脱'].includes(cause))return;
   if(victim.subrole==='fox'&&killer?.role==='impostor'){
    const stamp=clock();g.shieldBreakEvent={id:token(),attacker:killerId,target:victimId,kind:'fox',visibleTo:[killerId,victimId],at:stamp};
    (g.foxShields||={})[victimId]={attacker:killerId,at:stamp,until:stamp+1800};
    event(g,'foxShield',killerId,{...location,target:victimId,visibleTo:[killerId,victimId]});return{blocked:true};
   }
-  if(options.skipBodyguards||!['killed','sandworm'].includes(cause))return;
+  if(options.skipBodyguards||!['killed','sandworm','bomber'].includes(cause))return;
   for(const id of Object.keys(victim.bodyguards||{})){
    const guard=g.players?.[id];if(id===victimId||!living(guard)||guard.subrole!=='bodyguard')continue;
    delete victim.bodyguards[id];const guardAt=pose(g,id)||location;
@@ -140,7 +147,8 @@ export function createExpansionRoleRules({clock,token,pose,wallBetween,kill,kill
    }
   }
  }
- function afterKill({g,killer,cause}){
+ function afterKill(ctx){
+  selected.afterKill(ctx);const {g,killer,cause}=ctx;
   if(killer?.subrole==='vampireDependent'){const master=g.players[killer.vampireMasterId];if(master?.alive){master.readyAt=clock()+killCooldown(master,g.settings);master.abilityReadyAt=master.readyAt;}}
   if(killer?.subrole!=='sandworm'||!['killed','sandworm'].includes(cause))return;
   const bonus=cause==='sandworm'||g.sabotage?.type==='lights'&&Number(g.sabotage.endsAt)>clock();
@@ -148,7 +156,7 @@ export function createExpansionRoleRules({clock,token,pose,wallBetween,kill,kill
   killer.sandwormClockAt=clock();
  }
  function tick({g}){
-  const stamp=clock();let changed=false;
+  const stamp=clock();let changed=selected.tick({g});
   if(g.freeze&&stamp>=g.freeze.until){delete g.freeze;changed=true;}
   for(const[id,shield]of Object.entries(g.foxShields||{}))if(stamp>=shield.until){delete g.foxShields[id];changed=true;}
   const leaders=Object.values(g.players||{}).some(p=>p?.alive===true&&!p.observer&&p.role==='jackal'&&p.subrole!=='jackalSidekick');
@@ -184,6 +192,7 @@ export function createExpansionRoleRules({clock,token,pose,wallBetween,kill,kill
   return changed;
  }
  function meeting({g}){
+  selected.meeting({g});
   delete g.freeze;delete g.crackTraces;
   for(const p of Object.values(g.players||{})){
    if(p.subrole==='eater'&&!p.eaterUsedSinceMeeting)p.eaterSwallowExtraMs=Math.max(-14500,(Number(p.eaterSwallowExtraMs)||0)-500);

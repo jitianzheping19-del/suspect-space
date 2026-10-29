@@ -7,20 +7,20 @@ assert.equal(presentationReadyAt(g),16000,'Victim playback still has a bounded a
 assert(!completeKillPlayback(g,'a','1000',6000));assert(!completeKillPlayback(g,'b','wrong',6000));assert(completeKillPlayback(g,'b','1000',6000));assert.equal(presentationReadyAt(g),6000);
 g=state();registerDeathPlayback(g,{killer:'a',victim:'b'},1000);g.killEvent={id:'last',killer:'a',victim:'b',at:1000};g.phase='ended';g.winner='impostor';g.endedAt=1200;
 assert(registerWinningPlayback(g,1300));assert(!registerWinningPlayback(g,1400));assert(killPresentationActive(g,6000));
-assert(completeKillPlayback(g,'b','1000',6500));assert(killPresentationActive(g,6500),'The winning killer also sees the final scene');
-assert(completeKillPlayback(g,'a','victory:7:last-kill:last',7200));assert(!killPresentationActive(g,7200));assert.equal(victoryPresentationAt(g),7200);
+assert.equal(g.killPresentation.pending.a,undefined,'The winning attacker gets no kill cinematic');
+assert(completeKillPlayback(g,'b','1000',6500));assert(!killPresentationActive(g,6500));assert.equal(victoryPresentationAt(g),6500);
 g=state();g.players.a.subrole='arsonist';registerDeathPlayback(g,{killer:'a',victim:'b'},1000);g.phase='ended';g.winner='arsonist';g.endedAt=1000;
-assert(registerWinningPlayback(g,1100));assert(killPresentationActive(g,6000));assert.equal(g.killPresentation.pending.c.kind,'victory','Earlier ghosts see the winning ignition');
+assert(registerWinningPlayback(g,1100));assert(killPresentationActive(g,6000));assert.equal(g.killPresentation.pending.c,undefined,'Earlier ghosts never see another victim’s ignition');assert.equal(g.killPresentation.pending.a,undefined);assert.equal(g.winningKillPlayback,undefined);
 assert(!killPresentationActive(g,16100),'An absent acknowledgement cannot lock the end indefinitely');assert(!completeKillPlayback(g,'a','victory:7:arsonist',17000));
 g.players.a.disconnected=true;g.players.b.disconnected=true;g.players.c.disconnected=true;assert(!killPresentationActive(g,10000));g.phase='meeting';assert(!killPresentationActive(g,1100));
 g=state();g.players.b.bot=true;registerDeathPlayback(g,{killer:'a',victim:'b'},1000);delete g.killPresentation.pending;registerDeathPlayback(g,{killer:'a',victim:'c'},1200);assert(g.killPresentation.pending.c,'Firebase may omit an empty pending map');
 g=state();g.phase='ended';g.winner='crew';assert(!registerWinningPlayback(g,1000));assert.equal(presentationReadyAt(g),0);
-console.log('PASS ordinary kills keep the match running, victim-bound acknowledgements, final-kill and arsonist victory waits, disconnected viewers, deadline and empty snapshot recovery');
+console.log('PASS ordinary kills keep the match running, victim-bound acknowledgements, victim-only final-kill and arsonist victory waits, disconnected viewers, deadline and empty snapshot recovery');
 
 // Exercise the actual host gate and victory dispatcher, not just the state helpers.
 const {readFileSync}=await import('node:fs');
 const vm=await import('node:vm');
-const html=readFileSync(new URL('../space-suspect-complete.html',import.meta.url),'utf8');
+const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 let outcomes=[],executed=[];
 const context={now:()=>6000,isTimeFrozen:()=>false,localKillPlaybackFinished:()=>false,completeKillPlayback,killPresentationActive,setCommandResult:(g,actor,cmd,accepted)=>outcomes.push({actor,type:cmd.type,accepted}),executed};
 vm.createContext(context);
@@ -30,9 +30,9 @@ const gateStart=html.indexOf('          if(cmd.type==="killPlaybackDone")');
 const gateEnd=html.indexOf('          if(cmd.type==="waitLobby")',gateStart);
 vm.runInContext('function hostGate(g,actor,cmd){let dirty=false;const p=g.players[actor];for(const _ of [0]){'+html.slice(gateStart,gateEnd)+'executed.push(cmd.type);}}',context);
 g=state();g.players.a.subrole='arsonist';registerDeathPlayback(g,{killer:'a',victim:'b'},1000);g.phase='ended';g.winner='arsonist';g.endedAt=1000;registerWinningPlayback(g,1100);
-for(const type of ['report','emergency','kill','bite','ability','sabotage','task','ventEnter'])context.hostGate(g,'a',{type});
-assert.equal(executed.length,0,'No gameplay command executes during a cinematic');
-context.hostGate(g,'b',{type:'killPlaybackDone',target:'1000'});context.hostGate(g,'a',{type:'killPlaybackDone',target:'victory:7:arsonist'});context.hostGate(g,'c',{type:'killPlaybackDone',target:'victory:7:arsonist'});
+for(const type of ['report','emergency','kill','bite','ability','sabotage','task','ventEnter'])context.hostGate(g,'b',{type});
+assert.equal(executed.length,0,'A victim cannot send gameplay commands during their cinematic');
+context.hostGate(g,'a',{type:'killPlaybackDone',target:'1000'});assert(g.killPresentation.pending.b,'Another player cannot acknowledge the victim’s playback');context.hostGate(g,'b',{type:'killPlaybackDone',target:'1000'});
 assert(!killPresentationActive(g,6000));context.hostGate(g,'a',{type:'report'});assert.deepEqual(executed,['report']);
 const victoryStart=html.indexOf('function victoryCheck(g)');
 const victoryEnd=html.indexOf('function showVictory(',victoryStart);

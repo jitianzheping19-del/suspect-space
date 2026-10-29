@@ -1,5 +1,7 @@
 import {createCinematicArt} from './kill-cinematic-art.js';
 import {createRenderBudget} from './render-performance.js';
+import {createSelectedRoleCinematic} from './selected-role-cinematics.js';
+import {createKillCinematicBackground} from './kill-cinematic-background.js';
 
 // The same authored choreography and cinematic assets run in game and preview.
 export const authoredKillRoles = [
@@ -10,9 +12,16 @@ export const authoredKillRoles = [
   ['arsonist','アーソニスト',4.4],['conjurer','コンジュラー',2.8],
   ['waveCannon','波動砲',1.9],['suicideBomber','自爆魔',2.6],
   ['triggerHappy','トリガーハッピー',2.4],
+  ['fencer','フェンサー',2.05],['evolver','エボルバー',2.25],
+  ['bomber','ボマー',2.2],['boxer','ボクサー',2.2],
+  ['bait','ベイト（強制通報）',1.85],
 ];
 
 export function resolveAuthoredKillRole(cause='', killer={}) {
+  if(['boxer','bomber'].includes(cause))return cause;
+  // Passive/report and transport clips are previews, not fake ways of killing.
+  if(['bait','carrier'].includes(killer.subrole))return 'impostor';
+  if(killer.subrole==='bomber'&&cause!=='bomber')return 'impostor';
   const aliases={killed:'',samuraiSlash:'samurai',sluggerSwing:'slugger',vampireBite:'vampire',sheriffMisfire:'sheriff',waveCannonJackal:'waveCannon',jackalWaveCannon:'waveCannon'};
   const normalize=value=>Object.hasOwn(aliases,value)?aliases[value]:value;
   const role=normalize(cause)||normalize(killer.subrole)||normalize(killer.role);
@@ -21,15 +30,21 @@ export function resolveAuthoredKillRole(cause='', killer={}) {
 
 export function authoredKillSpec(assets,role) {
   const entry=authoredKillRoles.find(([id])=>id===role)||authoredKillRoles[0];
+  if(['fencer','evolver','bomber','boxer','bait'].includes(entry[0]))return{role:entry[0],label:entry[1],duration:entry[2],playbackRate:1,trimStart:0,trimEnd:.03,source:''};
   const source=entry[0]==='impostor'?assets.KILL_ASSET_SRCDOC:
     entry[0]==='vampire'?assets.SS_VAMPIRE_KILL_SRCDOC:
     entry[0]==='viper'?assets.SS_VIPER_KILL_SRCDOC:assets.KILL_DEMOS[entry[0]==='triggerHappy'?'sheriff':entry[0]].html;
-  return {role:entry[0],label:entry[1],duration:entry[2],playbackRate:1.16,trimStart:.08,trimEnd:.14,source};
+  return {role:entry[0],label:entry[1],duration:entry[2],playbackRate:role==='rocket'?2.6:1.16,trimStart:role==='rocket'?.4:.08,trimEnd:.14,source};
+}
+
+export function authoredKillDurationMs(role){
+ const duration=authoredKillRoles.find(([id])=>id===role)?.[2]||4.2;
+ return ['fencer','evolver','bomber','boxer','bait'].includes(role)?Math.max(.1,duration-.03)*1000:role==='rocket'?Math.max(.1,duration-.54)/2.6*1000:Math.max(.1,duration-.22)/1.16*1000;
 }
 
 // This function is serialized into one preloaded iframe. A single WebGL context
 // serves every original scene, without fetching modules again at the death event.
-function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt,makeRenderBudget) {
+function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt,makeRenderBudget,makeSelectedScene) {
   const budget=makeRenderBudget(),gate=budget.gate();let frameRequest=0;
   const renderer=new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:budget.mobile?'default':'high-performance'});
   renderer.setPixelRatio(budget.pixelRatio(budget.mobile?1:2));
@@ -61,6 +76,12 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
   function initialize(data){
     dispose();configuration=data;time=target=0;finished=false;playing=false;audible=false;
     owned={geometries:new Set(),materials:new Set(),textures:new Set()};
+    if(['fencer','evolver','bomber','boxer','bait'].includes(data.role)){
+      host.replaceChildren();
+      const buildCostume=data.costumeLib?new Function('THREE',data.costumeLib+'\nreturn buildLightCostume;')(THREE):null;
+      controller=makeSelectedScene(THREE,{renderer,data,art:createArt(THREE),buildCostume,cue:playSelectedCue});
+      finishInitialization(data);return;
+    }
     const parsed=new DOMParser().parseFromString(data.source,'text/html');
     const script=[...parsed.querySelectorAll('script[type="module"]')].map(node=>node.textContent).join('\n');
     if(!script.includes('function startLoop(update)'))throw new Error('Unsupported original animation');
@@ -136,6 +157,17 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     const previousNodes=new Set(document.body.children);
     controller=new Function('THREE','EffectComposer','RenderPass','UnrealBloomPass','OutputPass','__runtime','addEventListener','setTimeout',data.costumeLib+'\n'+code+'\n'+bridge)(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,runtime,listen,timeout);
     controller.nodes=[...document.body.children].filter(node=>!previousNodes.has(node));
+    finishInitialization(data);
+  }
+  function playSelectedCue(from,to,length,type){
+    if(!playing&&!audible)return;
+    try{
+      if(!sharedAudio){const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;sharedAudio=new Audio();audioOutput=sharedAudio.createGain();audioOutput.connect(sharedAudio.destination);}
+      audioOutput.gain.value=Math.max(0,Math.min(1,Number(configuration?.payload?.volume)||0));sharedAudio.resume().catch(()=>{});
+      const at=sharedAudio.currentTime,osc=sharedAudio.createOscillator(),envelope=sharedAudio.createGain();osc.type=type||'triangle';osc.frequency.setValueAtTime(from,at);osc.frequency.exponentialRampToValueAtTime(Math.max(20,to),at+length);envelope.gain.setValueAtTime(.0001,at);envelope.gain.exponentialRampToValueAtTime(.10,at+.008);envelope.gain.exponentialRampToValueAtTime(.0001,at+length);osc.connect(envelope);envelope.connect(audioOutput);osc.onended=()=>{osc.disconnect();envelope.disconnect();};osc.start(at);osc.stop(at+length+.02);
+    }catch{}
+  }
+  function finishInitialization(data){
     for(const [index,actor] of controller.actors.entries()){
       const name=index===0?data.payload?.killerName:data.payload?.victims?.[index-1]?.name||data.payload?.victimName;
       if(!name)continue;
@@ -231,42 +263,13 @@ export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.ne
   };
   window.addEventListener('message',receive);
   const base=cdnBase.replace(/\/$/,'');
-  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}),(${createRenderBudget.toString()}));<\/script></body></html>`
+  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}),(${createRenderBudget.toString()}),(${createSelectedRoleCinematic.toString()}));<\/script></body></html>`
     .replace('<script type="module">',`<script type="importmap">${JSON.stringify({imports:{three:base+'/build/three.module.js','three/addons/':base+'/examples/jsm/'}})}<\/script><script type="module">`);
-  const slash=document.createElement('div');
-  slash.setAttribute('aria-hidden','true');
-  slash.style.cssText='position:absolute;inset:0;overflow:hidden;pointer-events:none;visibility:hidden;isolation:isolate';
-  slash.innerHTML=`<style>
-    @keyframes ssx-kill-atmosphere{0%{opacity:0;transform:scale(.96)}18%{opacity:1;transform:scale(1)}100%{opacity:.8;transform:scale(1)}}
-    @keyframes ssx-kill-light{0%{transform:translateX(-28%);opacity:0}25%{opacity:.6}100%{transform:translateX(18%);opacity:0}}
-    .ssx-kill-atmosphere{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 56%,#10293de8 0%,#091724ed 40%,#020711f5 100%)}
-    .ssx-kill-atmosphere::before,.ssx-kill-atmosphere::after{content:'';position:absolute;left:8%;width:84%;height:1px;background:linear-gradient(90deg,transparent,var(--ssx-kill-accent,#a8deee) 45%,transparent);opacity:.28;filter:drop-shadow(0 0 5px var(--ssx-kill-accent,#a8deee));transform:rotate(-3deg)}
-    .ssx-kill-atmosphere::before{top:21%}.ssx-kill-atmosphere::after{bottom:16%;transform:rotate(2deg)}
-    .ssx-kill-slash-on .ssx-kill-atmosphere{animation:ssx-kill-atmosphere .7s cubic-bezier(.2,.75,.25,1) both}
-    .ssx-kill-rim{position:absolute;inset:6% 0;background:radial-gradient(ellipse at -8% 57%,color-mix(in srgb,var(--ssx-kill-accent,#a8deee) 20%,transparent),transparent 40%),radial-gradient(ellipse at 108% 42%,color-mix(in srgb,var(--ssx-kill-accent,#a8deee) 18%,transparent),transparent 40%)}
-    .ssx-kill-light{position:absolute;left:6%;right:6%;top:21%;height:1px;background:linear-gradient(90deg,transparent,var(--ssx-kill-accent,#a8deee),transparent);opacity:0;transform:rotate(-3deg)}
-    .ssx-kill-slash-on .ssx-kill-light{animation:ssx-kill-light .75s ease-out both}
-    .ssx-kill-fin{position:absolute;top:0;bottom:0;width:27%;background:linear-gradient(135deg,#243d50,#0a1623 62%);border-inline:1px solid color-mix(in srgb,var(--ssx-kill-accent) 48%,#234052);box-shadow:inset 0 0 35px #020810}
-    .ssx-kill-fin.left{left:0;clip-path:polygon(0 0,90% 0,60% 35%,100% 48%,45% 100%,0 100%)}
-    .ssx-kill-fin.right{right:0;clip-path:polygon(10% 0,100% 0,100% 100%,55% 100%,0 48%,40% 35%)}
-    .ssx-kill-orbit{position:absolute;left:50%;top:54%;width:min(62vw,84vh);aspect-ratio:1;border:1px solid color-mix(in srgb,var(--ssx-kill-accent) 25%,transparent);border-radius:50%;transform:translate(-50%,-50%) rotate(-24deg);box-shadow:0 0 0 14px #78b4d008,inset 0 0 0 32px #78b4d005}
-    .ssx-kill-orbit::before,.ssx-kill-orbit::after{content:'';position:absolute;inset:-5%;border:2px solid transparent;border-top-color:var(--ssx-kill-accent);border-bottom-color:var(--ssx-kill-accent);border-radius:50%;opacity:.25}
-    .ssx-kill-orbit::after{inset:9%;transform:rotate(80deg);opacity:.12}
-    .ssx-kill-streaks{position:absolute;inset:8% 0;background:repeating-linear-gradient(-14deg,transparent 0 48px,#a3d8ee10 49px,transparent 50px 93px);opacity:0}
-    @keyframes ssx-kill-fin-left{from{opacity:0;transform:translateX(-26%)}to{opacity:1;transform:translateX(0)}}
-    @keyframes ssx-kill-fin-right{from{opacity:0;transform:translateX(26%)}to{opacity:1;transform:translateX(0)}}
-    @keyframes ssx-kill-orbit-enter{from{opacity:0;transform:translate(-50%,-50%) rotate(-38deg) scale(1.12)}to{opacity:1;transform:translate(-50%,-50%) rotate(-24deg) scale(1)}}
-    @keyframes ssx-kill-streak-enter{0%{opacity:0;transform:translateX(-8%)}35%{opacity:.8}100%{opacity:.35;transform:translateX(4%)}}
-    .ssx-kill-slash-on .ssx-kill-fin.left{animation:ssx-kill-fin-left .42s cubic-bezier(.16,.8,.25,1) both}
-    .ssx-kill-slash-on .ssx-kill-fin.right{animation:ssx-kill-fin-right .42s cubic-bezier(.16,.8,.25,1) both}
-    .ssx-kill-slash-on .ssx-kill-orbit{animation:ssx-kill-orbit-enter .7s ease-out both}
-    .ssx-kill-slash-on .ssx-kill-streaks{animation:ssx-kill-streak-enter .8s ease-out both}
-    @media(prefers-reduced-motion:reduce){.ssx-kill-slash-on :is(.ssx-kill-atmosphere,.ssx-kill-light,.ssx-kill-fin,.ssx-kill-orbit,.ssx-kill-streaks){animation:none}.ssx-kill-light{display:none}.ssx-kill-streaks{opacity:.2}}
-  </style><div class="ssx-kill-atmosphere"></div><div class="ssx-kill-rim"></div><div class="ssx-kill-fin left"></div><div class="ssx-kill-fin right"></div><div class="ssx-kill-orbit"></div><div class="ssx-kill-streaks"></div><div class="ssx-kill-light"></div>`;
+  const slash=createKillCinematicBackground();
   mount.append(slash,frame);
   return {
     frame,
-    configure(assets,role,payload={},autoPlay=false){const spec=authoredKillSpec(assets,role);const accents={samurai:'#aeeeff',viper:'#9dff83',vampire:'#bf9aff',arsonist:'#ffb86c',waveCannon:'#68edff',conjurer:'#ba9cff',rocket:'#ffcf8c'};slash.style.setProperty('--ssx-kill-accent',accents[spec.role]||'#b3d7e5');pending={...spec,type:'authored-configure',costumeLib:assets.COSTUME_LIB_SRC||'',payload,autoPlay,id:String(payload.id||crypto.randomUUID())};lastTime=null;if(ready)post(pending);return spec;},
+    configure(assets,role,payload={},autoPlay=false){const spec=authoredKillSpec(assets,role);const accents={fencer:'#8cecff',evolver:'#9cea8b',bomber:'#ffb65b',boxer:'#ff8a9f',bait:'#ffd18c',samurai:'#aeeeff',viper:'#9dff83',vampire:'#bf9aff',arsonist:'#ffb86c',waveCannon:'#68edff',conjurer:'#ba9cff',rocket:'#ffcf8c'};slash.style.setProperty('--ssx-kill-accent',accents[spec.role]||'#ff7589');pending={...spec,type:'authored-configure',costumeLib:assets.COSTUME_LIB_SRC||'',payload,autoPlay,id:String(payload.id||crypto.randomUUID())};lastTime=null;if(ready)post(pending);return spec;},
     seek(time,audible=false){lastTime=time;lastAudible=audible;if(ready&&pending)post({type:'authored-time',time,audible});},
     setVolume(volume){if(pending)pending.payload.volume=Math.max(0,Math.min(1,Number(volume)||0));post({type:'authored-volume',volume});},
     show(visible){const changed=(frame.style.visibility==='visible')!==visible;frame.style.visibility=visible?'visible':'hidden';slash.style.visibility=visible?'visible':'hidden';slash.classList.toggle('ssx-kill-slash-on',visible);if(visible&&changed)post({type:'authored-resize'});},

@@ -1,3 +1,4 @@
+import {buildAbilityActionIcon} from './ability-action-icons.js';
 // The DOM owns text, focus and touch input. This scene draws only the physical
 // controls into the game's existing renderer after the world/visibility pass.
 // There is no extra WebGL context, readback, or animation loop.
@@ -7,6 +8,7 @@ const ACTIONS = {
   sabotageBtn: {kind:'bolt', color:0xbe94ff, faceColor:0x4b1b70}, abilityBtn: {kind:'ability', color:0x72e7cf, faceColor:0x075747},
   reportBtn: {kind:'report', color:0xffbe6d, faceColor:0x71410e}, rocketLaunchBtn: {kind:'rocket', color:0xffac72, faceColor:0x763316},
   waveHawkBtn: {kind:'eye', color:0x8fe8f7, faceColor:0x124b58},
+  jackalSidekickBtn: {kind:'recruit',color:0x84e2c0,faceColor:0x075747},
   roundRoleBtn: {kind:'roles', color:0x78e0d9, utility:true},
   mapBtn: {kind:'map', color:0x8ac9ef, utility:true},
   titleInputSettingsBtn: {kind:'gear', color:0x9bb9d2, utility:true, symbolOnly:true},
@@ -46,6 +48,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   const crystal=geometry('crystal',()=>new THREE.OctahedronGeometry(.48));
   function mesh(parent,g,m,x=0,y=0,z=0,scale){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);if(scale)o.scale.set(...scale);parent.add(o);return o;}
   function icon(kind,accent) {
+    const model=buildAbilityActionIcon({THREE,kind,accent,geometry,material,basic,polygon,mesh,cube});if(model)return model;
     const group=new THREE.Group(),metal=material(0xdbedf4,{metalness:.7,roughness:.25}),tint=material(accent,{emissive:accent,emissiveIntensity:.2});
     if(kind==='outfit'){
       mesh(group,polygon([[-.65,.42],[-.3,.65],[-.16,.5],[.16,.5],[.3,.65],[.65,.42],[.44,.14],[.27,.25],[.27,-.6],[-.27,-.6],[-.27,.25],[-.44,.14]]),metal);mesh(group,cube,tint,0,-.05,.18,[.16,.75,.07]);
@@ -115,6 +118,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     return group;
   }
   function build(button,spec) {
+    spec={...spec};
     const group=new THREE.Group(),cap=new THREE.Group();group.name='action:'+button.id;group.add(cap);scene.add(group);
     const shellMat=material(0x172534,{roughness:.48}),edgeMat=material(spec.color,{emissive:spec.color,emissiveIntensity:.34}),faceMat=material(spec.faceColor||0x102130,{metalness:.3,roughness:.46});
     const shell=mesh(group,cube,shellMat),edge=mesh(cap,cube,edgeMat,0,0,2),face=mesh(cap,cube,faceMat,0,0,4);
@@ -128,6 +132,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     const muteSlash=spec.kind==='mic'?mesh(cap,cube,red,0,0,29,[32,3,2]):null;
     if(muteSlash){muteSlash.rotation.z=-Math.PI/4;muteSlash.visible=false;}
     const record={button,spec,group,cap,shell,edge,face,shellMat,edgeMat,faceMat,symbol,headset,arc,spent,muteSlash,w:0,h:0,press:0,pressUntil:0,hover:false,cooling:0,disabled:false};
+    record.symbolKey=spec.kind+':'+spec.color;record.symbols=new Map([[record.symbolKey,symbol]]);record.iconKind=spec.kind;
     records.set(button.id,record);button.dataset.threeAction='true';return record;
   }
   for(const [id,spec] of Object.entries(actions)){const b=spec.utility||spec.external?document.getElementById(id):root?.querySelector('#'+id);if(b)build(b,spec);}
@@ -138,7 +143,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   const watchedDialogs=new WeakSet();
   const observer=new MutationObserver(changes=>{if(changes.some(c=>c.type==='childList'&&c.target===document.body))watchDialogs();invalidate();});
   function watchDialogs(){for(const dialog of document.querySelectorAll('[aria-modal="true"]'))if(!watchedDialogs.has(dialog)){watchedDialogs.add(dialog);observer.observe(dialog,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden','aria-modal']});}}
-  if(root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','disabled','hidden','data-exhausted','data-action-icon']});
+  if(root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','disabled','hidden','data-exhausted','data-action-icon','data-action-color']});
   const controls=root?.closest('#controls'),holder=root?.parentElement;
   if(controls)observer.observe(controls,{attributes:true,attributeFilter:['class','style','hidden']});
   if(holder)observer.observe(holder,{attributes:true,attributeFilter:['class','style','hidden']});
@@ -157,6 +162,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   function setActive(value){if(active===value)return;active=value;document.body.dataset[stateAttribute]=String(value);if(value)dirty=true;}
   function layout(stamp) {
     dirty=false;lastLayoutAt=stamp;const canvas=renderer.domElement.getBoundingClientRect();
+    for(const[id,spec]of Object.entries(actions))if(!records.has(id)){const b=spec.utility||spec.external?document.getElementById(id):root?.querySelector('#'+id);if(b)build(b,spec);}
     renderer.getSize(size);camera.left=0;camera.right=size.x;camera.top=size.y;camera.bottom=0;camera.updateProjectionMatrix();
     const sx=size.x/Math.max(1,canvas.width),sy=size.y/Math.max(1,canvas.height);
     for(const r of records.values()){
@@ -166,22 +172,23 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
       const w=Math.round(box.width*sx),h=Math.round(box.height*sy),roomy=!r.spec.symbolOnly&&(w>=82||!r.spec.utility&&w>=66&&h>=48)&&h>=(r.spec.utility?40:38),symbolOnly=!!r.spec.symbolOnly;
       if(b.dataset.threeActionLayout!==(symbolOnly?'symbol':roomy?'icon':'compact'))b.dataset.threeActionLayout=symbolOnly?'symbol':roomy?'icon':'compact';
       const inset=Math.round(box.width*(r.spec.utility ? .28 : .38))+'px';if(b.style.getPropertyValue('--three-action-label-inset')!==inset)b.style.setProperty('--three-action-label-inset',inset);
+      const compactTop=Math.round(box.height*.48)+'px';if(b.style.getPropertyValue('--three-action-compact-top')!==compactTop)b.style.setProperty('--three-action-compact-top',compactTop);
       const caption=b.querySelector('#abilityCaption,#rocketLaunchCaption'),text=(caption||b).textContent;
-      if(b.id==='taskBtn'||b.id==='lobbyUseBtn'){
-        const kind=b.id==='lobbyUseBtn'?(b.dataset.actionIcon||'use'):/ベント|出る/.test(text)?'vent':/ドア|扉|開く/.test(text)?'door':/会議/.test(text)?'meeting':'use';
-        if(kind!==(r.useKind||'use')){r.useSymbols||=new Map([['use',r.symbol]]);r.symbol.visible=false;if(!r.useSymbols.has(kind)){const next=icon(kind,r.spec.color);r.cap.add(next);r.useSymbols.set(kind,next);}r.symbol=r.useSymbols.get(kind);r.useKind=kind;}
-      }
+      const kind=b.dataset.actionIcon||(b.id==='taskBtn'?/ベント|出る/.test(text)?'vent':/アドミン/.test(text)?'admin':/カメラ/.test(text)?'security':/バイタル/.test(text)?'medical':/ドア|扉|開く/.test(text)?'door':/会議/.test(text)?'meeting':'use':r.spec.kind);
+      const color=b.dataset.actionColor?new THREE.Color(b.dataset.actionColor).getHex():r.spec.color,key=kind+':'+color;
+      if(key!==r.symbolKey){r.symbol.visible=false;if(!r.symbols.has(key)){const next=icon(kind,color);r.cap.add(next);r.symbols.set(key,next);}r.symbol=r.symbols.get(key);r.symbolKey=key;}
+      r.iconKind=kind;r.spec.color=color;
 
-      const padding=roomy?parseFloat(inset)+7:12,available=Math.max(1,box.width-padding-3),maximum=Math.min(r.spec.utility?18:22,box.height*(r.spec.utility ? .3 : .25));
+      const stacked=!roomy&&!symbolOnly,padding=roomy?parseFloat(inset)+7:7,available=Math.max(1,box.width-padding-3),maximum=Math.min(stacked?12:r.spec.utility?18:22,box.height*(r.spec.utility ? .3 : .25));
       if(textContext&&!symbolOnly){textContext.font=style.fontWeight+' '+maximum+'px '+style.fontFamily;const measured=textContext.measureText(text).width;
         const font=(Math.max(9,Math.min(maximum,maximum*available/Math.max(1,measured)))).toFixed(1)+'px';
         if(b.style.getPropertyValue('font-size')!==font)b.style.setProperty('font-size',font,'important');}
       r.group.position.set((box.left+box.width/2-canvas.left)*sx,(canvas.bottom-box.top-box.height/2)*sy,0);
       r.group.rotation.set(r.spec.utility ? .09 : .16,-.055,0);
       if(r.w!==w||r.h!==h){r.w=w;r.h=h;r.shell.geometry=tileGeometry(w-5,h-6,4,9);r.edge.geometry=tileGeometry(w-9,h-10,2,8);r.face.geometry=tileGeometry(w-12,h-13,2,7);}
-      const iconScale=Math.min(24,h*.29),iconX=roomy?-w*(r.spec.utility ? .35 : .29):0;
-      r.symbol.position.set(iconX,1,20);r.symbol.scale.setScalar(iconScale);r.symbol.visible=roomy||symbolOnly;
-      r.spent.position.x=iconX;r.arc.position.x=iconX;r.arc.scale.setScalar(iconScale*1.17);
+      const iconScale=stacked?Math.min(14,h*.23):Math.min(24,h*.29),iconX=roomy?-w*(r.spec.utility ? .35 : .29):0,iconY=stacked?h*.17:1;
+      r.symbol.position.set(iconX,iconY,20);r.symbol.scale.setScalar(iconScale);r.symbol.visible=true;
+      r.spent.position.set(iconX,iconY,0);r.arc.position.set(iconX,iconY,23);r.arc.scale.setScalar(iconScale*1.17);
       r.cooling=Math.max(0,Math.min(1,(parseFloat(b.style.getPropertyValue('--cooldown'))||0)/360));
       r.disabled=b.disabled;r.speaking=b.dataset.speaking==='true';r.spent.visible=b.dataset.exhausted==='true';
       if(r.muteSlash){
@@ -229,5 +236,5 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   }
   function dispose(){if(disposed)return;disposed=true;setActive(false);observer.disconnect();resize?.disconnect();window.removeEventListener('resize',invalidate);window.visualViewport?.removeEventListener('resize',invalidate);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',invalidate);document.removeEventListener('pointerdown',press,true);document.removeEventListener('pointerover',over);document.removeEventListener('pointerout',out);for(const r of records.values()){delete r.button.dataset.threeAction;delete r.button.dataset.threeActionLayout;}for(const g of geometries)g.dispose();for(const m of materials)m.dispose();scene.clear();records.clear();}
   return {draw,dispose,invalidate,getStats:()=>({active,failed,draws,objects:records.size,geometries:geometries.size,materials:materials.size,
-    visible:[...records.values()].filter(r=>r.group.visible).map(r=>({id:r.button.id,width:r.w,height:r.h,disabled:r.disabled,cooldown:r.cooling,cooldownIndices:r.arc.geometry.drawRange.count,spent:r.spent.visible,icon:r.useKind||r.spec.kind,pressed:r.press}))})};
+    visible:[...records.values()].filter(r=>r.group.visible).map(r=>({id:r.button.id,width:r.w,height:r.h,disabled:r.disabled,cooldown:r.cooling,cooldownIndices:r.arc.geometry.drawRange.count,spent:r.spent.visible,icon:r.iconKind,pressed:r.press}))})};
 }

@@ -1,6 +1,4 @@
-import {authoredKillRoles,resolveAuthoredKillRole} from './authored-kill-player.js';
-
-const durationFor=role=>Math.max(.1,(authoredKillRoles.find(([id])=>id===role)?.[2]||4.2)-.22)/1.16*1000;
+import {authoredKillDurationMs as durationFor,resolveAuthoredKillRole} from './authored-kill-player.js';
 const currentPresentation=game=>{
   const presentation=game?.killPresentation;
   return ['play','ended'].includes(game?.phase)&&presentation?.round===game.round?presentation:null;
@@ -8,11 +6,10 @@ const currentPresentation=game=>{
 function pendingViewers(game,presentation){
   return Object.entries(presentation.pending||{}).filter(([id,entry])=>{
     const player=game.players?.[id];
-    return player&&!player.bot&&!player.disconnected&&(!player.observer||entry.kind==='victory')&&
-      (entry.kind==='victory'||player.alive===false);
+    return entry.kind==='death'&&player&&!player.bot&&!player.disconnected&&!player.observer&&player.alive===false;
   });
 }
-function addPlayback(game,playerId,key,role,kind,stamp){
+function addPlayback(game,playerId,key,role,stamp){
   let presentation=currentPresentation(game);
   if(!presentation||presentationReadyAt(game)<=stamp){
     presentation={round:game.round,untilAt:stamp,deadlineAt:stamp,pending:{}};
@@ -22,9 +19,8 @@ function addPlayback(game,playerId,key,role,kind,stamp){
   presentation.untilAt=Math.max(Number(presentation.untilAt)||0,stamp+duration);
   // A disconnected or outdated client cannot leave the room locked indefinitely.
   presentation.deadlineAt=Math.max(Number(presentation.deadlineAt)||0,stamp+15000);
-  if(kind==='victory')presentation.hasVictory=true;
-  if(player&&!player.bot&&!player.disconnected&&(!player.observer||kind==='victory'))
-    (presentation.pending||={})[playerId]={key:String(key),kind,role};
+  if(player&&!player.bot&&!player.disconnected&&!player.observer&&player.alive===false)
+    (presentation.pending||={})[playerId]={key:String(key),kind:'death',role};
   delete presentation.completedAt;
   return presentation;
 }
@@ -32,41 +28,24 @@ export function registerDeathPlayback(game,event,stamp){
   if(game.phase!=='play'||!event?.victim)return false;
   const player=game.players?.[event.victim],killer=game.players?.[event.killer];
   if(!player||!killer)return false;
-  addPlayback(game,event.victim,player.deathAt,resolveAuthoredKillRole(player.deathCause||event.cause,killer),'death',stamp);
+  addPlayback(game,event.victim,player.deathAt,resolveAuthoredKillRole(player.deathCause||event.cause,killer),stamp);
   return true;
 }
-export function registerWinningPlayback(game,stamp){
-  if(game.phase!=='ended')return false;
-  if(game.winner!=='arsonist'){
-    const event=game.killEvent,killerId=String(event?.killer||''),victim=game.players?.[event?.victim],killer=game.players?.[killerId];
-    const endedAt=Number(game.endedAt)||stamp,eventAt=Number(event?.at)||0;
-    if(!event?.id||!killerId||!killer||killer.alive!==true||!victim||victim.alive!==false||eventAt<endedAt-2500||eventAt>stamp+1000||killer.bot||killer.disconnected)return false;
-    const key=`victory:${game.round}:last-kill:${event.id}`;
-    if(game.winningKillPlayback?.key===key)return false;
-    const role=resolveAuthoredKillRole(event.cause||victim.deathCause,killer);
-    game.winningKillPlayback={key,player:killerId,role};
-    // Samurai sees the shared world slash, not a second fullscreen scene.
-    if(role==='samurai'){
-      const presentation=currentPresentation(game);
-      if(presentation)presentation.hasVictory=true;
-      return true;
-    }
-    addPlayback(game,killerId,key,role,'victory',stamp);
-    return true;
-  }
-  const winner=Object.entries(game.players||{}).find(([,player])=>player?.alive&&!player.observer&&!player.disconnected&&player.subrole==='arsonist');
-  if(!winner)return false;
-  const [id]=winner,key=`victory:${game.round}:arsonist`;
-  if(game.winningKillPlayback?.key===key)return false;
-  game.winningKillPlayback={key,player:id,role:'arsonist'};
-  // Victims are already watching the ignition death scene. Other participants,
-  // including earlier ghosts and observers, see the winning ignition once.
-  addPlayback(game,id,key,'arsonist','victory',stamp);
-  for(const [viewerId,player] of Object.entries(game.players||{})){
-    if(viewerId===id||player?.bot||player?.disconnected||game.killPresentation?.pending?.[viewerId]?.kind==='death')continue;
-    addPlayback(game,viewerId,key,'arsonist','victory',stamp);
-  }
+export function registerWinningPlayback(game){
+  const presentation=currentPresentation(game);
+  if(game.phase!=='ended'||!presentation||presentation.hasVictory)return false;
+  // Finish the victims' existing scenes before the result. Do not start a
+  // second kill animation for the attacker, observers or earlier ghosts.
+  presentation.hasVictory=true;
+  delete game.winningKillPlayback;
   return true;
+}
+export function isLastKillPlayback(game,viewer){
+  const event=game?.killEvent,player=game?.players?.[viewer],entry=currentPresentation(game)?.pending?.[viewer];
+  const endedAt=Number(game?.endedAt)||Number(event?.at)||0,at=Number(event?.at)||0;
+  return game?.phase==='ended'&&!!event?.id&&entry?.kind==='death'&&player?.alive===false&&
+    at>0&&Math.abs(endedAt-at)<=2500&&Math.abs(Number(player.deathAt)-at)<=250&&
+    (event.victim===viewer||player.killedById===event.killer);
 }
 export function presentationReadyAt(game){
   const presentation=currentPresentation(game);if(!presentation)return 0;

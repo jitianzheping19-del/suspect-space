@@ -2,6 +2,31 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "appSettings": {
+      "firebaseConnection": {
+        ".read": true,
+        ".write": "auth != null && (auth.uid === 'dUAYnvjlbvTUluFXyQkTsAFMs1c2' || auth.uid === 'Lv0aTXfHM7M3CItek3dNwjjd0si1') && newData.exists()",
+        ".validate": "newData.hasChildren(['active','databaseURL2','revision','updatedBy','updatedAt']) && (newData.child('active').val() === 'firebase1' || newData.child('active').val() === 'firebase2') && newData.child('databaseURL2').isString() && newData.child('databaseURL2').val().length <= 200 && newData.child('databaseURL2').val().matches(/^https:\\/\\/among-d587b[-a-z0-9.]*\\.(firebasedatabase\\.app|firebaseio\\.com)$/) && newData.child('revision').isNumber() && newData.child('revision').val() === (data.exists() ? data.child('revision').val() + 1 : 1) && newData.child('updatedBy').val() === auth.uid && newData.child('updatedAt').isNumber()",
+        "active": {
+          ".validate": true
+        },
+        "databaseURL2": {
+          ".validate": true
+        },
+        "revision": {
+          ".validate": true
+        },
+        "updatedBy": {
+          ".validate": true
+        },
+        "updatedAt": {
+          ".validate": true
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "profiles": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

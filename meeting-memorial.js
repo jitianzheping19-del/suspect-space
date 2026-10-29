@@ -34,24 +34,28 @@ export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
   scene.add(new THREE.HemisphereLight(0xd9f5ff,0x263941,2.7));const key=new THREE.DirectionalLight(0xffead5,3);key.position.set(-4,8,6);scene.add(key);const rim=new THREE.DirectionalLight(0x6da9ff,2.3);rim.position.set(3,5,-3);scene.add(rim);
   function nameTag(name,parent){
    const c=document.createElement('canvas');c.width=512;c.height=96;const ctx=c.getContext('2d');ctx.font='800 44px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.strokeStyle='#06111c';ctx.lineWidth=7;ctx.strokeText(name,256,48,490);ctx.fillStyle='#f2f9ff';ctx.fillText(name,256,48,490);
-   const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;textures.add(map);const mat=new THREE.SpriteMaterial({map,depthWrite:false,depthTest:false});materials.add(mat);const sprite=new THREE.Sprite(mat);sprite.position.set(0,3.82,.15);sprite.scale.set(2.4,.45,1);parent.add(sprite);
+   const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;textures.add(map);const mat=new THREE.SpriteMaterial({map,depthWrite:false,depthTest:false});materials.add(mat);const sprite=new THREE.Sprite(mat);sprite.position.set(0,2.55,-1.35);sprite.scale.set(2.4,.45,1);parent.add(sprite);
   }
   const silhouette=new THREE.Shape();silhouette.moveTo(-.93,0);silhouette.lineTo(.93,0);silhouette.lineTo(.93,2.9);silhouette.quadraticCurveTo(.93,3.53,0,3.65);silhouette.quadraticCurveTo(-.93,3.53,-.93,2.9);silhouette.closePath();
   const slab=ownGeometry(new THREE.ExtrudeGeometry(silhouette,{depth:.18,bevelEnabled:true,bevelSegments:2,bevelSize:.04,bevelThickness:.03}));
   for(const[order,p]of deaths.entries()){
    const root=new THREE.Group();root.position.x=(order-(deaths.length-1)/2)*2.65;root.name='memorial-'+p.id;scene.add(root);graveRoots.push(root);
-   add(box,stone,0,.02,0,2.05,.2,1.35,root);add(box,trim,0,.15,0,1.94,.06,1.25,root);add(slab,stone,0,.2,-.55,1,1,1,root);
-   for(const side of[-1,1]){add(box,trim,side*.88,1.72,-.36,.045,2.9,.045,root);add(box,glow,side*.84,1.72,-.33,.018,2.8,.018,root);}
-   add(box,trim,0,3.25,-.36,.72,.07,.06,root);add(box,trim,0,3.25,-.36,.07,.45,.07,root);
+   add(box,stone,0,.02,0,2.05,.2,3.2,root);add(box,trim,0,.15,0,1.94,.06,3.08,root);add(slab,stone,0,.2,-1.65,1,.55,1,root);
+   for(const side of[-1,1]){add(box,trim,side*.88,1.02,-1.44,.045,1.55,.045,root);add(box,glow,side*.84,1.02,-1.41,.018,1.48,.018,root);}
+   add(box,trim,0,1.88,-1.44,.60,.055,.06,root);add(box,trim,0,1.88,-1.44,.055,.37,.07,root);
    const actor=createCrew(p);actors.push(actor);actor.traverse(n=>{if(n.isSprite)n.visible=false;});
    if(actor.userData.petFollower)actor.userData.petFollower.visible=false;
+   if(actor.userData.groundShadow)actor.userData.groundShadow.visible=false;
+   const aura=actor.getObjectByName('signature-aura');if(aura)aura.visible=false;
+   // The deceased rests horizontally on the grave, wearing their own costume.
+   actor.rotation.set(-Math.PI/2,0,0);
    // Hidden particle pools can sit hundreds of units away. They are not part
    // of the clothing's dimensions, nor are the name and targeting helpers.
    actor.updateMatrixWorld(true);const bounds=new THREE.Box3();
    actor.traverseVisible(n=>{if(!n.isMesh||!n.geometry)return;for(let p=n;p&&p!==actor;p=p.parent)if(p.name==='signature-aura')return;n.geometry.computeBoundingBox();const b=n.geometry.boundingBox?.clone().applyMatrix4(n.matrixWorld);if(b&&b.min.length()<12&&b.max.length()<12)bounds.union(b);});
    if(bounds.isEmpty())bounds.set(new THREE.Vector3(-.5,0,-.5),new THREE.Vector3(.5,2,.5));
-   const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),scale=Math.min(1,1.58/Math.max(1,size.x),2.8/Math.max(1,size.y));actor.scale.multiplyScalar(scale);actor.position.set(-center.x*scale,.22-bounds.min.y*scale,.04);actor.rotation.y=.12;root.add(actor);
-   add(box,glass,0,1.67,.67,1.71,2.96,.025,root);nameTag(p.name,root);
+   const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3()),scale=Math.min(1,1.58/Math.max(1,size.x),2.7/Math.max(1,size.z));actor.scale.multiplyScalar(scale);actor.position.set(-center.x*scale,.22-bounds.min.y*scale,-center.z*scale);root.add(actor);
+   nameTag(p.name,root);
    const button=document.createElement('button');button.type='button';button.textContent=p.name;button.onclick=()=>{manual=order;};names.append(button);
   }
   let raf=0,finished=false,manual=null,lastSelected=-1,width=1,height=1;const started=performance.now()-Math.max(0,elapsed);
@@ -66,7 +70,7 @@ export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
    const current=Math.min(deaths.length-1,Math.floor(age/Math.max(1,duration/deaths.length))),selected=manual??current;
    // Keep every grave in the same horizontal row. Narrow screens scroll the
    // canvas instead of shrinking the skins or replacing the row with a carousel.
-   const fit=4.7/(2*Math.tan(35*Math.PI/360)),span=(deaths.length-1)*2.65+2.5;camera.position.set(0,2.7,Math.max(fit,span/(2*Math.tan(35*Math.PI/360)*camera.aspect)));camera.lookAt(0,1.9,0);
+   const fit=4.7/(2*Math.tan(35*Math.PI/360)),span=(deaths.length-1)*2.65+2.5;camera.position.set(0,4.6,Math.max(fit,span/(2*Math.tan(35*Math.PI/360)*camera.aspect)));camera.lookAt(0,1,0);
    if(selected!==lastSelected){lastSelected=selected;viewport.scrollTo({left:Math.max(0,(selected+.5)*width/deaths.length-viewport.clientWidth/2),behavior:reduced?'instant':'smooth'});}
    for(const[i,root]of graveRoots.entries())root.position.y=reduced?0:Math.sin(stamp*.0008+i)*.015;
    for(const actor of actors)actor.userData.costumeRoot?.userData.updateGiftSkin?.(stamp*.001,{moving:false,jumping:false});

@@ -18,7 +18,7 @@ function fixture(role,side='impostor',settings={}){
  const use=(ability,extra={},id='a')=>{last=null;const handled=rules.ability({g,actor:id,p:g.players[id],cmd:{ability,...extra},setResult:(ok,text)=>{last={ok,text};}});return{handled,...last};};
  return{g,rules,use};
 }
-test('all requested named roles registered',()=>assert.equal(Object.keys(EXPANSION_ROLES).length,8));
+test('all requested named roles registered',()=>assert.equal(Object.keys(EXPANSION_ROLES).length,14));
 test('overloader reveals, strengthens, restores and obeys cooldown',()=>{
  const{g,rules,use}=fixture('overloader');assert(use('overloader').ok);assert(g.players.a.overloaded);assert.equal(expansionKillRange(g.players.a),5);assert.equal(expansionKillCooldown(g.players.a,{},30000),15000);assert.equal(use('overloader').ok,false);stamp+=3000;assert(use('overloader').ok);assert(!g.players.a.overloaded);assert.equal(use('overloader').ok,false);rules.meeting({g});assert(!g.players.a.overloaded);
 });

@@ -128,7 +128,7 @@
 
     const originalAssets=await fetch(new URL('./kill-originals.json',location.href)).then(response=>{if(!response.ok)throw new Error('元の演出データを読み込めません');return response.json();});
     const rolePicker=document.querySelector('#rolePicker');
-    rolePicker.innerHTML=authoredKillRoles.map(([id,label])=>`<option value="${id}">${label}</option>`).join('');
+    rolePicker.innerHTML=authoredKillRoles.filter(([id])=>!["bait","carrier"].includes(id)).map(([id,label])=>`<option value="${id}">${label}</option>`).join('');
     const requestedRole=new URLSearchParams(location.search).get('role');
     let selectedRole=authoredKillRoles.some(([id])=>id===requestedRole)?requestedRole:'impostor';rolePicker.value=selectedRole;
     const originalPlayer=createAuthoredKillPlayer({mount:document.querySelector('#authoredStage'),onError:message=>{document.querySelector('#viewDescription').textContent='演出を読み込めません: '+message;console.error(message);}});

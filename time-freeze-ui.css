@@ -1,0 +1,8 @@
+#timeFreezeStatus{position:fixed;left:50%;top:19%;transform:translateX(-50%);z-index:60;pointer-events:none;display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:0 13px;width:clamp(235px,28vw,340px);padding:13px 18px 17px;border:1px solid #9de6ff92;border-radius:7px 20px 7px 20px;background:linear-gradient(115deg,#092138f5,#102f46f5 60%,#183c54f5);box-shadow:inset 0 1px #d3f7ff40,0 6px 22px #020a16a0;color:#e1f9ff}
+#timeFreezeStatus[hidden]{display:none!important}
+#timeFreezeStatus .freezeEmblem{grid-row:1/3;width:42px;height:42px;display:grid;place-items:center;border:1px solid #83dfff65;border-radius:50%;color:#92e8ff;font-size:30px;text-shadow:0 0 9px #76cfff66}
+#timeFreezeStatus .freezeTitle{font-size:clamp(15px,1.6vw,20px);font-weight:800;letter-spacing:.16em}
+#timeFreezeStatus .freezeSeconds{font-size:30px;line-height:1.2;font-weight:700;font-variant-numeric:tabular-nums;color:#a0edff}
+#timeFreezeStatus .freezeTrack{grid-column:2/4;height:3px;margin-top:7px;background:#8bdafa22;overflow:hidden;border-radius:2px}
+#timeFreezeStatus .freezeTrack i{display:block;height:100%;background:linear-gradient(90deg,#398fca,#d1fcff);transform:scaleX(var(--freeze-left,1));transform-origin:left}
+@media(max-height:540px){#timeFreezeStatus{top:20%;width:235px;padding:8px 12px 11px;column-gap:10px;grid-template-columns:34px 1fr auto}#timeFreezeStatus .freezeEmblem{width:34px;height:34px;font-size:24px}#timeFreezeStatus .freezeSeconds{font-size:24px}}

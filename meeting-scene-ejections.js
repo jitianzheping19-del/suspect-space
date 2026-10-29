@@ -340,6 +340,7 @@ function createMeetingEjections(api) {
     const selected=new Set((active||last)?.actors||[]);
     const ordered=[...api.getSeats()].sort((a,b)=>Number(selected.has(b))-Number(selected.has(a)));
     for(const p of ordered){
+      if(p.voteCheck&&(p.ejectionStarted||p.dying||p.gone||selected.has(p)))p.voteCheck.s.visible=false;
       if(p.ejectionNameHidden||(p.ejectionStarted&&!p.c.root.visible)){
         for(const label of[p.tag,p.roleTag,p.voteCheck,p.voteTally,p.bub,p.alertLabel,p.boostLabel])if(label?.s)label.s.visible=false;
         continue;
@@ -351,7 +352,7 @@ function createMeetingEjections(api) {
       const rect={x:(ndc.x+1)*innerWidth/2,y:(1-ndc.y)*height/2,w,h};
       for(let n=0;n<20;n++){const collision=occupied.find(r=>Math.abs(rect.x-r.x)<(rect.w+r.w)/2+4&&Math.abs(rect.y-r.y)<(rect.h+r.h)/2+4);if(!collision)break;rect.y=collision.y-(collision.h+rect.h)/2-5;}
       ndc.y=1-rect.y/height*2;occupied.push(rect);
-      if(p.voteCheck)p.voteCheck.s.visible=!!p.voted&&!p.voteTally?.s.visible&&!p.gone;
+      if(p.voteCheck)p.voteCheck.s.visible=!!p.voted&&!p.voteTally?.s.visible&&!p.gone&&!p.ejectionStarted&&!p.dying&&!selected.has(p);
       let cursor=Math.max(12,p.tag.s.scale.y*pixels)/2;
       for(const label of [p.tag,p.roleTag,p.voteCheck,p.voteTally,p.bub]){
         if(!label?.s.visible)continue;
