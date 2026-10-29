@@ -65,11 +65,18 @@ export function createFirebaseProjects({adminUids,beforeReload,onStatus=()=>{}})
   preparing=(async()=>{
    try{
     await initialize();
-    const snapshot=await bounded(get(ref(control,CONTROL_PATH)),'接続先設定を取得できません。ネットワークを確認してください。');
-    state=validateState(snapshot.val());remember(state);baseConnection=connectionKey(state);ready=true;error='';
+    // The control database must not prevent authentication on the game database.
+    // Retain the last validated selection (or the server-2 default) while the
+    // authoritative listener retries. Never write a fallback to shared settings.
+    try{
+     const snapshot=await bounded(get(ref(control,CONTROL_PATH)),'接続先設定を取得できません。保存済みの接続先を使用します。',4000);
+     state=validateState(snapshot.val());ready=true;error='';
+     try{remember(state);}catch(e){error=explain(e);}
+    }catch(e){ready=false;error=explain(e);}
+    baseConnection=connectionKey(state);
     if(!detachControl)detachControl=onValue(ref(control,CONTROL_PATH),snapshot=>{
      try{const next=validateState(snapshot.val());if(next.revision<state.revision)return;
-      if(connectionKey(next)!==baseConnection){void reload(next);return;}state=next;remember(state);signal();
+      if(connectionKey(next)!==baseConnection){void reload(next);return;}state=next;ready=true;error='';try{remember(state);}catch(e){error=explain(e);}signal();
      }catch(e){error=explain(e);signal();}
     },e=>{detachControl?.();detachControl=null;error=explain(e);ready=false;signal();});
     signal();
