@@ -3,10 +3,15 @@ import * as sdk from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-databa
 // Every application read, write and subscription goes through this session.
 // The project-selection listener uses the SDK directly on the control database.
 export const {getDatabase,ref,query,orderByChild,orderByKey,endBefore,startAfter,limitToFirst,limitToLast,equalTo,serverTimestamp}=sdk;
-let activeDatabase=null,epoch=0,stopping=false;
+let activeDatabase=null,activeRoot=null,epoch=0,stopping=false;
 const listeners=new Set(),disconnects=new Set(),registrations=new Set();
-const databaseOf=value=>value?.ref?.database||value?.database;
-const allowed=(value,version=epoch)=>!stopping&&version===epoch&&databaseOf(value)===activeDatabase;
+// Modular SDK references have no public `database` property. Compare their
+// roots with the SDK instead; a missing property used to reject every request.
+const belongsToActive=value=>{
+ const reference=value?.ref||value;
+ return !!activeRoot&&!!reference?.root&&sdk.refEqual(reference.root,activeRoot);
+};
+const allowed=(value,version=epoch)=>!stopping&&version===epoch&&belongsToActive(value);
 function assertActive(value,version=epoch){
  if(!allowed(value,version))throw Object.assign(new Error('Firebaseの接続先を切り替えています。再読み込み後に操作してください。'),{code:'database/project-switching'});
 }
@@ -14,6 +19,7 @@ export function activateDatabaseSession(database){
  if(stopping)throw new Error('接続先を切り替えています。再読み込みを待ってください。');
  if(activeDatabase&&activeDatabase!==database)throw new Error('接続先の変更には再読み込みが必要です。');
  activeDatabase=database;
+ activeRoot=sdk.ref(database);
 }
 export function blockDatabaseSession(){stopping=true;epoch++;for(const unsubscribe of [...listeners])unsubscribe();}
 export async function closeDatabaseSession(){

@@ -31,7 +31,7 @@ function explain(error){
 function bounded(promise,message,ms=12000){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(message)),ms);})]).finally(()=>clearTimeout(timer));}
 
 export function createFirebaseProjects({adminUids,beforeReload,onStatus=()=>{}}){
- let state=defaults(),initialized=null,preparing=null,control=null,ready=false,reloading=false,error='',formError='',panel=null,saving=false,formDirty=false;
+ let state=defaults(),initialized=null,preparing=null,control=null,ready=false,reloading=false,error='',formError='',panel=null,saving=false;
  const apps=new Map(),auths=new Map();let detachControl=null,detachAuth=null,baseConnection='';
  const canManage=()=>!!auths.get('firebase1')?.currentUser&&adminUids.has(auths.get('firebase1').currentUser.uid);
  function remember(next){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(next));}catch{throw new Error('接続先をブラウザに保存できません。ブラウザの保存設定を確認してください。');}}
@@ -94,11 +94,11 @@ export function createFirebaseProjects({adminUids,beforeReload,onStatus=()=>{}})
    detach=onValue(ref(database,'.info/connected'),snap=>{if(snap.val()===true)finish();},finish);if(done)detach();
   });
  }
- async function select(active,url2){
+ async function select(active){
   if(!canManage())throw new Error('Firebase設定を変更できるのは管理者だけです。');
   if(!ready||reloading)throw new Error('接続先設定の読み込みが完了していません。');
   if(!['firebase1','firebase2'].includes(active))throw new Error('Firebase 1またはFirebase 2を選択してください。');
-  const normalized=databaseURL(url2,'among-d587b'),current={...state};
+  const normalized=FIREBASE_PROJECTS.firebase2.databaseURL,current={...state};
   if(current.active===active&&current.databaseURL2===normalized)throw new Error('選択した接続先は現在使用中です。');
   const target=getDatabase(apps.get(active),active==='firebase2'?normalized:FIREBASE_PROJECTS.firebase1.databaseURL);
   await checkConnection(target);
@@ -113,23 +113,25 @@ export function createFirebaseProjects({adminUids,beforeReload,onStatus=()=>{}})
   if(!result.committed)throw new Error('別の管理者が設定を変更しました。最新の接続先を確認して、もう一度操作してください。');
   const next=validateState(result.snapshot.val());
   if(connectionKey(next)!==baseConnection)await reload(next);
-  else{state=next;formDirty=false;remember(next);signal();}
+  else{state=next;remember(next);signal();}
  }
  function mount(){
   const host=window.__spaceAdminSettings?.();if(!host||panel)return;
   panel=document.createElement('section');panel.className='firebaseProjectSettings';panel.hidden=true;
-  panel.innerHTML=`<style>.firebaseProjectSettings{margin-top:18px;padding:14px;border:1px solid #46677b;border-radius:12px;background:#0a1c28}.firebaseProjectSettings[hidden]{display:none!important}.firebaseProjectSettings label{display:grid;gap:6px;margin:12px 0}.firebaseProjectSettings select,.firebaseProjectSettings input{width:100%;box-sizing:border-box;min-height:42px;padding:9px;border:1px solid #557487;border-radius:8px;background:#102b3b;color:#e8f8ff;font:inherit}.firebaseProjectSettings output{display:block;overflow-wrap:anywhere;white-space:pre-line;line-height:1.6}.firebaseProjectSettings p{font-size:12px;line-height:1.6}.firebaseProjectSettings [role=alert]{color:#ffb7a9;white-space:pre-wrap}.firebaseProjectSettings button{width:100%;min-height:44px;margin-top:8px}</style><h3>Firebase接続設定</h3><output data-current aria-live="polite"></output><label>接続先<select data-project><option value="firebase1">Firebase 1（among-us-c7bae）</option><option value="firebase2">Firebase 2（among-d587b）</option></select></label><label>Firebase 2のRealtime Database URL<input data-url type="url" spellcheck="false" autocomplete="off"></label><p>切り替えると全員の画面を再読み込みします。アカウント・部屋・所持品は選択先の既存データを使います。設定の変更にはFirebase 1の管理者アカウントを使用します。</p><button type="button" data-apply>切り替えて全員を再読み込み</button><button type="button" data-retry hidden>接続先設定を再取得</button><p data-message role="alert"></p>`;
-  host.append(panel);panel.querySelector('[data-project]').value=state.active;panel.querySelector('[data-url]').value=state.databaseURL2;
-  for(const field of panel.querySelectorAll('input,select'))field.addEventListener('input',()=>{formDirty=true;formError='';render();});
+  panel.innerHTML=`<style>.firebaseProjectSettings{margin-top:18px;padding:14px;border:1px solid #46677b;border-radius:12px;background:#0a1c28}.firebaseProjectSettings[hidden]{display:none!important}.firebaseProjectSettings output{display:block;overflow-wrap:anywhere;white-space:pre-line;line-height:1.6}.firebaseProjectSettings [role=alert]{color:#ffb7a9;white-space:pre-wrap}.firebaseProjectSettings button{min-height:48px;border:1px solid #557487;border-radius:10px;background:#102b3b;color:#e8f8ff;font:inherit;padding:10px}.firebaseServerButtons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.firebaseServerButtons button[aria-pressed=true]{background:#14645c;border-color:#83efcf}.firebaseProjectSettings [data-retry]{width:100%;margin-top:10px}</style><h3>サーバー切り替え</h3><output data-current aria-live="polite"></output><div class="firebaseServerButtons"><button type="button" data-server="firebase1">サーバー1</button><button type="button" data-server="firebase2">サーバー2</button></div><button type="button" data-retry hidden>再接続</button><p data-message role="alert"></p>`;
+  host.append(panel);
   panel.querySelector('[data-retry]').onclick=async()=>{try{await prepare();}catch{}};
-  panel.querySelector('[data-apply]').onclick=async()=>{if(!canManage()||saving)return;const button=panel.querySelector('[data-apply]'),message=panel.querySelector('[data-message]');saving=true;formError='';button.disabled=true;message.textContent='接続先を確認しています…';try{await select(panel.querySelector('[data-project]').value,panel.querySelector('[data-url]').value);if(!reloading)formError='接続設定を保存しました。';}catch(e){formError=explain(e);}finally{saving=false;render();}};
+  for(const button of panel.querySelectorAll('[data-server]'))button.onclick=async()=>{
+   if(!canManage()||saving||button.dataset.server===state.active)return;
+   saving=true;formError='';render();panel.querySelector('[data-message]').textContent='接続先を確認しています…';
+   try{await select(button.dataset.server);}catch(e){formError=explain(e);}finally{saving=false;render();}
+  };
  }
  function render(){
   mount();if(!panel)return;panel.hidden=!canManage();
   const config=FIREBASE_PROJECTS[state.active],url=state.active==='firebase2'?state.databaseURL2:config.databaseURL;
   panel.querySelector('[data-current]').textContent=(reloading?'切り替え中：':ready?'現在使用中：':'接続先確認中：')+(state.active==='firebase1'?'Firebase 1':'Firebase 2')+' / '+config.projectId+'\n'+url;
-  if(!formDirty){panel.querySelector('[data-project]').value=state.active;panel.querySelector('[data-url]').value=state.databaseURL2;}
-  panel.querySelector('[data-apply]').disabled=!ready||reloading||saving||!canManage();
+  for(const button of panel.querySelectorAll('[data-server]')){const current=button.dataset.server===state.active;button.setAttribute('aria-pressed',String(current));button.disabled=current||!ready||reloading||saving||!canManage();}
   panel.querySelector('[data-retry]').hidden=!error||ready;panel.querySelector('[data-retry]').disabled=!!preparing||reloading;
   if(!saving)panel.querySelector('[data-message]').textContent=formError||error;
  }

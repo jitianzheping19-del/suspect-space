@@ -12557,7 +12557,7 @@ await (firebaseAuthPersistenceReady||(firebaseAuthPersistenceReady=Promise.resol
         const accountApi={
           signIn:(email,password)=>signInWithEmailAndPassword(auth,email,password),
           create:(email,password)=>createUserWithEmailAndPassword(auth,email,password),
-          explain:error=>new Error({"auth/too-many-requests":"試行回数が多すぎます。しばらく待ってから、もう一度お試しください。","auth/network-request-failed":"通信できませんでした。接続を確認してください。","auth/operation-not-allowed":"Firebase ConsoleでEmail/Password認証を有効にしてください。"}[error.code]||"ログインできません。もう一度お試しください。（"+(error.code||error.message)+"）")
+          explain:error=>new Error({"auth/too-many-requests":"試行回数が多すぎます。しばらく待ってから、もう一度お試しください。","auth/network-request-failed":"通信できませんでした。接続を確認してください。","auth/configuration-not-found":"サーバー2のFirebase Authenticationが未設定です。Firebase ConsoleのAuthenticationを開始し、メール／パスワード認証を有効にしてください。","auth/operation-not-allowed":"Firebase ConsoleでEmail/Password認証を有効にしてください。"}[error.code]||"ログインできません。もう一度お試しください。（"+(error.code||error.message)+"）")
         };
         let result;
         if(!typedPin&&auth.currentUser){
