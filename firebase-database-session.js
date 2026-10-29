@@ -9,7 +9,7 @@ const listeners=new Set(),disconnects=new Set(),registrations=new Set();
 // roots with the SDK instead; a missing property used to reject every request.
 const belongsToActive=value=>{
  const reference=value?.ref||value;
- return !!activeRoot&&!!reference?.root&&sdk.refEqual(reference.root,activeRoot);
+ return !!activeRoot&&!!reference?.root&&reference.root.isEqual(activeRoot);
 };
 const allowed=(value,version=epoch)=>!stopping&&version===epoch&&belongsToActive(value);
 function assertActive(value,version=epoch){
