@@ -1271,13 +1271,13 @@
 @media(prefers-reduced-motion:reduce){#taskGame .card:before,#taskGameTitle:after{animation:none}}
 </style>
 <style id="attachment-fullscreen-meeting">
-      #meeting{padding:0!important;background:#030711!important}
-      #meeting .card{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;max-height:100dvh!important;max-width:none!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;display:block!important;overflow:hidden!important;background:#030711!important;box-shadow:none!important}
-      #meeting .card>*:not(#meeting3D):not(#meetingStatusBar){display:none!important}
-      #meeting3D{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;border:0!important;border-radius:0!important;display:block!important}
-      #meeting3D.hidden{display:block!important}#meeting3DBtn,#voteResult{display:none!important}
-      body:has(#meeting:not(.hidden)) #roundRoleBtn{display:none!important}
-      @media(max-width:600px){#meeting3D{height:100dvh!important}}
+      #meeting:not([data-render-mode="2d"]){padding:0!important;background:#030711!important}
+      #meeting:not([data-render-mode="2d"]) .card{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;max-height:100dvh!important;max-width:none!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;display:block!important;overflow:hidden!important;background:#030711!important;box-shadow:none!important}
+      #meeting:not([data-render-mode="2d"]) .card>*:not(#meeting3D):not(#meetingStatusBar){display:none!important}
+      #meeting:not([data-render-mode="2d"]) #meeting3D{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;border:0!important;border-radius:0!important;display:block!important}
+      #meeting:not([data-render-mode="2d"]) #meeting3D.hidden{display:block!important}#meeting:not([data-render-mode="2d"]) #meeting3DBtn,#voteResult:not([data-meeting-render-mode="2d"]){display:none!important}
+      body:has(#meeting:not([data-render-mode="2d"]):not(.hidden)) #roundRoleBtn{display:none!important}
+      @media(max-width:600px){#meeting:not([data-render-mode="2d"]) #meeting3D{height:100dvh!important}}
     </style><style id="currentMeetingStyles">
 .voteInlineConfirm{gap:9px!important;padding:9px!important}.voteInlineConfirm div{gap:9px!important}
 .voteInlineConfirm button{min-width:108px;min-height:46px;padding:8px 12px;font-size:15px;font-weight:950;border-radius:9px;touch-action:manipulation}
@@ -2521,6 +2521,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 <link rel="stylesheet" href="./task-machine-dialog.css">
 <link rel="stylesheet" href="./session-game-ui.css">
 <link rel="stylesheet" href="./presentation-updates.css">
+<style id="meeting-2d-recovery">#meeting[data-render-mode="2d"] #meeting3D{display:none!important}</style>
 </head>
 <body>
   <div id="viewport"></div>
@@ -8192,8 +8193,8 @@ async function reportMeetingResultReveal(resultId,meetingId){
   },{applyLocally:false});}catch(error){console.warn("結果表示の完了を同期できませんでした。安全な待ち時間後に再開します。",error);}
 }
 function meeting3DFrame(){return $("meeting3D");}
-let meetingRecoveryTimer=0,meetingRecoveryAttempts=0;
-function queueMeetingRecovery(delay=2500){if(meetingRecoveryTimer||!meeting3DOn||!["meeting","results"].includes(game.phase))return;meetingRecoveryTimer=setTimeout(()=>{meetingRecoveryTimer=0;const frame=meeting3DFrame();if(!meeting3DOn||!["meeting","results"].includes(game.phase)||!frame)return;if(meetingRecoveryAttempts>=2)return;meetingRecoveryAttempts++;frame.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);},delay);}
+let meetingRecoveryTimer=0,meetingRecoveryAttempts=0,meetingFrameRendered=false,meeting3DFailed=false;
+function queueMeetingRecovery(delay=2500){if(meetingRecoveryTimer||!meeting3DOn||!["meeting","results"].includes(game.phase))return;meetingRecoveryTimer=setTimeout(()=>{meetingRecoveryTimer=0;const frame=meeting3DFrame();if(!meeting3DOn||!["meeting","results"].includes(game.phase)||!frame)return;if(meetingRecoveryAttempts>=2){meeting3DFailed=true;set3DMode(false);if(game.phase==="results"&&game.lastVoteResult){lastVoteResultId="";showVoteResult(game.lastVoteResult);}toast("3D会議室を読み込めませんでした。2D表示で会議を続けられます。","error");return;}meetingRecoveryAttempts++;meetingFrameRendered=false;frame.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);},delay);}
 
 function post3DInit(){const f=meeting3DFrame();if(!f?.contentWindow)return;f.contentWindow.postMessage({type:"ss3d-init",src:COSTUME_LIB_SRC},"*");ssxPhotos.syncFrame(f.contentWindow);}
 // Meeting abilities use one authoritative event. Witness payloads omit the user,
@@ -8254,10 +8255,10 @@ function closeMeetingKeyboard(){
   try{frame?.contentDocument?.activeElement?.blur?.();}catch{}
   $("chatInput")?.blur();
 }
-function set3DMode(on){meeting3DOn=!!on;const f=meeting3DFrame(),vp=$("votePlayers"),b=$("meeting3DBtn");if(!f)return;
+function set3DMode(on){meeting3DOn=!!on;$("meeting").dataset.renderMode=meeting3DOn?"3d":"2d";$("voteResult").dataset.meetingRenderMode=meeting3DOn?"3d":"2d";const f=meeting3DFrame(),vp=$("votePlayers"),b=$("meeting3DBtn");if(!f)return;
   if(gameViewportMeta)gameViewportMeta.content=meeting3DOn&&["meeting","results"].includes(game.phase)?"width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover":gameViewportDefault;
-  if(meeting3DOn){if(!f.srcdoc){meetingRecoveryAttempts=0;f.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);}f.classList.remove("hidden");vp?.classList.add("hidden");}
-  else{closeMeetingKeyboard();clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;f.classList.add("hidden");vp?.classList.remove("hidden");f.srcdoc="";}
+  if(meeting3DOn){meeting3DFailed=false;if(!f.srcdoc){meetingRecoveryAttempts=0;meetingFrameRendered=false;f.srcdoc=MEETING_3D_SRCDOC;}f.classList.remove("hidden");vp?.classList.add("hidden");if(!meetingFrameRendered)queueMeetingRecovery(12000);}
+  else{closeMeetingKeyboard();clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;meetingFrameRendered=false;if(!["meeting","results"].includes(game.phase))meeting3DFailed=false;f.classList.add("hidden");vp?.classList.remove("hidden");f.srcdoc="";}
   if(b)b.textContent=meeting3DOn?"2D表示に戻す":"3D会議室";
   post3DState(latest3D);}
 $("meeting3DBtn")?.addEventListener("click",()=>set3DMode(!meeting3DOn));
@@ -8265,9 +8266,10 @@ meeting3DOn=true;setTimeout(()=>set3DMode(true),0);
 /* picks go through the existing 2D handlers (card click -> confirm), so guess mode, scale limits and vote rules stay in one place */
 window.addEventListener("message",e=>{const f=meeting3DFrame();if(!f||e.source!==f.contentWindow)return;const d=e.data||{};
   if(d.type==="ss3d-results-reveal"){void reportMeetingResultReveal(d.resultId,d.meetingId);return;}
-  if(d.type==="ss3d-context-lost"){queueMeetingRecovery();return;}
-  if(d.type==="ss3d-render-error"){queueMeetingRecovery(350);return;}
-  if(d.type==="ss3d-context-restored"||d.type==="ss3d-rendered"){clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;post3DState(latest3D);return;}
+  if(d.type==="ss3d-context-lost"){meetingFrameRendered=false;queueMeetingRecovery();return;}
+  if(d.type==="ss3d-render-error"){meetingFrameRendered=false;queueMeetingRecovery(350);return;}
+  if(d.type==="ss3d-context-restored"){post3DState(latest3D);queueMeetingRecovery(12000);return;}
+  if(d.type==="ss3d-rendered"){meetingFrameRendered=true;meetingRecoveryAttempts=0;clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;post3DState(latest3D);return;}
 
   if(d.type==="ss3d-ready"){post3DInit();post3DState(latest3D);if((game.phase==="results"||game.phase==="ended")&&latest3DResult&&latest3DResultMeetingId===String(latest3D?.meeting?.id||game.meeting?.id||""))post3DResult(latest3DResult);}
   if(d.type==="ss3d-pick"&&d.target&&meeting3DOn&&latest3D&&String(d.meetingId||"")===String(latest3D.meeting?.id||"")){
@@ -22667,8 +22669,10 @@ function renderUI() {
         frame?.contentWindow?.postMessage({type:"lobby-chat-bubbles",messages:[...recent.values()]},"*");
       }
       const meetingVisible=phase === "meeting" || (phase === "results" && !!game.lastVoteResult),meetingWasVisible=!$("meeting").classList.contains("hidden");if((phase!=="meeting"&&$("meeting").dataset.keyboardPhase==="meeting")||(!meetingVisible&&meetingWasVisible))closeMeetingKeyboard();$("meeting").dataset.keyboardPhase=phase;show("meeting",meetingVisible);if(meetingVisible&&!meetingWasVisible){const meetingCard=$("meeting").querySelector(".card");meetingCard?.classList.remove("ss-meeting-opening");void meetingCard?.offsetWidth;meetingCard?.classList.add("ss-meeting-opening");setTimeout(()=>meetingCard?.classList.remove("ss-meeting-opening"),950);}
-      if((phase === "meeting" || phase === "results") && !meeting3DOn) set3DMode(true);
+      if(phase !== "meeting" && phase !== "results")meeting3DFailed=false;
+      if((phase === "meeting" || phase === "results") && !meeting3DOn && !meeting3DFailed) set3DMode(true);
       else if(phase !== "meeting" && phase !== "results" && meeting3DOn) set3DMode(false);
+      if((phase === "meeting" || phase === "results") && meeting3DOn && !meetingFrameRendered)queueMeetingRecovery(12000);
       show("ending", phase === "ended"&&now()>=ejectVisualUntil);
       show("againBtn", phase === "ended");
       if(phase==="ended")$("againBtn").textContent=isHost()?"全員をロビーに戻す":"ロビーに戻る";
@@ -25501,7 +25505,7 @@ setInterval(check,500);
 })();
 </script>
 <style id="ghostHudFitStyle">#ghostHudList{--n:1;justify-content:stretch}#ghostHudList .ghostTarget{flex:1 1 0;min-width:min(88px,calc(100% / var(--n)));max-width:calc(100% / var(--n) * 1.6);overflow:hidden}#ghostHudList .ghostTarget>span,#ghostHudList .ghostTarget>small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#ghostHudList .ghostTarget{font-size:clamp(10px,calc(12px + (6 - var(--n)) * .4px),14px)}</style><style id="costumePaletteStyle">#costumeColorPalette.collapsed{display:none}#costumeColorToggle{width:36px;height:36px;border-radius:10px;border:2px solid #ffffffcc;cursor:pointer;padding:0;box-shadow:0 2px 8px #0006}@media(max-width:700px){#costumeColorToggle{width:34px;height:34px}}@media(max-width:380px){#costumeColorToggle{width:30px;height:30px}}</style><div id="ssTaskTerminalHost" aria-label="タスク端末" aria-modal="true" role="dialog"><iframe id="ssTaskTerminalFrame" title="タスク端末"></iframe><button id="ssTaskTerminalClose" type="button" aria-label="タスクを閉じる">閉じる</button></div>
-<style id="meetingRemainingWolfFadeStyle">#eject3DStage .remainingWolfLine{position:absolute;z-index:5;top:12px;left:50%;transform:translateX(-50%);max-width:94%;padding:7px 14px;border:1px solid #f4c76a88;border-radius:999px;background:#07111eea;color:#ffe39b;font-size:clamp(17px,2.8vw,27px);font-weight:900;line-height:1.2;text-align:center;text-shadow:0 2px 8px #000;white-space:nowrap;pointer-events:none;opacity:0;animation:meetingRemainingWolfFade .7s ease-out 1.8s both}@keyframes meetingRemainingWolfFade{from{opacity:0;transform:translate(-50%,7px)}to{opacity:1;transform:translate(-50%,0)}}</style><style id="chatLineStyle">#chatMessages .chatBubble{display:block;width:fit-content;max-width:78%;margin-right:auto;margin-left:0}#chatMessages .chatBubble.mine{margin-left:auto;margin-right:0;background:#3a7bd5;color:#fff}</style><style id="chatLineBubbleStyle">#chatMessages .chatLine{display:flex;align-items:flex-end;gap:6px;margin:6px 0}#chatMessages .chatLine.mine{flex-direction:row-reverse}#chatMessages .chatLine.mine>.chatAvatar{display:none}#chatMessages .chatBubble{display:block;width:fit-content;max-width:72%;padding:8px 12px;border-radius:18px;background:#ffffff1f;color:#eef6ff;word-break:break-word}#chatMessages .chatBubble.mine{background:#3a7bd5;color:#fff;border-bottom-right-radius:4px}#chatMessages .chatLine:not(.mine) .chatBubble{border-bottom-left-radius:4px}#chatMessages .chatDeliveryStatus[data-state="sent"]{display:none}</style><style id="voteLightStyle">@keyframes voteLight{0%{box-shadow:0 0 0 0 var(--tokc,#ffffff)}35%{box-shadow:0 0 22px 9px var(--tokc,#ffffff);filter:brightness(1.8)}100%{box-shadow:0 0 8px 2px var(--tokc,#ffffff);filter:none}}.voteToken{animation:voteStamp .3s both,voteLight 1.4s ease-out .3s both}</style><style id="meeting3DOnlyStyle">#meeting .card>*:not(#meeting3D):not(#meetingStatusBar){display:none!important}#meeting3DBtn{display:none!important}#meeting3D.hidden{display:block!important}#meeting3D{display:block!important;width:100%!important;height:100dvh!important;border-radius:0!important}</style>
+<style id="meetingRemainingWolfFadeStyle">#eject3DStage .remainingWolfLine{position:absolute;z-index:5;top:12px;left:50%;transform:translateX(-50%);max-width:94%;padding:7px 14px;border:1px solid #f4c76a88;border-radius:999px;background:#07111eea;color:#ffe39b;font-size:clamp(17px,2.8vw,27px);font-weight:900;line-height:1.2;text-align:center;text-shadow:0 2px 8px #000;white-space:nowrap;pointer-events:none;opacity:0;animation:meetingRemainingWolfFade .7s ease-out 1.8s both}@keyframes meetingRemainingWolfFade{from{opacity:0;transform:translate(-50%,7px)}to{opacity:1;transform:translate(-50%,0)}}</style><style id="chatLineStyle">#chatMessages .chatBubble{display:block;width:fit-content;max-width:78%;margin-right:auto;margin-left:0}#chatMessages .chatBubble.mine{margin-left:auto;margin-right:0;background:#3a7bd5;color:#fff}</style><style id="chatLineBubbleStyle">#chatMessages .chatLine{display:flex;align-items:flex-end;gap:6px;margin:6px 0}#chatMessages .chatLine.mine{flex-direction:row-reverse}#chatMessages .chatLine.mine>.chatAvatar{display:none}#chatMessages .chatBubble{display:block;width:fit-content;max-width:72%;padding:8px 12px;border-radius:18px;background:#ffffff1f;color:#eef6ff;word-break:break-word}#chatMessages .chatBubble.mine{background:#3a7bd5;color:#fff;border-bottom-right-radius:4px}#chatMessages .chatLine:not(.mine) .chatBubble{border-bottom-left-radius:4px}#chatMessages .chatDeliveryStatus[data-state="sent"]{display:none}</style><style id="voteLightStyle">@keyframes voteLight{0%{box-shadow:0 0 0 0 var(--tokc,#ffffff)}35%{box-shadow:0 0 22px 9px var(--tokc,#ffffff);filter:brightness(1.8)}100%{box-shadow:0 0 8px 2px var(--tokc,#ffffff);filter:none}}.voteToken{animation:voteStamp .3s both,voteLight 1.4s ease-out .3s both}</style><style id="meeting3DOnlyStyle">#meeting:not([data-render-mode="2d"]) .card>*:not(#meeting3D):not(#meetingStatusBar){display:none!important}#meeting:not([data-render-mode="2d"]) #meeting3DBtn{display:none!important}#meeting:not([data-render-mode="2d"]) #meeting3D.hidden{display:block!important}#meeting:not([data-render-mode="2d"]) #meeting3D{display:block!important;width:100%!important;height:100dvh!important;border-radius:0!important}</style>
 
 <script id="SS_MEETING_ROLES_REVISION_JS">
 (()=>{
