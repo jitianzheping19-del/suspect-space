@@ -63,9 +63,18 @@ async function main() {
       await frame.waitForFunction(() => window.meetingScene?.getState().seats === 3);
       console.log('PASS scene initialization with blocked requests', size.width);
       assert.equal((await frame.evaluate(() => window.meetingScene.getState())).rendering.frames, 0);
+      // iOS may suspend animation callbacks while the parent keeps the iframe
+      // transparent until its first frame. State delivery must break that wait.
+      await frame.evaluate(() => {window.__qaRequestFrame = requestAnimationFrame;window.requestAnimationFrame = () => 0;});
+      await page.evaluate(() => qa.activate());
+      await frame.waitForFunction(() => window.meetingScene?.getState().rendering.frames > 0);
+      assert(await frame.locator('#meetingSceneLoading').evaluate(element => element.hidden));
+      console.log('PASS first frame without animation callbacks', size.width);
+      await frame.evaluate(() => {window.requestAnimationFrame = window.__qaRequestFrame;});
       await page.evaluate(() => qa.activate());
       await frame.waitForFunction(() => window.meetingScene?.getState().rendering.frames > 2);
       console.log('PASS actual 3D frames', size.width);
+      if(process.env.MEETING_LOADING_FIRST_FRAME_ONLY){assert.deepEqual(errors,[]);await page.close();continue;}
       assert(await frame.locator('#meetingSceneLoading').evaluate(element => element.hidden));
       await frame.locator('#meetingSkipBtn').click();
       await frame.getByRole('button', {name: '投票する', exact: true}).click();

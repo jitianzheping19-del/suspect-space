@@ -23,7 +23,7 @@ export function createMeetingRenderRecovery({renderer,scene,camera,composer,mobi
  canvas.addEventListener('webglcontextlost',onLost);canvas.addEventListener('webglcontextrestored',onRestored);
  function dispose(){if(disposed)return;disposed=true;canvas.removeEventListener('webglcontextlost',onLost);canvas.removeEventListener('webglcontextrestored',onRestored);composer.passes?.forEach(p=>p.dispose?.());composer.dispose?.();disposeEnvironment();renderer.dispose();renderer.forceContextLoss();}
  addEventListener('pagehide',event=>{if(!event.persisted)dispose();});
- return{render,dispose,state:()=>({lost,direct,frames,disposed})};
+ return{render,dispose,state:()=>({lost,direct,frames,disposed,ready:reported})};
 }
 export function patchMeetingRendering(html){
  if(html.includes('const meetingRenderRecovery='))return html;
@@ -43,7 +43,7 @@ function startLoop(update){const clock=new THREE.Clock(),gate=meetingBudget.gate
  resumeMeetingRender=resume;document.addEventListener('visibilitychange',resume);
  addEventListener('pagehide',()=>{cancelAnimationFrame(raf);raf=0;});addEventListener('pageshow',resume);resume();
 }`+html.slice(loopEnd);
- html=html.replace('meetingRenderActive=state.renderActive!==false;','meetingRenderActive=state.renderActive!==false;if(meetingRenderActive)queueMicrotask(resumeMeetingRender);');
+ html=html.replace('meetingRenderActive=state.renderActive!==false;','meetingRenderActive=state.renderActive!==false;if(meetingRenderActive)queueMicrotask(()=>{if(!meetingRenderActive||document.hidden)return;if(!meetingRenderRecovery.state().ready){alignMeetingIdentity();meetingRenderRecovery.render();}resumeMeetingRender();});');
  const environment='const mrPMREM=new THREE.PMREMGenerator(renderer),mrEnvironment=new RoomEnvironment();scene.environment=mrPMREM.fromScene(mrEnvironment,.04).texture;mrEnvironment.dispose();mrPMREM.dispose();';
  if(!html.includes(environment))throw new Error('Meeting environment anchor missing');
  html=html.replace(environment,`let meetingEnvironmentTarget=null;function rebuildMeetingEnvironment(){const pmrem=new THREE.PMREMGenerator(renderer),environment=new RoomEnvironment();try{const next=pmrem.fromScene(environment,.04);meetingEnvironmentTarget?.dispose();meetingEnvironmentTarget=next;scene.environment=next.texture;}finally{environment.dispose();pmrem.dispose();}}try{rebuildMeetingEnvironment();}catch{scene.environment=null;}`);
