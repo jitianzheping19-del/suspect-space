@@ -45,18 +45,18 @@ document.body.dataset.phase='meeting';$('meetingTitle').textContent='緊急会�
   await page.evaluate(()=>qa.signal('ss3d-rendered'));await page.waitForTimeout(30);
   assert.equal(await page.locator('#meeting').getAttribute('data-render-mode'),'3d');
   assert.equal(await page.locator('#votePlayers').isVisible(),false);
-  for(let i=0;i<3;i++){
+  for(let i=0;i<1;i++){
    await page.evaluate(()=>qa.signal('ss3d-context-lost'));await page.waitForTimeout(30);
    assert(await page.locator('#votePlayers').isVisible(),'GPU loss must restore 2D immediately');
-   await page.clock.fastForward(2501);
-   if(i<2){await page.evaluate(()=>qa.signal('ss3d-rendered'));await page.waitForTimeout(30);}
+   await page.clock.fastForward(3001);
+
   }
   let state=await page.evaluate(()=>qa.status());assert.equal(state.failed,true);assert.equal(state.on,false);
   await page.evaluate(()=>{qa.leave();qa.enter()});
   for(let i=0;i<3;i++)await page.clock.fastForward(12001);
   state=await page.evaluate(()=>qa.status());assert.equal(state.failed,true);assert.equal(state.on,false);
   assert(await page.locator('#votePlayers').isVisible());
-  await page.evaluate(()=>{qa.leave();qa.enter();qa.signal('ss3d-rendered')});await page.waitForTimeout(30);
+  await page.evaluate(()=>{qa.leave();qa.enter()});await page.waitForTimeout(100);await page.evaluate(()=>qa.signal('ss3d-rendered'));await page.waitForFunction(()=>qa.status().rendered);
   await page.evaluate(()=>{qa.result();qa.signal('ss3d-context-lost')});await page.waitForTimeout(30);
   assert(await page.locator('#voteResult').isVisible(),'2D results must show when 3D is lost');
   console.log('PASS immediate 2D voting/chat, manual choice, first-frame transition, bounded recovery and results',width,height);

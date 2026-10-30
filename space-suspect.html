@@ -10226,7 +10226,21 @@ function syncMeeting3DPresentation(){
   const button=$("meeting3DBtn");if(button)button.textContent=visible?"2D表示に戻す":preparing?"2D表示を続ける":"3D会議室";
   if(wasVisible!==visible&&game.phase==="results"&&game.lastVoteResult){lastVoteResultId="";showVoteResult(game.lastVoteResult);}
 }
-function queueMeetingRecovery(delay=2500){if(meetingRecoveryTimer||!meeting3DOn||!["meeting","results"].includes(game.phase))return;meetingRecoveryTimer=setTimeout(()=>{meetingRecoveryTimer=0;const frame=meeting3DFrame();if(!meeting3DOn||!["meeting","results"].includes(game.phase)||!frame)return;if(meetingRecoveryAttempts>=2){meeting3DFailed=true;set3DMode(false);if(game.phase==="results"&&game.lastVoteResult){lastVoteResultId="";showVoteResult(game.lastVoteResult);}toast("3D会議室を読み込めませんでした。2D表示で会議を続けられます。","error");return;}meetingRecoveryAttempts++;meetingFrameRendered=false;syncMeeting3DPresentation();frame.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);},delay);}
+function queueMeetingRecovery(delay=3000){
+ if(meetingRecoveryTimer||!meeting3DOn||!["meeting","results"].includes(game.phase))return;
+ meetingRecoveryTimer=setTimeout(()=>{meetingRecoveryTimer=0;
+  if(!meeting3DOn||!["meeting","results"].includes(game.phase))return;
+  meeting3DFailed=true;meeting3DManual2D=true;set3DMode(false);
+  if(game.phase==="results"&&game.lastVoteResult){lastVoteResultId="";showVoteResult(game.lastVoteResult);}
+ },Math.min(3000,Math.max(0,delay)));
+}
+function checkMeetingLoadingScreen(){
+ if(!meeting3DOn||!["meeting","results"].includes(game.phase))return;
+ try{const loading=meeting3DFrame()?.contentDocument?.getElementById("meetingSceneLoading");
+  if(meetingFrameRendered&&loading&&!loading.hidden){meetingFrameRendered=false;syncMeeting3DPresentation();}
+ }catch{}
+ if(!meetingFrameRendered)queueMeetingRecovery();
+}
 
 function post3DInit(){const f=meeting3DFrame();if(!f?.contentWindow)return;f.contentWindow.postMessage({type:"ss3d-init",src:COSTUME_LIB_SRC},"*");ssxPhotos.syncFrame(f.contentWindow);}
 // Meeting abilities use one authoritative event. Witness payloads omit the user,
@@ -10323,7 +10337,7 @@ window.addEventListener("message",e=>{const f=meeting3DFrame();if(!f||e.source!=
   if(d.type==="ss3d-btn"&&d.id){$(d.id)?.click();}
   if(d.type==="ss3d-pick2"&&Array.isArray(d.targets)&&d.targets.length===2){sendCommand(d.kind==="swap"?"swapVotes":"scalesVote",{targets:d.targets});}
   if(d.type==="ss3d-sheriff"&&d.target){sendCommand("meetingSheriff",{target:d.target});}});
-setInterval(()=>{if(meeting3DOn&&latest3D){post3DState(latest3D);post3DUi();}},400);
+setInterval(()=>{if(meeting3DOn&&latest3D){checkMeetingLoadingScreen();post3DState(latest3D);post3DUi();}},400);
 
 /* victory: a full-screen result per faction (市民 / 人狼 / 第三), shown once per finished round */
 let lastVictoryKey="";
