@@ -1,8 +1,9 @@
 // Keep the editable meeting scene identical in every published game entry.
 import { readFile, writeFile } from 'node:fs/promises';
 import { gzipSync, gunzipSync } from 'node:zlib';
+import { bundleMeetingLibraries } from './bundle-meeting-libraries.mjs';
 
-const scene = await readFile('assets-source/meeting-scene.html', 'utf8');
+const scene = await bundleMeetingLibraries(await readFile('assets-source/meeting-scene.html', 'utf8'));
 const pattern = /const EMBEDDED_ASSET_PAYLOAD=(\[[\s\S]*?\])\.join\(""\);/;
 for (const name of ['index.html', 'space-suspect-complete.html', 'space-suspect.html', 'space-suspect-final.html']) {
   const html = await readFile(name, 'utf8');
