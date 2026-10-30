@@ -2521,7 +2521,11 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 <link rel="stylesheet" href="./task-machine-dialog.css">
 <link rel="stylesheet" href="./session-game-ui.css">
 <link rel="stylesheet" href="./presentation-updates.css">
-<style id="meeting-2d-recovery">#meeting[data-render-mode="2d"] #meeting3D{display:none!important}</style>
+<style id="meeting-2d-recovery">
+#meeting[data-render-mode="2d"] #meeting3D{display:none!important}
+#meeting[data-render-mode="2d"][data-preparing-3d="true"] #meeting3D{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;pointer-events:none!important}
+#meetingLoadingStatus{font-size:12px;color:#b8cad6}
+</style>
 </head>
 <body>
   <div id="viewport"></div>
@@ -2888,9 +2892,10 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
     <div class="card"><h2 id="leaveConfirmTitle">部屋から退出</h2><p>この部屋から退出しますか？</p><div class="row"><button id="leaveConfirmCancel">キャンセル</button><button id="leaveConfirmAccept" class="danger">退出する</button></div></div>
   </section>
 
-<section id="meeting" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="meetingTitle">
+<section id="meeting" class="overlay hidden" data-render-mode="2d" role="dialog" aria-modal="true" aria-labelledby="meetingTitle">
     <div class="card">
       <div class="row" style="justify-content:space-between"><h2 id="meetingTitle">緊急会議</h2><div class="meetingHeaderTools"><button id="meetingCountdown" disabled>残り -- 秒</button><button id="meetingMapBtn">マップ [M]</button><button id="meeting3DBtn" type="button">3D会議室</button></div></div>
+      <p id="meetingLoadingStatus" hidden role="status">3Dを準備中です。投票・チャットはこのまま使えます。</p>
       <div id="meetingHeadline"><p id="meetingInfo"></p><p id="meetingFeedback" aria-live="polite"></p></div><div id="meetingPhase" class="phaseLabel"></div>
       <div id="votePlayers"></div><iframe id="meeting3D" class="hidden" title="3D会議室" style="display:block;width:100%;height:min(48dvh,440px);border:0;border-radius:12px;background:#0a0d18"></iframe>
       <div id="meetingChat">
@@ -10207,8 +10212,20 @@ async function reportMeetingResultReveal(resultId,meetingId){
   },{applyLocally:false});}catch(error){console.warn("結果表示の完了を同期できませんでした。安全な待ち時間後に再開します。",error);}
 }
 function meeting3DFrame(){return $("meeting3D");}
-let meetingRecoveryTimer=0,meetingRecoveryAttempts=0,meetingFrameRendered=false,meeting3DFailed=false;
-function queueMeetingRecovery(delay=2500){if(meetingRecoveryTimer||!meeting3DOn||!["meeting","results"].includes(game.phase))return;meetingRecoveryTimer=setTimeout(()=>{meetingRecoveryTimer=0;const frame=meeting3DFrame();if(!meeting3DOn||!["meeting","results"].includes(game.phase)||!frame)return;if(meetingRecoveryAttempts>=2){meeting3DFailed=true;set3DMode(false);if(game.phase==="results"&&game.lastVoteResult){lastVoteResultId="";showVoteResult(game.lastVoteResult);}toast("3D会議室を読み込めませんでした。2D表示で会議を続けられます。","error");return;}meetingRecoveryAttempts++;meetingFrameRendered=false;frame.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);},delay);}
+let meetingRecoveryTimer=0,meetingRecoveryAttempts=0,meetingFrameRendered=false,meeting3DFailed=false,meeting3DManual2D=false;
+function syncMeeting3DPresentation(){
+  const wasVisible=$("meeting").dataset.renderMode==="3d";
+  const visible=meeting3DOn&&meetingFrameRendered,preparing=meeting3DOn&&!visible;
+  $("meeting").dataset.renderMode=visible?"3d":"2d";
+  $("meeting").setAttribute("data-preparing-3d",String(preparing));
+  $("voteResult").dataset.meetingRenderMode=visible?"3d":"2d";
+  $("votePlayers")?.classList.toggle("hidden",visible);
+  const frame=meeting3DFrame();if(frame){frame.inert=!visible;frame.setAttribute("aria-hidden",String(!visible));}
+  const status=$("meetingLoadingStatus");if(status)status.hidden=!preparing;
+  const button=$("meeting3DBtn");if(button)button.textContent=visible?"2D表示に戻す":preparing?"2D表示を続ける":"3D会議室";
+  if(wasVisible!==visible&&game.phase==="results"&&game.lastVoteResult){lastVoteResultId="";showVoteResult(game.lastVoteResult);}
+}
+function queueMeetingRecovery(delay=2500){if(meetingRecoveryTimer||!meeting3DOn||!["meeting","results"].includes(game.phase))return;meetingRecoveryTimer=setTimeout(()=>{meetingRecoveryTimer=0;const frame=meeting3DFrame();if(!meeting3DOn||!["meeting","results"].includes(game.phase)||!frame)return;if(meetingRecoveryAttempts>=2){meeting3DFailed=true;set3DMode(false);if(game.phase==="results"&&game.lastVoteResult){lastVoteResultId="";showVoteResult(game.lastVoteResult);}toast("3D会議室を読み込めませんでした。2D表示で会議を続けられます。","error");return;}meetingRecoveryAttempts++;meetingFrameRendered=false;syncMeeting3DPresentation();frame.srcdoc=MEETING_3D_SRCDOC;queueMeetingRecovery(12000);},delay);}
 
 function post3DInit(){const f=meeting3DFrame();if(!f?.contentWindow)return;f.contentWindow.postMessage({type:"ss3d-init",src:COSTUME_LIB_SRC},"*");ssxPhotos.syncFrame(f.contentWindow);}
 // Meeting abilities use one authoritative event. Witness payloads omit the user,
@@ -10269,21 +10286,25 @@ function closeMeetingKeyboard(){
   try{frame?.contentDocument?.activeElement?.blur?.();}catch{}
   $("chatInput")?.blur();
 }
-function set3DMode(on){meeting3DOn=!!on;$("meeting").dataset.renderMode=meeting3DOn?"3d":"2d";$("voteResult").dataset.meetingRenderMode=meeting3DOn?"3d":"2d";const f=meeting3DFrame(),vp=$("votePlayers"),b=$("meeting3DBtn");if(!f)return;
+function set3DMode(on){meeting3DOn=!!on;const f=meeting3DFrame();if(!f)return;
   if(gameViewportMeta)gameViewportMeta.content=meeting3DOn&&["meeting","results"].includes(game.phase)?"width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover":gameViewportDefault;
-  if(meeting3DOn){meeting3DFailed=false;if(!f.srcdoc){meetingRecoveryAttempts=0;meetingFrameRendered=false;f.srcdoc=MEETING_3D_SRCDOC;}f.classList.remove("hidden");vp?.classList.add("hidden");if(!meetingFrameRendered)queueMeetingRecovery(12000);}
-  else{closeMeetingKeyboard();clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;meetingFrameRendered=false;if(!["meeting","results"].includes(game.phase))meeting3DFailed=false;f.classList.add("hidden");vp?.classList.remove("hidden");f.srcdoc="";}
-  if(b)b.textContent=meeting3DOn?"2D表示に戻す":"3D会議室";
-  post3DState(latest3D);}
-$("meeting3DBtn")?.addEventListener("click",()=>set3DMode(!meeting3DOn));
+  if(meeting3DOn){meeting3DFailed=false;if(!f.srcdoc){meetingRecoveryAttempts=0;meetingFrameRendered=false;f.srcdoc=MEETING_3D_SRCDOC;}f.classList.remove("hidden");if(!meetingFrameRendered)queueMeetingRecovery(12000);}
+  else{if(meetingFrameRendered)closeMeetingKeyboard();clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;meetingFrameRendered=false;if(!["meeting","results"].includes(game.phase))meeting3DFailed=false;f.classList.add("hidden");f.srcdoc="";}
+  syncMeeting3DPresentation();post3DState(latest3D);}
+$("meeting3DBtn")?.addEventListener("click",()=>{meeting3DManual2D=meeting3DOn;set3DMode(!meeting3DOn);});
+// Keep an in-progress 2D vote or chat from being replaced by a late 3D frame.
+function keepPendingMeeting2D(){if(meeting3DOn&&!meetingFrameRendered){meeting3DManual2D=true;set3DMode(false);}}
+$("votePlayers")?.addEventListener("click",keepPendingMeeting2D,true);
+$("skipBtn")?.addEventListener("click",keepPendingMeeting2D,true);
+$("chatInput")?.addEventListener("focus",keepPendingMeeting2D);
 meeting3DOn=true;setTimeout(()=>set3DMode(true),0);
 /* picks go through the existing 2D handlers (card click -> confirm), so guess mode, scale limits and vote rules stay in one place */
-window.addEventListener("message",e=>{const f=meeting3DFrame();if(!f||e.source!==f.contentWindow)return;const d=e.data||{};
+window.addEventListener("message",e=>{const f=meeting3DFrame();if(!f||e.source!==f.contentWindow||!meeting3DOn)return;const d=e.data||{};
   if(d.type==="ss3d-results-reveal"){void reportMeetingResultReveal(d.resultId,d.meetingId);return;}
-  if(d.type==="ss3d-context-lost"){meetingFrameRendered=false;queueMeetingRecovery();return;}
-  if(d.type==="ss3d-render-error"){meetingFrameRendered=false;queueMeetingRecovery(350);return;}
+  if(d.type==="ss3d-context-lost"){meetingFrameRendered=false;syncMeeting3DPresentation();queueMeetingRecovery();return;}
+  if(d.type==="ss3d-render-error"){meetingFrameRendered=false;syncMeeting3DPresentation();queueMeetingRecovery(350);return;}
   if(d.type==="ss3d-context-restored"){post3DState(latest3D);queueMeetingRecovery(12000);return;}
-  if(d.type==="ss3d-rendered"){meetingFrameRendered=true;meetingRecoveryAttempts=0;clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;post3DState(latest3D);return;}
+  if(d.type==="ss3d-rendered"){meetingFrameRendered=true;clearTimeout(meetingRecoveryTimer);meetingRecoveryTimer=0;syncMeeting3DPresentation();post3DState(latest3D);return;}
 
   if(d.type==="ss3d-ready"){post3DInit();post3DState(latest3D);if((game.phase==="results"||game.phase==="ended")&&latest3DResult&&latest3DResultMeetingId===String(latest3D?.meeting?.id||game.meeting?.id||""))post3DResult(latest3DResult);}
   if(d.type==="ss3d-pick"&&d.target&&meeting3DOn&&latest3D&&String(d.meetingId||"")===String(latest3D.meeting?.id||"")){
@@ -23638,7 +23659,7 @@ function startVoteEjection3D(players,resultId){
       resultScalesVisual?.dispose?.();resultScalesVisual=null;
       lastVoteResultId=result.id;
       post3DResult(result);
-      if(meeting3DOn){
+      if(meeting3DOn&&meetingFrameRendered){
         voteEjection3D?.dispose?.();voteEjection3D=null;ejectVisualUntil=0;
         clearTimeout(effectTimers.get("eject-stage"));effectTimers.delete("eject-stage");clearTimeout(effectTimers.get("voteResult"));effectTimers.delete("voteResult");
         $("ejectResult").replaceChildren();$("eject3DStage").replaceChildren();show("voteResult",false);return;
@@ -24683,8 +24704,8 @@ function renderUI() {
         frame?.contentWindow?.postMessage({type:"lobby-chat-bubbles",messages:[...recent.values()]},"*");
       }
       const meetingVisible=phase === "meeting" || (phase === "results" && !!game.lastVoteResult),meetingWasVisible=!$("meeting").classList.contains("hidden");if((phase!=="meeting"&&$("meeting").dataset.keyboardPhase==="meeting")||(!meetingVisible&&meetingWasVisible))closeMeetingKeyboard();$("meeting").dataset.keyboardPhase=phase;show("meeting",meetingVisible);if(meetingVisible&&!meetingWasVisible){const meetingCard=$("meeting").querySelector(".card");meetingCard?.classList.remove("ss-meeting-opening");void meetingCard?.offsetWidth;meetingCard?.classList.add("ss-meeting-opening");setTimeout(()=>meetingCard?.classList.remove("ss-meeting-opening"),950);}
-      if(phase !== "meeting" && phase !== "results")meeting3DFailed=false;
-      if((phase === "meeting" || phase === "results") && !meeting3DOn && !meeting3DFailed) set3DMode(true);
+      if(phase !== "meeting" && phase !== "results"){meeting3DFailed=false;meeting3DManual2D=false;}
+      if((phase === "meeting" || phase === "results") && !meeting3DOn && !meeting3DFailed && !meeting3DManual2D) set3DMode(true);
       else if(phase !== "meeting" && phase !== "results" && meeting3DOn) set3DMode(false);
       if((phase === "meeting" || phase === "results") && meeting3DOn && !meetingFrameRendered)queueMeetingRecovery(12000);
       show("ending", phase === "ended"&&now()>=ejectVisualUntil);
