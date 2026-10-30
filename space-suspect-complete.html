@@ -3073,6 +3073,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
       <h2 id="roleRevealTitle"></h2>
       <p id="roleRevealName"></p>
       <p id="roleRevealText"></p>
+      <section id="roleRevealRoster" aria-label="この試合の役職一覧"><h3>この試合の役職</h3><div id="roleRevealRosterItems"></div></section>
       <div id="roleSpawnTeleport" class="hidden"><small id="spawnTeleportRemaining">開始位置を選べます</small><button type="button" data-open-spawn-teleport>開始位置を選ぶ</button></div>
     </div>
   </section>
@@ -14149,6 +14150,24 @@ function showRoleReveal(player) {
     show("roleReveal",true);animateRoleReveal($("roleReveal"),"role");
     roleRevealTimer=setTimeout(()=>show("roleReveal",false),5000);
   };
+  const revealRoster=$("roleRevealRosterItems"),revealCounts=new Map(),revealLovers=new Set();
+  for(const p of Object.values(game.players||{})){
+    if(!p||p.observer||p.disconnected)continue;
+    const base=p.role==="impostor"?"impostor":p.role==="jackal"?"jackal":"crewmate";
+    const role=isSubRoleId(p.subrole)?base:p.subrole||base;
+    revealCounts.set(role,(revealCounts.get(role)||0)+1);
+    if(isSubRoleId(p.subrole))revealCounts.set(p.subrole,(revealCounts.get(p.subrole)||0)+1);
+    if(p.mirage&&p.subrole!=="mirage")revealCounts.set("mirage",(revealCounts.get("mirage")||0)+1);
+    if(p.lover&&p.loverPairId)revealLovers.add(p.loverPairId);
+  }
+  if(revealLovers.size)revealCounts.set("lovers",revealLovers.size);
+  revealRoster.replaceChildren();
+  for(const [role,count] of revealCounts){
+    const item=document.createElement("span");
+    item.textContent=(ROLE_LABELS[role]?.[0]||(role==="crewmate"?"クルーメイト":role==="impostor"?"インポスター":role))+" "+count+(role==="lovers"?"組":"人");
+    item.style.setProperty("--roster-order",String(revealRoster.childElementCount));
+    revealRoster.append(item);
+  }
   const startFactionReveal=()=>{
     $("roleRevealTitle").textContent=factionTitle;$("roleRevealName").textContent=faction;$("roleIcon").textContent=impostor||madmate?"✕":neutral?"★":"✦";$("roleTeam").textContent="あなたの陣営";
     show("roleReveal",true);animateRoleReveal($("roleReveal"),"faction");dismissLaunchPanels();
@@ -18465,6 +18484,10 @@ function useRoleAbility(){
       closeVoteConfirm();
       voteChoice={target,meeting:game.meeting.id};
       window.__ssxVoteSelection?.(target,game.players?.[target]||null);
+      if($("meeting").dataset.renderMode==="2d"){
+        $("voteConfirmText").textContent=(game.players[target].name||"選択したプレイヤー")+"に投票しますか？ 確定後は取り消せません。";
+        show("voteConfirm",true);return;
+      }
       sendVote(target);
     }
     $("voteConfirmYes").textContent="✓";$("voteConfirmYes").setAttribute("aria-label","投票を確定する");
@@ -29066,3 +29089,22 @@ body:has(#audioSettingsPanel:not(.hidden)) #roundRoles{display:none!important;vi
 </html>
 
 <!-- OCT9B_COMBAT_PATCH -->
+
+<style id="role-reveal-roster-and-meeting-layout">
+#roleReveal{overflow-y:auto!important}
+#roleReveal>.card{max-height:none!important;margin:auto;box-sizing:border-box}
+#roleRevealRoster{width:min(640px,100%);margin:16px auto 0;padding:12px;border:1px solid #b8d4e52e;border-radius:18px;background:#102332b3;box-sizing:border-box}
+#roleRevealRoster h3{margin:0 0 8px;font-size:15px;color:#d2e6f3}
+#roleRevealRosterItems{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-height:24dvh;overflow:auto}
+#roleRevealRosterItems span{padding:5px 9px;border-radius:12px;background:#b8d4e515;font-size:13px;line-height:1.4;color:#e6f2fa}
+#roleReveal:not(.hidden) #roleRevealRoster{animation:revealRosterEnter .45s ease-out both}
+#roleReveal:not(.hidden) #roleRevealRosterItems span{animation:revealRosterEnter .35s ease-out both;animation-delay:calc(var(--roster-order,0)*45ms)}
+@keyframes revealRosterEnter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){#roleReveal #roleRevealRoster,#roleReveal #roleRevealRosterItems span{animation:none!important}}
+#meeting[data-render-mode="2d"]{padding-block:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-bottom))!important}
+#meeting[data-render-mode="2d"]>.card{height:calc(100dvh - max(8px,env(safe-area-inset-top)) - max(8px,env(safe-area-inset-bottom)))!important;max-height:none!important}
+#meeting[data-render-mode="2d"] #votePlayers{padding-top:16px!important}
+@media(max-width:700px) and (orientation:portrait){#meeting[data-render-mode="2d"] #votePlayers{padding-top:8px!important}}
+@media(max-width:700px) and (orientation:landscape){#meeting[data-render-mode="2d"] #votePlayers{padding-top:52px!important}}
+#meeting[data-render-mode="2d"] #voteConfirm{position:absolute!important;left:50%!important;bottom:max(16px,env(safe-area-inset-bottom))!important;transform:translateX(-50%)!important;z-index:50!important;border-radius:18px!important;background:#163648!important;border:1px solid #b4d9e8aa!important;box-shadow:0 12px 40px #0008!important}
+</style>

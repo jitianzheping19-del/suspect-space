@@ -27,7 +27,7 @@ export function createMeetingRenderRecovery({renderer,scene,camera,composer,mobi
 }
 export function patchMeetingRendering(html){
  if(html.includes('const meetingRenderRecovery='))return html;
- html=html.replace("const mobileMeetingGpu=matchMedia('(pointer:coarse)').matches;",`${renderBudgetSource('meetingBudget')}\nconst mobileMeetingGpu=meetingBudget.mobile;`);
+ html=html.replace("const mobileMeetingGpu=matchMedia('(pointer:coarse)').matches;",()=>`${renderBudgetSource('meetingBudget')}\nconst mobileMeetingGpu=meetingBudget.mobile;`);
  html=html.replace('mobileMeetingGpu?1.15:1.8','mobileMeetingGpu?1:1.8');
  // Only presentation runs here. Seat state and commands arrive independently
  // through messages, so pausing this loop does not pause the match.
@@ -49,7 +49,7 @@ function startLoop(update){const clock=new THREE.Clock(),gate=meetingBudget.gate
  html=html.replace(environment,`let meetingEnvironmentTarget=null;function rebuildMeetingEnvironment(){const pmrem=new THREE.PMREMGenerator(renderer),environment=new RoomEnvironment();try{const next=pmrem.fromScene(environment,.04);meetingEnvironmentTarget?.dispose();meetingEnvironmentTarget=next;scene.environment=next.texture;}finally{environment.dispose();pmrem.dispose();}}try{rebuildMeetingEnvironment();}catch{scene.environment=null;}`);
  const postprocessing='const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));\nconst bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.33,.5,1.35);composer.addPass(bloom);composer.addPass(new OutputPass());';
  if(!html.includes(postprocessing))throw new Error('Meeting composer anchor missing');
- html=html.replace(postprocessing,`const composer=mobileMeetingGpu?{setSize(){},render(){renderer.render(scene,camera);},passes:[]}:new EffectComposer(renderer);if(!mobileMeetingGpu){composer.addPass(new RenderPass(scene,camera));const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.33,.5,1.35);composer.addPass(bloom);composer.addPass(new OutputPass());}\nconst meetingRenderRecovery=(${createMeetingRenderRecovery.toString()})({renderer,scene,camera,composer,mobile:mobileMeetingGpu,budget:meetingBudget,rebuildEnvironment:rebuildMeetingEnvironment,disposeEnvironment:()=>{meetingEnvironmentTarget?.dispose();scene.environment=null;}});`);
+ html=html.replace(postprocessing,()=>`const composer=mobileMeetingGpu?{setSize(){},render(){renderer.render(scene,camera);},passes:[]}:new EffectComposer(renderer);if(!mobileMeetingGpu){composer.addPass(new RenderPass(scene,camera));const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.33,.5,1.35);composer.addPass(bloom);composer.addPass(new OutputPass());}\nconst meetingRenderRecovery=(${createMeetingRenderRecovery.toString()})({renderer,scene,camera,composer,mobile:mobileMeetingGpu,budget:meetingBudget,rebuildEnvironment:rebuildMeetingEnvironment,disposeEnvironment:()=>{meetingEnvironmentTarget?.dispose();scene.environment=null;}});`);
  const identityLayout=`
 const identityAnchor=new THREE.Vector3(),identityView=new THREE.Vector3();
 function alignMeetingIdentity(){
