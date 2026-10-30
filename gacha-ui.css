@@ -94,3 +94,21 @@ body .ssGacha[data-planet-mode=complete] .gachaToolbar,body .ssGacha[data-planet
  body .ssGacha .gachaResult:not(.gachaBatchResult){left:5%;right:5%;top:17%;bottom:14%}
 }
 @media(prefers-reduced-motion:reduce){body .ssGacha .gachaPanel>.gachaCategories button,body .ssGacha .gachaPanel>.gachaCategories button::after,body .ssGacha[data-view=collection] .gachaRail article,body .ssGacha .gachaResult:not(.gachaBatchResult),body .ssGacha .gachaPrizeModel,body .ssGacha .gachaBatchGrid article{animation:none;transition:none}}
+
+/* Golden Legend: black enamel, engraved gold and an unobstructed prize. */
+.ssGacha .gachaRates{position:absolute;z-index:12;top:76px;left:18px;max-width:min(360px,calc(100% - 36px));color:#f5d894;font-size:12px;text-align:left}
+.ssGacha .gachaRates[hidden]{display:none}
+.ssGacha .gachaRates summary{width:max-content;padding:8px 12px;border:1px solid #bfa46b70;border-radius:8px;background:#101523ed;cursor:pointer}
+.ssGacha .gachaRates[open]{padding:10px;border:1px solid #bfa46b70;border-radius:10px;background:#101523fa;box-shadow:0 8px 24px #0006}
+.ssGacha .gachaRates p{line-height:1.65;margin:8px 0 0;color:#e9deca}
+.ssGacha[data-stage=drawing] .gachaRates,.ssGacha[data-stage=reveal] .gachaRates{display:none}
+.ssGacha [data-rarity="5"]{border-color:#f0cb72!important;background:linear-gradient(135deg,#3e3018,#12131e 45%,#2a2130)!important;box-shadow:inset 0 0 0 1px #ffe4a224,0 0 24px #e3b54326!important}
+.ssGacha [data-rarity="5"]>small{color:#ffe4a0!important;font-weight:900;letter-spacing:.06em;line-height:1.5}
+.ssGacha .goldenLegendTitle{position:absolute;z-index:5;left:8px;right:8px;top:clamp(28px,7vh,76px);display:grid;justify-items:center;gap:8px;pointer-events:none;text-align:center;color:#fff0c2;text-shadow:0 2px 12px #000,0 0 24px #d9a43b66}
+.ssGacha .goldenLegendTitle[hidden]{display:none}
+.ssGacha .goldenLegendTitle>span{font:800 clamp(11px,1.7vw,17px)/1.3 system-ui;letter-spacing:.38em;color:#e6be71}
+.ssGacha .goldenLegendTitle>strong{font:900 clamp(18px,3.1vw,36px)/1.4 system-ui;letter-spacing:.06em}
+.ssGacha .goldenLegendTitle>i{font-style:normal;font-size:clamp(10px,1.5vw,14px);letter-spacing:.2em;color:#e2d6bf}
+.ssGacha[data-golden-reveal=true] .gachaPlanetTap{border-color:#ffe3a1;color:#ffedb7}
+@media(max-height:520px){.ssGacha .goldenLegendTitle{top:12px;gap:3px}.ssGacha .goldenLegendTitle>strong{font-size:20px}.ssGacha .goldenLegendTitle>i{display:none}.ssGacha .gachaRates{top:61px}}
+@media(max-width:520px){.ssGacha .gachaRates{left:10px;max-width:calc(100% - 20px)}.ssGacha .goldenLegendTitle>span{letter-spacing:.18em}.ssGacha .goldenLegendTitle>strong{font-size:18px}}

@@ -1,18 +1,24 @@
+import {LEGEND_AURA_SKINS,createLegendAuraSkin} from './premium-legend-skins.js';
+import {GOLDEN_GIFT_SKINS,createGoldenGiftSkin} from './premium-golden-skins.js';
 import {EXPANDED_GIFT_SKINS,createExpandedGiftSkin} from './premium-skins-expansion.js';
 // Gift-only visual equipment. No colliders, lights, timers, or gameplay state.
 export const GIFT_SKINS=Object.freeze([
- {id:'neonphantom',name:'ネオン・ファントム',access:'gift',color:0x141025,accent:0xaf42ff,effect:'neon'},
- {id:'galaxylord',name:'ギャラクシー・ロード',access:'gift',color:0x171b48,accent:0x879bff,effect:'stars'},
- {id:'frostemperor',name:'フロスト・エンペラー',access:'gift',color:0x568ba5,accent:0x8af2ff,effect:'ice'},
- {id:'onimusha',name:'紅蓮の鬼武者',access:'gift',color:0x38151e,accent:0xff5930,effect:'fire'},
- {id:'spacebunny',name:'うさぎ宇宙飛行士',access:'gift',color:0xede5eb,accent:0xff88c7,effect:'sparkle'},
- {id:'error404',name:'ERROR 404',access:'gift',color:0x151a26,accent:0x43f5df,effect:'glitch'},
- {id:'celestial',name:'天界の守護者',access:'gift',color:0xf0ece0,accent:0xffd779,effect:'radiance'},
- {id:'boxgod',name:'ダンボール神',access:'gift',color:0xb48a56,accent:0xffd887,effect:'box'},
- ...EXPANDED_GIFT_SKINS
+ {id:'neonphantom',name:'ネオン・ファントム',access:'gift',rarity:5,color:0x141025,accent:0xaf42ff,effect:'neon'},
+ {id:'galaxylord',name:'ギャラクシー・ロード',access:'gift',rarity:5,color:0x171b48,accent:0x879bff,effect:'stars'},
+ {id:'frostemperor',name:'フロスト・エンペラー',access:'gift',rarity:5,color:0x568ba5,accent:0x8af2ff,effect:'ice'},
+ {id:'onimusha',name:'紅蓮の鬼武者',access:'gift',rarity:5,color:0x38151e,accent:0xff5930,effect:'fire'},
+ {id:'spacebunny',name:'うさぎ宇宙飛行士',access:'gift',rarity:5,color:0xede5eb,accent:0xff88c7,effect:'sparkle'},
+ {id:'error404',name:'ERROR 404',access:'gift',rarity:5,color:0x151a26,accent:0x43f5df,effect:'glitch'},
+ {id:'celestial',name:'天界の守護者',access:'gift',rarity:5,color:0xf0ece0,accent:0xffd779,effect:'radiance'},
+ {id:'boxgod',name:'ダンボール神',access:'gift',rarity:5,color:0xb48a56,accent:0xffd887,effect:'box'},
+ ...EXPANDED_GIFT_SKINS,
+ ...GOLDEN_GIFT_SKINS,
+ ...LEGEND_AURA_SKINS
 ]);
 export function createGiftSkin(T,id,{mobile=false}={}){
  const spec=GIFT_SKINS.find(s=>s.id===id);if(!spec)throw new Error('Unknown gift skin');
+ if(LEGEND_AURA_SKINS.some(s=>s.id===id))return createLegendAuraSkin(T,spec,{mobile});
+ if(GOLDEN_GIFT_SKINS.some(s=>s.id===id))return createGoldenGiftSkin(T,spec,{mobile});
  if(EXPANDED_GIFT_SKINS.some(s=>s.id===id))return createExpandedGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),containers=[group],animated=[],uniforms=[];

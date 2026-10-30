@@ -7,6 +7,9 @@ export const POSE_NETWORK_VERSION = 1;
 export const POSE_CHECKPOINT_MS = 5000;
 export const POSE_FALLBACK_MS = 200;
 const HEARTBEAT_MS = 250, FRESH_MS = 2500, RETRY_MS = 30000;
+// Start the backup lane promptly, while allowing more time before tearing down
+// a channel. Short packet delays should not trigger expensive ICE negotiation.
+const FALLBACK_FRESH_MS = 750;
 const MAGIC = 0x5350, HEADER_BYTES = 9, ROW_BYTES = 33;
 const MAX_ROWS = 40, MAX_BUFFERED = 4096;
 export const POSE_FRAME_MS = 1000 / 60;
@@ -406,11 +409,24 @@ export class PeerPoseNetwork {
     }
     link.lastReceivedAt = stamp; this.stats.receivedBytes += value.byteLength;
     if (this.isHost) this.dirty = true;
-    else {this.lastSnapshotAt = stamp;if(packet.complete)this.coverageAt=stamp;}
+    else {this.lastSnapshotAt = stamp;this.coverageAt=packet.complete?stamp:0;}
     if (Object.keys(accepted).length) {
       if (this.isHost) Object.assign(this.pendingPoses, accepted);
       else this.onPoses(accepted);
     }
+  }
+
+  localConnectionHealthy() {
+    if (!this.context || !this.advertised) return false;
+    if (this.isHost) return this.expectedPeers().every(id=>{
+      const link=this.links.get(id);
+      return this.open(link)&&link.readyVersion===this.version&&this.clock()-link.lastReceivedAt<FRESH_MS;
+    });
+    const link=this.links.get(this.context.hostId),stamp=this.clock();
+    // The relay's coverage flag includes OTHER guests. Only this channel and
+    // its acknowledgement determine whether this guest needs renegotiation.
+    return this.open(link) && link.lastReceivedAt > 0 && stamp-link.lastReceivedAt < FRESH_MS &&
+      this.ackAt > 0 && stamp-this.ackAt < FRESH_MS;
   }
 
   canUseDirect() {
@@ -418,15 +434,15 @@ export class PeerPoseNetwork {
     const stamp = this.clock();
     if (this.isHost) return this.expectedPeers().every(id => {
       const link = this.links.get(id);
-      return this.open(link) && link.readyVersion === this.version && stamp - link.lastReceivedAt < FRESH_MS;
+      return this.open(link) && link.readyVersion === this.version && stamp - link.lastReceivedAt < FALLBACK_FRESH_MS;
     });
     return this.open(this.links.get(this.context.hostId)) && this.coverageAt > 0 &&
-      stamp - this.coverageAt < FRESH_MS && this.ackAt > 0 && stamp - this.ackAt < FRESH_MS;
+      stamp - this.coverageAt < FALLBACK_FRESH_MS && this.ackAt > 0 && stamp - this.ackAt < FALLBACK_FRESH_MS;
   }
 
   poseFor(id) {
     const sample = this.poses.get(id);
-    return this.context && sample && this.clock() - sample.receivedAt < FRESH_MS ? sample.pose : null;
+    return this.context && sample && this.clock() - sample.receivedAt < FALLBACK_FRESH_MS ? sample.pose : null;
   }
 
   tick() {

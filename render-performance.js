@@ -35,7 +35,7 @@ export function createRenderBudget() {
     }
   }
   return {mobile, fps, gate, shadows,setIdle:value=>{idle=!!value;},
-    pixelRatio: requested => Math.min(globalThis.devicePixelRatio || 1, requested, mobile ? 1.15 : requested)};
+    pixelRatio: requested => Math.min(globalThis.devicePixelRatio || 1, requested, mobile ? 1 : requested)};
 }
 
 // Inject into the existing module (not a second renderer or animation loop).

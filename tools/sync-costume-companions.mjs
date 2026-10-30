@@ -6,7 +6,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {gzipSync,gunzipSync} from 'node:zlib';
 const helper=(await readFile('assets-source/detailed-companions.js','utf8')).trim();
 const wearables=(await readFile('assets-source/detailed-wearables.js','utf8')).trim();
-const premiumSources=await Promise.all(['premium-couture.js','premium-tailored-designs.js','premium-tailored-skins.js','premium-skins-expansion.js','premium-skins.js'].map(file=>readFile(file,'utf8')));
+const premiumSources=await Promise.all(['premium-couture.js','premium-tailored-designs.js','premium-tailored-skins.js','premium-skins-expansion.js','premium-golden-skins.js','premium-legend-skins.js','premium-skins.js'].map(file=>readFile(file,'utf8')));
 const premium='/* GIFT_SKIN_V1_BEGIN */\n'+premiumSources.map(source=>source.replace(/^import .*?;\s*/gm,'').replace(/export (const|function) /g,'$1 ')).join('\n')+'\n/* GIFT_SKIN_V1_END */';
 const premiumMarker=/\/\* GIFT_SKIN_V1_BEGIN \*\/[\s\S]*?\/\* GIFT_SKIN_V1_END \*\//;
 const marker=/\/\* DETAILED_COMPANIONS_V1_BEGIN[\s\S]*?\/\* DETAILED_COMPANIONS_V1_END \*\//;
@@ -25,12 +25,13 @@ for(const name of [...entries,'assets-source/lobby-lounge.html']){
  if(updated!==source)await writeFile(name,updated);
 }
 const lobby=await readFile('assets-source/lobby-lounge.html','utf8');
+const runtimeRules=JSON.parse(await readFile('database.rules.json','utf8'));
 const pattern=/const EMBEDDED_ASSET_PAYLOAD=(\[[\s\S]*?\])\.join\(""\);/;
 for(const name of entries){
  const source=await readFile(name,'utf8'),match=source.match(pattern);
  if(!match)throw new Error('Embedded assets missing: '+name);
  const assets=JSON.parse(gunzipSync(Buffer.from(JSON.parse(match[1]).join(''),'base64')));
- assets.COSTUME_LIB_SRC=helper+'\n\n'+wearables+'\n\n'+premium+'\n\n'+builder;assets.INTEGRATED_LOBBY_TEMPLATE=lobby;
+ assets.COSTUME_LIB_SRC=helper+'\n\n'+wearables+'\n\n'+premium+'\n\n'+builder;assets.INTEGRATED_LOBBY_TEMPLATE=lobby;assets.RULES=runtimeRules;
  const encoded=gzipSync(Buffer.from(JSON.stringify(assets)),{level:9,mtime:0}).toString('base64');
  const payload='const EMBEDDED_ASSET_PAYLOAD='+JSON.stringify(encoded.match(/.{1,120}/g),null,1)+'.join("");';
  await writeFile(name,source.replace(pattern,()=>payload));console.log('Updated costume models: '+name);
