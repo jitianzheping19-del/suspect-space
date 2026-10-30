@@ -2525,6 +2525,7 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 #meeting[data-render-mode="2d"] #meeting3D{display:none!important}
 #meeting[data-render-mode="2d"][data-preparing-3d="true"] #meeting3D{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;pointer-events:none!important}
 #meetingLoadingStatus{font-size:12px;color:#b8cad6}
+#meeting .meetingViewControls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -2894,8 +2895,8 @@ body[data-phase="lobby"] #jumpBtn:not(.hidden){right:140px!important;width:88px!
 
 <section id="meeting" class="overlay hidden" data-render-mode="2d" role="dialog" aria-modal="true" aria-labelledby="meetingTitle">
     <div class="card">
-      <div class="row" style="justify-content:space-between"><h2 id="meetingTitle">緊急会議</h2><div class="meetingHeaderTools"><button id="meetingCountdown" disabled>残り -- 秒</button><button id="meetingMapBtn">マップ [M]</button><button id="meeting3DBtn" type="button">3D会議室</button></div></div>
-      <p id="meetingLoadingStatus" hidden role="status">3Dを準備中です。投票・チャットはこのまま使えます。</p>
+      <div class="row" style="justify-content:space-between"><h2 id="meetingTitle">緊急会議</h2><div class="meetingHeaderTools"><button id="meetingCountdown" disabled>残り -- 秒</button><button id="meetingMapBtn">マップ [M]</button></div></div>
+      <div class="meetingViewControls"><button id="meeting3DBtn" type="button">3D会議室</button><p id="meetingLoadingStatus" hidden role="status">3Dを準備中です。投票・チャットはこのまま使えます。</p></div>
       <div id="meetingHeadline"><p id="meetingInfo"></p><p id="meetingFeedback" aria-live="polite"></p></div><div id="meetingPhase" class="phaseLabel"></div>
       <div id="votePlayers"></div><iframe id="meeting3D" class="hidden" title="3D会議室" style="display:block;width:100%;height:min(48dvh,440px);border:0;border-radius:12px;background:#0a0d18"></iframe>
       <div id="meetingChat">
