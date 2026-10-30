@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {createPoseReconnectState} from '../pose-reconnect-state.js';
+import {createPoseSavePolicy} from '../room-traffic-policy.js';
+import {PeerPoseNetwork} from '../peer-pose-network.js';
+const controller=createPoseReconnectState();
+const update=(stamp,direct=false,extra={})=>controller.update({key:'room-a',active:true,hasPeers:true,direct,stamp,...extra});
+assert(update(0).pending);assert(!update(14999).fastFallback);assert.equal(update(15000).event,'failed');assert(controller.state.fastFallback);
+assert.equal(update(16000,true).event,'restored');assert(!controller.state.fastFallback);
+assert(!update(17000).pending,'a later disconnect waits for the retry button');controller.retry('room-a',18000);assert(controller.state.manual);assert(!update(32999).fastFallback);assert.equal(update(33000).event,'failed');
+controller.retry('room-a',34000);assert(controller.state.fastFallback,'retain the working Firebase fallback during another attempt');assert.equal(update(34100,true).event,'restored');assert(!controller.state.fastFallback);
+update(35000,false,{active:false});assert(!controller.state.fastFallback);assert(!controller.state.pending);assert(update(40000,false,{key:'room-b'}).pending);assert(!update(56000,false,{key:'room-b',hasPeers:false}).fastFallback);
+const policy=createPoseSavePolicy();let writes=0;for(let t=0;t<1000;t+=50)if(policy.shouldSave({scope:'room',moving:true,direct:false,fastFallback:true,stamp:t}))writes++;assert.equal(writes,10,'fallback must send moving coordinates at 100 ms, not each 50 ms poll');
+let directWrites=0;for(let t=1000;t<2000;t+=50)if(policy.shouldSave({scope:'room',moving:true,direct:true,fastFallback:true,stamp:t}))directWrites++;assert.equal(directWrites,0,'direct restoration stops periodic Firebase writes');
+let stopped=0;for(let t=2000;t<3000;t+=50)if(policy.shouldSave({scope:'room',moving:false,direct:false,fastFallback:true,stamp:t}))stopped++;assert.equal(stopped,1,'stopping sends a final pose without idle polling traffic');
+const host=new PeerPoseNetwork({clock:()=>10000});host.context={uid:'host',hostId:'host',online:true};host.advertised=true;let reconciled=0;host.reconcile=()=>reconciled++;
+const healthy={peerId:'ok',data:{readyState:'open'},control:{readyState:'open'},lastReceivedAt:9999};host.links.set('ok',healthy);host.retryAt.set('failed',999999);assert(host.reconnect());assert.equal(host.links.get('ok'),healthy);assert.equal(host.retryAt.size,0);assert.equal(reconciled,1);
+const guest=new PeerPoseNetwork({writePresence:async()=>{}});guest.context={uid:'guest',hostId:'host',online:true};let configured;guest.configure=context=>{configured=context;guest.epoch='new-epoch';};guest.epoch='old-epoch';assert(guest.reconnect());assert.equal(configured.uid,'guest');assert.equal(guest.epoch,'new-epoch');assert(!new PeerPoseNetwork().reconnect());
+console.log('PASS manual and initial retry deadlines, fast fallback, restoration, 10 Hz cap, idle saving, host link preservation and guest renegotiation');

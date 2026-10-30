@@ -29,11 +29,15 @@ export function createAdminTerminal({getGame,getRooms,getCorridors,getPose,conta
   if(now()>=until||!eligible()){close();return;}
   const g=getGame();if(g.sabotage?.type==='comms'&&g.sabotage.endsAt>now()){close();toast('通信妨害中はアドミンを使用できません。');return;}
   remaining.textContent='残り '+Math.max(0,Math.ceil((until-now())/1000))+'秒';layout();
-  const rooms=getRooms(),counts=adminRoomCounts(g,rooms,getPose,contains,now()),stamp=JSON.stringify(counts);if(stamp===lastCounts)return;lastCounts=stamp;markerLayer.replaceChildren();occupancy.replaceChildren();
+  const rooms=getRooms(),counts=adminRoomCounts(g,rooms,getPose,contains,now()),stamp=JSON.stringify([counts,innerWidth,innerHeight]);if(stamp===lastCounts)return;lastCounts=stamp;markerLayer.replaceChildren();occupancy.replaceChildren();
   for(const r of rooms){
    const count=counts[r.id],p=project(r.x,r.z),group=node('g',{'data-room':r.id,'aria-label':`${r.label||r.name}：${count}人`});
    const label=node('text',{x:p.x,y:p.y-10});label.textContent=r.label||r.name;group.append(label);
-   const columns=Math.min(5,Math.max(1,Math.ceil(Math.sqrt(count*1.4)))),size=count>10?1:1.15;
+   const touch=matchMedia('(pointer:coarse)').matches,tablet=touch&&Math.min(innerWidth,innerHeight)>=600;
+   const columns=Math.min(5,Math.max(1,Math.ceil(Math.sqrt(count*1.4)))),rows=Math.max(1,Math.ceil(count/columns));
+   const baseSize=tablet?(count>10?1.25:1.5):touch?(count>10?.8:.95):(count>10?1:1.15);
+   const corner=project(r.x+r.w/2,r.z+r.d/2),availableWidth=Math.max(12,Math.abs(corner.x-p.x)*2-14),availableHeight=Math.max(20,Math.abs(corner.y-p.y)-8);
+   const size=Math.max(.3,Math.min(baseSize,availableWidth/(columns*16),availableHeight/(rows*23)));
    for(let i=0;i<count;i++){const row=Math.floor(i/columns),inRow=Math.min(columns,count-row*columns),x=p.x+((i%columns)-(inRow-1)/2)*16*size-6*size,y=p.y+row*23*size;group.append(node('use',{href:'#ssAdminPerson',class:'adminPerson',transform:`translate(${x} ${y}) scale(${size})`}));}
    group.dataset.count=String(count);markerLayer.append(group);
    if(count){const card=document.createElement('div'),title=document.createElement('strong'),people=document.createElement('div');card.className='adminRoomSummary';title.textContent=r.label||r.name;people.className='adminRoomPeople';people.setAttribute('aria-label',count+'人');for(let i=0;i<count;i++){const icon=node('svg',{viewBox:'0 0 12 20','aria-hidden':'true'});icon.append(node('use',{href:'#ssAdminPerson'}));people.append(icon);}card.append(title,people);occupancy.append(card);}

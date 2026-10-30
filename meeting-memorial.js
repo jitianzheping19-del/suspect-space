@@ -1,12 +1,13 @@
 import {createRenderBudget} from './render-performance.js';
 import './meeting-memorial.css';
+import {memorialCameraPose} from './meeting-memorial-layout.js';
 
 // A local, finite presentation; only the host chooses the deceased and duration.
 export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
  let stop=()=>{};
  return{play({deaths=[],duration=1500,elapsed=0}){
   stop();
-  const panel=document.createElement('section');panel.className='meetingMemorial';panel.setAttribute('aria-label','今回確認された死亡者');
+  const panel=document.createElement('section');panel.className=deaths.length?'meetingMemorial':'meetingMemorial meetingMemorialEmpty';panel.setAttribute('aria-label','今回確認された死亡者');
   const heading=document.createElement('h2');heading.textContent=deaths.length?'今回確認された死亡者':'死亡者なし';
   const viewport=document.createElement('div');viewport.className='meetingMemorialView';
   const names=document.createElement('div');names.className='meetingMemorialNames';
@@ -14,7 +15,7 @@ export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
   panel.append(heading,viewport,names,remaining);host.append(panel);
   const originalChildren=[...host.children].filter(n=>n!==panel);for(const node of originalChildren)node.classList.add('memorialCovered');
   if(!deaths.length){
-   remaining.textContent='会議へ進みます';const timer=setTimeout(()=>stop(),Math.max(0,duration-elapsed));
+   panel.replaceChildren(heading);const timer=setTimeout(()=>stop(),Math.max(0,duration-elapsed));
    let done=false;stop=()=>{if(done)return;done=true;clearTimeout(timer);panel.remove();for(const n of originalChildren)n.classList.remove('memorialCovered');};return stop;
   }
   const budget=createRenderBudget(),gate=budget.gate(),reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
@@ -59,7 +60,7 @@ export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
    const button=document.createElement('button');button.type='button';button.textContent=p.name;button.onclick=()=>{manual=order;};names.append(button);
   }
   let raf=0,finished=false,manual=null,lastSelected=-1,width=1,height=1;const started=performance.now()-Math.max(0,elapsed);
-  function resize(){width=Math.max(1,viewport.clientWidth,deaths.length*200);height=Math.max(1,viewport.clientHeight);renderer.setSize(width,height,false);renderer.domElement.style.width=width+'px';renderer.domElement.style.height=height+'px';camera.aspect=width/height;camera.updateProjectionMatrix();}
+  function resize(){width=Math.max(1,viewport.clientWidth,deaths.length*200);height=Math.max(1,viewport.clientHeight);renderer.setSize(width,height,false);renderer.domElement.style.width=width+'px';renderer.domElement.style.height=height+'px';camera.aspect=width/height;camera.updateProjectionMatrix();const pose=memorialCameraPose(deaths.length,camera.aspect,camera.fov);camera.position.set(pose.x,pose.y,pose.z);camera.lookAt(pose.target.x,pose.target.y,pose.target.z);}
   resize();const observer=new ResizeObserver(resize);observer.observe(viewport);
   const endTimer=setTimeout(()=>stop(),Math.max(0,duration-elapsed));
   stop=()=>{if(finished)return;finished=true;clearTimeout(endTimer);cancelAnimationFrame(raf);observer.disconnect();document.removeEventListener('visibilitychange',resume);for(const actor of actors){actor.removeFromParent();disposeCrew(actor);}geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());renderer.dispose();renderer.forceContextLoss();panel.remove();for(const n of originalChildren)n.classList.remove('memorialCovered');};
@@ -70,7 +71,7 @@ export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
    const current=Math.min(deaths.length-1,Math.floor(age/Math.max(1,duration/deaths.length))),selected=manual??current;
    // Keep every grave in the same horizontal row. Narrow screens scroll the
    // canvas instead of shrinking the skins or replacing the row with a carousel.
-   const fit=4.7/(2*Math.tan(35*Math.PI/360)),span=(deaths.length-1)*2.65+2.5;camera.position.set(0,4.6,Math.max(fit,span/(2*Math.tan(35*Math.PI/360)*camera.aspect)));camera.lookAt(0,1,0);
+
    if(selected!==lastSelected){lastSelected=selected;viewport.scrollTo({left:Math.max(0,(selected+.5)*width/deaths.length-viewport.clientWidth/2),behavior:reduced?'instant':'smooth'});}
    for(const[i,root]of graveRoots.entries())root.position.y=reduced?0:Math.sin(stamp*.0008+i)*.015;
    for(const actor of actors)actor.userData.costumeRoot?.userData.updateGiftSkin?.(stamp*.001,{moving:false,jumping:false});

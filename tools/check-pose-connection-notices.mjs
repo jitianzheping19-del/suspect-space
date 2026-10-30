@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {createPoseConnectionNotices} from '../pose-connection-notices.js';
+const n=createPoseConnectionNotices();
+const tick=(stamp,healthy,extra={})=>n.update({key:'room-a',active:true,peers:[{id:'other',healthy}],stamp,...extra});
+assert.deepEqual(tick(0,false),[]);assert.deepEqual(tick(10000,false),[],'initial negotiation is not a disconnection');assert.deepEqual(tick(10010,true),[]);
+assert.deepEqual(tick(10100,false),[]);assert.deepEqual(tick(11000,true),[],'brief scope/connection changes must not notify');
+assert.deepEqual(tick(12000,false),[]);assert.deepEqual(tick(13199,false),[]);assert.deepEqual(tick(13200,false),[{type:'lost',id:'other'}]);assert.deepEqual(tick(20000,false),[],'continuing outage must not spam');assert.deepEqual(tick(21000,true),[{type:'restored',id:'other'}]);assert.deepEqual(tick(22000,true),[]);
+assert.deepEqual(tick(23000,false,{peers:[]}),[],'intentional departure is not transport loss');assert.deepEqual(tick(25000,false),[],'returning player begins initial negotiation again');
+assert.deepEqual(tick(26000,true),[]);assert.deepEqual(tick(27000,false,{active:false}),[]);assert.deepEqual(tick(29000,false),[],'leaving a room clears old notices');
+assert.deepEqual(tick(30000,true),[]);assert.deepEqual(tick(31000,false,{key:'room-b'}),[]);assert.deepEqual(tick(40000,false,{key:'room-b'}),[],'another room cannot inherit healthy state');
+console.log('PASS initial negotiation, transient loss, sustained disconnect, deduplication, restoration, departure and room reset');

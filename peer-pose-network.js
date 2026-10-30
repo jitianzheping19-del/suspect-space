@@ -1,3 +1,4 @@
+import {createPoseTrafficMeter} from './pose-traffic-meter.js';
 // Movement has no durable game authority. Firebase authenticates discovery and
 // still owns roles, kills, votes, phase changes and recovery checkpoints.
 // The host relays independent pose snapshots: guests need one connection, not
@@ -100,6 +101,7 @@ export class PeerPoseNetwork {
     ]};
     this.context = null; this.generation = 0; this.version = 0;
     this.links = new Map(); this.rows = new Map(); this.poses = new Map();
+    this.trafficMeter=createPoseTrafficMeter();
     this.dirtyRows = new Set(); this.pendingPoses = {};
     this.retryAt = new Map(); this.writeQueue = Promise.resolve();
     this.stats = {sentBytes: 0, receivedBytes: 0, signals: 0, dropped: 0};
@@ -360,7 +362,7 @@ export class PeerPoseNetwork {
     this.rows.set(row.id, row); this.dirtyRows.add(row.id); this.dirty = true;
     if (!this.isHost) {
       const link = this.links.get(this.context.hostId);
-      if (this.open(link)) this.send(link.data, encodePosePacket(this.version, [row]));
+      if (this.open(link)&&this.send(link.data, encodePosePacket(this.version, [row])))this.trafficMeter.record('send',link.peerId,stamp);
     }
   }
 
@@ -400,6 +402,7 @@ export class PeerPoseNetwork {
       if (this.isHost) this.dirtyRows.add(id);
       const pose = {...row.pose, updatedAt: row.at};
       this.poses.set(id, {pose, receivedAt: stamp}); accepted[id] = pose;
+      this.trafficMeter.record('receive',id,stamp);
     }
     link.lastReceivedAt = stamp; this.stats.receivedBytes += value.byteLength;
     if (this.isHost) this.dirty = true;
@@ -442,11 +445,25 @@ export class PeerPoseNetwork {
     for (const link of this.links.values()) {
       this.flushEphemeral(link);
       if (link.readyVersion !== this.version) {if (stamp - (link.configAt || 0) > 500) {link.configAt = stamp; this.sendConfig(link);} continue;}
-      this.send(link.data, buffer);
+      if(this.send(link.data, buffer))this.trafficMeter.record('send',link.peerId,stamp);
     }
     if (full) this.lastFullAt = stamp;
     this.nextSnapshotAt=(stamp-deadline>POSE_FRAME_MS?stamp:deadline)+POSE_FRAME_MS;
     this.lastSnapshotSentAt = stamp; this.dirty = false; this.forceFull = false; this.dirtyRows.clear();
+  }
+
+  reconnect() {
+    if(!this.context?.online)return false;
+    if(!this.isHost){
+      // A new guest epoch makes the host replace its old offer. Answering an
+      // already-used offer cannot repair an established, failed connection.
+      const context=this.context;this.stop();this.configure(context);return true;
+    }
+    const stamp=this.clock();
+    for(const link of [...this.links.values()])if(!this.open(link)||stamp-link.lastReceivedAt>=FRESH_MS)this.closeLink(link);
+    this.retryAt.clear();this.lastReconcile=-Infinity;this.advertiseAt=0;
+    if(!this.advertised&&!this.advertising)this.advertise();
+    this.reconcile();return true;
   }
 
   failLink(link) {
@@ -471,6 +488,7 @@ export class PeerPoseNetwork {
     for (const link of [...this.links.values()]) this.closeLink(link);
     this.generation++; this.context = null; this.identity = ''; this.ids = null;
     this.advertised = false; this.advertising = false; this.advertiseAt = 0;
+    this.trafficMeter.reset();
     this.rows.clear(); this.poses.clear(); this.retryAt.clear(); this.localSignature = '';
     this.dirtyRows.clear(); this.pendingPoses = {}; this.forceFull = false;
     this.coverageAt = 0; this.ackAt = 0; this.dirty = false;

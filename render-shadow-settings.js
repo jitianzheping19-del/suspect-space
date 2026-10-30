@@ -50,6 +50,7 @@ export function withShadowSettings(source) {
     try { enabled = localStorage.getItem('space-suspect-render-preset-v1') !== 'low'; }
     catch { enabled = true; }
   }
+  try { if (localStorage.getItem('space-suspect-render-preset-v1') === 'low') enabled = false; } catch {}
   // Only the first assignment belongs to the scene itself. Later occurrences
   // may be escaped source strings for nested animation documents.
   return source.replace(/renderer\.shadowMap\.enabled\s*=\s*true\s*;/,

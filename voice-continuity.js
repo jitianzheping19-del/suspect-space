@@ -7,3 +7,19 @@ export function voiceConnectionUsable({connected,joined,lossAt,stamp,healthy,gra
   return !!connected||!!joined&&!!healthy&&lossAt>0&&stamp-lossAt>=0&&stamp-lossAt<graceMs;
 }
 export function voiceGainChanged(previous,next){return !Number.isFinite(previous)||Math.abs(previous-next)>.012||(previous===0)!==(next===0);}
+
+// AudioParam automation runs on the audio thread. Stationary players should
+// not enqueue identical curves on every spatial tick.
+export function createVoiceSpatialParamUpdater(){
+ const targets=new WeakMap();
+ return(param,value,time,tau)=>{
+  if(!param||!Number.isFinite(value))return false;
+  const previous=targets.get(param);
+  if(previous!==undefined&&Math.abs(previous-value)<.002)return false;
+  param.setTargetAtTime(value,time,tau);targets.set(param,value);return true;
+ };
+}
+export function voicePresenceConnectionChanged(previous,next){
+ return previous?.joined!==next?.joined||previous?.session!==next?.session||
+  previous?.memberId!==next?.memberId||previous?.skywayMemberId!==next?.skywayMemberId;
+}

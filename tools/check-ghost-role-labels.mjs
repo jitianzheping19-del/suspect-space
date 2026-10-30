@@ -1,0 +1,8 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const line=html.match(/const roleText=isAlly[^;]+;/)?.[0];assert(line);
+for(const ghost of [true,false]){const ctx={isAlly:true,meetingCanSeeRoles:ghost,roleNameFor:()=> '侍',p:{subrole:'samurai'}};vm.createContext(ctx);assert.equal(vm.runInContext(line+'roleText',ctx),ghost?'侍':'インポスター');}
+const scene=fs.readFileSync(new URL('../assets-source/meeting-scene.html',import.meta.url),'utf8'),a=scene.indexOf('    if(p.ally&&!s.revealRole)'),b=scene.indexOf('    if(!s.alive&&p.alive',a);assert(a>=0&&b>a);
+for(const ghost of [true,false]){let label;const ctx={p:{ally:true,roleTag:{s:{visible:false}}},s:{revealRole:ghost,role:'ヴァンパイア',impostor:true},nameTag:(tag,text)=>{label=text;}};vm.createContext(ctx);vm.runInContext(scene.slice(a,b),ctx);assert.equal(label,ghost?'ヴァンパイア':'インポスター');}
+const begin=html.indexOf('      syncTaskOverlayState();',html.indexOf('function renderGhostHud()')),end=html.indexOf('      const roster=',begin);let cleaned=0,hidden=0,synced=0;const ctx={syncTaskOverlayState:()=>synced++,game:{phase:'play'},$:()=>({classList:{contains:()=>false}}),clearTimeout(){},meetingMemorialTimer:1,effectTimers:new Map([['meetingIntro',2]]),meetingIntroPresentation:{dispose:()=>cleaned++},meetingMemorialPresentation:{dispose:()=>cleaned++},show:(id,on)=>{if(id==='meetingIntro'&&!on)hidden++;}};vm.createContext(ctx);vm.runInContext(html.slice(begin,end),ctx);assert.equal(cleaned,2);assert.equal(hidden,1);assert.equal(synced,1);assert.equal(ctx.effectTimers.size,0);
+console.log('PASS ghost meeting role names, living-player secrecy and stale meeting/task-overlay recovery');

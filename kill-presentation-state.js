@@ -6,7 +6,7 @@ const currentPresentation=game=>{
 function pendingViewers(game,presentation){
   return Object.entries(presentation.pending||{}).filter(([id,entry])=>{
     const player=game.players?.[id];
-    return entry.kind==='death'&&player&&!player.bot&&!player.disconnected&&!player.observer&&player.alive===false;
+    return player&&!player.bot&&!player.disconnected&&(entry.kind==='victory'||entry.kind==='death'&&!player.observer&&player.alive===false);
   });
 }
 function addPlayback(game,playerId,key,role,stamp){
@@ -31,21 +31,25 @@ export function registerDeathPlayback(game,event,stamp){
   addPlayback(game,event.victim,player.deathAt,resolveAuthoredKillRole(player.deathCause||event.cause,killer),stamp);
   return true;
 }
-export function registerWinningPlayback(game){
-  const presentation=currentPresentation(game);
+export function registerWinningPlayback(game,stamp=Number(game?.endedAt)||0){
+  const presentation=currentPresentation(game),event=game?.killEvent;
   if(game.phase!=='ended'||!presentation||presentation.hasVictory)return false;
-  // Finish the victims' existing scenes before the result. Do not start a
-  // second kill animation for the attacker, observers or earlier ghosts.
   presentation.hasVictory=true;
-  delete game.winningKillPlayback;
+  const endedAt=Number(game.endedAt)||stamp,at=Number(event?.at)||0;
+  if(!event?.id||at<=0||Math.abs(endedAt-at)>2500){delete game.winningKillPlayback;return true;}
+  const role=resolveAuthoredKillRole(event.cause,game.players?.[event.killer]||{}),key=`victory:${game.round}:${event.id}`;
+  presentation.pending||={};
+  for(const[id,player]of Object.entries(game.players||{}))if(player&&!player.bot&&!player.disconnected&&(id!==event.victim||!presentation.pending[id]))presentation.pending[id]={key,kind:'victory',role};
+  presentation.untilAt=Math.max(Number(presentation.untilAt)||0,stamp+durationFor(role));
+  presentation.deadlineAt=Math.max(Number(presentation.deadlineAt)||0,stamp+15000);
+  delete presentation.completedAt;
+  game.winningKillPlayback={player:event.killer,key,eventId:event.id};
   return true;
 }
 export function isLastKillPlayback(game,viewer){
-  const event=game?.killEvent,player=game?.players?.[viewer],entry=currentPresentation(game)?.pending?.[viewer];
+  const event=game?.killEvent,entry=currentPresentation(game)?.pending?.[viewer];
   const endedAt=Number(game?.endedAt)||Number(event?.at)||0,at=Number(event?.at)||0;
-  return game?.phase==='ended'&&!!event?.id&&entry?.kind==='death'&&player?.alive===false&&
-    at>0&&Math.abs(endedAt-at)<=2500&&Math.abs(Number(player.deathAt)-at)<=250&&
-    (event.victim===viewer||player.killedById===event.killer);
+  return game?.phase==='ended'&&!!event?.id&&!!entry&&['death','victory'].includes(entry.kind)&&at>0&&Math.abs(endedAt-at)<=2500;
 }
 export function presentationReadyAt(game){
   const presentation=currentPresentation(game);if(!presentation)return 0;

@@ -746,8 +746,8 @@ function applyState(state){
     if(!p.roleTag){p.roleTag=makeLabel(512,112,1.15);}
     if(!p.heart){p.heart=new THREE.Sprite(new THREE.SpriteMaterial({map:heartTex,transparent:true,depthWrite:false,toneMapped:false}));p.heart.scale.setScalar(.45);scene.add(p.heart);}
     p.heart.visible=!!(partnerId&&s.id===partnerId);
-    if(p.ally){nameTag(p.roleTag,"インポスター","#ff526b");p.roleTag.s.visible=true;}
-    else if(s.role){nameTag(p.roleTag,String(s.role),"#ffe27a");p.roleTag.s.visible=true;}
+    if(p.ally&&!s.revealRole){nameTag(p.roleTag,"インポスター","#ff526b");p.roleTag.s.visible=true;}
+    else if(s.role){nameTag(p.roleTag,String(s.role),s.impostor?"#ff526b":"#ffe27a");p.roleTag.s.visible=true;}
     else p.roleTag.s.visible=false;
     if(!s.alive&&p.alive&&!p.gone&&!p.ejectionStarted&&!p.meetingAbilityLocked){
       const initializing=startingMeeting||p.newSeat;

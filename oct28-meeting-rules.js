@@ -20,7 +20,7 @@ export function collectNewMeetingDeaths(g){
  return current;
 }
 
-export function meetingMemorialDuration(deaths){return deaths?.length?Math.max(3000,deaths.length*2500):1500;}
+export function meetingMemorialDuration(deaths){return deaths?.length?Math.min(10000,2500+(deaths.length-1)*750):1500;}
 
 export function syncMeetingPresence(g,profiles,stamp,{grace=15000,token=()=>String(stamp),depart,missingSince=new Map()}={}){
  let changed=false;

@@ -149,3 +149,8 @@ body:has(#ssSecurityModal.open) #ssSecurityStatus:empty{display:none!important}
 
 /* Keep game gestures from triggering text selection while preserving input editing. */
 body[data-phase="play"] :is(#joystick,#buttons,#gameCanvas), body[data-phase="lobby"] :is(#joystick,#buttons,#gameCanvas){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
+/* Keep both ghost-control rows inside the viewport when the tools are present. */
+html body #ghostHud{max-height:none!important}
+html body #ghostTools{grid-column:1/-1;grid-row:1;min-width:0}
+html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}

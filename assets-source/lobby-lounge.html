@@ -3296,6 +3296,33 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
     // Let the ID keyed visual synchronizer run departure animations before cleanup.
     window.__lobbyExitAnimationManaged=true;
     let visualSelfUid="";const lobbyVisualStates=new Map();
+    /* LOBBY_LIVE_POSE_BEGIN */
+    const lobbyLivePoseStamps=new Map();
+    const lobbyLivePoseFields=['x','z','yaw','lobbyY','walking','lobbyKart','lobbyCircuit','lobbyVehicle','lobbyVehicleX','lobbyVehicleZ','kartSession','circuitCourse'];
+    function mergeLobbyVisualState(id,incoming){
+      const current=lobbyVisualStates.get(id),live=lobbyLivePoseStamps.get(id),stamp=Number(incoming?.updatedAt)||0;
+      if(current&&live&&stamp<live){
+        const merged={...current,...incoming};
+        for(const field of lobbyLivePoseFields)if(Object.prototype.hasOwnProperty.call(current,field))merged[field]=current[field];
+        merged.updatedAt=current.updatedAt;lobbyVisualStates.set(id,merged);
+      }else lobbyVisualStates.set(id,incoming);
+    }
+    function applyLobbyLivePoses(rows){
+      if(!rows||typeof rows!=='object'||Array.isArray(rows))return;
+      for(const [id,pose]of Object.entries(rows)){
+        const current=lobbyVisualStates.get(id);
+        if(id===visualSelfUid||!current||current.online===false||!pose||typeof pose!=='object')continue;
+        const stamp=Number(pose.updatedAt),x=Number(pose.x),z=Number(pose.z),yaw=Number(pose.yaw),height=Number(pose.lobbyY);
+        if(!Number.isFinite(stamp)||stamp<=0||stamp<(lobbyLivePoseStamps.get(id)||0)||![x,z,yaw,height].every(Number.isFinite)||Math.abs(x)>4096||Math.abs(z)>4096||height< -2||height>60)continue;
+        const patch={x,z,yaw,lobbyY:height,walking:pose.walking===true,updatedAt:stamp};
+        for(const field of ['lobbyKart','lobbyCircuit','lobbyVehicle'])if(typeof pose[field]==='boolean')patch[field]=pose[field];
+        for(const field of ['lobbyVehicleX','lobbyVehicleZ'])if(pose[field]===null||Number.isFinite(pose[field]))patch[field]=pose[field];
+        if(typeof pose.kartSession==='string')patch.kartSession=pose.kartSession.slice(0,128);
+        if(['sky','space','orbit'].includes(pose.circuitCourse))patch.circuitCourse=pose.circuitCourse;
+        Object.assign(current,patch);lobbyLivePoseStamps.set(id,stamp);
+      }
+    }
+    /* LOBBY_LIVE_POSE_END */
 function playerIsReconnecting(player,stamp){return !!player&&player.online===false&&player.disconnectMode==='temporary'&&stamp-Number(player.updatedAt)>=0&&stamp-Number(player.updatedAt)<15000;}
 function createConnectionIndicator(THREE){
  const root=new THREE.Group();root.name='connection-recovering';root.visible=false;
@@ -3368,9 +3395,10 @@ function createConnectionIndicator(THREE){
       if(crew.label&&Number.isFinite(data.labelRestY))crew.label.position.y=data.labelRestY;
       data.seatBlend=0;data.hadVisualPose=false;crew.root.position.y=0;crew.root.scale.set(1,1,1);
     }
-    window.applyLobbyVisualState=(id,state)=>{if(id&&state)lobbyVisualStates.set(id,state);};
+    window.applyLobbyVisualState=(id,state)=>{if(id&&state)mergeLobbyVisualState(id,state);};
     window.addEventListener('message',event=>{
       if(event.source!==parent)return;
+      if(event.data?.type==='lobby-poses'){applyLobbyLivePoses(event.data.players);return;}
       if(event.data?.type==='lobby-return-reset'){
         const spawn=event.data.position;
         if(spawn&&Number.isFinite(spawn.x)&&Number.isFinite(spawn.z)){
@@ -3389,7 +3417,7 @@ function createConnectionIndicator(THREE){
       }
       if(event.data?.type==='lobby-reset'){
         for(const crew of [...remoteCrews.values()])disposeLobbyVisual(crew);
-        remoteCrews.clear();visualDepartures.clear();lobbyVisualStates.clear();visualSelfUid='';
+        remoteCrews.clear();visualDepartures.clear();lobbyVisualStates.clear();lobbyLivePoseStamps.clear();visualSelfUid='';
         window.__lobbyInteractionKey=null;customizePanel.classList.remove('open');
         return;
       }
@@ -3404,8 +3432,8 @@ function createConnectionIndicator(THREE){
              if(listed[id]?.online===true&&remoteDepartures.has(id)){remoteDepartures.delete(id);restoreLobbyStanding(crew);}
            }
         }
-        for(const [id,state] of Object.entries(listed||{}))if(state?.online===true)lobbyVisualStates.set(id,state);
-        for(const id of lobbyVisualStates.keys())if(!event.data.players?.[id]||event.data.players[id].online===false)lobbyVisualStates.delete(id);
+        for(const [id,state] of Object.entries(listed||{}))if(state?.online===true)mergeLobbyVisualState(id,state);
+        for(const id of lobbyVisualStates.keys())if(!event.data.players?.[id]||event.data.players[id].online===false){lobbyVisualStates.delete(id);lobbyLivePoseStamps.delete(id);}
       }
       if(event.data?.type==='lobby-visual-state')window.applyLobbyVisualState(event.data.uid,event.data.state);
     });
@@ -3441,8 +3469,8 @@ function createConnectionIndicator(THREE){
         data.seatBlend=blend;
         const targetHeight=Number.isFinite(Number(state.lobbyY))?Math.max(-2,Math.min(60,Number(state.lobbyY))):0;
         if(!isSelf){const heightBlend=1-Math.exp(-24*dt);root.position.y+=(targetHeight-root.position.y)*heightBlend;if(Math.abs(targetHeight-root.position.y)<.025)root.position.y=targetHeight;}
-        const jumping=Number(state.jumpAt||state.jumpStartedAt||0);
-        if(!blend&&!previous&&(!jumping||stamp-jumping>780)&&!data.hadVisualPose){updateWalkCycle(root,crew.legs,crew.body,travelled,dt,walking,!window.__lobbyStudioOpen);updateLobbyLandingPose(crew,stamp,dt);continue;}
+        const jumping=Number(state.jumpAt||state.jumpStartedAt||0),jumpAge=stamp-jumping,jumpVisualActive=jumping>0&&jumpAge>=0&&jumpAge<780;
+        if(!blend&&!previous&&!jumpVisualActive&&!data.hadVisualPose){updateWalkCycle(root,crew.legs,crew.body,travelled,dt,walking,!window.__lobbyStudioOpen);updateLobbyLandingPose(crew,stamp,dt);continue;}
         if(!data.restPose)data.restPose=root.children.filter(n=>n!==crew.label&&!n.isSprite).map(node=>({node,y:node.position.y,z:node.position.z}));
         for(const item of data.restPose){item.node.position.y=item.y+.5*blend;item.node.position.z=item.z;}
         for(const leg of crew.legs){leg.rotation.x=-Math.PI*.46*blend;leg.position.z=.22*blend;leg.position.y=.32+.5*blend;}
@@ -3450,14 +3478,16 @@ function createConnectionIndicator(THREE){
         const targetY=Number.isFinite(Number(state.lobbyY))?Math.max(-2,Math.min(60,Number(state.lobbyY))):0;
         if(isSelf){if(!data.lobbyHeightInitialized){root.position.y=targetY;data.lobbyHeightInitialized=true;}if(sitting||data.wasSitting)root.position.y=0;}
         root.scale.set(1,1,1);
-        if(blend<.002)updateWalkCycle(root,crew.legs,crew.body,travelled,dt,walking,!window.__lobbyStudioOpen&&stamp-jumping>780);
+        // Walking is driven by actual ground travel. A stale or future jump
+        // timestamp must never keep the gait disabled after landing.
+        if(blend<.002)updateWalkCycle(root,crew.legs,crew.body,travelled,dt,walking,!window.__lobbyStudioOpen);
         const isInVehicle=state.lobbyKart===true||state.lobbyVehicle===true||state.lobbyCircuit===true;
         // lobbyY is normally present for every player, so the old conditional
         // skipped their jump pose entirely. Height comes from the synced pose;
         // the animation adds only body and limb motion to avoid a double lift.
         applyLightJump(root,crew.legs,jumping,stamp,!sitting&&!isInVehicle,!Number.isFinite(Number(state.lobbyY)));
         updateLobbyLandingPose(crew,stamp,dt);
-        data.hadVisualPose=blend>0||(jumping>0&&stamp-jumping<780);
+        data.hadVisualPose=blend>0||jumpVisualActive;
       }
     };
 
