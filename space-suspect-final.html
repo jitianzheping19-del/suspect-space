@@ -3317,7 +3317,7 @@ import {buildTriggerHappyWeapon,buildTriggerHappyBullet,attachTriggerHappyWeapon
 import {createWaveCannonEffect,waveCannonSegments,waveCannonTargetOnBeam,waveCannonMovementLock,WAVE_CANNON_FIRE_MS,WAVE_CANNON_GROW_MS} from "./wave-cannon-runtime.js";
 import {createConnectionIndicator,playerIsReconnecting} from "./connection-indicator.js";
 import {spawnChoiceIndices,createSpawnChoiceView} from "./spawn-choice-view.js";
-import {createMeetingIntroPresentation} from "./meeting-intro-presentation.js";
+import {createLobbyGamePreloader} from "./lobby-game-preload.js";
 import {hasCostumeInventory,shouldResetEmptyCostume} from "./costume-ownership.js";
 import {createRealtimeGacha} from "./realtime-gacha.js";
 import {createGachaUI} from "./gacha-ui.js";
@@ -14890,17 +14890,31 @@ function showKillAnimation(name, killer, event = {}) {
 }
 
 let meetingIntroPresentation=null,meetingMemorialPresentation=null,meetingMemorialTimer=0;
+let meetingIntroLoad=null;
+function loadMeetingIntro(){
+ return meetingIntroLoad ||= import('./meeting-intro-presentation.js').then(({createMeetingIntroPresentation})=>{
+  meetingIntroPresentation ||= createMeetingIntroPresentation(THREE,{host:$('meetingIntro').querySelector('.effectCard'),createCrew:p=>makeAstronaut(p.name,Number(p.hue)||0,p.costume||'standard'),disposeCrew:disposeObject});
+  return meetingIntroPresentation;
+ }).catch(error=>{meetingIntroLoad=null;throw error;});
+}
+const lobbyGamePreloader=createLobbyGamePreloader({tasks:[
+ ()=>Promise.all([loadMeetingIntro(),import('./meeting-memorial.js'),import('./selected-role-cinematics.js')]),
+ async signal=>{const presentation=await loadMeetingIntro();if(!signal.aborted)await presentation.prepare({reporter:players[uid]||{name:'クルー',hue:.5,costume:'standard'},report:false});},
+ async signal=>{const presentation=await loadMeetingIntro();if(!signal.aborted)await presentation.prepare({reporter:players[uid]||{name:'クルー',hue:.5,costume:'standard'},body:{name:'クルー',hue:.1,costume:'standard'},report:true});}
+]});
+
 function showMeetingIntro(reason){
- clearTimeout(meetingMemorialTimer);meetingIntroPresentation?.dispose();meetingMemorialPresentation?.dispose();
+ if(!meetingIntroPresentation){const id=game.meeting?.id;void loadMeetingIntro().then(()=>{if(game.phase==='meeting'&&game.meeting?.id===id)showMeetingIntro(reason);}).catch(error=>console.warn('Meeting intro loading:',error));return;}
+ clearTimeout(meetingMemorialTimer);meetingIntroPresentation?.stop();meetingMemorialPresentation?.dispose();
  const report=reason==='遺体を発見',meeting=game.meeting,meetingId=meeting?.id,reporter=game.players?.[meeting?.reporter]||players?.[meeting?.reporter]||{name:'クルー',hue:.5,costume:'standard'},body=meeting?.body||{name:'クルー',hue:.5,costume:'standard'},deaths=meeting?.newDeaths||[];
  const memorialMs=Number(meeting?.memorialDurationMs)||meetingMemorialDuration(deaths),age=Math.max(0,now()-(Number(meeting?.startedAt)||now())),remaining=3000+memorialMs-age;
  if(remaining<=0)return;
  const host=$('meetingIntro').querySelector('.effectCard');$('meetingIntro').dataset.kind=report?'body':'emergency';$('meetingIntroTitle').textContent=report?'死体通報':'緊急集合';$('meetingIntroReason').textContent=report?reporter.name+'が'+body.name+'を発見':reporter.name+'が緊急会議を招集';show('reportedCrew',false);showEffect('meetingIntro',remaining);
  const createCrew=p=>makeAstronaut(p.name,Number(p.hue)||0,p.costume||'standard');
- const memorial=()=>{if(game.phase!=='meeting'||game.meeting?.id!==meetingId)return;meetingIntroPresentation?.dispose();meetingMemorialPresentation||=createMeetingMemorial(THREE,{host,createCrew,disposeCrew:disposeObject});meetingMemorialPresentation.play({deaths,duration:memorialMs,elapsed:Math.max(0,age-3000)});};
- if(age<3000){meetingIntroPresentation||=createMeetingIntroPresentation(THREE,{host,createCrew,disposeCrew:disposeObject});meetingIntroPresentation.play({reporter,body,report,duration:2950,elapsed:age});meetingMemorialTimer=setTimeout(memorial,3000-age);}else memorial();
+ const memorial=()=>{if(game.phase!=='meeting'||game.meeting?.id!==meetingId)return;meetingIntroPresentation?.stop();meetingMemorialPresentation||=createMeetingMemorial(THREE,{host,createCrew,disposeCrew:disposeObject});meetingMemorialPresentation.play({deaths,duration:memorialMs,elapsed:Math.max(0,age-3000)});};
+ if(age<3000){meetingIntroPresentation.play({reporter,body,report,duration:2950,elapsed:age});meetingMemorialTimer=setTimeout(memorial,3000-age);}else memorial();
 }
-window.addEventListener('pagehide',()=>{clearTimeout(meetingMemorialTimer);meetingIntroPresentation?.dispose();meetingMemorialPresentation?.dispose();});
+window.addEventListener('pagehide',event=>{clearTimeout(meetingMemorialTimer);meetingIntroPresentation?.stop();meetingMemorialPresentation?.dispose();if(!event.persisted){lobbyGamePreloader.dispose();meetingIntroPresentation?.dispose();}});
 
 function showScalesIntro(){
       $("meetingIntro").dataset.kind="scales";$("meetingIntroTitle").textContent="";
@@ -23744,7 +23758,7 @@ window.visualViewport?.addEventListener("resize", resize, { passive: true });
       syncTaskOverlayState();
       if(game.phase==='play'&&!$('meetingIntro').classList.contains('hidden')){
         clearTimeout(meetingMemorialTimer);clearTimeout(effectTimers.get('meetingIntro'));effectTimers.delete('meetingIntro');
-        meetingIntroPresentation?.dispose();meetingMemorialPresentation?.dispose();show('meetingIntro',false);
+        meetingIntroPresentation?.stop();meetingMemorialPresentation?.dispose();show('meetingIntro',false);
       }
       const roster=Object.entries(game.players||{})
         .filter(([id,state])=>id!==uid&&hasDisplayableName(state.name||players[id]?.name)&&state.alive&&!state.disconnected&&players[id]?.online)
