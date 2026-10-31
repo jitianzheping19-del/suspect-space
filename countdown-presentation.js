@@ -16,8 +16,20 @@ function animate(state,node,frames,options,elapsed=0,handles=state.animations){
  animation.currentTime=elapsed;handles.push(animation);
 }
 function startArt(state,kind,elapsed){
+ const duration=state.duration;
+ state.progress.style.strokeDashoffset='';state.timeline.style.transform='';
  if(state.reduced)return;
- const node=selector=>state.art.querySelector(selector),duration=state.duration;
+ // The time indicator follows the same host deadline, including late arrivals.
+ animate(state,state.progress,[{strokeDashoffset:'0'},{strokeDashoffset:'-100'}],{duration,easing:'linear'},elapsed);
+ animate(state,state.timeline,[{transform:'scaleX(1)'},{transform:'scaleX(0)'}],{duration,easing:'linear'},elapsed);
+ const node=selector=>state.art.querySelector(selector);
+ animate(state,state.layout,[
+  {opacity:0},{opacity:1,offset:Math.min(.16,400/duration)},
+  {opacity:1,offset:Math.max(.2,1-180/duration)},{opacity:0}
+ ],{duration,easing:'linear'},elapsed);
+ animate(state,node('.countdownDialMarker'),[
+  {transform:'rotate(0deg)'},{transform:'rotate(360deg)'}
+ ],{duration,easing:'linear'},elapsed);
  if(kind==='launch'||kind==='post-role'){
   // One continuous contraction/opening, independent of the HUD/digit ticks.
   const opening=Math.max(0,1-360/duration);
@@ -53,13 +65,33 @@ function tickPresentation(stage,state){
  const value=Math.ceil(remaining/1000);
  if(state.value!==value){
   for(const animation of state.digitAnimations)animation.cancel();state.digitAnimations.length=0;
+  const previous=state.value;
   state.value=value;state.digit.textContent=String(value);
+  state.outgoing.textContent=previous===null?'':String(previous);
+  stage.dataset.countdownFinal=String(value===1);
+  if(state.reduced){
+   state.outgoing.textContent='';
+   state.progress.style.strokeDashoffset=String(-100*(1-remaining/state.duration));
+   state.timeline.style.transform=`scaleX(${remaining/state.duration})`;
+  }
   const step=Math.max(0,Math.min(3,4-value));
   state.art.querySelectorAll('.countdownLocks i').forEach((lock,i)=>lock.classList.toggle('released',i<step));
-  if(!state.reduced)animate(state,state.digit,[
-   {opacity:.65,transform:'translateY(5px) scale(.94)'},
-   {opacity:1,transform:'translateY(0) scale(1)'}
-  ],{duration:220,easing:'cubic-bezier(.16,.85,.25,1)'},value*1000-remaining,state.digitAnimations);
+  if(!state.reduced){
+   const elapsed=value*1000-remaining;
+   animate(state,state.digit,[
+    {opacity:0,transform:'translateY(22%) scale(.9)'},
+    {opacity:1,transform:'translateY(0) scale(1)'}
+   ],{duration:520,easing:'cubic-bezier(.16,1,.3,1)'},elapsed,state.digitAnimations);
+   if(previous!==null)animate(state,state.outgoing,[
+    {opacity:.65,transform:'translateY(0) scale(1)'},
+    {opacity:0,transform:'translateY(-28%) scale(.94)'}
+   ],{duration:280,easing:'cubic-bezier(.4,0,.2,1)'},elapsed,state.digitAnimations);
+   animate(state,state.art.querySelector('.countdownBeat'),[
+    {opacity:0,transform:'scale(.88)'},
+    {opacity:.42,transform:'scale(.94)',offset:.18},
+    {opacity:0,transform:'scale(1.08)'}
+   ],{duration:900,easing:'cubic-bezier(.2,.65,.3,1)'},elapsed,state.digitAnimations);
+  }
  }
  state.timer=setTimeout(()=>tickPresentation(stage,state),Math.max(1,remaining-(value-1)*1000+1));
 }
@@ -69,7 +101,12 @@ export function updateCountdownPresentation(stage,value,{visible=Number(value)>0
  if(!state){
   const layout=document.createElement('div');layout.className='countdownLayout';
   const art=document.createElement('div');art.className='countdownArt';art.setAttribute('aria-hidden','true');
-  art.innerHTML=`<div class="countdownBulkhead">
+  art.innerHTML=`<div class="countdownDial">
+   <svg viewBox="0 0 240 240" aria-hidden="true"><circle class="countdownDialTrack" cx="120" cy="120" r="112"/>
+    <circle class="countdownDialTicks" cx="120" cy="120" r="104" pathLength="60"/>
+    <circle class="countdownDialProgress" cx="120" cy="120" r="112" pathLength="100"/></svg>
+   <div class="countdownDialMarker"><i></i></div><div class="countdownBeat"></div>
+  </div><div class="countdownBulkhead">
    <div class="bulkheadWing left"><i></i><i></i><i></i></div><div class="bulkheadWing right"><i></i><i></i><i></i></div>
    <div class="bulkheadRail top"></div><div class="bulkheadRail bottom"></div><div class="countdownLocks"><i></i><i></i><i></i></div>
   </div><div class="countdownRingStage"><div class="ringHalo"></div><div class="ringHalf left"></div><div class="ringHalf right"></div><div class="ringRotor"></div><div class="ringCore"></div></div>
@@ -78,8 +115,10 @@ export function updateCountdownPresentation(stage,value,{visible=Number(value)>0
   for(const id of['gameCountdownLabel','gameCountdownNumber']){const node=stage.querySelector('#'+id);if(node)layout.append(node);}
   stage.querySelector('.countdownLayout')?.remove();stage.prepend(layout);
   const number=stage.querySelector('#gameCountdownNumber'),digit=document.createElement('span');digit.className='countdownDigit';
-  if(number){digit.textContent=number.textContent;number.replaceChildren(digit);}
-  state={layout,number,digit,art,animations:[],digitAnimations:[],timer:0,key:'',value:null,visible:false};presentations.set(stage,state);
+  const outgoing=document.createElement('span');outgoing.className='countdownOutgoing';outgoing.setAttribute('aria-hidden','true');
+  if(number){digit.textContent=number.textContent;number.replaceChildren(digit,outgoing);}
+  const timeline=document.createElement('div');timeline.className='countdownTimeline';timeline.setAttribute('aria-hidden','true');layout.append(timeline);
+  state={layout,number,digit,outgoing,art,timeline,progress:art.querySelector('.countdownDialProgress'),animations:[],digitAnimations:[],timer:0,key:'',value:null,visible:false};presentations.set(stage,state);
  }
  const kind=stage.dataset.kind||'launch',key=kind+':'+sequence;
  stage.dataset.presentation=kind;

@@ -1,17 +1,62 @@
-#meetingIntro .effectCard:has(.meetingMemorial){position:relative;width:min(1200px,96vw);height:min(750px,94dvh);padding:12px;max-height:94dvh}
 .memorialCovered{visibility:hidden!important;position:absolute!important;pointer-events:none!important}
-.meetingMemorial{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;color:#edf9fc;background:radial-gradient(ellipse at 50% 60%,#183847e8,#07131ff5 75%);border:1px solid #a9e4e94d;border-radius:18px;overflow:hidden}
-#meetingIntro .meetingMemorial h2{flex:none;margin:0;padding:0;background:none;color:#edf9fc;text-shadow:none;font-size:clamp(18px,3.8vh,30px);letter-spacing:.06em}
-.meetingMemorialView{width:100%;flex:1;min-height:0;min-width:0;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;scrollbar-width:thin}
-.meetingMemorialView canvas{display:block;width:100%;height:100%}
-.meetingMemorialNames{display:flex;gap:6px;max-width:100%;overflow-x:auto;flex:none;padding:2px 6px;touch-action:pan-x;scrollbar-width:thin}
-.meetingMemorialNames button{flex:none;padding:5px 10px;min-height:32px;border:1px solid #95cbd04d;background:#142d3a;color:#eef8fb;border-radius:8px;font:inherit;font-size:12px;touch-action:manipulation}
-.meetingMemorialNames button.selected{border-color:#a8f7e5;background:#28564f}
-.meetingMemorialTime{margin:0;flex:none;font-size:13px;color:#c1dbe2;font-variant-numeric:tabular-nums}
-@media(max-height:500px){.meetingMemorial{gap:3px;padding:7px}.meetingMemorial h2{font-size:18px}.meetingMemorialNames button{padding:3px 8px;min-height:28px}.meetingMemorialTime{font-size:11px}}
-
-#meetingIntro .effectCard:has(.meetingMemorialEmpty){position:static;width:auto;height:auto;max-height:none;padding:0;border:0;border-radius:0;background:none;box-shadow:none;animation:none!important;transform:none!important}
-#meetingIntro .meetingMemorialEmpty{position:fixed;inset:0;display:grid;place-items:center;padding:0;gap:0;border:0;border-radius:0;background:none;box-shadow:none;pointer-events:none}
-#meetingIntro .meetingMemorialEmpty h2{margin:0;font-size:clamp(24px,5vw,44px);letter-spacing:.08em;text-shadow:0 2px 14px #000a}
-
-#meetingIntro .effectCard:has(.meetingMemorialEmpty)::before,#meetingIntro .effectCard:has(.meetingMemorialEmpty)::after{display:none!important}
+@layer meeting-motion {
+ #meetingIntro:has(.meetingMemorial[data-presentation="ceremony"]){background:radial-gradient(ellipse at 50% 45%,#192332,#060b13 75%)!important}
+ #meetingIntro .effectCard[data-memorial-active="true"]{position:relative!important;width:min(1200px,96vw)!important;height:min(750px,92dvh)!important;max-height:92dvh!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;animation:none!important;filter:none!important}
+ #meetingIntro .meetingMemorial[data-presentation="ceremony"]{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:0;padding:0;
+  color:#eee8dc;background:radial-gradient(ellipse at 50% 15%,#cfb58b0d,transparent 65%),linear-gradient(155deg,#141e2b,#090f19 76%);
+  border:1px solid #c6c9d12e;border-radius:22px;box-shadow:inset 0 1px #ece0c510,0 24px 80px #0006;
+  overflow:hidden;isolation:isolate;font-family:"Avenir Next","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  opacity:var(--memorial-opacity,1)!important;animation:none!important;
+ }
+ #meetingIntro .meetingMemorialHeader{display:flex;align-items:center;justify-content:center;gap:14px;flex:0 0 auto;width:100%;padding:22px 28px 18px;border-bottom:1px solid #cfbd971a}
+ #meetingIntro .meetingMemorial[data-presentation="ceremony"] h2{margin:0!important;padding:0!important;position:static!important;background:none!important;border:0!important;color:#ede6da!important;text-shadow:none!important;font-size:clamp(21px,4vh,30px)!important;line-height:1.3!important;font-weight:600!important;letter-spacing:.10em!important}
+ #meetingIntro .meetingMemorialCount{display:grid;place-items:center;min-width:44px;min-height:30px;padding:4px 11px;border:1px solid #cfbd9733;border-radius:8px;color:#d9c7a5;background:#cfbd970b;font-size:14px;font-weight:550;font-variant-numeric:tabular-nums}
+ #meetingIntro .meetingMemorialView{position:relative;width:100%;flex:1 1 0;min-height:0;min-width:0;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#a18e6d55 transparent}
+ #meetingIntro .meetingMemorialView canvas{display:block;max-width:none;max-height:none;pointer-events:none}
+ #meetingIntro .meetingMemorialNames{position:relative;display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:calc(100% - 32px);padding:14px 3px 18px;overflow-x:auto;overflow-y:hidden;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#a18e6d55 transparent}
+ #meetingIntro .meetingMemorialNames button{
+  flex:0 0 auto;display:flex;align-items:center;gap:9px;min-height:44px!important;max-width:min(260px,70vw);padding:10px 16px!important;border:1px solid #b7c5d026!important;border-radius:10px!important;
+  background:#17202c!important;color:#b5beca!important;font-family:inherit!important;font-size:14px!important;font-weight:550!important;line-height:1.4!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none!important;transform:none!important;animation:none!important;
+  transition:background-color 260ms ease,border-color 260ms ease,color 260ms ease,scale 200ms cubic-bezier(.22,1,.36,1)!important;touch-action:manipulation;
+ }
+ #meetingIntro .meetingMemorialNames button::before{content:"";flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:var(--memorial-suit,#b4c9d9)}
+ #meetingIntro .meetingMemorialNames button.selected{background:#302b23!important;border-color:#d7c49d80!important;color:#f0e5d0!important;box-shadow:inset 0 -2px #d7c49d!important}
+ #meetingIntro .meetingMemorialNames button:active{scale:.975}
+ #meetingIntro .meetingMemorialNames button:focus-visible{outline:2px solid #e2cfac!important;outline-offset:2px!important}
+ #meetingIntro .meetingMemorialProgress{flex:0 0 2px;width:100%;height:2px;background:#b3a17e14;overflow:hidden}
+ #meetingIntro .meetingMemorialProgress>span{display:block;width:100%;height:100%;background:linear-gradient(90deg,#ac9470,#e5d2aa);transform-origin:left center}
+ #meetingIntro .meetingMemorial[data-memorial-renderer="2d"] .meetingMemorialView{display:flex;align-items:center;gap:16px;padding:24px}
+ #meetingIntro .meetingMemorialPortrait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;flex:1 0 170px;align-self:stretch;min-height:0;padding:20px 14px;border:1px solid #b8c9d31a;border-radius:14px;background:linear-gradient(160deg,#1c2937,#0d1621);transition:border-color 300ms ease,background-color 300ms ease}
+ #meetingIntro .meetingMemorialPortrait.selected{border-color:#d8c5a170;background-color:#262820}
+ #meetingIntro .meetingMemorialPortrait strong{max-width:100%;font-size:18px;font-weight:550;color:#e4ddcf;text-align:center;overflow-wrap:anywhere}
+ #meetingIntro .meetingMemorialStone{position:relative;width:76px;height:108px;max-height:40%;flex:0 1 108px;border:1px solid #ccb99666;border-radius:38px 38px 8px 8px;background:linear-gradient(130deg,#3b4958,#1b2937);box-shadow:inset 5px 0 #ffffff06,0 12px 18px #0004}
+ #meetingIntro .meetingMemorialStone::before{content:"";position:absolute;left:calc(50% - 2px);top:27%;width:4px;height:38%;border-radius:1px;background:#c9b590}
+ #meetingIntro .meetingMemorialStone::after{content:"";position:absolute;left:28%;top:39%;width:44%;height:4px;border-radius:1px;background:#c9b590}
+ #meetingIntro .effectCard[data-memorial-active="true"]:has(.meetingMemorialEmpty){position:static!important;width:auto!important;height:auto!important;max-height:none!important;padding:0!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;animation:none!important}
+ #meetingIntro .meetingMemorialEmpty[data-presentation="ceremony"]{position:fixed;inset:0;display:grid;place-items:center;padding:0;border:0;border-radius:0;background:none;box-shadow:none;pointer-events:none;animation:none!important;opacity:1!important}
+ #meetingIntro .meetingMemorialEmpty[data-presentation="ceremony"] h2{font-size:clamp(26px,5vw,44px)!important;letter-spacing:.08em!important;animation:memorialQuietArrival 440ms ease-out both!important}
+ #meetingIntro .effectCard[data-memorial-active="true"]::before,#meetingIntro .effectCard[data-memorial-active="true"]::after{display:none!important}
+ @media(max-height:500px){
+  #meetingIntro .effectCard[data-memorial-active="true"]{height:94dvh!important;max-height:94dvh!important}
+  #meetingIntro .meetingMemorial[data-presentation="ceremony"]{border-radius:16px}
+  #meetingIntro .meetingMemorialHeader{padding:10px 16px;gap:10px}
+  #meetingIntro .meetingMemorial[data-presentation="ceremony"] h2{font-size:20px!important}
+  #meetingIntro .meetingMemorialCount{min-height:26px;font-size:12px}
+  #meetingIntro .meetingMemorialNames{padding:6px 3px 8px;gap:6px}
+  #meetingIntro .meetingMemorialNames button{min-height:40px!important;padding:8px 12px!important;font-size:13px!important}
+  #meetingIntro .meetingMemorial[data-memorial-renderer="2d"] .meetingMemorialView{padding:12px;gap:10px}
+  #meetingIntro .meetingMemorialPortrait{padding:12px;gap:12px}
+  #meetingIntro .meetingMemorialPortrait strong{font-size:15px}
+ }
+ @media(max-width:600px) and (orientation:portrait){
+  #meetingIntro .effectCard[data-memorial-active="true"]{width:calc(100vw - 20px)!important;height:84dvh!important}
+  #meetingIntro .meetingMemorialHeader{padding:20px 18px}
+  #meetingIntro .meetingMemorialNames{max-width:calc(100% - 24px)}
+ }
+ @media(prefers-reduced-motion:reduce){
+  #meetingIntro .meetingMemorial[data-presentation="ceremony"],#meetingIntro .meetingMemorial[data-presentation="ceremony"] *,#meetingIntro .meetingMemorialEmpty[data-presentation="ceremony"] h2{animation:none!important;transition:none!important}
+  #meetingIntro .meetingMemorialNames button:active{scale:1}
+ }
+}
+@keyframes memorialQuietArrival{from{opacity:0;translate:0 5px}to{opacity:1;translate:0 0}}

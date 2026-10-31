@@ -19,6 +19,14 @@ label{font-size:13px;display:flex;align-items:center;gap:8px;background:#101828d
 #meetingOutcome:is([data-kind="skip"],[data-kind="no-ejection"]){left:calc((100% + var(--meeting-chat-width,190px))/2)!important;box-sizing:border-box!important;width:min(620px,calc(100vw - var(--meeting-chat-width,190px) - 28px))!important;padding:14px 18px!important;border:1px solid #e2e8ef55!important;border-radius:14px!important;background:rgba(3,8,15,.68)!important;box-shadow:0 6px 24px #0003;text-shadow:0 2px 5px #000}
 #meetingSkipBtn{background:rgba(181,193,207,.24)!important;border:1px solid #e1e8f45c!important;color:#f7faff!important;box-shadow:0 3px 10px #0003;transform:translateX(2px)}
 @media(max-height:500px){#meetingOutcome:is([data-kind="skip"],[data-kind="no-ejection"]){padding:10px 12px!important;border-radius:10px!important}}
+</style><style id="meeting-room-motion">
+button{transition:scale 200ms cubic-bezier(.22,1,.36,1),background-color 180ms ease,border-color 180ms ease}
+button:enabled:active{scale:.97}
+#meetingVoteConfirm{animation:meetingConfirmArrival 240ms cubic-bezier(.22,1,.36,1) both}
+#meetingOutcome{animation:meetingOutcomeArrival 420ms cubic-bezier(.22,1,.36,1) both}
+@keyframes meetingConfirmArrival{from{opacity:.25;translate:0 10px}to{opacity:1;translate:0 0}}
+@keyframes meetingOutcomeArrival{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){button{transition:none}button:enabled:active{scale:1}#meetingVoteConfirm,#meetingOutcome{animation:none}}
 </style></head><body>
 <div id="flash"></div><div id="title"><b>会議室</b><span></span></div><div id="caption"></div>
 
@@ -237,6 +245,27 @@ const slowLabel='<label><input id="slow" type="checkbox">スロー再生</label>
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 scene.background=new THREE.Color(0x030711);scene.fog=new THREE.FogExp2(0x06101d,.0045);
 const orb=new OrbitControls(camera,renderer.domElement);orb.target.set(0,1.8,0);orb.enableDamping=true;orb.enableZoom=false;orb.enablePan=false;orb.minDistance=5;orb.maxDistance=42;orb.maxPolarAngle=Math.PI*.48;
+
+// A bounded arrival on the existing render loop; manual orbit takes over at once.
+const roomMotionReduced=matchMedia('(prefers-reduced-motion: reduce)');
+let roomArrival=null;
+function beginRoomArrival(){
+ roomArrival=null;if(roomMotionReduced.matches)return;
+ const focus=orb.target.clone(),offset=camera.position.clone().sub(focus);
+ roomArrival={focus,offset,started:null};
+ camera.position.copy(offset).multiplyScalar(1.045).applyAxisAngle(new THREE.Vector3(0,1,0),.055).add(focus);
+ camera.lookAt(focus);orb.update();
+}
+function updateRoomArrival(){
+ if(!roomArrival)return;
+ if(roomMotionReduced.matches||freeCam||busy||scaleShown||meetingAbilityCleanups.size){roomArrival=null;return;}
+ const arrival=roomArrival,stamp=performance.now();arrival.started??=stamp;
+ const k=clamp((stamp-arrival.started)/1050,0,1),ease=k*k*k*(k*(k*6-15)+10),remaining=1-ease;
+ camera.position.copy(arrival.offset).multiplyScalar(1+.045*remaining).applyAxisAngle(new THREE.Vector3(0,1,0),.055*remaining).add(arrival.focus);
+ orb.target.copy(arrival.focus);camera.lookAt(arrival.focus);
+ if(k===1)roomArrival=null;
+}
+orb.addEventListener('start',()=>{roomArrival=null;});
 renderer.domElement.addEventListener("touchmove",e=>{if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});document.addEventListener("gesturestart",e=>e.preventDefault(),{passive:false});document.addEventListener("gesturechange",e=>e.preventDefault(),{passive:false});
 const TOP=1.295,HEADY=1.76,SEAT_TOP=.57,SEATED_FEET=.46,PIVOT_Y=3.16;
 let PANEL_W=280,BAR_H=64,libCostume=null,libCostumeSource="",partnerId="";
@@ -340,6 +369,7 @@ const mrSupport=mrMesh(new THREE.CylinderGeometry(.6,.72,14,24),mrMats.dark,mrSh
 
 let seats=[],tableR=3.65,R=5.24,NOW=0,busy=false,voting=false,anonymous=false,meetingId="",me="",skipTally=null;
 let scaleTargets=[],scaleCounts=null,tiltTarget=0,scaleShown=false,ownVoted="",pendingPick=null,resultPlayback=false,resultRevealId="";
+let scaleTransition=0,scaleResultLocked=false;
 function notifyMeetingResultReveal(r){const id=String(r?.id||"");if(!id||id===resultRevealId)return;resultRevealId=id;parent.postMessage({type:"ss3d-results-reveal",resultId:id,meetingId},"*");}
 const flights=[],tws=[],balls=[],raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 function mrTableTexture(){
@@ -660,6 +690,8 @@ let mrScaleBroken=false,mrBreakTime=0,mrBreakWorld=null,mrPhysics=null,mrBreakAc
 const mrDebris=[];let mrEjectionFrame=null,mrEjectionDone=false,mrEjectionWatchdog=0;let meetingIdentitySnapshot=[];
 import('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.17.3/+esm').then(async module=>{await module.default.init();mrPhysics=module.default;}).catch(error=>console.warn('Meeting fracture physics unavailable',error));
 function mrResetRoom(){
+ scaleTransition++;scaleResultLocked=false;roomArrival=null;
+ for(const p of seats)if(p.pinned!=null){p.pinned=null;if(p.alive&&!p.gone)seatPose(p);}
  meetingIdentitySnapshot=[];resetMeetingAbilityEffects();
  mrEjectionFrame?.remove();mrEjectionFrame=null;clearTimeout(mrEjectionWatchdog);window.__meetingEjectionOverlayActive=false;mrEjectionDone=false;scaleShown=false;scaleTargets=[];tilt=0;tiltTarget=0;busy=false;tws.length=0;scaleG.visible=false;scaleG.scale.setScalar(.01);
  if(mrBreakWorld)mrBreakWorld.free();mrBreakWorld=null;mrScaleBroken=false;mrBreakAccumulator=0;
@@ -693,21 +725,17 @@ function mrUpdateScaleBreak(dt){
 }
 
 /* ---------- 天秤 visuals ---------- */
+function scaleTween(delay,dur,fn,done){tween(delay,dur,fn,done);tws[tws.length-1].scale=true;}
 function showScale(targets){
-  scaleShown=true;scaleTargets=targets;scaleG.visible=true;tiltTarget=0;mrBeginScaleBreak();
-  tween(0,.6,k=>{scaleG.scale.setScalar(Math.max(.01,E.out(k)));});
-  targets.forEach((id,side)=>{const p=byId(id);if(!p)return;const sIdx=side?1:-1;standPose(p);p.c.root.rotation.y=0;let s0=null;
-    tween(.3,1.2,k=>{if(!s0)s0=p.c.root.position.clone();const e=E.io(k),to=panCentre(sIdx).add(V3(0,.03,0));
-      p.c.root.position.set(lerp(s0.x,to.x,e),lerp(s0.y,to.y,e)+Math.sin(Math.PI*k)*.8,lerp(s0.z,to.z,e));
-      p.c.root.rotation.y=0;},()=>{standPose(p);p.c.root.rotation.y=0;p.pinned=sIdx;});});
+  const revision=++scaleTransition,startScale=scaleG.scale.x;
+  scaleShown=true;scaleTargets=[...targets];scaleG.visible=true;tiltTarget=0;mrBeginScaleBreak();
+  scaleTween(0,.6,k=>{if(revision!==scaleTransition)return;scaleG.scale.setScalar(lerp(startScale,1,E.out(k)));});
+  targets.forEach((id,side)=>{const p=byId(id);if(!p||p.gone)return;const sIdx=side?1:-1;standPose(p);p.c.root.rotation.y=0;let s0=null;
+    scaleTween(.3,1.2,k=>{if(revision!==scaleTransition||p.gone||p.meetingActorBusy)return;if(!s0)s0=p.c.root.position.clone();const e=E.io(k),to=panCentre(sIdx).add(V3(0,.03,0));
+      p.c.root.position.set(lerp(s0.x,to.x,e),lerp(s0.y,to.y,e)+(roomMotionReduced.matches?0:Math.sin(Math.PI*k)*.5),lerp(s0.z,to.z,e));
+      p.c.root.rotation.y=0;},()=>{if(revision!==scaleTransition||p.gone||p.meetingActorBusy)return;standPose(p);p.c.root.rotation.y=0;p.pinned=sIdx;});});
 }
-function hideScale(){
-  if(window.__meetingEjectionOverlayActive)return;
-  scaleTargets.forEach(id=>{const p=byId(id);if(!p||!p.alive)return;p.pinned=null;let s0=null;
-    tween(0,1.2,k=>{if(!s0)s0=p.c.root.position.clone();const e=E.io(k);p.c.root.position.set(lerp(s0.x,p.x,e),lerp(s0.y,SEATED_FEET,e)+Math.sin(Math.PI*k)*.5,lerp(s0.z,p.z,e));},()=>seatPose(p));});
-  tween(1.4,.6,k=>{scaleG.scale.setScalar(Math.max(.01,1-E.in(k)));},()=>{scaleG.visible=false;});
-  scaleShown=false;scaleTargets=[];tiltTarget=0;
-}
+
 const TARGET_MODE_COLORS={sheriff:0xff596d,scales:0xffd45c,swap:0x69e7ff};
 let mayorTargetHighlight=false,guessTargetColor=0x58eaff;
 function clearTargetOutline(p){if(!p?.c?._outline)return;for(const mesh of p.c._outline.outs)mesh.parent?.remove(mesh);p.c._outline.mat.dispose();p.c._outline=null;p.targetGlowActive=false;}
@@ -768,16 +796,20 @@ function applyState(state){
   voting=!!state.voting&&!resultPlayback;anonymous=!!state.anonymous;
   requestedFreeCam=!!state.freeCam;
   playMeetingAbilityKills(freshAbilityKills);updateMeetingAbilityView();
-  if(startingMeeting){meetingId=nextMeetingId;clearBallEffects();seats.forEach(p=>{if(p.voteTally)p.voteTally.s.visible=false;if(p.voteCheck)p.voteCheck.s.visible=false;});if(skipTally)skipTally.s.visible=false;if(meetingId){if(!freeCam){const spread=Math.max(seats.length<=3?3.55:seats.length<=5?4.25:5.24,seats.length*1.9/(2*Math.PI));camera.position.set(0,Math.max(6.2,spread*1.48),Math.max(10.2,spread*2.55));orb.target.set(0,1.8,0);layoutView();orb.update();}startMeetingAction(state.reporter||"",state.reason||"");}}
+  if(startingMeeting){meetingId=nextMeetingId;clearBallEffects();seats.forEach(p=>{if(p.voteTally)p.voteTally.s.visible=false;if(p.voteCheck)p.voteCheck.s.visible=false;});if(skipTally)skipTally.s.visible=false;if(meetingId){if(!freeCam){const spread=Math.max(seats.length<=3?3.55:seats.length<=5?4.25:5.24,seats.length*1.9/(2*Math.PI));camera.position.set(0,Math.max(6.2,spread*1.48),Math.max(10.2,spread*2.55));orb.target.set(0,1.8,0);layoutView();orb.update();beginRoomArrival();}startMeetingAction(state.reporter||"",state.reason||"");}}
   if(startingMeeting)freezeCrewLabelLayout();else restoreCrewLabelLayout();
   const want=Array.isArray(state.scalesTargets)?state.scalesTargets:[];
+  const resultOwnsScale=resultPlayback||scaleResultLocked||state.resultPending===true;
+  // A result retains the two platforms until the next meeting resets the room.
+  // Empty or delayed live-state updates cannot return their actors to chairs.
   if(want.length===2&&!scaleShown)showScale(want);
-  if(want.length!==2&&scaleShown)hideScale();
-  scaleTargets=want;
+  if(resultOwnsScale&&scaleShown)scaleResultLocked=true;
+  // This ability has no mid-meeting cancellation. Keep the platforms even
+  // when an older state snapshot omits the target pair; mrResetRoom owns exit.
 }
 /* the reporter (or the emergency caller) punches the button hard; a body discovery also makes them turn and react */
 function startMeetingAction(reporterId,reason){
-  const r=byId(reporterId);if(!r)return;
+  const r=byId(reporterId);if(!r||roomMotionReduced.matches)return;
   const body=reason==="遺体を発見";
   const reporter=chatPanel?.querySelector("#chatReporter");if(reporter){reporter.style.borderLeftColor=body?"#ff6578":"#ffd23d";reporter.style.boxShadow="0 0 18px "+(body?"#ff405544":"#ffd23d33");}
   tween(0,.18,k=>{r.c.arms[1].rotation.x=lerp(-.9,-2.6,E.out(k));},()=>{tween(0,.4,k=>{r.c.arms[1].rotation.x=lerp(-2.6,-.9,E.io(k));},()=>{});});
@@ -785,10 +817,10 @@ function startMeetingAction(reporterId,reason){
   if(body){
     let nearest=null,best=1e9;seats.forEach(p=>{if(p.alive)return;const d=Math.hypot(p.x-r.x,p.z-r.z);if(d<best){best=d;nearest=p;}});
     if(nearest){const yaw0=r.c.root.rotation.y,yaw1=Math.atan2(nearest.x-r.x,nearest.z-r.z),turn=Math.atan2(Math.sin(yaw1-yaw0),Math.cos(yaw1-yaw0));
-      tween(0,.5,k=>{r.c.root.rotation.y=yaw0+turn*E.io(k);},()=>{tween(.72,.48,k=>{r.c.root.rotation.y=yaw1+turn*(1-E.io(k));},()=>{r.c.root.rotation.y=yaw0;});});}
-    tween(.2,.9,k=>{r.c.rig.position.y=Math.abs(Math.sin(k*Math.PI*3))*.35*(1-k);},()=>{r.c.rig.position.y=-.02;});
+      tween(0,.5,k=>{r.c.root.rotation.y=yaw0+turn*E.io(k);},()=>{tween(.72,.48,k=>{r.c.root.rotation.y=yaw1-turn*E.io(k);},()=>{r.c.root.rotation.y=yaw0;});});}
+    tween(.2,.9,k=>{r.c.rig.position.y=-.02+Math.sin(k*Math.PI)*.18*(1-k);},()=>{r.c.rig.position.y=-.02;});
     if(!r.alertLabel)r.alertLabel=makeLabel(128,128,.9);
-    nameTag(r.alertLabel,"!","#ff4d4d");r.alertLabel.s.visible=true;r.alertUntil=NOW+1.6;
+    nameTag(r.alertLabel,"!","#ff4d4d");r.alertLabel.s.visible=true;r.alertUntil=NOW+1.9;
   }
 }
 function onAbility(d){/* Confirmed abilityKillEvents drive the room animation. */}
@@ -821,7 +853,11 @@ function playResult(r){
   if(meetingAbilityCleanups.size){pendingAbilityResult=r;return;}
   const resultKey=JSON.stringify([meetingId,r.counts||{},r.votes||{},r.ejected||null,r.ejecteds||[],r.remainingImpostors,r.showImpostorCount,r.revealMode,r.ejectedDisclosure||[]]);if(window.__authoredMeetingResultKey===resultKey)return;window.__authoredMeetingResultKey=resultKey;
   resultPlayback=true;allVotedNow=true;voting=false;uiBase=0;pendingPick=null;setMode("");timerBar.style.display="none";voteWarning.style.display="none";hud.style.display="none";refreshTargetOutlines();
-  clearBallEffects();if(busy){tws.length=0;busy=false;}busy=true;
+  clearBallEffects();if(busy){for(let i=tws.length-1;i>=0;i--)if(!tws[i].scale)tws.splice(i,1);busy=false;}busy=true;
+  // Result snapshots also restore a scale when the live update arrived late.
+  const resultTargets=Array.isArray(r.scalesTargets)?r.scalesTargets:[];
+  if(resultTargets.length===2&&!scaleShown)showScale(resultTargets);
+  if(scaleShown)scaleResultLocked=true;
   if(!freeCam&&!scaleShown){const cameraStart=camera.position.clone(),cameraEnd=orb.target.clone().add(camera.position.clone().sub(orb.target).multiplyScalar(1.32));tween(0,.65,k=>camera.position.lerpVectors(cameraStart,cameraEnd,E.io(k)));}
   const counts=r.counts||{},votes=r.votes||{},anon=!!r.anonymousVotes;
   const pairs=[];
@@ -990,8 +1026,13 @@ function renderUi(d){
   if(meetingOverNow&&Array.isArray(d.swaps)&&d.swaps.length>appliedSwaps){for(const pr of d.swaps.slice(appliedSwaps))swapSeats(pr);appliedSwaps=d.swaps.length;}
 }
 function swapSeats(pr){const a=byId(pr[0]),b=byId(pr[1]);if(!a||!b||a===b)return;
+  // The host already swapped the ballot totals. Swapping chairs here would
+  // clear the scale attachment and pull the actors off their platforms.
+  if(scaleShown||scaleResultLocked||a.pinned!=null||b.pinned!=null)return;
+  const revision=scaleTransition;
   const ax=a.x,az=a.z,bx=b.x,bz=b.z;
-  tween(0,1.4,k=>{const e=E.io(k);a.c.root.position.set(lerp(ax,bx,e),SEATED_FEET+Math.sin(Math.PI*k)*.8,lerp(az,bz,e));b.c.root.position.set(lerp(bx,ax,e),SEATED_FEET+Math.sin(Math.PI*k)*.8,lerp(bz,az,e));},()=>{
+  tween(0,1.4,k=>{if(revision!==scaleTransition||scaleShown||scaleResultLocked)return;const e=E.io(k);a.c.root.position.set(lerp(ax,bx,e),SEATED_FEET+Math.sin(Math.PI*k)*.8,lerp(az,bz,e));b.c.root.position.set(lerp(bx,ax,e),SEATED_FEET+Math.sin(Math.PI*k)*.8,lerp(bz,az,e));},()=>{
+    if(revision!==scaleTransition||scaleShown||scaleResultLocked)return;
     a.c.root.position.set(bx,SEATED_FEET,bz);b.c.root.position.set(ax,SEATED_FEET,az);
     [a.x,b.x]=[bx,ax];[a.z,b.z]=[bz,az];[a.dx,b.dx]=[b.dx,a.dx];[a.dz,b.dz]=[b.dz,a.dz];
     seatPose(a);seatPose(b);});
@@ -1039,13 +1080,13 @@ addEventListener("message",e=>{const d=e.data||{};
 window.meetingScene={getAbilityState:()=>({active:meetingAbilityCleanups.size,events:meetingAbilityDebug.events.slice(-16),weapons:meetingAbilityDebug.weapons.slice(-16),hits:meetingAbilityDebug.hits.slice(-16),ricochets:meetingAbilityDebug.ricochets.slice(-16),players:seats.map(p=>({id:p.id,gone:!!p.gone,dying:!!p.dying,actorBusy:!!p.meetingActorBusy,locked:!!p.meetingAbilityLocked,position:p.c.root.position.toArray()}))}),getState:()=>({room:scene.userData.meetingRoomSource,seats:seats.length,scaleShown,scaleBroken:mrScaleBroken,overlay:!!window.__meetingEjectionOverlayActive,tableVisible:table.visible,camera:camera.position.toArray()}),projectPlayer:id=>{const p=byId(id);if(!p)return null;const v=p.c.root.localToWorld(V3(0,1.05,0)).project(camera);return{x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};}};
 parent.postMessage({type:"ss3d-ready"},"*");
 startLoop((dt,rdt,time)=>{
-  NOW+=dt;updateMeetingAbilityView();if(freeCam)updateFreeCam(dt);else orb.update();roof.visible=false;hatch.visible=false;mrUpdateScaleBreak(dt);if(scaleShown)mrUpdateScaleChains();
+  NOW+=dt;updateMeetingAbilityView();updateRoomArrival();if(freeCam)updateFreeCam(dt);else orb.update();roof.visible=false;hatch.visible=false;mrUpdateScaleBreak(dt);if(scaleShown)mrUpdateScaleChains();
   skipBtn.style.display=(voting&&!busy&&!ownVoted&&!allVotedNow&&!mode)?"block":"none";
   timerBar.style.display=allVotedNow||resultPlayback?"none":"";
   if(uiMeeting&&!allVotedNow&&!resultPlayback){const left=Math.max(0,uiBase-(performance.now()-uiAt));tSec.textContent=Math.ceil(left/1000)+"秒";tFill.style.width=(clamp(left/uiTotal,0,1)*100)+"%";const voteUrgent=votingOpenNow&&left>0&&left<=10000&&!ownVoted;voteWarning.style.display=voteUrgent?"block":"none";tFill.style.background=voteUrgent?"linear-gradient(90deg,#ff384f,#ff9a9a)":"linear-gradient(90deg,#43dfff,#d9fbff)";tPhase.textContent=votingOpenNow?"投票中":"議論中";}else voteWarning.style.display="none";
   if(!voting||ownVoted)hud.style.display=(hud.style.display==="flex"&&voting&&!ownVoted)?"flex":"none";
-  for(const f of flights){if(f.done||NOW<f.start)continue;f.m.visible=true;const t=clamp((NOW-f.start)/f.dur,0,1),a=f.from(),b=f.to(),e=E.io(t);
-    f.m.position.set(lerp(a.x,b.x,e),lerp(a.y,b.y,e)+Math.sin(Math.PI*t)*f.arc,lerp(a.z,b.z,e));if(f.weighted){f.m.rotation.y+=dt*4;f.m.rotation.z=Math.sin(t*Math.PI*2)*.28;}if(t>=1){f.done=true;f.onDone&&f.onDone(f.m);}}
+  for(const f of flights){if(f.done||NOW<f.start)continue;f.m.visible=true;const t=clamp((NOW-f.start)/f.dur,0,1),a=f.origin||(f.origin=f.from().clone()),b=f.to(),e=t*t*(3-2*t);
+    if(roomMotionReduced.matches){f.m.position.copy(b);f.m.material.transparent=true;f.m.material.opacity=.25+.75*e;}else f.m.position.set(lerp(a.x,b.x,e),lerp(a.y,b.y,e)+4*e*(1-e)*f.arc,lerp(a.z,b.z,e));if(f.weighted&&!roomMotionReduced.matches){f.m.rotation.y+=dt*4;f.m.rotation.z=Math.sin(t*Math.PI*2)*.28;}if(t>=1){f.done=true;f.onDone&&f.onDone(f.m);}}
   for(const tw of tws){if(tw.fin||NOW<tw.t0)continue;const k=clamp((NOW-tw.t0)/tw.dur,0,1);tw.fn(k);if(k>=1){tw.fin=true;tw.done&&tw.done();}}
   for(let i=tws.length-1;i>=0;i--)if(tws[i].fin)tws.splice(i,1);
   tilt+=(tiltTarget-tilt)*(1-Math.exp(-dt*4));pivot.rotation.z=tilt;

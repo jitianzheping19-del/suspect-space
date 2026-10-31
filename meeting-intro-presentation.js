@@ -4,12 +4,13 @@ import './meeting-intro-presentation.css';
 // A short, local presentation. It never advances the meeting or writes game state.
 export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCrew}){
  let stop=()=>{};
- return{play({reporter,body,report,duration=3000}){
+ return{play({reporter,body,report,duration=3000,elapsed=0}){
   stop();
   const budget=createRenderBudget(),gate=budget.gate(),reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,1,.1,60);
   const renderer=new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:'low-power'});
-  renderer.setPixelRatio(1);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0,0);
+  if(budget.syncRenderer)budget.syncRenderer(renderer,1);else renderer.setPixelRatio(budget.pixelRatio(1));
+  renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0,0);
   renderer.domElement.className='meetingIntroCanvas';
   host.insertBefore(renderer.domElement,host.querySelector('.effectSub'));
   const geometries=new Set(),materials=new Set(),textures=new Set(),actors=[];
@@ -64,7 +65,7 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    cameraDistance=Math.max(framingHeight/(2*Math.tan(16*Math.PI/180)),(report?6.8:4.6)/(2*Math.tan(16*Math.PI/180)*camera.aspect));
   }
   resize();window.addEventListener('resize',resize);
-  const started=performance.now(),impactAt=report?1.02:.86;
+  const started=performance.now()-Math.max(0,Number(elapsed)||0),impactAt=report?1.02:.86;
   stop=()=>{
    if(finished)return;finished=true;cancelAnimationFrame(raf);document.removeEventListener('visibilitychange',resume);window.removeEventListener('resize',resize);
    for(const actor of actors){actor.removeFromParent();disposeCrew(actor);}
@@ -105,7 +106,8 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    if(sparks.visible){for(let i=0;i<28;i++){const a=i*2.39996,speed=1.3+i%4*.55,k=i*3;sparkPositions[k]=centerX+Math.cos(a)*speed*impact;sparkPositions[k+1]=(report?.3:.7)+(.6+i%5*.3)*impact-2.8*impact*impact;sparkPositions[k+2]=Math.sin(a)*speed*impact;}sparkGeo.attributes.position.needsUpdate=true;}
    // One directional impact, not a repeated screen shake or strobe.
    const kick=!reduced&&t>=impactAt?decay*.10:0,dolly=reduced?0:smooth(t/.75)*.16+reveal*.24;
-   camera.position.set(report?-.20:.15,focus.y+2.0+kick,cameraDistance+.9-dolly);camera.lookAt(focus);renderer.render(scene,camera);
+   const arc=reduced?0:(1-smooth(t/1.15))*(report?.55:-.45);
+   camera.position.set((report?-.20:.15)+arc,focus.y+2.0+kick,cameraDistance+.9-dolly);camera.lookAt(focus);budget.syncRenderer?.(renderer);renderer.render(scene,camera);
   }
   raf=requestAnimationFrame(tick);return stop;
  },dispose(){stop();}};

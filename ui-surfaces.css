@@ -74,7 +74,7 @@
   :is(#startBtn, #lobbyOpenBtn, #inviteOnlineFloating, #lobbyChatToggleBtn,
       #lobbyUnstuckBtn, #lobbyShowRoles, #readyBtn),
   body[data-phase="lobby"] #buttons > button,
-  body:not([data-three-actions="true"]) :is(#roundRoleBtn, #mapBtn, #titleInputSettingsBtn, #voiceToggleBtn) {
+  body :is(#roundRoleBtn, #mapBtn, #titleInputSettingsBtn, #voiceToggleBtn) {
     --console-button-edge: var(--console-edge);
     background: var(--console-button-fill) !important;
     border-color: var(--console-button-edge) !important;
@@ -108,11 +108,11 @@
     border-color: #de7b8e !important;
     color: #fff0f3 !important;
   }
-  body:not([data-three-actions="true"]) #voiceToggleBtn[data-state="on"] {
+  body #voiceToggleBtn[data-state="on"] {
     background: linear-gradient(155deg, #1b6958, #0b392f) !important;
     border-color: #6cdeb5 !important;
   }
-  body:not([data-three-actions="true"]) #voiceToggleBtn[data-state="muted"] {
+  body #voiceToggleBtn[data-state="muted"] {
     background: linear-gradient(155deg, #56482f, #2c251b) !important;
     border-color: #e2b96d !important;
   }
