@@ -332,6 +332,6 @@ html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
 }
 
 /* The download status occupies free lobby space and never captures input. */
-#lobbyGameDownload{position:fixed;left:50%;top:calc(max(8px,env(safe-area-inset-top)) + 52px);transform:translateX(-50%);z-index:280;box-sizing:border-box;width:max-content;max-width:min(320px,44vw);padding:7px 10px;border:1px solid #83cbbb66;border-radius:10px;background:#0b202aee;color:#d9f5ed;font:600 11px/1.4 system-ui;text-align:center;pointer-events:none}
+#lobbyGameDownload{position:fixed;left:50%;top:calc(max(8px,env(safe-area-inset-top)) + 52px);transform:translateX(-50%);z-index:280;box-sizing:border-box;width:max-content;max-width:min(220px,calc(100vw - 440px));padding:7px 10px;border:1px solid #83cbbb66;border-radius:10px;background:#0b202aee;color:#d9f5ed;font:600 11px/1.4 system-ui;text-align:center;pointer-events:none}
 #lobbyGameDownload[hidden],body:not([data-phase="lobby"]) #lobbyGameDownload{display:none!important}
 @media(pointer:coarse) and (max-width:700px) and (orientation:portrait){#lobbyGameDownload{left:max(8px,env(safe-area-inset-left));top:calc(max(8px,env(safe-area-inset-top)) + 190px);transform:none;max-width:min(44vw,160px)}}
