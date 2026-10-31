@@ -18279,8 +18279,19 @@ function canOpenSabotageMap(me=self()){
     me?.role==="impostor"&&!me.disconnected&&!me.observer&&(!game.settings?.waveMode||game.settings.waveMode==="normal");
 }
 function sharedSabotageReadyAt(g=game){const shared=Number(g?.sabotageReadyAt)||0;if(shared)return shared;return Math.max(0,...Object.values(g?.players||{}).filter(player=>player?.role==="impostor").map(player=>Number(player?.sabotageAt)||0));}
-function canUseSabotage(me=self()){return EMERGENCY_PANELS.length>0&&canOpenSabotageMap(me)&&canPlay()&&roleAllowsSabotage(me,game.settings)&&sharedSabotageReadyAt()<=now()&&!activeShipSabotage();}
-function canUseDoorSabotage(me=self()){return canOpenSabotageMap(me)&&canPlay()&&roleAllowsSabotage(me,game.settings);}
+function canUseSabotage(me=self()){return EMERGENCY_PANELS.length>0&&!sabotageUnavailableReason(me)&&sharedSabotageReadyAt()<=now()&&!activeShipSabotage();}
+function canUseDoorSabotage(me=self()){return !sabotageUnavailableReason(me)&&!me?.rocketCapturedBy&&!me?.penguinCapturedBy;}
+function sabotageUnavailableReason(me=self()){
+  if(!code||!connected||!hostOnline())return "接続を確認しています。接続後にもう一度選択してください。";
+  if(!canOpenSabotageMap(me))return "プレイ中の人狼だけが妨害できます。";
+  if(!roleAllowsSabotage(me,game.settings))return "この役職は設定で妨害が無効になっています。";
+  if(me?.ventId)return "ベントから出てから妨害してください。";
+  if(me?.alive&&isTimeFrozen(game,now()))return "時間停止が終わると妨害できます。";
+  // Match the host's sabotage rules. Movement-only gates (a cached role-reveal
+  // panel, death pause or flight) must not leave remote actions disabled.
+  if(killActionsLocked()||now()<Math.max(Number(game.playStartsAt)||0,Number(game.countdownEndsAt)||0))return "演出・準備時間が終わると妨害できます。";
+  return "";
+}
 function sabotageMapPoint(type){
   const rows=(EMERGENCY_PANELS||[]).filter(panel=>panel.room===type);
   const matcher={lights:/electrical|電気|配電/i,comms:/comms|通信/i,reactor:/reactor|リアクター/i,oxygen:/oxygen|o2|酸素/i}[type];
@@ -18313,7 +18324,9 @@ function updateSabotageMapActions(){
   const panel=$("sabotageMap");if(!panel||panel.classList.contains("hidden"))return;
   const me=self(),stamp=now(),allowed=canUseSabotage(me),doorAllowed=canUseDoorSabotage(me),readyAt=sharedSabotageReadyAt(),seconds=Math.max(0,Math.ceil((readyAt-stamp)/1000));
   const active=activeShipSabotage(game,stamp),cooldownMs=Math.max(1000,Number(game.sabotageCooldownDurationMs)||Number(me?.sabotageCooldownDurationMs)||clamp(Number(game.settings?.sabotageCooldownSeconds)||30,5,90)*1000);
-  $("sabotageMapStatus").textContent=active?"妨害発生中。扉は操作できます。":seconds?`通常妨害クールダウン ${seconds}秒。扉は操作できます。`:"妨害する部屋を選択";
+  const reason=sabotageUnavailableReason(me),status=$("sabotageMapStatus");
+  status.textContent=reason||(active?"妨害発生中。扉は操作できます。":seconds?`通常妨害クールダウン ${seconds}秒。扉は操作できます。`:"妨害する部屋を選択");
+  status.dataset.visible=String(!!reason||active||seconds>0);
   for(const button of panel.querySelectorAll("[data-sabotage-action]")){
     button.disabled=!allowed;button.dataset.cooling=String(seconds>0);button.dataset.active=String(active);
     button.style.setProperty("--sabotage-cooldown-progress",String(clamp(1-(readyAt-stamp)/cooldownMs,0,1)));
@@ -18359,6 +18372,9 @@ function renderSabotageMap(){
     const projected=project(point.x,point.z),button=document.createElement("button");button.type="button";button.style.setProperty("--px",projected.x);button.style.setProperty("--py",projected.y);button.textContent=icon;button.setAttribute("aria-label",label);button.title=label;
     if(action){button.dataset.sabotageAction=action;button.dataset.label=label;}
     if(doorGroup){button.dataset.doorGroup=doorGroup.id;button.dataset.label=label;button.dataset.readyAt=String(readyAt);button.dataset.closed=String(closed);}
+    // Handle the press on the pin itself, including non-primary touches while
+    // walking. A later click must not depend on bubbling through the map.
+    bindMapButton(button,()=>activateSabotageMapPin(button));
     pins.appendChild(button);
   };
   for(const [type,label,icon] of [["lights","照明","⚡"],["comms","通信","⌁"],["oxygen","酸素","O₂"],["reactor","リアクター","核"]]){
@@ -18371,13 +18387,16 @@ function renderSabotageMap(){
 }
 bindMapButton($("sabotageMapClose"),closeSabotageMap);
 $("sabotageMap").addEventListener("pointerdown",event=>{if(event.target===$("sabotageMap"))closeSabotageMap();});
-$("sabotageMapCanvas").addEventListener("click",event=>{
-  const button=event.target.closest("button[data-sabotage-action],button[data-door-group]");if(!button||button.disabled)return;
+function activateSabotageMapPin(button){
+  if(!button||button.disabled||$("sabotageMap").classList.contains("hidden"))return;
   const sabotageType=button.dataset.sabotageAction,groupId=button.dataset.doorGroup;
-  closeSabotageMap();
-  if(sabotageType){$("sabotageType").value=sabotageType;sendCommand("sabotage",{sabotageType});}
-  else if(groupId)sendCommand("doorClose",{groupId});
-});
+  // Recheck live state: a cooldown, meeting or disconnect can arrive between
+  // opening the map and pressing a pin. Keep the map available on rejection.
+  if(sabotageType?!canUseSabotage():!canUseDoorSabotage()){updateSabotageMapActions();return;}
+  if(groupId){const group=getShipDoorGroups(game).find(group=>group.id===groupId);if(!group||group.closed||Number(group.readyAt)>now()){updateSabotageMapActions();return;}}
+  const sent=sabotageType?sendCommand("sabotage",{sabotageType}):groupId&&sendCommand("doorClose",{groupId});
+  if(sent){if(sabotageType)$("sabotageType").value=sabotageType;closeSabotageMap();}
+}
 document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!$("sabotageMap")?.classList.contains("hidden")){event.preventDefault();closeSabotageMap();}});
 
     function trySabotage(event) {
@@ -28761,6 +28780,7 @@ body[data-phase="play"] #buttons>#rocketLaunchBtn:not(.hidden){grid-column:3!imp
 #sabotageMapClose{position:absolute!important;right:8px!important;top:8px!important;z-index:30!important;display:grid!important;place-items:center!important;width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;margin:0!important;padding:0!important;flex:none!important;border:2px solid #ffd6de!important;border-radius:14px!important;background:#371523ed!important;color:#fff!important;font-size:30px!important;line-height:1!important;box-shadow:0 4px 15px #0009!important;pointer-events:auto!important;touch-action:manipulation!important}
 #sabotageMapClose:focus-visible{outline:3px solid #fff!important;outline-offset:2px!important}
 .mapLiveStatus{position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;border:0!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;pointer-events:none!important}
+#sabotageMapStatus[data-visible="true"]{left:8px!important;top:8px!important;z-index:31;width:auto!important;max-width:calc(100% - 78px);height:auto!important;margin:0!important;padding:5px 8px!important;clip-path:none!important;white-space:normal!important;border-radius:7px;background:#210d17ed;color:#ffe2e8;font-size:11px;line-height:1.4}
 @media(max-height:500px){#sabotageMapClose{width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important;font-size:27px!important;right:6px!important;top:6px!important}}
 
 /* ROOM_MOTION_OPTIMIZATION_V1: keep phone sizes; give larger screens more height. */
