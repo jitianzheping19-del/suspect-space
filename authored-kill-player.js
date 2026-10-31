@@ -1,7 +1,6 @@
 import {createCinematicArt} from './kill-cinematic-art.js';
 import {createRenderBudget} from './render-performance.js';
 import {createSelectedRoleCinematic} from './selected-role-cinematics.js';
-import {createKillCinematicBackground} from './kill-cinematic-background.js';
 
 // The same authored choreography and cinematic assets run in game and preview.
 export const authoredKillRoles = [
@@ -251,30 +250,42 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
 export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.net/npm/three@0.164.1',onDone=()=>{},onError=()=>{}}) {
   const frame=document.createElement('iframe');frame.title='役職別キル演出';frame.tabIndex=-1;frame.setAttribute('aria-hidden','true');frame.allow='autoplay';
   frame.style.cssText='color-scheme:dark;position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;pointer-events:none;visibility:hidden';
-  let ready=false,pending=null,lastTime=null,lastAudible=false,destroyed=false;
+  let ready=false,configured=false,pending=null,lastTime=null,lastAudible=false,destroyed=false;const preparations=new Set();
+  const settlePreparation=error=>{for(const finish of [...preparations])finish(error);};
   const post=data=>frame.contentWindow?.postMessage(data,'*');
   const receive=event=>{
     if(event.source!==frame.contentWindow||destroyed)return;
     const data=event.data;
     if(data?.type==='authored-ready'){ready=true;if(pending)post(pending);}
-    if(data?.type==='authored-configured'&&pending?.id===data.id&&lastTime!==null)post({type:'authored-time',time:lastTime,audible:lastAudible});
+    if(data?.type==='authored-configured'&&pending?.id===data.id){configured=true;settlePreparation();if(lastTime!==null)post({type:'authored-time',time:lastTime,audible:lastAudible});}
     if(data?.type==='authored-done'&&pending?.id===data.id)onDone();
-    if(data?.type==='authored-error')onError(data.message);
+    if(data?.type==='authored-error'){settlePreparation(new Error(data.message||'Kill preparation failed'));onError(data.message);}
   };
   window.addEventListener('message',receive);
   const base=cdnBase.replace(/\/$/,'');
   frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}),(${createRenderBudget.toString()}),(${createSelectedRoleCinematic.toString()}));<\/script></body></html>`
     .replace('<script type="module">',`<script type="importmap">${JSON.stringify({imports:{three:base+'/build/three.module.js','three/addons/':base+'/examples/jsm/'}})}<\/script><script type="module">`);
-  const slash=createKillCinematicBackground();
-  mount.append(slash,frame);
+  // Keep the running map visible through the transparent cinematic canvas.
+  mount.append(frame);
   return {
     frame,
-    configure(assets,role,payload={},autoPlay=false){const spec=authoredKillSpec(assets,role);const accents={fencer:'#8cecff',evolver:'#9cea8b',bomber:'#ffb65b',boxer:'#ff8a9f',bait:'#ffd18c',samurai:'#aeeeff',viper:'#9dff83',vampire:'#bf9aff',arsonist:'#ffb86c',waveCannon:'#68edff',conjurer:'#ba9cff',rocket:'#ffcf8c'};slash.style.setProperty('--ssx-kill-accent',accents[spec.role]||'#ff7589');pending={...spec,type:'authored-configure',costumeLib:assets.COSTUME_LIB_SRC||'',payload,autoPlay,id:String(payload.id||crypto.randomUUID())};lastTime=null;if(ready)post(pending);return spec;},
+    configure(assets,role,payload={},autoPlay=false){const spec=authoredKillSpec(assets,role);configured=false;pending={...spec,type:'authored-configure',costumeLib:assets.COSTUME_LIB_SRC||'',payload,autoPlay,id:String(payload.id||crypto.randomUUID())};lastTime=null;if(ready)post(pending);return spec;},
     seek(time,audible=false){lastTime=time;lastAudible=audible;if(ready&&pending)post({type:'authored-time',time,audible});},
     setVolume(volume){if(pending)pending.payload.volume=Math.max(0,Math.min(1,Number(volume)||0));post({type:'authored-volume',volume});},
-    show(visible){const changed=(frame.style.visibility==='visible')!==visible;frame.style.visibility=visible?'visible':'hidden';slash.style.visibility=visible?'visible':'hidden';slash.classList.toggle('ssx-kill-slash-on',visible);if(visible&&changed)post({type:'authored-resize'});},
-    stop(){pending=null;lastTime=null;post({type:'authored-stop'});frame.style.visibility='hidden';slash.style.visibility='hidden';slash.classList.remove('ssx-kill-slash-on');},
-    destroy(){destroyed=true;window.removeEventListener('message',receive);frame.remove();slash.remove();},
+    show(visible){const changed=(frame.style.visibility==='visible')!==visible;frame.style.visibility=visible?'visible':'hidden';if(visible&&changed)post({type:'authored-resize'});},
+    stop(){pending=null;lastTime=null;post({type:'authored-stop'});frame.style.visibility='hidden';},
+    destroy(){destroyed=true;settlePreparation(new Error('Kill player disposed'));window.removeEventListener('message',receive);frame.remove();},
+    whenPrepared(signal){
+      if(signal?.aborted)return Promise.reject(new DOMException('Aborted','AbortError'));
+      if(configured)return Promise.resolve();
+      if(destroyed)return Promise.reject(new Error('Kill player disposed'));
+      return new Promise((resolve,reject)=>{
+        const abort=()=>finish(new DOMException('Aborted','AbortError'));
+        const finish=error=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);preparations.delete(finish);error?reject(error):resolve();};
+        const timer=setTimeout(()=>finish(new Error('Kill preparation timed out')),15000);
+        preparations.add(finish);signal?.addEventListener('abort',abort,{once:true});
+      });
+    },
     get ready(){return ready;},
   };
 }

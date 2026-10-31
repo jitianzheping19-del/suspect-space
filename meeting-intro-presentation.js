@@ -38,6 +38,8 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
   if(report){
    corpse=createCrew(body||{});actors.push(corpse);ownCompanion(corpse);if(corpse.userData.petFollower)corpse.userData.petFollower.visible=false;corpse.traverse(o=>{if(o.isSprite)o.visible=false;});corpse.rotation.set(0,.2,-Math.PI/2);corpse.position.set(.55,.42,.18);scene.add(corpse);
    corpseTag=nameTag(body?.name||'クルー',0xffb8c3);corpseTag.position.set(1.5,1.45,.18);
+   mesh(new THREE.CylinderGeometry(.11,.095,.42,12),actor.userData.suit||steel,0,-.21,0,actor.userData.arms?.[1]||actor);
+   hand=mesh(new THREE.SphereGeometry(.18,16,12),actor.userData.suit||steel,0,-.42,0,actor.userData.arms?.[1]||actor);hand.scale.set(1,.7,1.15);
    alarm=nameTag('!',0xffdf81);alarm.scale.set(.95,1.15,1);alarm.visible=false;
   }else{
    // Large button, guard corners and a visible depressible red cap.
@@ -53,7 +55,7 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
   const sparkMat=new THREE.PointsMaterial({color:0xffd19b,size:.065,transparent:true,depthWrite:false,toneMapped:false});materials.add(sparkMat);
   const sparks=new THREE.Points(sparkGeo,sparkMat);sparks.frustumCulled=false;scene.add(sparks);
   const down=new THREE.Vector3(0,-1,0),aim=new THREE.Vector3(),hit=new THREE.Vector3(),quaternion=new THREE.Quaternion();
-  const shoulder=actor.userData.arms?.[1],shoulderRest=shoulder?.quaternion.clone();
+  const shoulder=actor.userData.arms?.[1],shoulderRest=shoulder?.quaternion.clone(),shoulderRestScale=shoulder?.scale.clone();
   // Use actual costume bounds so tall hats do not crop or cover the name.
   actor.updateMatrixWorld(true);
   const actorBounds=new THREE.Box3().setFromObject(actor),tagHeight=Math.max(2.55,Math.min(4.2,actorBounds.max.y+.20));
@@ -81,12 +83,18 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    const impact=Math.max(0,t-impactAt),reveal=smooth((t-impactAt)/.16),decay=Math.exp(-impact*10);
    if(report){
     // Fast approach, planted stop, backward recoil, then a clear pointing pose.
-    const walk=smooth(t/.88),stride=reduced?0:Math.sin(t*27)*(1-walk);
+    const walk=smooth(t/.88),point=smooth((t-1.35)/.35),stride=reduced?0:Math.sin(t*27)*(1-walk);
     actor.position.set(-3.55+2.90*walk,.11*Math.abs(stride),0);actor.rotation.set(0,Math.PI/2-.25*smooth((t-1.3)/.4),0);
     for(const[i,leg]of(actor.userData.legs||[]).entries())leg.rotation.x=(i?1:-1)*stride*.65;
     const recoil=smooth((t-.96)/.16)*(1-smooth((t-1.24)/.35));
-    actor.position.x-=recoil*.48;actor.position.y+=recoil*(reduced?0:.23);actor.rotation.x=-recoil*.32;actor.rotation.z=recoil*.17;
+    actor.position.x-=recoil*.48;actor.position.y+=recoil*(reduced?0:.23)-point*.11;actor.rotation.x=-recoil*.32;actor.rotation.z=recoil*.17-point*.13;
+    for(const[i,leg]of(actor.userData.legs||[]).entries())leg.rotation.x+=(i?.35:-.28)*point;
+    if(shoulder)shoulder.scale.copy(shoulderRestScale);
     for(const[i,arm]of(actor.userData.arms||[]).entries()){arm.rotation.x=-recoil*(i?2:1.2)-(i?smooth((t-1.35)/.3)*1.1:0);arm.rotation.z=(i?-1:1)*recoil*.45;}
+    if(shoulder&&point>0){
+     actor.updateMatrixWorld(true);aim.set(.60,.72,.18);actor.worldToLocal(aim);aim.sub(shoulder.position);const reach=aim.length();aim.normalize();quaternion.setFromUnitVectors(down,aim);
+     shoulder.quaternion.slerp(quaternion,point);shoulder.scale.y=shoulderRestScale.y+(reach/.42-shoulderRestScale.y)*point;hand.scale.y=.7/Math.max(.01,shoulder.scale.y);
+    }
     alarm.visible=t>.98;const pop=reduced?1:1+.27*Math.exp(-Math.max(0,t-1.04)*8);alarm.scale.set(.95*pop,1.15*pop,1);alarm.position.set(actor.position.x-.10,tagHeight+.65,0);
    }else{
     actor.position.set(-.48-.30*(1-smooth(t/.30)),0,.04);actor.rotation.set(0,Math.PI/2,0);
@@ -96,7 +104,7 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
     actor.position.x+=strike*(1-recover)*.20-raised*.12;actor.position.y=raised*.12-press*.07;
     actor.rotation.z=raised*.16-strike*(1-recover)*.16;
     if(shoulder){
-     shoulder.quaternion.copy(shoulderRest);actor.updateMatrixWorld(true);
+     shoulder.quaternion.copy(shoulderRest);shoulder.scale.copy(shoulderRestScale);actor.updateMatrixWorld(true);
      const lift=new THREE.Vector3(actor.position.x-.30,2.25+raised*.22,.02);
      hit.set(.22,.75+.125-press*.19+.126,0);
      // The palm's lower surface meets the cap, including its depressed height.
@@ -120,11 +128,11 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    // One directional impact, not a repeated screen shake or strobe.
    const kick=!reduced&&t>=impactAt?decay*.10:0,dolly=reduced?0:smooth(t/.75)*.16+reveal*.24;
    const arc=reduced?0:(1-smooth(t/1.15))*(report?.55:-.45);
-   camera.position.set((report?-.20:.15)+arc,focus.y+2.0+kick,cameraDistance+.9-dolly);camera.lookAt(focus);budget.syncRenderer?.(renderer);renderer.render(scene,camera);
+   camera.position.set((report?-.20:.15)+arc,focus.y+2.0+kick,cameraDistance+.9-dolly);camera.lookAt(report?aim.copy(focus).add(new THREE.Vector3(smooth((t-1.3)/.5)*.18,-smooth((t-1.3)/.5)*.12,0)):focus);budget.syncRenderer?.(renderer);renderer.render(scene,camera);
   }
   if(preparing){
    warmed.push(cleanup);
-   return Promise.resolve(renderer.compileAsync?.(scene,camera)).then(()=>{if(!finished&&!renderer.domElement.isConnected)tick(started);});
+   return Promise.resolve().then(()=>renderer?.compileAsync?.(scene,camera)).then(()=>{if(!finished&&!renderer.domElement.isConnected)tick(started);}).catch(error=>{cleanup();const index=warmed.indexOf(cleanup);if(index>=0)warmed.splice(index,1);throw error;});
   }
   stop=cleanup;raf=requestAnimationFrame(tick);return cleanup;
  }

@@ -205,7 +205,7 @@ window.addEventListener("message",event=>{
   if(event.data.active===true)window.SpaceSuspectLobby.__lobbyStartRender?.();
 });
 </script>
-<style id="compact-mobile-crew-count">@media(pointer:coarse) and (max-width:1000px){#status{top:104px!important;right:max(8px,env(safe-area-inset-right))!important;padding:8px 12px!important;min-width:74px!important;box-sizing:border-box;border-radius:14px;pointer-events:none}#status .eyebrow{font-size:10px!important;letter-spacing:.05em!important}#status strong{font-size:18px!important;line-height:1.3!important;white-space:nowrap}#status .sub{display:none!important}}</style></head>
+<style id="compact-mobile-crew-count">@media(pointer:coarse) and (max-width:700px),(pointer:coarse) and (max-height:600px){#status{top:calc(max(8px,env(safe-area-inset-top)) + 52px)!important;right:max(8px,env(safe-area-inset-right))!important;padding:8px 12px!important;min-width:74px!important;box-sizing:border-box;border-radius:14px;pointer-events:none}#status .eyebrow{font-size:10px!important;letter-spacing:.05em!important}#status strong{font-size:18px!important;line-height:1.3!important;white-space:nowrap}#status .sub{display:none!important}}</style></head>
 
 <body>
   <div id="info" style="display:none!important" class="panel">
@@ -254,7 +254,7 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
       0.1,
       150
     );
-      camera.position.set(7.5, 10, 11.5);
+      camera.position.set(8.6, 11.5, 13.2);
 
     /* LOBBY_RENDER_BUDGET_BEGIN */
 const lobbyBudget=(function createRenderBudget() {
@@ -350,7 +350,7 @@ const lobbyBudget=(function createRenderBudget() {
     controls.enableDamping = true;
     controls.enablePan = false;
     controls.minDistance = 7;
-    controls.maxDistance = 18;
+    controls.maxDistance = 22;
     controls.minPolarAngle = 0.2;
     controls.maxPolarAngle = Math.PI / 2.25;
 
@@ -1148,7 +1148,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
       const dt = Math.min(clock.getDelta(), 0.05);
       elapsed += dt;window.__lobbyGachaUpdate?.(elapsed);window.__lobbyGachaGuideUpdate?.(stamp);
 
-      updatePlayer(dt, elapsed);if(lobbyTouchLookPointer===null){const settle=Math.exp(-8*dt),difference=Math.atan2(Math.sin(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)),Math.cos(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)));if(lobbyTouchLookYaw!==null){lobbyTouchLookYaw+=difference*(1-settle);if(Math.abs(difference)<.002)lobbyTouchLookYaw=null;}lobbyTouchLookPitch*=settle;} if(!window.__lobbyKartCircuit?.active){const cameraMode=window.__lobbyCameraPerspective||'third'; if(window.__lobbyCameraFixedUntil>performance.now()){player.root.visible=true;controls.enabled=false;camera.position.set(window.__lobbyCameraFocusX||0,5.8,6);camera.lookAt(window.__lobbyCameraFocusX||0,1,-4.8);}else if(cameraMode==='first'){player.root.visible=false;controls.enabled=false;const yaw=lobbyTouchLookYaw??player.root.rotation.y,lookReach=8*Math.cos(lobbyTouchLookPitch),own=lobbyVisualStates.get(visualSelfUid),sitting=own?.seated===true||own?.sitting===true,eyeY=player.root.position.y+1.95;camera.up.set(0,1,0);camera.position.set(player.root.position.x,eyeY,player.root.position.z);camera.lookAt(player.root.position.x+Math.sin(yaw)*lookReach,eyeY+Math.sin(lobbyTouchLookPitch)*8,player.root.position.z+Math.cos(yaw)*lookReach);}else if(cameraMode==='overhead'){player.root.visible=true;controls.enabled=false;camera.position.set(player.root.position.x,player.root.position.y+12,player.root.position.z+8);camera.lookAt(player.root.position.x,player.root.position.y,player.root.position.z);}else{player.root.visible=true;controls.rotateSpeed=.25;if(window.__lastLobbyCameraMode!=='third'){camera.position.set(player.root.position.x+7.5,player.root.position.y+10,player.root.position.z+11.5);controls.target.copy(player.root.position);}controls.enabled=true;const follow=1-Math.exp(-4*dt);camera.position.x+=(player.root.position.x-controls.target.x)*follow;camera.position.y+=(player.root.position.y-controls.target.y)*follow;camera.position.z+=(player.root.position.z-controls.target.z)*follow;controls.target.lerp(player.root.position,follow);controls.update();}window.__lastLobbyCameraMode=cameraMode;}
+      updatePlayer(dt, elapsed);if(lobbyTouchLookPointer===null){const settle=Math.exp(-8*dt),difference=Math.atan2(Math.sin(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)),Math.cos(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)));if(lobbyTouchLookYaw!==null){lobbyTouchLookYaw+=difference*(1-settle);if(Math.abs(difference)<.002)lobbyTouchLookYaw=null;}lobbyTouchLookPitch*=settle;} if(!window.__lobbyKartCircuit?.active){const cameraMode=window.__lobbyCameraPerspective||'third'; if(window.__lobbyCameraFixedUntil>performance.now()){player.root.visible=true;controls.enabled=false;camera.position.set(window.__lobbyCameraFocusX||0,5.8,6);camera.lookAt(window.__lobbyCameraFocusX||0,1,-4.8);}else if(cameraMode==='first'){player.root.visible=false;controls.enabled=false;const yaw=lobbyTouchLookYaw??player.root.rotation.y,lookReach=8*Math.cos(lobbyTouchLookPitch),own=lobbyVisualStates.get(visualSelfUid),sitting=own?.seated===true||own?.sitting===true,eyeY=player.root.position.y+1.95;camera.up.set(0,1,0);camera.position.set(player.root.position.x,eyeY,player.root.position.z);camera.lookAt(player.root.position.x+Math.sin(yaw)*lookReach,eyeY+Math.sin(lobbyTouchLookPitch)*8,player.root.position.z+Math.cos(yaw)*lookReach);}else if(cameraMode==='overhead'){player.root.visible=true;controls.enabled=false;camera.position.set(player.root.position.x,player.root.position.y+12,player.root.position.z+8);camera.lookAt(player.root.position.x,player.root.position.y,player.root.position.z);}else{player.root.visible=true;controls.rotateSpeed=.25;if(window.__lastLobbyCameraMode!=='third'){camera.position.set(player.root.position.x+8.6,player.root.position.y+11.5,player.root.position.z+13.2);controls.target.copy(player.root.position);}controls.enabled=true;const follow=1-Math.exp(-4*dt);camera.position.x+=(player.root.position.x-controls.target.x)*follow;camera.position.y+=(player.root.position.y-controls.target.y)*follow;camera.position.z+=(player.root.position.z-controls.target.z)*follow;controls.target.lerp(player.root.position,follow);controls.update();}window.__lastLobbyCameraMode=cameraMode;}
 
       window.__loungeLastActiveAt??=stamp;
       let loungeIdle=keyboardKeys.size===0&&Math.abs(lobbyStick.x)+Math.abs(lobbyStick.z)<.001&&lobbyJumpVelocity===0&&!window.__lobbyKartCircuit?.active&&lobbyTouchLookPointer===null;

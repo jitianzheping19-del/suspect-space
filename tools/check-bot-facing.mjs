@@ -1,0 +1,35 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import {normalizePeerPose,encodePosePacket,decodePosePacket} from '../peer-pose-network.js';
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const section=(start,end)=>html.slice(html.indexOf(start),html.indexOf(end,html.indexOf(start)));
+const source=section('function runBots(g)', '/* PUBLIC_MEETING_EVIDENCE_V1 */');
+for(const [x,z,blocked] of [[4,0,false],[-4,0,false],[0,4,false],[0,-4,false],[4,4,false],[4,4,true]]){
+ const bot={bot:true,alive:true,role:'crew',x:0,z:0,assignedTasks:[]};
+ const ctx=vm.createContext({isTimeFrozen:()=>false,now:()=>1000,botLastMove:0,BOT_MOVE_INTERVAL_MS:100,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),botBrains:new Map(),botPersonalityFor:()=>({}),waveCannonMovementLock:()=>null,TASKS:[{x,z}],ROOMS:[],CENTER:{x:0,z:0},EMERGENCY_PANELS:[],SPEED:4,botPath:(_b,t)=>[t],distance:(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),collision:(_x,z)=>blocked&&z>0,wallBetween:()=>false,players:{},g:{round:1,players:{b:bot},settings:{}}});
+ const pose=vm.runInContext(source+'\nrunBots(g).moved.b',ctx);
+ assert(pose&&Math.hypot(pose.x,pose.z)>0);
+ assert.equal(pose.yaw,Math.atan2(pose.x,pose.z));
+ assert.equal(bot.yaw,pose.yaw);
+ const normalized=normalizePeerPose(pose);
+ const packet=encodePosePacket(1,[{slot:1,seq:1,at:1000,pose:normalized}]);
+ const decoded=decodePosePacket(packet);
+ assert(Math.abs(decoded.rows[0].pose.yaw-pose.yaw)<.001);
+ const mergeCtx=vm.createContext({game:{players:{b:bot}},uid:'self',botPositions:{b:pose},roomPositionsRaw:{},roomPositionFields:()=>({}),roomPeerPose:()=>null,isLobbyInteractionActive:()=>false,hasDisplayableName:()=>true,now:()=>1000,CENTER:{x:0,z:0}});
+ const merged=vm.runInContext(section('    function mergeBots(basePlayers)', '    const canPlay =')+'\nmergeBots({}).b',mergeCtx);
+ assert.equal(merged.yaw,pose.yaw);
+}
+console.log('PASS bot movement and wall sliding preserve facing through WebRTC and roster merge');
+const writes=[];
+const ctx=vm.createContext({pendingBotPose:{b:{x:1,z:2,yaw:Math.PI/2}},lastBotPoseSendAt:0,peerPoseNetwork:null,session:1,game:{round:1},now:()=>1000,db:{},code:'1234',ref:(_db,path)=>path,update:async(path,patch)=>writes.push({path,patch}),console});
+vm.runInContext(section('function compactPosePatch(next,previous)', 'async function publishRoomPosition(')+section('let sentBotPoseRoom=', 'function syncCostumeColorToggle('),ctx);
+vm.runInContext("flushBotPose('1234')",ctx);
+await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(writes[0].patch['b/yaw'],1.571);
+ctx.pendingBotPose={b:{x:1,z:2,yaw:-Math.PI/2}};
+vm.runInContext("flushBotPose('1234')",ctx);
+await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(writes[1].patch['b/yaw'],-1.571);
+assert(!('b/x' in writes[1].patch));
+console.log('PASS Firebase backup sends facing, including a stationary turn');
