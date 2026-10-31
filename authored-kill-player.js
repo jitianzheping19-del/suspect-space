@@ -47,7 +47,7 @@ export function authoredKillDurationMs(role){
 function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt,makeRenderBudget,makeSelectedScene) {
   const budget=makeRenderBudget(),gate=budget.gate();let frameRequest=0;
   const renderer=new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:budget.mobile?'default':'high-performance'});
-  renderer.setPixelRatio(budget.pixelRatio(budget.mobile?1:2));
+  budget.syncRenderer(renderer,budget.mobile?1:2);
   document.body.append(renderer.domElement);
   const host=document.querySelector('#originalControls');
   const nameLayer=document.createElement('div');nameLayer.id='actorNames';document.body.append(nameLayer);

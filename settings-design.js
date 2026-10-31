@@ -20,6 +20,35 @@ if (card && nav) {
   card.prepend(header);
   dialog.setAttribute('aria-labelledby', title.id);
 
+  // Keep the active section and its close action outside the scrolling body.
+  const content = card.querySelector('.inputSettingsContent');
+  const sectionTitle = document.createElement('h3');
+  if (content && close) {
+    const pane = document.createElement('div');
+    pane.className = 'settingsDesignPane';
+    const toolbar = document.createElement('div');
+    toolbar.className = 'settingsSectionToolbar';
+    sectionTitle.id = 'settingsActiveSectionTitle';
+    const contentClose = document.createElement('button');
+    contentClose.id = 'settingsContentClose';
+    contentClose.type = 'button';
+    contentClose.textContent = '閉じる';
+    contentClose.dataset.spacePointerAction = 'direct';
+    contentClose.addEventListener('click', () => close.click());
+    toolbar.append(sectionTitle, contentClose);
+    content.before(pane);
+    pane.append(toolbar, content);
+  }
+
+  const save = document.getElementById('profileSaveBtn');
+  const logout = document.getElementById('logoutBtn');
+  if (save && logout) {
+    const actions = document.createElement('div');
+    actions.className = 'settingsProfileActions';
+    save.before(actions);
+    actions.append(save, logout);
+  }
+
   const icons = {
     player: '<circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/>',
     audio: '<path d="m11 4-6 5H2v6h3l6 5V4Zm5 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
@@ -32,6 +61,7 @@ if (card && nav) {
   const tabs = [...nav.querySelectorAll('button[data-settings-target]')];
   for (const tab of tabs) {
     const key = tab.dataset.settingsTarget;
+    tab.dataset.settingsLabel = tab.textContent.trim();
     const glyph = document.createElement('span');
     glyph.className = 'settingsNavIcon';
     glyph.setAttribute('aria-hidden', 'true');
@@ -48,6 +78,7 @@ if (card && nav) {
     nav.setAttribute('aria-orientation', portrait.matches ? 'horizontal' : 'vertical');
     const visible = tabs.filter(tab => !tab.hidden && !tab.disabled);
     const selected = visible.find(tab => tab.getAttribute('aria-selected') === 'true') || visible[0];
+    sectionTitle.textContent = selected?.dataset.settingsLabel || '';
     for (const tab of tabs) tab.tabIndex = tab === selected ? 0 : -1;
     if (selected && !dialog.classList.contains('hidden')) selected.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'});
   }
