@@ -12,3 +12,16 @@ class Group{constructor(){this.children=[];}add(child){this.children.push(child)
 const context={THREE:{Group},scene:new Group(),camera:{}};vm.createContext(context);
 vm.runInContext(factories+'\ncreateMeetingEjections({THREE,scene,camera,createExtendedEjectionEffects,createEjectionStaging});',context);
 console.log('PASS minified meeting factories initialize in an isolated iframe realm');
+// Dollar sequences are valid JavaScript in serialized factories. String.replace
+// must preserve them even when a production minifier chooses '$' identifiers.
+const {createExtendedEjectionEffects}=await import('../meeting-ejection-effects.js');
+const {patchMeetingRuntime:patchSource}=await import('../meeting-scene-ejections.js');
+const original=createExtendedEjectionEffects.toString;
+const marker='const replacementProbe = "$&|$\'|$`|$$";';
+try{
+ createExtendedEjectionEffects.toString=()=>original.call(createExtendedEjectionEffects).replace('{',()=>'{\n'+marker+'\n');
+ const patched=patchSource(assets.MEETING_3D_SRCDOC);
+ if(!patched.includes(marker))throw new Error('Serialized dollar sequences were expanded');
+ for(const script of patched.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g))new vm.Script(script[1]);
+ console.log('PASS complete meeting scripts retain literal dollar sequences and compile');
+}finally{delete createExtendedEjectionEffects.toString;}

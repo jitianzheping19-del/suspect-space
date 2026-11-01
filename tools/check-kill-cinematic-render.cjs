@@ -15,12 +15,13 @@ const base=process.argv[2]||'http://127.0.0.1:4173';
   const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   try{
     const page=await browser.newPage({viewport:{width:1180,height:820}}),errors=[];
+    await page.route(/https:\/\/(cdn.jsdelivr.net\/npm|unpkg.com)\/three@0.164.1\//,r=>r.fulfill({path:path.join(root,'node_modules/three',r.request().url().split('three@0.164.1/')[1]),contentType:'text/javascript'}));
     page.on('pageerror',e=>errors.push(e.message));
     page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
     await page.route('**/kill-originals.json',r=>r.fulfill({path:path.join(root,'public/kill-originals.json'),contentType:'application/json'}));
     await page.route('**/authored-kill-player.js',r=>{
       let source=fs.readFileSync(path.join(root,'authored-kill-player.js'),'utf8');
-      source=source.replace('resize();controller.step(0,0);','window.__killQA={get role(){return configuration.role;},get duration(){return configuration.duration;},get time(){return time;},get renderer(){return renderer;},get controller(){return controller;}};resize();controller.step(0,0);');
+      source=source.replace('resize();controller.step(0,0);','window.__killQA={get role(){return configuration.role;},get duration(){return configuration.duration;},get trimStart(){return Number(configuration.trimStart)||0;},get time(){return time;},get renderer(){return renderer;},get controller(){return controller;}};resize();controller.step(0,0);');
       return r.fulfill({body:source,contentType:'text/javascript'});
     });
     await page.goto(base+'/kill-animation-preview.html');
@@ -31,9 +32,11 @@ const base=process.argv[2]||'http://127.0.0.1:4173';
       await frame().waitForFunction(id=>window.__killQA?.role===id,id);
     }
     async function seek(t){
+      t=await frame().evaluate(t=>Math.max(t,window.__killQA.trimStart),t);
       await page.evaluate(t=>window.SpaceSuspectVictimPreview.seek(1.5+t),t);
       await frame().waitForFunction(t=>Math.abs(window.__killQA.time-t)<.002,t);
     }
+    assert.equal(await page.locator('.ssx-kill-background').count(),0,'cinematic keeps the game map behind it');
     const roles=await page.locator('#rolePicker option').evaluateAll(nodes=>nodes.map(n=>n.value));
     assert(roles.includes('triggerHappy'),'Machine gun kills have their own cinematic');
     const memory=[];

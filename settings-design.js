@@ -12,6 +12,11 @@ if (card && nav) {
   title.textContent = '設定';
   header.append(title);
   const close = document.getElementById('inputSettingsClose');
+  if (close) {
+    close.classList.remove('settingsNavClose');
+    close.classList.add('settingsDesignClose');
+    header.append(close);
+  }
   card.prepend(header);
   dialog.setAttribute('aria-labelledby', title.id);
 
@@ -24,9 +29,13 @@ if (card && nav) {
     const toolbar = document.createElement('div');
     toolbar.className = 'settingsSectionToolbar';
     sectionTitle.id = 'settingsActiveSectionTitle';
-    close.classList.remove('settingsNavClose');
-    close.dataset.spacePointerAction = 'direct';
-    toolbar.append(sectionTitle, close);
+    const contentClose = document.createElement('button');
+    contentClose.id = 'settingsContentClose';
+    contentClose.type = 'button';
+    contentClose.textContent = '閉じる';
+    contentClose.dataset.spacePointerAction = 'direct';
+    contentClose.addEventListener('click', () => close.click());
+    toolbar.append(sectionTitle, contentClose);
     content.before(pane);
     pane.append(toolbar, content);
   }

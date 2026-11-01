@@ -24,6 +24,9 @@ document.body.dataset.phase='meeting';$('meetingTitle').textContent='緊急会�
   for(const id of ['votePlayers','meetingChat','skipBtn','meetingLoadingStatus'])assert(await page.locator('#'+id).isVisible(),id+' must be usable immediately');
   assert(await page.locator('#meeting3D').evaluate(e=>e.getClientRects().length>0&&e.inert&&getComputedStyle(e).opacity==='0'));
   await page.locator('[data-player="other"]').click();
+  assert(await page.locator('#voteConfirm').isVisible(),'2D votes require confirmation');
+  assert.deepEqual(await page.evaluate(()=>__votes),[]);
+  await page.locator('#voteConfirmYes').click();
   assert.deepEqual(await page.evaluate(()=>__votes),['other']);
   await page.evaluate(()=>{qa.render();qa.signal('ss3d-rendered')});await page.waitForTimeout(30);
   assert.equal((await page.evaluate(()=>qa.status())).on,false,'a 2D vote must keep its display');
