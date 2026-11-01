@@ -27442,28 +27442,18 @@ setInterval(()=>{
       inputSettingsClose: '操作設定を閉じる', audioSettingsClose: '音声設定を閉じる'
     };
     const byId = id => document.getElementById(id);
+    // Visibility is a read-only query. Changing aria-hidden here would fight
+    // background isolation and recursively trigger the modal observers.
     const visible = element => {
       if (!element || element.classList.contains('hidden') || element.hidden ||
-          getComputedStyle(element).display === 'none' || getComputedStyle(element).visibility === 'hidden') return false;
-      // An explicit reopen supersedes isolation saved by an older modal.
-      if(element.dataset.spaceUiVisible==="true"){
-        element.inert=false;
-        if(element.getAttribute('aria-hidden')!=="false")element.setAttribute('aria-hidden',"false");
-        return true;
-      }
+          !element.getClientRects().length || getComputedStyle(element).display === 'none' ||
+          getComputedStyle(element).visibility === 'hidden') return false;
+      if(element.dataset.spaceUiVisible==="false")return false;
+      if(element.dataset.spaceUiVisible==="true")return true;
       if (element.getAttribute('aria-hidden') !== 'true') return true;
       if (element.matches(selector) && stack.includes(element)) return true;
-      // A closed sibling modal is isolated while another modal is active. If
-      // its `.hidden` state is later removed, undo only the manager's saved
-      // isolation before deciding whether it can become the new top modal.
       const previous = element.matches(selector) ? savedBackground.get(element) : null;
-      if (!previous || previous.ariaHidden === 'true') return false;
-      element.inert = element.dataset.spaceUiVisible==="true"?false:element.dataset.spaceUiVisible==="false"?true:previous.inert;
-      if(element.dataset.spaceUiVisible!==undefined)setIfDifferent(element,'aria-hidden',String(element.dataset.spaceUiVisible!=="true"));
-      else if (previous.ariaHidden === null) element.removeAttribute('aria-hidden');
-      else setIfDifferent(element, 'aria-hidden', previous.ariaHidden);
-      savedBackground.delete(element);
-      return true;
+      return !!previous && previous.ariaHidden !== 'true';
     };
     const hasBox = element => !!element && element.getClientRects().length > 0;
     const stackTop = () => stack.filter(visible).sort((a, b) => {
@@ -27491,13 +27481,17 @@ setInterval(()=>{
       if (!modal.hasAttribute('tabindex')) modal.setAttribute('tabindex', '-1');
       try { modal.focus({ preventScroll: true }); } catch (_) { modal.focus(); }
     };
+    const restoreElement = (element, previous, active = false) => {
+      const intent=element.dataset.spaceUiVisible;
+      const inert=active?false:intent==="true"?false:intent==="false"?true:previous.inert;
+      if(element.inert!==inert)element.inert=inert;
+      const aria=active?"false":intent!==undefined?String(intent!=="true"):previous.ariaHidden;
+      if(aria===null){if(element.hasAttribute('aria-hidden'))element.removeAttribute('aria-hidden');}
+      else setIfDifferent(element,'aria-hidden',aria);
+    };
     const restoreBackground = () => {
       for (const [element, previous] of savedBackground) {
-        if (!element.isConnected) continue;
-        element.inert = element.dataset.spaceUiVisible==="true"?false:element.dataset.spaceUiVisible==="false"?true:previous.inert;
-        if(element.dataset.spaceUiVisible!==undefined)setIfDifferent(element,'aria-hidden',String(element.dataset.spaceUiVisible!=="true"));
-      else if (previous.ariaHidden === null) element.removeAttribute('aria-hidden');
-        else setIfDifferent(element, 'aria-hidden', previous.ariaHidden);
+        if (element.isConnected)restoreElement(element,previous);
       }
       savedBackground.clear();
     };
@@ -27508,15 +27502,12 @@ setInterval(()=>{
         if (!savedBackground.has(element)) savedBackground.set(element, {
           inert: element.inert, ariaHidden: element.getAttribute('aria-hidden')
         });
-        element.inert = true;
+        if(!element.inert)element.inert = true;
         setIfDifferent(element, 'aria-hidden', 'true');
       }
       for (const [element, previous] of savedBackground) {
         if (element === modal || element.contains(modal) || statusIds.has(element.id) || isSetupUtility(modal, element)) {
-          element.inert = element.dataset.spaceUiVisible==="true"?false:element.dataset.spaceUiVisible==="false"?true:previous.inert;
-          if(element.dataset.spaceUiVisible!==undefined)setIfDifferent(element,'aria-hidden',String(element.dataset.spaceUiVisible!=="true"));
-      else if (previous.ariaHidden === null) element.removeAttribute('aria-hidden');
-          else setIfDifferent(element, 'aria-hidden', previous.ariaHidden);
+          restoreElement(element,previous,element===modal||element.contains(modal));
           savedBackground.delete(element);
         }
       }
