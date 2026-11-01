@@ -44,7 +44,7 @@ const TASK_TERMINAL_DOCUMENT = [
   renderBudgetSource('taskBudget'),
   "const mobileTaskGpu=taskBudget.mobile;",
   "const renderer=new THREE.WebGLRenderer({antialias:!mobileTaskGpu,powerPreference:\"low-power\"});",
-  "renderer.setPixelRatio(Math.min(devicePixelRatio||1,mobileTaskGpu?1:2));renderer.setSize(innerWidth,innerHeight);",
+  "taskBudget.syncRenderer(renderer,mobileTaskGpu?1:2);renderer.setSize(innerWidth,innerHeight);",
   "renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.localClippingEnabled=true;",
   "renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;",
   "document.body.prepend(renderer.domElement);",

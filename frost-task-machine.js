@@ -1,16 +1,18 @@
 import * as THREE from 'three';
+import {createRenderBudget} from './render-performance.js';
 import { taskInstructions, circuitPorts, tubeClips, antennaBases, signalSource, starPoints, frostPixels, crackPoints, clamp, angleDelta } from './frost-task-rules.js';
 
 // Retain one idle WebGL context between terminals. Task state, listeners and
 // scene resources are still discarded on close; no hidden render loop remains.
 let idleTaskRenderer = null;
 export function prepareFrostTaskRenderer() {
+  const budget=createRenderBudget();
   if (idleTaskRenderer?.getContext().isContextLost()) {
     idleTaskRenderer.dispose(); idleTaskRenderer = null;
   }
   if (!idleTaskRenderer) {
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, budget.ultraLight ? .65 : 1.6));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
@@ -25,6 +27,7 @@ if (typeof window !== 'undefined') window.addEventListener('pagehide', (event) =
 
 // Each task builds its own mechanism; the simulation remains in the run object.
 export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {}) {
+  const budget=createRenderBudget(),frameGate=budget.gate();
   const s = run.state, mode = s.mode;
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-5.4, 5.4, 2.65, -2.65, .1, 50);
@@ -467,7 +470,10 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     if (disposed) return; raf = requestAnimationFrame(tick);
     const dt = Math.min(.2, Math.max(0, (now - previous) / 1000)); previous = now;
     if (document.hidden) return;
-    resize(); update(dt); renderer.render(scene, camera);
+    const ratio=Math.min(window.devicePixelRatio||1,budget.ultraLight ? .65 : 1.6);
+    if(renderer.getPixelRatio()!==ratio)renderer.setPixelRatio(ratio);
+    resize(); update(dt);
+    if(!budget.ultraLight||frameGate.due(now))renderer.render(scene, camera);
   }
   function lost(event) { event.preventDefault(); dispose(); onUnavailable?.(); }
   const observer = new ResizeObserver(resize); observer.observe(host);

@@ -20,3 +20,9 @@ export function adminRoomCounts(game,rooms,getPose,contains,stamp){
  for(const body of Object.values(game.bodies||{}))if(!body.carriedBy&&!body.removed&&!body.dissolved&&!(body.dissolveAt&&body.dissolveAt<=stamp))add(body);
  return counts;
 }
+
+// Keep the HUD and the shared use action on the same target decision.
+export function preferTaskToVent(position,vent,hasTask){
+ return !!hasTask&&(!vent||Math.hypot(position.x-vent.x,position.z-vent.z)>.62);
+}
+export function meetingUseRadius(map='classic'){return map==='classic'?3.5:2.6;}

@@ -47,10 +47,10 @@ function installFrameShadowSettings(renderer, initialEnabled) {
 export function withShadowSettings(source) {
   let enabled = globalThis.__spaceRenderShadowsEnabled ?? readShadowPreference();
   if (enabled === null || enabled === undefined) {
-    try { enabled = localStorage.getItem('space-suspect-render-preset-v1') !== 'low'; }
+    try { enabled = !['ultralow','low'].includes(localStorage.getItem('space-suspect-render-preset-v1')); }
     catch { enabled = true; }
   }
-  try { if (localStorage.getItem('space-suspect-render-preset-v1') === 'low') enabled = false; } catch {}
+  try { if (['ultralow','low'].includes(localStorage.getItem('space-suspect-render-preset-v1'))) enabled = false; } catch {}
   // Only the first assignment belongs to the scene itself. Later occurrences
   // may be escaped source strings for nested animation documents.
   return source.replace(/renderer\.shadowMap\.enabled\s*=\s*true\s*;/,

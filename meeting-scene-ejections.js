@@ -413,7 +413,7 @@ function mrStartEjection(ids,result,forcedMode){
  getLiveMeetingEjections().start(ids,result,forcedMode||(result.catDrag?'cat':mrEjectionMode(ids)));
 }
 `;
-  html = html.replace(/function mrStartEjection\([\s\S]*?(?=window\.previewMeetingEjection=)/, factory);
+  html = html.replace(/function mrStartEjection\([\s\S]*?(?=window\.previewMeetingEjection=)/, () => factory);
   html=html.replace("const names=['rocket','collapse','beam','missile','meteor','ufo'];","const names=['rocket','collapse','beam','missile','meteor','ufo','gravity','pod','ice','singularity','crane'];");
   html = html.replace('meetingIdentitySnapshot=[];resetMeetingAbilityEffects();', 'liveMeetingEjections?.reset();meetingIdentitySnapshot=[];resetMeetingAbilityEffects();');
   html = html.replace('if(!mrScaleBroken||window.__meetingEjectionOverlayActive)return;', 'if(!mrScaleBroken)return;');

@@ -1,0 +1,9 @@
+#lobbyPhotoDialog[hidden],#lobbyPhotoDialog [hidden]{display:none!important}
+#lobbyPhotoDialog{position:fixed;inset:0;z-index:2147483645;display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));box-sizing:border-box;color:#f5e8cf;font-family:system-ui;background:transparent}
+#lobbyPhotoDialog button{min-height:44px;padding:9px 18px;border:1px solid #a8bba9;border-radius:12px;background:#183b48;color:#f8edda;font-weight:750;touch-action:manipulation}
+.lobbyPhotoCount{display:grid;place-items:center;gap:12px;text-align:center;text-shadow:0 2px 12px #000}
+.lobbyPhotoCount>span{padding:8px 20px;background:#071726dc;border:1px solid #bfae8255;border-radius:40px}
+.lobbyPhotoCount>strong{font-size:clamp(64px,17vh,132px);line-height:1.1;color:#baf5e8}.lobbyPhotoCount>button{font-size:12px;background:#071726cc!important}
+.lobbyPhotoResult{display:flex;flex-direction:column;gap:12px;width:min(1040px,100%);max-height:100%;padding:14px;box-sizing:border-box;background:#091b29f5;border:1px solid #bda77b;border-radius:20px;box-shadow:0 14px 70px #0009;overflow:auto}
+.lobbyPhotoResult header,.lobbyPhotoResult footer{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.lobbyPhotoResult header>strong{letter-spacing:.16em;font-size:13px}.lobbyPhotoResult img{display:block;width:100%;max-height:calc(100dvh - 185px);object-fit:contain;border-radius:10px;background:#050d16}.lobbyPhotoResult footer>span{font-size:12px;color:#b7ced5}
+body[data-lobby-photo="countdown"] :is(#controls,#lobbyUseBtn,#jumpBtn,#startBtn,#readyBtn,#lobbyOpenBtn,#lobbyRoomCode,#lobbyRoster,#lobbyChat,#lobbyChatToggleBtn,#voiceToggleBtn,#voicePermissionPanel,#roundRoleBtn,#inviteOnlineFloating,#petInteractBtn,.ssTicketBadge,.unifiedSettingsTrigger,.lobbyActionCanvas){visibility:hidden!important;pointer-events:none!important}

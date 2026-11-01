@@ -5,7 +5,7 @@ import {GACHA_CATALOG} from '../gacha-catalog.js';
 const entries=GACHA_CATALOG.filter(i=>i.category!==5);
 const previous=new Map(GACHA_CATALOG.filter(i=>i.category===5).map(i=>[i.id,i.number]));
 let next=Math.max(5999,...previous.values())+1;
-for(const s of GIFT_SKINS)entries.push({number:previous.get(s.id)??next++,id:s.id,name:s.name,glyph:s.glyph||'✦',category:5,rarity:4});
+for(const s of GIFT_SKINS)entries.push({number:previous.get(s.id)??next++,id:s.id,name:s.name,glyph:s.glyph||'✦',category:5,rarity:s.rarity??4});
 await writeFile('gacha-catalog.js','export const GACHA_CATALOG='+JSON.stringify(entries)+';\n');
 const rules=JSON.parse(await readFile('database.rules.json','utf8'));
 rules.rules.reviewGifts.$uid.$gift['.validate']=rules.rules.reviewGifts.$uid.$gift['.validate'].replace(/matches\(\/\^\([^)]*\)\$\/\)/,`matches(/^(${GIFT_SKINS.map(s=>s.id).join('|')})$/)`);

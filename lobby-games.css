@@ -1,0 +1,14 @@
+#lobbyMiniGamePanel{position:fixed;z-index:46;left:50%;bottom:150px;transform:translateX(-50%);width:min(300px,54vw);box-sizing:border-box;padding:10px 12px;color:#effffc;background:#102a35ed;border:1px solid #8bbdad;border-radius:14px;text-align:center;font:600 12px/1.5 system-ui;pointer-events:auto}
+#lobbyMiniGamePanel strong{display:block;font-size:15px;color:#f4dbab}
+.miniGameButtons{display:flex;justify-content:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.miniGameButtons button{min-height:34px;padding:6px 10px;background:#1c5358;color:white;border:1px solid #79b8b4;border-radius:8px;font-weight:750;touch-action:manipulation}
+.miniGameButtons button[hidden]{display:none!important}
+#lobbyMiniGameToggle{position:fixed;left:12px;top:190px;z-index:46;padding:9px 15px;min-height:38px;border-radius:12px;touch-action:manipulation}
+#lobbyTagTouchBtn{position:fixed;right:max(8px,env(safe-area-inset-right));bottom:calc(max(8px,env(safe-area-inset-bottom)) + 78px);width:76px;height:58px;padding:0;white-space:nowrap;z-index:46;border:2px solid #7d9599;background:#273b49;color:#eef9ff;border-radius:14px;font-weight:900;touch-action:manipulation}
+#lobbyTagTouchBtn.armed{background:#e07c25;border-color:#fff1a8;box-shadow:0 0 18px #ffc857b3;color:#fff}
+#lobbyTagTouchBtn:disabled{opacity:.5}
+@layer play-action-layout{html body[data-phase="lobby"].lobbyTagPlaying #lobbyChatToggleBtn{top:auto!important;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 150px)!important}}
+body[data-phase="lobby"].lobbyMiniGameOpen #startBtn,body[data-phase="lobby"].lobbyMiniGameOpen #readyBtn,body[data-phase="lobby"].lobbyMiniGameOpen #lobbyOpenBtn{visibility:hidden!important;pointer-events:none!important}
+@media(max-height:500px){#lobbyMiniGamePanel{left:calc(50% - 26px);bottom:9px;width:min(310px,calc(100vw - 344px));padding:6px 8px}#lobbyMiniGameToggle{top:114px;left:8px;padding:5px 10px;min-height:32px}#lobbyMiniGamePanel strong{font-size:13px}.miniGameButtons button{min-height:30px;padding:4px 7px}}
+@media(max-width:500px) and (min-height:501px){#lobbyMiniGamePanel{bottom:155px;width:min(280px,calc(100vw - 132px))}#lobbyMiniGameToggle{top:132px}}
+@media(min-width:501px) and (min-height:501px){#lobbyTagTouchBtn{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 112px)}@layer play-action-layout{html body[data-phase="lobby"].lobbyTagPlaying #lobbyChatToggleBtn{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 182px)!important}}}

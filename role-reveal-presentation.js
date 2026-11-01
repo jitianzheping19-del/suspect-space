@@ -10,7 +10,7 @@ export function animateRoleReveal(stage,kind='role'){
  if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;
  const play=(node,frames,duration,delay=0)=>{if(node?.animate)animations.push(node.animate(frames,{duration,delay,easing:'cubic-bezier(.16,.85,.25,1)',fill:'backwards'}));};
  play(stage.querySelector('.card'),[{opacity:0,transform:'translateY(18px) scale(.92)'},{opacity:1,transform:'translateY(0) scale(1)'}],620);
- play(stage.querySelector('#roleRevealTitle'),[{opacity:0,transform:'translateY(20px)',letterSpacing:'.32em'},{opacity:1,transform:'translateY(0)',letterSpacing:'.06em'}],640,120);
+ play(stage.querySelector('#roleRevealTitle'),[{opacity:0,transform:'translateY(12px)'},{opacity:1,transform:'translateY(0)'}],480,100);
  play(stage.querySelector('#roleLineup'),[{opacity:0,transform:'translateY(26px) scale(.9)'},{opacity:1,transform:'translateY(0) scale(1)'}],650,200);
  const duration=kind==='faction'?2000:5000;
  for(const[selector,start,direction]of[['.left',-18,1],['.right',18,-1]]){

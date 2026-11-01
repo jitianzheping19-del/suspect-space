@@ -1,0 +1,155 @@
+/* LOBBY_GAMES_SCENE_BEGIN */
+function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotion}){
+  const rules=createLobbyGamesRules(),S=rules.SURVIVAL,F=rules.SOCCER;
+  let enabled=false,uid='',state=null,roster={},offset=0,roundSeen='',eliminatedSeen='',finishedSeen='',lastAction='',lastBall=null,localArea='lobby',previousX=player.root.position.x;
+  const roots={survival:new THREE.Group(),soccer:new THREE.Group()},doors=[],badges=new Map();
+  for(const [name,root]of Object.entries(roots)){root.name='lobby-game-'+name;root.visible=false;scene.add(root);}
+  const mats=new Map(),unitBox=new THREE.BoxGeometry(1,1,1);
+  function material(color){if(!mats.has(color))mats.set(color,new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.12}));return mats.get(color);}
+  function box(root,x,y,z,w,h,d,color){const m=new THREE.Mesh(unitBox,material(color));m.position.set(x,y,z);m.scale.set(w,h,d);root.add(m);return m;}
+  function sign(root,text,x,y,z,width=4){
+    const c=document.createElement('canvas');c.width=1024;c.height=192;const g=c.getContext('2d');g.fillStyle='#102635';g.fillRect(0,0,1024,192);g.strokeStyle='#d6bb87';g.lineWidth=8;g.strokeRect(6,6,1012,180);g.fillStyle='#fff3d7';g.font='700 74px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(text,512,96,960);
+    const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*192/1024),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);root.add(m);return m;
+  }
+  function door(x,z,text,side){
+    const root=new THREE.Group();root.name='lobby-'+side+'-game-door';root.position.set(x,0,z);root.rotation.y=side==='survival'?Math.PI/2:-Math.PI/2;scene.add(root);
+    for(const dx of [-1.55,1.55])box(root,dx,1.55,0,.16,3.1,.3,'#bda675');box(root,0,3.1,0,3.25,.18,.3,'#bda675');
+    const leaves=[-1,1].map(s=>{const m=box(root,s*.74,1.42,0,1.44,2.8,.12,'#32636a');m.userData.side=s;return m;});sign(root,text,0,3.6,0,3.8);doors.push({x,z,leaves});
+  }
+  door(-12.1,-2.3,'消える床サバイバル','survival');door(12.1,2.1,'フットサル','soccer');
+  const survival=roots.survival;
+  box(survival,-24,-.2,4.5,24,.4,19,'#122635');
+  box(survival,-36,.65,4.5,.18,1.3,19,'#304654');
+  for(const [z,d]of [[-4.4,1.2],[6.6,14.8]])box(survival,-12,.65,z,.18,1.3,d,'#304654');
+  for(const z of [-5,14])box(survival,-24,.65,z,24,1.3,.18,'#304654');
+  // Entry and queue remain safe; the raised arena makes falling unambiguous.
+  box(survival,-15.1,.018,-.7,4.2,.035,4.6,'#317f75');
+  const queueSign=sign(survival,'参加希望',-15.1,.05,-.7,3.8);queueSign.rotation.x=-Math.PI/2;
+  sign(survival,'踏んだ床は 0.7秒後に消えます',-25,4.8,-4.7,12);
+  const tiles=new THREE.InstancedMesh(new THREE.BoxGeometry(1.94,.3,1.94),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.66,metalness:.14}),56);
+  tiles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);tiles.name='survival-tiles';survival.add(tiles);const dummy=new THREE.Object3D(),tileColor=new THREE.Color();
+  // Second-floor observation deck, glass railing and a walkable stair flight.
+  box(survival,-24,6.85,12.65,24,.3,2.7,'#52717b');
+  const glass=new THREE.MeshStandardMaterial({color:0xa9e6f1,transparent:true,opacity:.24,depthWrite:false,side:THREE.DoubleSide,roughness:.2});
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(17.7,1.1,.07),glass);rail.position.set(-27.1,7.55,11.3);survival.add(rail);
+  box(survival,-27.1,8.12,11.3,17.7,.07,.09,'#d6be91');
+  for(let i=0;i<16;i++){const h=(i+1)*7/16;box(survival,-15.5,h/2,3+(i+.5)*.5,4.5,h,.5,'#587985');}
+  for(const x of [-17.9,-13.1]){const rail=box(survival,x,4.5,7,.08,.08,10.65,'#d6be91');rail.rotation.x=-Math.atan2(7,8);}
+  sign(survival,'観戦席 · 階段 →',-25,7.025,12.6,5).rotation.x=-Math.PI/2;
+  const soccer=roots.soccer;
+  box(soccer,23,-.14,10.25,22,.28,27.5,'#183340');box(soccer,23,.012,10,16,.025,22,'#26744d');
+  for(let i=0;i<11;i++)box(soccer,23,.026,i*2,16,.012,1,'#2b8056');
+  const line=(x,z,w,d)=>box(soccer,x,.043,z,w,.014,d,'#e8f4df');
+  for(const x of [F.left,F.right])line(x,10,.08,22);for(const z of [F.near,F.far,10])line(23,z,16,.08);
+  const circle=new THREE.Mesh(new THREE.TorusGeometry(2,.035,5,48),material('#eef8e8'));circle.rotation.x=-Math.PI/2;circle.position.set(23,.055,10);soccer.add(circle);
+  for(const z of [F.near,F.far]){
+    for(const x of [20.5,25.5])box(soccer,x,1.1,z,.12,2.2,.12,'#f3f4ed');box(soccer,23,2.2,z,5.12,.12,.12,'#f3f4ed');
+    const back=z===F.near?z-1.5:z+1.5;
+    for(let x=20.5;x<=25.5;x+=.5)box(soccer,x,1.1,back,.022,2.2,.022,'#b9d3cd');
+    for(let y=.2;y<=2.2;y+=.25)box(soccer,23,y,back,5,.018,.018,'#b9d3cd');
+    line(20,Math.abs(z-10)>0?(z===F.near?1:19):z,.06,4);line(26,z===F.near?1:19,.06,4);line(23,z===F.near?3:17,6,.06);
+  }
+  box(soccer,33.8,.55,10.25,.16,1.1,27.5,'#385a68');
+  for(const [z,d]of [[-1.45,4.1],[13.8,20.4]])box(soccer,12.2,.55,z,.16,1.1,d,'#385a68');
+  for(const z of [-3.4,23.8])box(soccer,23,.55,z,21.6,1.1,.16,'#385a68');
+  sign(soccer,'FUTSAL · 青 vs 赤 · 3分',23,3,-3.35,12);
+  sign(soccer,'観戦・待機',13.5,.05,9,6).rotation.x=-Math.PI/2;
+  const tex=document.createElement('canvas');tex.width=512;tex.height=256;const bg=tex.getContext('2d');bg.fillStyle='#f5f7ef';bg.fillRect(0,0,512,256);bg.fillStyle='#192631';
+  for(let y=0;y<4;y++)for(let x=0;x<8;x++){const cx=x*64+(y%2)*32,cy=y*64+30;bg.beginPath();for(let k=0;k<5;k++){const a=k*Math.PI*2/5;const px=cx+Math.cos(a)*18,py=cy+Math.sin(a)*18;k?bg.lineTo(px,py):bg.moveTo(px,py);}bg.closePath();bg.fill();}
+  const map=new THREE.CanvasTexture(tex);map.colorSpace=THREE.SRGBColorSpace;
+  const ballMesh=new THREE.Mesh(new THREE.SphereGeometry(.3,20,14),new THREE.MeshStandardMaterial({map,roughness:.62}));ballMesh.name='shared-soccer-ball';ballMesh.position.set(23,.3,10);soccer.add(ballMesh);
+  const now=()=>Date.now()+offset;
+  const area=()=>localArea;
+  function teleport(x,y,z){player.root.position.set(x,y,z);player.root.userData.lobbyHeightInitialized=true;clearMotion();parent.postMessage({type:'lobby-position',gameArea:localArea,x,z,lobbyY:y,yaw:player.root.rotation.y,walking:false,lobbyKart:false,circuitTrack:false},'*');}
+  function exit(){const a=area();localArea='lobby';if(a==='survival')teleport(-9.5,0,-2.3);else if(a==='soccer')teleport(9.5,0,2.1);previousX=player.root.position.x;}
+  window.addEventListener('message',event=>{
+    if(event.source!==parent)return;const data=event.data;
+    if(data?.type==='lobby-games-exit'){exit();return;}
+    if(data?.type!=='lobby-games-state')return;
+    enabled=data.enabled===true;
+    if(!enabled){exit();state=null;roots.survival.visible=roots.soccer.visible=false;return;}
+    state=data.state;uid=data.uid||uid;roster=data.players||{};offset=Number(data.serverNow)-Date.now();
+    const a=area(),g=state?.[a];
+    if(g?.id&&rules.active(g)&&g.members?.[uid]!==undefined&&roundSeen!==g.id){
+      roundSeen=g.id;eliminatedSeen=finishedSeen='';
+      if(a==='survival'){const n=g.members[uid].slot,p=rules.tilePoint((Math.floor(n/8)*16+n%8)%56);teleport(p.x,3,p.z);}
+      else if(a==='soccer'){const ids=Object.keys(g.members).filter(id=>g.members[id]===g.members[uid]),i=ids.indexOf(uid);teleport(17+(i%4)*3,0,g.members[uid]===0?3+Math.floor(i/4)*2:17-Math.floor(i/4)*2);player.root.rotation.y=g.members[uid]===0?0:Math.PI;}
+    }
+    const fall=state?.survival;
+    if(a==='survival'&&fall?.members?.[uid]?.alive===false&&eliminatedSeen!==fall.id){eliminatedSeen=fall.id;teleport(-30+(fall.members[uid].slot%12),7,12.5);}
+  });
+  function groundAt(x,z,maxTop){
+    const a=area();if(a==='lobby')return null;
+    if(a==='soccer')return 0;
+    if(z>=11.3)return maxTop>=6.5?7:0;
+    if(x>=-17.75&&x<=-13.25&&z>=3&&z<=11.3)return Math.min(7,(z-3)*7/8);
+    const i=rules.tileAt({x,z}),g=state?.survival;
+    if(i>=0&&maxTop>=2.95&&(!rules.active(g)||!g.tiles?.[i]||g.tiles[i]>now()))return 3;
+    return 0;
+  }
+  function canMove(x,z){
+    if(!enabled)return null;const a=area();
+    const leftDoor=z>-3.55&&z< -1.05&&x>-13.5&&x< -9,rightDoor=z>.85&&z<3.35&&x>9&&x<13.5;
+    if(a==='lobby')return (leftDoor||rightDoor)?true:null;
+    if(a==='survival'&&leftDoor||a==='soccer'&&rightDoor)return true;
+    if(!rules.inside({x,z},a==='survival'?S:F,.5))return false;
+    if(a==='survival'&&x>=-17.75&&x<=-13.25&&z>=3&&z<=11.3&&(z-3)*7/8>player.root.position.y+.65)return false;
+    if(a==='survival'&&player.root.position.y>=6&&x< -18&&z<11.75)return false;
+    const game=state?.[a],participant=game?.members?.[uid];
+    if(a==='survival'&&rules.active(game)&&(!participant||!participant.alive)&&x< -18&&z<11.3&&player.root.position.y<6)return false;
+    if(a==='soccer'&&rules.active(game)&&participant===undefined&&x>14.3)return false;
+    for(const [id,crew]of remoteCrews){if(rules.area(roster[id])!==a)continue;const p=crew.root.position;if(Math.abs(p.y-player.root.position.y)<1.6&&Math.hypot(p.x-x,p.z-z)<.85)return false;}
+    return true;
+  }
+  function motionLocked(){const g=state?.[area()];return enabled&&(rules.active(g)&&g.status==='countdown'&&g.members?.[uid]!==undefined||state?.tag?.oni===uid&&rules.active(state.tag)&&now()<state.tag.frozenUntil);}
+  function speedMultiplier(){return enabled&&state?.tag?.oni===uid&&state.tag.status==='playing'?1.15:1;}
+  function update(dt){
+    const position=player.root.position;
+    if(enabled&&!window.__lobbyKartCircuit?.active){
+      if(localArea==='lobby'&&previousX>=-12&&position.x< -12&&Math.abs(position.z+2.3)<1.25)localArea='survival';
+      else if(localArea==='lobby'&&previousX<=12&&position.x>12&&Math.abs(position.z-2.1)<1.25)localArea='soccer';
+      else if(localArea==='survival'&&position.x> -12||localArea==='soccer'&&position.x<12)localArea='lobby';
+    }
+    previousX=position.x;
+    const a=area(),t=now();
+    for(const door of doors){const near=Math.hypot(player.root.position.x-door.x,player.root.position.z-door.z)<3.5;for(const leaf of door.leaves)leaf.position.x+=((near?2.25:.74)*leaf.userData.side-leaf.position.x)*(1-Math.exp(-12*dt));}
+    const g=state?.survival;
+    if(a==='survival'&&g?.status==='finished'&&g.members?.[uid]?.alive&&t>g.endedAt+4500&&finishedSeen!==g.id){finishedSeen=g.id;teleport(-15.2,0,0);}
+    const rows={...roster,[uid]:{...(roster[uid]||{}),online:true,x:player.root.position.x,z:player.root.position.z,lobbyY:player.root.position.y,lobbyCircuit:window.__lobbyKartCircuit?.active===true}};
+    const target=state?rules.tagTarget(state,uid,rows,t):'',kick=state&&rules.canKick(state,uid,rows,t);
+    const action={type:'lobby-games-action',area:a,enabled:enabled&&(a==='soccer'?!!kick:!!target),target,yaw:player.root.rotation.y};
+    const key=JSON.stringify({...action,yaw:Math.round(action.yaw*20)/20});if(key!==lastAction){lastAction=key;parent.postMessage(action,'*');}
+  }
+  let savedFov=null,hiddenRoots=[];
+  function beforeRender(dt){
+    const a=area(),t=now();roots.survival.visible=enabled&&a==='survival';roots.soccer.visible=enabled&&a==='soccer';
+    if(enabled&&a!=='lobby'){
+      const circuit=window.__lobbyKartCircuit;for(const root of [circuit?.root,circuit?.skyMap.root,circuit?.spaceMap.root,circuit?.vehicles])if(root){hiddenRoots.push([root,root.visible]);root.visible=false;}
+      for(const id of ['lobbyKartHud','lobbyKartSpeed']){const node=document.getElementById(id);if(node)node.dataset.show='false';}
+      savedFov=camera.fov;camera.fov=Math.max(camera.fov,Math.min(85,Math.atan(Math.tan(Math.PI/10)/camera.aspect)*360/Math.PI));camera.updateProjectionMatrix();
+    }
+    if(roots.survival.visible){
+      for(let i=0;i<56;i++){const p=rules.tilePoint(i),until=state?.survival?.tiles?.[i],drop=rules.active(state?.survival)&&until&&until<=t;dummy.position.set(p.x,drop?-10:2.85,p.z);dummy.scale.setScalar(drop?.001:1);dummy.updateMatrix();tiles.setMatrixAt(i,dummy.matrix);tileColor.set(until&&rules.active(state?.survival)?'#e99745':(i+Math.floor(i/8))%2?'#3b9399':'#64b7ac');tiles.setColorAt(i,tileColor);}tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;tiles.computeBoundingSphere();
+    }
+    const b=state?.soccer?.ball;
+    if(b&&roots.soccer.visible){
+      const age=Math.max(0,Math.min(.12,(t-b.at)/1000)),target=new THREE.Vector3(b.x+b.vx*age,Math.max(.3,b.y+b.vy*age),b.z+b.vz*age);
+      if(!lastBall||ballMesh.position.distanceTo(target)>4)ballMesh.position.copy(target);else ballMesh.position.lerp(target,1-Math.exp(-18*dt));
+      ballMesh.rotation.x+=b.vz*dt/.3;ballMesh.rotation.z-=b.vx*dt/.3;lastBall=b;
+    }
+    for(const [id,badge]of badges){badge.visible=false;if(id!==uid&&!remoteCrews.has(id)){badge.removeFromParent();badge.geometry.dispose();badge.material.dispose();badges.delete(id);}}
+    for(const [id,crew]of [[uid,player],...remoteCrews]){
+      const own=id===uid,p=roster[id],other=own?a:rules.area(p);if(!own)crew.root.visible=enabled?other===a:crew.root.visible;
+      if(!own&&crew.root.userData.petFollower)crew.root.userData.petFollower.visible=crew.root.visible;
+      let badge=badges.get(id);
+      if(!badge){const ring=new THREE.Mesh(new THREE.TorusGeometry(.65,.06,6,28),new THREE.MeshBasicMaterial({color:0xffa24b,depthTest:false,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.07;ring.renderOrder=999;crew.root.add(ring);badges.set(id,badge=ring);}
+      const tag=state?.tag,team=state?.soccer?.members?.[id],oni=rules.active(tag)&&tag.oni===id,immune=rules.active(tag)&&tag.immune?.[id]>t;
+      badge.visible=enabled&&(oni||immune||a==='soccer'&&rules.active(state?.soccer)&&team!==undefined);badge.position.y=oni?2.6:.07;badge.material.color.set(oni?'#ff703c':immune?'#95f7ff':team===0?'#4caaff':'#ff6376');
+      const kick=state?.soccer?.kicks?.[id],age=kick?(t-kick.at)/1000:1;
+      if(enabled&&other==='soccer'&&age>=0&&age<.48&&crew.legs?.[1]){crew.legs[1].rotation.x=age<.12?age/.12*.65:-Math.sin((age-.12)/.36*Math.PI)*1.2;if(crew.body)crew.body.rotation.x=Math.sin(age/.48*Math.PI)*.07;}
+    }
+  }
+  function afterRender(){for(const [root,visible]of hiddenRoots)root.visible=visible;hiddenRoots=[];if(savedFov!==null){camera.fov=savedFov;camera.updateProjectionMatrix();savedFov=null;}}
+  return {get area(){return enabled?area():'lobby';},get state(){return state;},roots,ballMesh,canMove,groundAt,motionLocked,speedMultiplier,update,beforeRender,afterRender,exit};
+}
+/* LOBBY_GAMES_SCENE_END */

@@ -8,12 +8,11 @@ const ACTIONS = {
   sabotageBtn: {kind:'bolt', color:0xbe94ff, faceColor:0x4b1b70}, abilityBtn: {kind:'ability', color:0x72e7cf, faceColor:0x075747},
   reportBtn: {kind:'report', color:0xffbe6d, faceColor:0x71410e}, rocketLaunchBtn: {kind:'rocket', color:0xffac72, faceColor:0x763316},
   waveHawkBtn: {kind:'eye', color:0x8fe8f7, faceColor:0x124b58},
-  jackalSidekickBtn: {kind:'recruit',color:0x84e2c0,faceColor:0x075747},
-  roundRoleBtn: {kind:'roles', color:0x78e0d9, utility:true},
-  mapBtn: {kind:'map', color:0x8ac9ef, utility:true},
-  titleInputSettingsBtn: {kind:'gear', color:0x9bb9d2, utility:true, symbolOnly:true},
-  voiceToggleBtn: {kind:'mic', color:0x6cdeb5, utility:true, symbolOnly:true}
+  jackalSidekickBtn: {kind:'recruit',color:0x84e2c0,faceColor:0x075747}
 };
+// The upper controls stay in the DOM, alongside role/task information. Their
+// appearance must not switch when this world-rendered action scene is paused,
+// obscured, or unavailable. Only the lower action buttons use the 3D pass.
 
 export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>false,reducedMotion=()=>false,actions=ACTIONS,stateAttribute="threeActions"}) {
   const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(0,1,1,0,.1,1000);
