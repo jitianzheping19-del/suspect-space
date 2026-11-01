@@ -10,11 +10,12 @@ export function createRealtimeGacha(api){
  const {ref,get,set,runTransaction}=api;
  const refFor=(unused,path)=>ref(api.db,path);
  const initial=admin=>({tickets:admin?999:0,premium:admin?999:0,owned:{},receipts:{},rewards:{}});
- async function transact(uid,id,work){const location=refFor(null,`economy/${uid}`);await get(location);const tx=await runTransaction(location,raw=>{const w=raw||initial(api.isAdmin());w.owned||={};w.receipts||={};w.rewards||={};if(id&&w.receipts[id])return w;const result=work(w);if(id)w.receipts[id]=result;return w;},{applyLocally:false});if(!tx.committed)fail('保存できませんでした。もう一度お試しください');const wallet=tx.snapshot.val();return{wallet,result:id?wallet.receipts[id]:null};}
+ async function transact(uid,id,work){const location=refFor(null,`economy/${uid}`);await get(location);const tx=await runTransaction(location,raw=>{const w=raw||initial(api.isAdmin());for(const key of ['tickets','premium']){const value=Number(w[key]??0);if(!Number.isSafeInteger(value)||value<0)fail('チケット残高の形式を確認できません');w[key]=value;}w.owned||={};w.receipts||={};w.rewards||={};if(id&&w.receipts[id])return w;const result=work(w);if(id)w.receipts[id]=result;return w;},{applyLocally:false});if(!tx.committed)fail('保存できませんでした。もう一度お試しください');const wallet=tx.snapshot.val();return{wallet,result:id?wallet.receipts[id]:null};}
  return async function request(action,p={}){const uid=api.uid();if(!uid)fail('ログインしてください');
  try{
- if(action==='wallet'||action==='launchBonus'){
- const lastSeen=(await get(refFor(null,`profiles/${uid}/lastSeenUpdate`))).val(),seen=lastSeen===GACHA_RELEASE||lastSeen===GACHA_UPDATE_RELEASE;
+ if(action==='wallet'||action==='launchBonus'||action==='updateGift'){
+ const acknowledged=action==='updateGift';if(acknowledged&&p.release!==GACHA_UPDATE_RELEASE)fail('お知らせを更新してから受け取ってください');
+ const lastSeen=acknowledged?null:(await get(refFor(null,`profiles/${uid}/lastSeenUpdate`))).val(),seen=acknowledged||lastSeen===GACHA_RELEASE||lastSeen===GACHA_UPDATE_RELEASE;
  if(action==='launchBonus'&&!seen)fail('アップデート情報を確認してください');
  let credited=false,updateCredited=false;
  const response=await transact(uid,null,w=>{
@@ -22,7 +23,7 @@ export function createRealtimeGacha(api){
   if(credited){if(!api.isAdmin())w.tickets+=50;w.gachaLaunchBonus=true;}
   // The balance and receipt commit together. Transaction retries and multiple
   // devices cannot credit this announcement more than once per account.
-  updateCredited=lastSeen===GACHA_UPDATE_RELEASE&&!w.receipts[updateGiftReceipt];
+  updateCredited=(acknowledged||lastSeen===GACHA_UPDATE_RELEASE)&&!w.receipts[updateGiftReceipt];
   if(updateCredited){w.premium+=GACHA_UPDATE_GIFT_COUNT;w.receipts[updateGiftReceipt]={at:Date.now(),count:GACHA_UPDATE_GIFT_COUNT,kind:'premium'};}
   return null;
  });

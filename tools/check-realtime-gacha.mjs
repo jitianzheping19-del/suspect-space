@@ -37,3 +37,9 @@ activeUid='new-announcement-user';write(`profiles/${activeUid}/lastSeenUpdate`,G
 result=await request('launchBonus');assert.equal(result.wallet.tickets,50);assert.equal(result.wallet.premium,10);result=await request('wallet');assert.equal(result.wallet.premium,10);assert.equal(result.wallet.tickets,50);
 activeUid='admin';write('profiles/admin/lastSeenUpdate',GACHA_UPDATE_RELEASE);result=await request('launchBonus');assert.equal(result.wallet.premium,1009,'registered admins also receive the gift');result=await request('wallet');assert.equal(result.wallet.premium,1009);
 console.log('PASS read-triggered premium gift: unread/old release excluded, 10 once per account across reloads, existing inventory preserved, new users and admins included');
+activeUid='direct-announcement-user';write(`profiles/${activeUid}/lastSeenUpdate`,GACHA_RELEASE);write(`economy/${activeUid}`,{tickets:30,gachaLaunchBonus:true,owned:{1002:true}});
+result=await request('updateGift',{release:GACHA_UPDATE_RELEASE});assert.equal(result.wallet.premium,10);assert.equal(result.wallet.tickets,30);assert.equal(read(`profiles/${activeUid}/lastSeenUpdate`),GACHA_RELEASE,'economy commits before UI marks the notice read');
+result=await createRealtimeGacha(api)('updateGift',{release:GACHA_UPDATE_RELEASE});assert.equal(result.wallet.premium,10,'retry with the profile still unread must not grant twice');
+await assert.rejects(()=>request('updateGift',{release:'old-campaign'}),/更新/);
+activeUid='legacy-balance-user';write(`economy/${activeUid}`,{tickets:'50',premium:'5',gachaLaunchBonus:true});result=await request('updateGift',{release:GACHA_UPDATE_RELEASE});assert.equal(result.wallet.premium,15);assert.equal(result.wallet.tickets,50);
+console.log('PASS direct announcement receipt: works without read-state marker, safe retry after profile failure, missing and legacy balances normalized');
