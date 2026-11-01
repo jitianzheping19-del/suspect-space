@@ -1317,7 +1317,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
       lobbyBudget.shadows(renderer,stamp);
       if(window.__lobbyPhotoCamera){window.__lobbyPhotoCamera.aspect=innerWidth/innerHeight;window.__lobbyPhotoCamera.updateProjectionMatrix();}
       window.__lobbyGames?.beforeRender(visualDt);
-      renderer.render(scene, window.__lobbyPhotoCamera||camera);
+      window.__lobbyPhotoView.render(window.__lobbyPhotoCamera||camera);
       }finally{window.__lobbyGames?.afterRender();lobbyAscent.restoreView(camera);}
     }
 
@@ -4562,10 +4562,26 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
  let last=-Infinity;
  return{root,spots:rows,update(stamp){if(stamp-last<100)return;last=stamp;aurora.uniforms.time.value=stamp*.001;},dispose(){root.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set();root.traverse(n=>{if(n.geometry)geometries.add(n.geometry);for(const m of Array.isArray(n.material)?n.material:n.material?[n.material]:[]){materials.add(m);if(m.map)textures.add(m.map);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}};
 }
-function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart}){
+function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart,crews=()=>[player],ascent=()=>null,circuit=()=>null}){
  const photoCamera=new THREE.PerspectiveCamera(43,16/9,.1,80);photoCamera.position.set(0,5.2,3.0);photoCamera.lookAt(0,2.9,11.8);
  let timer=0,pending=null;const size=new THREE.Vector2();
  const near=()=>Math.abs(player.root.position.x)<4.15&&player.root.position.z>9.1&&player.root.position.z<13.0&&player.root.position.y<1.8;
+ // Hide only for this draw so normal lobby visibility survives leaving the
+ // deck, cancellation, and labels rebuilt by live voice/roster updates.
+ function prepareView(){
+  if(!near()&&!pending)return()=>{};
+  const saved=[],hide=node=>{if(node?.visible){saved.push(node);node.visible=false;}};
+  hide(ascent());
+  const track=circuit();
+  for(const node of [track?.root,track?.skyMap?.root,track?.spaceMap?.root,track?.vehicles])hide(node);
+  for(const crew of crews()){
+   const data=crew.root?.userData||{};
+   for(const node of [crew.label,data.lobbyNameTag,data.lobbyMicTag,data.lobbyMicCross,data.readyTag,data.connectionIndicator?.root])hide(node);
+  }
+  const ownVisible=player.root.visible;if(pending)player.root.visible=true;
+  return()=>{for(const node of saved)node.visible=true;player.root.visible=ownVisible;};
+ }
+ function render(viewCamera){const restore=prepareView();try{renderer.render(scene,viewCamera);}finally{restore();}}
  function cancel(){clearTimeout(timer);timer=0;pending=null;window.__lobbyPhotoCamera=null;}
  window.addEventListener('message',event=>{
   if(event.source!==parent)return;const data=event.data||{};
@@ -4575,13 +4591,13 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart}){
   timer=setTimeout(()=>{const id=pending;if(!id)return;
    if(document.hidden||window.SpaceSuspectLobby?.__lobbyRenderActive===false){cancel();parent.postMessage({type:'lobby-photo-error',id},'*');return;}
    const ratio=renderer.getPixelRatio();renderer.getSize(size);const width=size.x,height=size.y;
-   try{renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();renderer.render(scene,photoCamera);const image=renderer.domElement.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
+   try{renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const image=renderer.domElement.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
    catch(error){console.warn('集合写真の撮影に失敗しました',error);parent.postMessage({type:'lobby-photo-error',id},'*');}
-   finally{renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();renderer.render(scene,camera);}
+   finally{renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();render(camera);}
   },Math.max(0,data.at-Date.now()));
  });
  window.addEventListener('pagehide',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden&&pending){const id=pending;cancel();parent.postMessage({type:'lobby-photo-error',id},'*');}});
- return{cancel};
+ return{cancel,prepareView,render};
 }
 /* LOBBY_PHOTO_DECK_END */
 function installLobbyExpansion(THREE,scene,addObstacle){
@@ -4746,7 +4762,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
 }
     window.__lobbyWinBoard=null;
     window.__lobbyExpansion=installLobbyExpansion(THREE,scene,addObstacle);
-    installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart:()=>{keyboardKeys.clear();lobbyStick.set(0,0);}});
+    window.__lobbyPhotoView=installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews:()=>[player,...remoteCrews.values()],ascent:()=>lobbyAscent.root,circuit:()=>window.__lobbyKartCircuit,onStart:()=>{keyboardKeys.clear();lobbyStick.set(0,0);}});
     const guide=new THREE.Group();guide.name="gacha-navigation";scene.add(guide);guide.visible=false;
     const guideMat=new THREE.MeshBasicMaterial({color:0x9cf9ed,transparent:true,opacity:.85,depthWrite:false});
     const guideShape=new THREE.Shape();guideShape.moveTo(0,.2);guideShape.lineTo(-.14,-.10);guideShape.lineTo(0,-.035);guideShape.lineTo(.14,-.10);guideShape.closePath();const guideGeo=new THREE.ShapeGeometry(guideShape);
