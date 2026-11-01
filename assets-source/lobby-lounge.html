@@ -200,6 +200,7 @@ window.SpaceSuspectLobby.__lobbyRenderActive=true;
 window.SpaceSuspectLobby.__lobbyLoopRunning=false;
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&window.SpaceSuspectLobby.__lobbyRenderActive!==false)window.SpaceSuspectLobby.__lobbyStartRender?.();});
 window.addEventListener("message",event=>{
+  if(event.source===parent&&event.data?.type==='lobby-render-query'&&window.SpaceSuspectLobby.__lobbyRendered){parent.postMessage({type:'lobby-rendered'},'*');return;}
   if(event.source!==parent||event.data?.type!=="lobby-render-state")return;
   window.SpaceSuspectLobby.__lobbyRenderActive=event.data.active===true;
   if(event.data.active===true)window.SpaceSuspectLobby.__lobbyStartRender?.();
@@ -1317,7 +1318,10 @@ function createLobbyAscent({THREE,scene,obstacles}){
       lobbyBudget.shadows(renderer,stamp);
       if(window.__lobbyPhotoCamera){window.__lobbyPhotoCamera.aspect=innerWidth/innerHeight;window.__lobbyPhotoCamera.updateProjectionMatrix();}
       window.__lobbyGames?.beforeRender(visualDt);
-      renderer.render(scene, window.__lobbyPhotoCamera||camera);
+      const restorePhotoView=window.__lobbyPhotoView?.prepareView();
+      try{renderer.render(scene, window.__lobbyPhotoCamera||camera);
+       if(!window.SpaceSuspectLobby.__lobbyRendered){window.SpaceSuspectLobby.__lobbyRendered=true;parent.postMessage({type:'lobby-rendered'},'*');}
+      }finally{restorePhotoView?.();}
       }finally{window.__lobbyGames?.afterRender();lobbyAscent.restoreView(camera);}
     }
 
@@ -4562,10 +4566,21 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
  let last=-Infinity;
  return{root,spots:rows,update(stamp){if(stamp-last<100)return;last=stamp;aurora.uniforms.time.value=stamp*.001;},dispose(){root.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set();root.traverse(n=>{if(n.geometry)geometries.add(n.geometry);for(const m of Array.isArray(n.material)?n.material:n.material?[n.material]:[]){materials.add(m);if(m.map)textures.add(m.map);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}};
 }
-function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart}){
+function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart,crews=()=>[player],ascent=()=>null}){
  const photoCamera=new THREE.PerspectiveCamera(43,16/9,.1,80);photoCamera.position.set(0,5.2,3.0);photoCamera.lookAt(0,2.9,11.8);
  let timer=0,pending=null;const size=new THREE.Vector2();
  const near=()=>Math.abs(player.root.position.x)<4.15&&player.root.position.z>9.1&&player.root.position.z<13.0&&player.root.position.y<1.8;
+ function prepareView(){
+  if(!near()&&!pending)return()=>{};
+  const saved=[];const hide=n=>{if(n&&n.visible){saved.push([n,true]);n.visible=false;}};
+  hide(ascent());
+  for(const crew of crews()){
+   const d=crew.root?.userData||{};
+   for(const n of [crew.label,d.lobbyNameTag,d.lobbyMicTag,d.lobbyMicCross,d.readyTag,d.connectionIndicator?.root])hide(n);
+  }
+  const ownVisible=player.root.visible;if(pending)player.root.visible=true;
+  return()=>{for(const [n,visible]of saved)n.visible=visible;player.root.visible=ownVisible;};
+ }
  function cancel(){clearTimeout(timer);timer=0;pending=null;window.__lobbyPhotoCamera=null;}
  window.addEventListener('message',event=>{
   if(event.source!==parent)return;const data=event.data||{};
@@ -4575,13 +4590,14 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart}){
   timer=setTimeout(()=>{const id=pending;if(!id)return;
    if(document.hidden||window.SpaceSuspectLobby?.__lobbyRenderActive===false){cancel();parent.postMessage({type:'lobby-photo-error',id},'*');return;}
    const ratio=renderer.getPixelRatio();renderer.getSize(size);const width=size.x,height=size.y;
+   const restorePhotoView=prepareView();
    try{renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();renderer.render(scene,photoCamera);const image=renderer.domElement.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
    catch(error){console.warn('集合写真の撮影に失敗しました',error);parent.postMessage({type:'lobby-photo-error',id},'*');}
-   finally{renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();renderer.render(scene,camera);}
+   finally{restorePhotoView();renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();renderer.render(scene,camera);}
   },Math.max(0,data.at-Date.now()));
  });
  window.addEventListener('pagehide',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden&&pending){const id=pending;cancel();parent.postMessage({type:'lobby-photo-error',id},'*');}});
- return{cancel};
+ return{cancel,prepareView};
 }
 /* LOBBY_PHOTO_DECK_END */
 function installLobbyExpansion(THREE,scene,addObstacle){
@@ -4746,7 +4762,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
 }
     window.__lobbyWinBoard=null;
     window.__lobbyExpansion=installLobbyExpansion(THREE,scene,addObstacle);
-    installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart:()=>{keyboardKeys.clear();lobbyStick.set(0,0);}});
+    window.__lobbyPhotoView=installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews:()=>[player,...remoteCrews.values()],ascent:()=>lobbyAscent.root,onStart:()=>{keyboardKeys.clear();lobbyStick.set(0,0);}});
     const guide=new THREE.Group();guide.name="gacha-navigation";scene.add(guide);guide.visible=false;
     const guideMat=new THREE.MeshBasicMaterial({color:0x9cf9ed,transparent:true,opacity:.85,depthWrite:false});
     const guideShape=new THREE.Shape();guideShape.moveTo(0,.2);guideShape.lineTo(-.14,-.10);guideShape.lineTo(0,-.035);guideShape.lineTo(.14,-.10);guideShape.closePath();const guideGeo=new THREE.ShapeGeometry(guideShape);

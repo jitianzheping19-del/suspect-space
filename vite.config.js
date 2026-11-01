@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
+import { createHash } from "node:crypto";
 
 const input = Object.fromEntries(
   readdirSync(process.cwd())
@@ -30,6 +31,11 @@ const aliases = existsSync(noiseCancellerPackage)
 export default defineConfig({
   base: "/suspect-space/",
   plugins: [
+    {name:'persistent-game-assets',generateBundle(_options,bundle){
+      const version=createHash('sha256').update(Object.keys(bundle).sort().join('\n')).digest('hex').slice(0,16);
+      const source=readFileSync(resolve(process.cwd(),'game-cache-worker.js'),'utf8').replace('__ASSET_VERSION__',version);
+      this.emitFile({type:'asset',fileName:'game-cache-worker.js',source});
+    }},
     {
       name: "home-screen-manifest-assets",
       generateBundle(_options, bundle) {
