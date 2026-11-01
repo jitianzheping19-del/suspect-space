@@ -12,11 +12,6 @@ if (card && nav) {
   title.textContent = '設定';
   header.append(title);
   const close = document.getElementById('inputSettingsClose');
-  if (close) {
-    close.classList.remove('settingsNavClose');
-    close.classList.add('settingsDesignClose');
-    header.append(close);
-  }
   card.prepend(header);
   dialog.setAttribute('aria-labelledby', title.id);
 
@@ -29,13 +24,10 @@ if (card && nav) {
     const toolbar = document.createElement('div');
     toolbar.className = 'settingsSectionToolbar';
     sectionTitle.id = 'settingsActiveSectionTitle';
-    const contentClose = document.createElement('button');
-    contentClose.id = 'settingsContentClose';
-    contentClose.type = 'button';
-    contentClose.textContent = '閉じる';
-    contentClose.dataset.spacePointerAction = 'direct';
-    contentClose.addEventListener('click', () => close.click());
-    toolbar.append(sectionTitle, contentClose);
+    // Keep the original close control and its handlers in one place.
+    close.classList.remove('settingsNavClose', 'settingsDesignClose');
+    delete close.dataset.spacePointerAction;
+    toolbar.append(sectionTitle, close);
     content.before(pane);
     pane.append(toolbar, content);
   }
@@ -97,6 +89,7 @@ if (card && nav) {
     const visible = tabs.filter(tab => !tab.hidden && !tab.disabled);
     const selected = visible.find(tab => tab.getAttribute('aria-selected') === 'true') || visible[0];
     sectionTitle.textContent = selected?.dataset.settingsLabel || '';
+    sectionTitle.hidden = selected?.dataset.settingsTarget === 'player';
     for (const tab of tabs) tab.tabIndex = tab === selected ? 0 : -1;
     if (selected && !dialog.classList.contains('hidden')) selected.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'});
   }
