@@ -16,7 +16,7 @@
   #inputSettingsDialog .inputSettingsDialogCard::after { content: none!important; }
   #inputSettingsDialog .settingsDesignHeader {
     flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    box-sizing: border-box; height: 36px; min-height: 36px; margin: 0; padding: 2px 12px; border-bottom: 1px solid #c2cedb1f; background: #151e28;
+    box-sizing: border-box; height: 50px; min-height: 50px; margin: 0; padding: 2px 12px; border-bottom: 1px solid #c2cedb1f; background: #151e28;
   }
   #inputSettingsDialog #inputSettingsTitle { display: block!important; margin: 0!important; font-size: 16px!important; font-weight: 650; letter-spacing: .06em; color: #f0ece3!important; }
   #inputSettingsDialog .inputSettingsShell { grid-template-columns: 148px minmax(0, 1fr)!important; gap: 0!important; min-height: 0!important; flex: 1 1 0!important; }
@@ -132,8 +132,8 @@
   #inputSettingsDialog .settingsSectionToolbar { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 12px; border-bottom: 1px solid #c2cedb1a; }
   #inputSettingsDialog #settingsActiveSectionTitle { margin: 0!important; font-size: 15px!important; }
   #inputSettingsDialog #settingsActiveSectionTitle[hidden] { display: none!important; }
-  #inputSettingsDialog .settingsSectionToolbar #inputSettingsClose { margin-left: auto!important; }
-  #inputSettingsDialog .settingsSectionToolbar #inputSettingsClose { flex: 0 0 auto; min-height: 44px!important; padding: 6px 14px!important; }
+  #inputSettingsDialog .settingsSectionToolbar[hidden] { display: none!important; }
+  #inputSettingsDialog .settingsDesignHeader #inputSettingsClose { flex: 0 0 auto; margin-left: auto!important; min-height: 40px!important; padding: 6px 14px!important; }
   #inputSettingsDialog :is(.unifiedInputHeading, .unifiedAudioSettings > h3) { display: none!important; }
   #inputSettingsDialog .settingsProfileActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
   #inputSettingsDialog #settingsPlayerMount #profileSaveBtn { min-width: 96px!important; }

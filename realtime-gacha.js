@@ -1,6 +1,9 @@
 import {chooseGachaItem} from './gacha-rarity.js';
 import {GACHA_CATALOG as catalog} from './gacha-catalog.js';
 export const GACHA_RELEASE='2026-10-27-gacha';
+export const GACHA_UPDATE_RELEASE='2026-11-01-special-ticket-10';
+export const GACHA_UPDATE_GIFT_COUNT=10;
+const updateGiftReceipt='update_'+GACHA_UPDATE_RELEASE;
 const validId=x=>/^[A-Za-z0-9_-]{16,80}$/.test(String(x||''));
 const fail=message=>{const error=Error(message);error.definitive=true;throw error;};
 export function createRealtimeGacha(api){
@@ -11,8 +14,20 @@ export function createRealtimeGacha(api){
  return async function request(action,p={}){const uid=api.uid();if(!uid)fail('ログインしてください');
  try{
  if(action==='wallet'||action==='launchBonus'){
- const seen=(await get(refFor(null,`profiles/${uid}/lastSeenUpdate`))).val()===GACHA_RELEASE;if(action==='launchBonus'&&!seen)fail('アップデート情報を確認してください');
- let credited=false;const response=await transact(uid,null,w=>{credited=seen&&!w.gachaLaunchBonus;if(credited){if(!api.isAdmin())w.tickets+=50;w.gachaLaunchBonus=true;}return null;});response.bonusGranted=credited&&!api.isAdmin();return response;}
+ const lastSeen=(await get(refFor(null,`profiles/${uid}/lastSeenUpdate`))).val(),seen=lastSeen===GACHA_RELEASE||lastSeen===GACHA_UPDATE_RELEASE;
+ if(action==='launchBonus'&&!seen)fail('アップデート情報を確認してください');
+ let credited=false,updateCredited=false;
+ const response=await transact(uid,null,w=>{
+  credited=seen&&!w.gachaLaunchBonus;
+  if(credited){if(!api.isAdmin())w.tickets+=50;w.gachaLaunchBonus=true;}
+  // The balance and receipt commit together. Transaction retries and multiple
+  // devices cannot credit this announcement more than once per account.
+  updateCredited=lastSeen===GACHA_UPDATE_RELEASE&&!w.receipts[updateGiftReceipt];
+  if(updateCredited){w.premium+=GACHA_UPDATE_GIFT_COUNT;w.receipts[updateGiftReceipt]={at:Date.now(),count:GACHA_UPDATE_GIFT_COUNT,kind:'premium'};}
+  return null;
+ });
+ response.bonusGranted=credited&&!api.isAdmin();response.updateBonusGranted=updateCredited;
+ response.updateBonusCount=updateCredited?GACHA_UPDATE_GIFT_COUNT:0;return response;}
 
  if(action==='matchReward'){
  if(!/^[A-Za-z0-9_-]{1,64}$/.test(String(p.room||'')))fail('部屋が不正です');const g=(await get(refFor(null,`rooms/${p.room}/game`))).val();if(g?.phase!=='ended'||!g.players?.[uid]||g.players[uid].bot||g.players[uid].observer)fail('試合結果を確認できません');

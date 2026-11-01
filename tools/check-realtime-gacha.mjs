@@ -20,3 +20,20 @@ activeUid='unread';result=await request('wallet');assert.equal(result.wallet.tic
 const denied=createRealtimeGacha({...api,uid:()=> 'user',get:async()=>{const e=Error('denied');e.code='PERMISSION_DENIED';throw e;}});await assert.rejects(()=>denied('wallet'),/保存ルール/);
 activeUid='user';let failMirror=true;const repair=createRealtimeGacha({...api,set:async(p,v)=>{if(failMirror&&p.startsWith('premiumOwnership/')){failMirror=false;const e=Error('PERMISSION_DENIED');throw e;}return api.set(p,v);}});const repairPayload={requestId:'repair-premium-12345',kind:'premium'};await assert.rejects(()=>repair('draw',repairPayload),e=>e.definitive===false);const balanceAfterFailure=read('economy/user/premium');await repair('draw',repairPayload);assert.equal(read('economy/user/premium'),balanceAfterFailure,'entitlement repair must not charge twice');
 assert(transactions>0);console.log('PASS Realtime Database: late connection, once-only bonus, ten-pull replay, insufficient balance rollback, admin gifts, claim replay, premium ownership, match reward once, minimum humans and permission message');
+
+// Announcement gifts share the existing receipt schema; balances and markers
+// are written in the same Firebase transaction, including after a reload.
+const {GACHA_UPDATE_RELEASE,GACHA_UPDATE_GIFT_COUNT}=await import('../realtime-gacha.js');
+activeUid='announcement-user';
+write(`profiles/${activeUid}`,{lastSeenUpdate:GACHA_RELEASE});
+write(`economy/${activeUid}`,{tickets:21,premium:4,gachaLaunchBonus:true,owned:{1001:true},receipts:{}});
+result=await request('wallet');assert.equal(result.wallet.premium,4,'old announcement must not credit new gift');
+write(`profiles/${activeUid}/lastSeenUpdate`,GACHA_UPDATE_RELEASE);
+result=await request('launchBonus');assert.equal(result.wallet.premium,14);assert.equal(result.wallet.tickets,21);assert.equal(result.updateBonusGranted,true);assert.equal(result.updateBonusCount,GACHA_UPDATE_GIFT_COUNT);assert.equal(result.wallet.owned[1001],true);
+result=await createRealtimeGacha(api)('wallet');assert.equal(result.wallet.premium,14);assert.equal(result.updateBonusGranted,false,'reload/second device must not credit again');
+result=await request('launchBonus');assert.equal(result.wallet.premium,14);
+assert.equal(result.wallet.receipts['update_'+GACHA_UPDATE_RELEASE].count,10);
+activeUid='new-announcement-user';write(`profiles/${activeUid}/lastSeenUpdate`,GACHA_UPDATE_RELEASE);
+result=await request('launchBonus');assert.equal(result.wallet.tickets,50);assert.equal(result.wallet.premium,10);result=await request('wallet');assert.equal(result.wallet.premium,10);assert.equal(result.wallet.tickets,50);
+activeUid='admin';write('profiles/admin/lastSeenUpdate',GACHA_UPDATE_RELEASE);result=await request('launchBonus');assert.equal(result.wallet.premium,1009,'registered admins also receive the gift');result=await request('wallet');assert.equal(result.wallet.premium,1009);
+console.log('PASS read-triggered premium gift: unread/old release excluded, 10 once per account across reloads, existing inventory preserved, new users and admins included');

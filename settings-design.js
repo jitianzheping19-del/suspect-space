@@ -12,6 +12,7 @@ if (card && nav) {
   title.textContent = '設定';
   header.append(title);
   const close = document.getElementById('inputSettingsClose');
+  if(close){close.classList.remove('settingsNavClose');delete close.dataset.spacePointerAction;header.append(close);}
   card.prepend(header);
   dialog.setAttribute('aria-labelledby', title.id);
 
@@ -24,10 +25,7 @@ if (card && nav) {
     const toolbar = document.createElement('div');
     toolbar.className = 'settingsSectionToolbar';
     sectionTitle.id = 'settingsActiveSectionTitle';
-    // Keep the original close control and its handlers in one place.
-    close.classList.remove('settingsNavClose', 'settingsDesignClose');
-    delete close.dataset.spacePointerAction;
-    toolbar.append(sectionTitle, close);
+    toolbar.append(sectionTitle);
     content.before(pane);
     pane.append(toolbar, content);
   }
@@ -90,6 +88,7 @@ if (card && nav) {
     const selected = visible.find(tab => tab.getAttribute('aria-selected') === 'true') || visible[0];
     sectionTitle.textContent = selected?.dataset.settingsLabel || '';
     sectionTitle.hidden = selected?.dataset.settingsTarget === 'player';
+    if(sectionTitle.parentElement)sectionTitle.parentElement.hidden=sectionTitle.hidden;
     for (const tab of tabs) tab.tabIndex = tab === selected ? 0 : -1;
     if (selected && !dialog.classList.contains('hidden')) selected.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'auto'});
   }
