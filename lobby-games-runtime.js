@@ -4,11 +4,11 @@ import './lobby-games.css';
 export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transport,toast,onAreaChange=()=>{},onPhoto=()=>{},clock=Date.now}){
   const rules=createLobbyGamesRules();
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
-  let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='';
+  let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='',feedback='',feedbackUntil=0;
   const panel=document.createElement('section');panel.id='lobbyMiniGamePanel';panel.className='hidden';panel.setAttribute('aria-label','ロビーの遊び');
   const title=document.createElement('strong'),status=document.createElement('div'),buttons=document.createElement('div');buttons.className='miniGameButtons';panel.append(title,status,buttons);document.body.append(panel);
   const start=document.createElement('button'),stop=document.createElement('button'),exit=document.createElement('button');
-  start.textContent='開始';stop.textContent='終了';start.hidden=stop.hidden=true;stop.id='lobbyMiniGameStop';exit.textContent='ロビーへ戻る';buttons.append(start,stop,exit);
+  start.id='lobbyMiniGameStart';start.textContent='開始';stop.textContent='終了';start.hidden=stop.hidden=true;stop.id='lobbyMiniGameStop';exit.textContent='ロビーへ戻る';buttons.append(start,stop,exit);
   const toggle=document.createElement('button');toggle.id='lobbyMiniGameToggle';toggle.textContent='遊び';toggle.className='secondary hidden';document.body.append(toggle);
   const touch=document.createElement('button');touch.id='lobbyTagTouchBtn';touch.textContent='タッチ';touch.className='hidden';document.body.append(touch);
   const countdown=document.createElement('div');countdown.id='lobbyMiniGameCountdown';countdown.hidden=true;countdown.setAttribute('role','status');countdown.setAttribute('aria-live','polite');countdown.setAttribute('aria-atomic','true');
@@ -29,13 +29,13 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   const send=value=>frame()?.postMessage(value,'*');
   const worldRoster=c=>c.players;
-  function error(message){if(clock()-lastError>2500){lastError=clock();toast(message);}}
+  function error(message){feedback=message;feedbackUntil=clock()+6000;render();if(clock()-lastError>2500){lastError=clock();toast(message);}}
   async function request(kind,extra={}){
     const c=context();if(!c.enabled||!c.uid||pending)return;
     const command={kind,...extra,id:c.uid+':'+clock()+':'+(++sequence),uid:c.uid,owner:c.host,at:clock()};
-    lastRequestId=command.id;pending={id:command.id,until:clock()+6000};
+    lastRequestId=command.id;pending={id:command.id,until:clock()+6000};feedback='';render();
     if(ownHost){accept(command);return;}
-    transport()?.publishEphemeral({kind:'lobby-games-command',command},[c.host]);
+    try{transport()?.publishEphemeral({kind:'lobby-games-command',command},[c.host]);}catch{ /* The Firebase fallback still delivers commands when RTC is unavailable. */ }
     try{await update(ref(db(),`rooms/${c.room}/players/${c.uid}`),{lobbyGameCommand:command});}
     catch{pending=null;error('遊びの操作を送れませんでした。接続を確認してください。');}
   }
@@ -50,7 +50,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   function acknowledge(result){
     if(result?.id!==lastRequestId||reportedResult===result.id)return;
-    reportedResult=result.id;pending=null;if(result.message)error(result.message);
+    reportedResult=result.id;pending=null;if(result.message)error(result.message);else render();
   }
   function receive(payload,meta){
     if(!payload?.kind?.startsWith('lobby-games-'))return false;
@@ -105,7 +105,18 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     }else if(localArea==='survival'&&!tagPlaying)status.textContent=playing?`残り ${Object.values(game.members).filter(m=>m.alive).length}人`+(game.members?.[c.uid]?.alive?'':' · 2階で観戦できます'):game?.status==='finished'?'終了 · '+(game.winners?.length?game.winners.map(id=>c.players[id]?.name||'クルー').join('・')+' の勝ち':'勝者なし'):'参加希望の枠に入って待機';
     else status.textContent=playing?`鬼：${c.players[tag.oni]?.name||'クルー'}`+(tag.oni===c.uid?(t<tag.frozenUntil?' · 1秒停止中':tag.practice?' · 自由に移動できます':' · 近づいてタッチ'):(tag.immune?.[c.uid]>t?` · 無敵 ${Math.ceil((tag.immune[c.uid]-t)/1000)}秒`:'')):'ロビー全員参加 · 1人でも練習できます';
     if(playing&&game?.practice)status.textContent='1人練習 · '+status.textContent;
-    start.hidden=!canStart||playing;start.disabled=!!pending||localArea!=='lobby'&&rules.active(tag);start.textContent=localArea==='lobby'?'鬼ごっこ開始':'スタート';
+    const tagPlayers=Object.values(c.players||{}).filter(p=>rules.live(p)&&rules.area(p)==='lobby'&&!p.lobbyCircuit&&!p.lobbyKart).length;
+    const otherGameActive=localArea==='lobby'&&!playing&&(rules.active(state?.survival)||rules.active(state?.soccer));
+    const own=c.players?.[c.uid],riding=localArea==='lobby'&&!playing&&(own?.lobbyCircuit||own?.lobbyKart);
+    if(!playing&&localArea==='lobby'){
+      if(otherGameActive)status.textContent='進行中の遊びが終わると開始できます';
+      else if(riding)status.textContent='乗り物から降りて開始してください';
+      else status.textContent=`参加者 ${tagPlayers}人 · `+(tagPlayers===1?'1人で練習できます':'最初の鬼はランダム');
+    }
+    if(!playing&&feedback&&t<feedbackUntil)status.textContent=feedback;
+    start.hidden=!canStart||playing;start.disabled=!!pending||localArea!=='lobby'&&rules.active(tag)||!!otherGameActive||!!riding||localArea==='lobby'&&tagPlayers===0;
+    start.textContent=pending?'開始を送信中…':localArea==='lobby'?(tagPlayers===1?'1人で練習開始':'鬼ごっこ開始'):'スタート';
+    start.title=otherGameActive?'進行中の遊びが終わってから開始できます。':riding?'乗り物から降りて開始してください。':'';
     stop.hidden=!canStart||!playing;exit.hidden=!inRoom;
     touch.classList.toggle('hidden',!enabled||!tagPlaying||tag.oni!==c.uid);
     touch.disabled=!action.target||!!pending;touch.classList.toggle('armed',!!action.target);
@@ -117,7 +128,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
       render();lastStep=t;return;
     }
     const key=c.room+':'+c.host;
-    if(key!==roomKey){roomKey=key;ownHost=c.uid===c.host;state=ownHost?rules.fresh(c.uid,t):null;lastWrite=lastSend=0;lastFrame='';dirty=ownHost;pending=null;lastRequestId=reportedResult='';lastStep=t;}
+    if(key!==roomKey){roomKey=key;ownHost=c.uid===c.host;state=ownHost?rules.fresh(c.uid,t):null;lastWrite=lastSend=0;lastFrame='';dirty=ownHost;pending=null;lastRequestId=reportedResult=feedback='';feedbackUntil=0;lastStep=t;}
     if(!ownHost&&c.snapshot?.owner===c.host&&Number(c.snapshot.at)>=Number(state?.at||0))state=c.snapshot;
     acknowledge(state?.results?.[c.uid]);
     if(pending&&state?.seen?.[c.uid]===pending.id)pending=null;
