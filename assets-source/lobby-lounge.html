@@ -5617,26 +5617,26 @@ function createLobbyGamesRules(){
     const id=request?.uid,p=roster[id],kind=request?.kind;
     if(!live(p)||typeof request.id!=='string'||request.id.length>100||!Number.isFinite(request.at)||Math.abs(time-request.at)>10000||state.seen[id]===request.id)return {state,ok:false};
     const s=JSON.parse(JSON.stringify(state));s.seen[id]=request.id;
-    const allowed=id===host||admins.has(id),room=area(p),fail=message=>({state:s,ok:false,message});
+    const allowed=id===host,room=area(p),fail=message=>({state:s,ok:false,message});
     if(kind==='start-survival'||kind==='start-soccer'){
       const name=kind.slice(6);
-      if(!allowed||room!==name)return fail('この部屋にいるホストか管理者が開始できます。');
+      if(!allowed||room!==name)return fail('この部屋にいるホストが開始できます。');
       if(active(s.tag))return fail('鬼ごっこ中は開始できません。');
       if(active(s[name]))return fail('すでに進行中です。');
       let ids=Object.keys(roster).filter(uid=>live(roster[uid])&&area(roster[uid])===name&&(name==='soccer'||uid===id||inside(roster[uid],QUEUE)));
-      if(ids.length<2)return fail('参加者が2人以上必要です。');
+      if(!ids.length)return fail('部屋の中に入ってから開始してください。');
       // Randomize once on the host; clients consume the committed assignments.
       ids=ids.map(uid=>({uid,order:random()})).sort((a,b)=>a.order-b.order).map(x=>x.uid);
       const members={};ids.forEach((uid,i)=>members[uid]=name==='survival'?{slot:i,alive:true}:i%2);
-      s[name]=name==='survival'?{id:request.id,status:'countdown',members,tiles:{},startAt:time+3000,endAt:time+93000,winners:[]}:{id:request.id,status:'countdown',members,ball:ball(time),score:[0,0],kicks:{},startAt:time+3000,endAt:time+183000};
+      s[name]=name==='survival'?{id:request.id,status:'countdown',practice:ids.length===1,members,tiles:{},startAt:time+3000,endAt:time+93000,winners:[]}:{id:request.id,status:'countdown',practice:ids.length===1,members,ball:ball(time),score:[0,0],kicks:{},startAt:time+3000,endAt:time+183000};
     }else if(kind==='start-tag'){
-      if(!allowed||room!=='lobby'||p.lobbyCircuit||p.lobbyKart)return fail('ロビーにいるホストか管理者が開始できます。');
+      if(!allowed||room!=='lobby'||p.lobbyCircuit||p.lobbyKart)return fail('ロビーにいるホストが開始できます。');
       if(active(s.tag)||active(s.survival)||active(s.soccer))return fail('進行中の遊びが終わってから開始してください。');
       const ids=Object.keys(roster).filter(uid=>live(roster[uid])&&area(roster[uid])==='lobby'&&!roster[uid].lobbyCircuit&&!roster[uid].lobbyKart);
-      if(ids.length<2)return fail('ロビーに2人以上必要です。');
-      s.tag={id:request.id,status:'countdown',members:Object.fromEntries(ids.map(uid=>[uid,true])),oni:ids[Math.min(ids.length-1,Math.floor(random()*ids.length))],startAt:time+3000,frozenUntil:time+4000,immune:{},transfers:0};
+      if(!ids.length)return fail('ロビーに入ってから開始してください。');
+      s.tag={id:request.id,status:'countdown',practice:ids.length===1,members:Object.fromEntries(ids.map(uid=>[uid,true])),oni:ids[Math.min(ids.length-1,Math.floor(random()*ids.length))],startAt:time+3000,frozenUntil:time+4000,immune:{},transfers:0};
     }else if(kind==='stop'){
-      if(!allowed)return fail('ホストか管理者が終了できます。');
+      if(!allowed)return fail('ホストが終了できます。');
       const g=s[request.game];if(!g||!active(g))return fail('進行中ではありません。');g.status='finished';g.endedAt=time;
     }else if(kind==='tag'){
       const target=tagTarget(s,id,roster,time);
@@ -5659,14 +5659,14 @@ function createLobbyGamesRules(){
         if(g.status==='playing'&&Math.abs(Number(p.lobbyY||0)-3)<.15){const tile=tileAt(p);if(tile>=0&&!g.tiles[tile]){g.tiles[tile]=time+SURVIVAL.delay;changed=true;}}
       }
       const alive=Object.keys(g.members).filter(id=>g.members[id].alive);
-      if(g.status==='playing'&&(alive.length<=1||time>=g.endAt)){g.status='finished';g.winners=alive;g.endedAt=time;changed=true;}
+      if(g.status==='playing'&&(alive.length<=(g.practice?0:1)||time>=g.endAt)){g.status='finished';g.winners=alive;g.endedAt=time;changed=true;}
     }
     const tag=s.tag;
     if(active(tag)){
       if(tag.status==='countdown'&&time>=tag.startAt){tag.status='playing';changed=true;}
       for(const id of Object.keys(tag.members))if(!live(roster[id])||roster[id].lobbyCircuit||roster[id].lobbyKart){delete tag.members[id];changed=true;}
       const ids=Object.keys(tag.members);
-      if(ids.length<2){tag.status='finished';tag.endedAt=time;changed=true;}
+      if(ids.length<(tag.practice?1:2)){tag.status='finished';tag.endedAt=time;changed=true;}
       else if(!tag.members[tag.oni]){tag.oni=ids[0];tag.frozenUntil=time+1000;changed=true;}
     }
     const game=s.soccer;
@@ -5676,7 +5676,7 @@ function createLobbyGamesRules(){
       if(game.status==='playing'&&time>=game.endAt){game.status='finished';game.endedAt=time;game.winner=game.score[0]===game.score[1]?-1:game.score[0]>game.score[1]?0:1;changed=true;}
       if(active(game)){
         for(const id of Object.keys(game.members))if(!live(roster[id])||area(roster[id])!=='soccer'){delete game.members[id];changed=true;}
-        if(game.status==='playing'&&new Set(Object.values(game.members)).size<2){game.status='finished';game.endedAt=time;game.cancelled=true;changed=true;}
+        if(game.status==='playing'&&(game.practice?Object.keys(game.members).length===0:new Set(Object.values(game.members)).size<2)){game.status='finished';game.endedAt=time;game.cancelled=true;changed=true;}
       }
       const b=game.ball;
       if(game.status==='countdown'||game.status==='finished'){b.vx=b.vy=b.vz=0;}

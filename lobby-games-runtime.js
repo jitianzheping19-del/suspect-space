@@ -8,7 +8,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   const panel=document.createElement('section');panel.id='lobbyMiniGamePanel';panel.className='hidden';panel.setAttribute('aria-label','ロビーの遊び');
   const title=document.createElement('strong'),status=document.createElement('div'),buttons=document.createElement('div');buttons.className='miniGameButtons';panel.append(title,status,buttons);document.body.append(panel);
   const start=document.createElement('button'),stop=document.createElement('button'),exit=document.createElement('button');
-  start.textContent='開始';stop.textContent='終了';exit.textContent='ロビーへ戻る';buttons.append(start,stop,exit);
+  start.textContent='開始';stop.textContent='終了';start.hidden=stop.hidden=true;stop.id='lobbyMiniGameStop';exit.textContent='ロビーへ戻る';buttons.append(start,stop,exit);
   const toggle=document.createElement('button');toggle.id='lobbyMiniGameToggle';toggle.textContent='遊び';toggle.className='secondary hidden';document.body.append(toggle);
   const touch=document.createElement('button');touch.id='lobbyTagTouchBtn';touch.textContent='タッチ';touch.className='hidden';document.body.append(touch);
   toggle.onclick=()=>{menuOpen=!menuOpen;render();};
@@ -16,6 +16,12 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   stop.onclick=()=>request('stop',{game:rules.active(state?.tag)||localArea==='lobby'?'tag':localArea});
   exit.onclick=()=>frame()?.postMessage({type:'lobby-games-exit'},'*');
   touch.onclick=()=>request('tag',{target:action.target});
+  for(const button of [toggle,start,stop,exit,touch]){
+    button.type='button';button.dataset.spacePointerAction='direct';let pointerAt=-Infinity;
+    button.addEventListener('pointerdown',event=>{if(event.button!==0||button.disabled)return;event.preventDefault();event.stopPropagation();pointerAt=performance.now();button.click();},{passive:false});
+    button.addEventListener('click',event=>{if(event.isTrusted&&event.detail>0&&performance.now()-pointerAt<1000){event.preventDefault();event.stopImmediatePropagation();}},true);
+    button.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' ')pointerAt=-Infinity;});
+  }
   const send=value=>frame()?.postMessage(value,'*');
   const worldRoster=c=>c.players;
   function error(message){if(clock()-lastError>2500){lastError=clock();toast(message);}}
@@ -64,9 +70,10 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   function use(){if(!context().enabled||localArea!=='soccer')return false;if(action.enabled)request('kick',{yaw:action.yaw});return true;}
   function render(){
     const c=context(),enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
-    const playing=rules.active(game),canStart=c.uid===c.host||c.admins.has(c.uid),inRoom=localArea!=='lobby';
+    const playing=rules.active(game),canStart=!!c.uid&&c.uid===c.host,inRoom=localArea!=='lobby';
+    if(!canStart)menuOpen=false;
     panel.classList.toggle('hidden',!enabled||!inRoom&&!rules.active(tag)&&!menuOpen);
-    toggle.classList.toggle('hidden',!enabled||inRoom||rules.active(tag));
+    toggle.classList.toggle('hidden',!enabled||!canStart||inRoom||rules.active(tag));
     document.body.classList.toggle('lobbyMiniGameOpen',enabled&&(inRoom||rules.active(tag)||menuOpen));
     document.body.classList.toggle('lobbyTagPlaying',enabled&&tagPlaying);
     title.textContent=tagPlaying?'鬼ごっこ':localArea==='survival'?'消える床サバイバル':localArea==='soccer'?'フットサル':'鬼ごっこ';
@@ -77,7 +84,8 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
       const result=game?.status==='finished'?(game.cancelled?'参加者不足で終了':game.winner===-1?'引き分け':(game.winner===0?'青':'赤')+'チームの勝ち'):'';
       status.textContent=`青 ${game?.score?.[0]||0} − ${game?.score?.[1]||0} 赤`+(result?' · '+result:playing?` · 残り ${Math.max(0,Math.ceil((game.endAt-t)/1000))}秒`:' · 3分間')+(playing?(team===0?' · あなたは青':team===1?' · あなたは赤':' · 観戦中'):result?'':' · 近くで蹴る');
     }else if(localArea==='survival'&&!tagPlaying)status.textContent=playing?`残り ${Object.values(game.members).filter(m=>m.alive).length}人`+(game.members?.[c.uid]?.alive?'':' · 2階で観戦できます'):game?.status==='finished'?'終了 · '+(game.winners?.length?game.winners.map(id=>c.players[id]?.name||'クルー').join('・')+' の勝ち':'勝者なし'):'参加希望の枠に入って待機';
-    else status.textContent=playing?`鬼：${c.players[tag.oni]?.name||'クルー'}`+(tag.oni===c.uid?(t<tag.frozenUntil?' · 1秒停止中':' · 近づいてタッチ'):(tag.immune?.[c.uid]>t?` · 無敵 ${Math.ceil((tag.immune[c.uid]-t)/1000)}秒`:'')):'ロビー全員参加 · 最初の鬼はランダム';
+    else status.textContent=playing?`鬼：${c.players[tag.oni]?.name||'クルー'}`+(tag.oni===c.uid?(t<tag.frozenUntil?' · 1秒停止中':tag.practice?' · 自由に移動できます':' · 近づいてタッチ'):(tag.immune?.[c.uid]>t?` · 無敵 ${Math.ceil((tag.immune[c.uid]-t)/1000)}秒`:'')):'ロビー全員参加 · 1人でも練習できます';
+    if(playing&&game?.practice)status.textContent='1人練習 · '+status.textContent;
     start.hidden=!canStart||playing;start.disabled=!!pending||localArea!=='lobby'&&rules.active(tag);start.textContent=localArea==='lobby'?'鬼ごっこ開始':'スタート';
     stop.hidden=!canStart||!playing;exit.hidden=!inRoom;
     touch.classList.toggle('hidden',!enabled||!tagPlaying||tag.oni!==c.uid);
