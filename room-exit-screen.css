@@ -1,0 +1,23 @@
+/* Hide without discarding the prepared scene or changing its dimensions. */
+@layer portrait-guidance {
+ html body[data-room-exit="true"]>:not(#roomExitScreen),
+ html body[data-room-exit="true"]>:not(#roomExitScreen) * {visibility:hidden!important;pointer-events:none!important;}
+}
+#roomExitScreen{position:fixed;inset:0;margin:0;box-sizing:border-box;width:100%;max-width:none;height:100dvh;max-height:none;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));border:0;border-radius:0;overflow:auto;background:radial-gradient(ellipse at 50% 38%,#164b60 0,#0b243b 38%,#050d1d 85%);color:#ecffff;font:600 14px/1.5 system-ui;text-align:center;}
+#roomExitScreen[open]{display:grid;place-items:center;}
+#roomExitScreen::backdrop{background:#050d1d;}
+@media(prefers-reduced-motion:reduce){#roomExitScreen *{animation:none!important;transition:none!important;}}
+#roomExitScreen .lobbyLoadCard{width:min(360px,100%);padding:12px 0}
+#roomExitScreen .lobbyLoadCard small{display:block;color:#b4d9e3;font-size:11px;letter-spacing:.32em}
+#roomExitScreen .lobbyLoadCard h2{margin:10px 0 8px;color:#f1fffc;font-size:clamp(19px,4.8vw,26px);letter-spacing:.03em}
+#roomExitScreen .lobbyLoadStatus{min-height:22px;margin:0 0 20px;color:#badce0;font-variant-numeric:tabular-nums}
+#roomExitScreen .lobbyLoadOrbit{position:relative;width:180px;height:180px;margin:0 auto 24px;display:grid;place-items:center}
+#roomExitScreen .lobbyLoadPlanet{width:96px;height:96px;border-radius:50%;background:radial-gradient(circle at 32% 27%,#c1ffe4 0,#5dbfbd 25%,#367c9a 55%,#142e50 83%);box-shadow:inset -10px -10px 22px #04142c88,0 0 45px #53d0be30;animation:lobby-planet-float 3.2s ease-in-out infinite}
+#roomExitScreen .lobbyLoadRing{position:absolute;inset:20px;border:1px solid #a0ece36b;border-radius:50%;transform:rotate(-25deg) scaleY(.42);box-shadow:0 0 12px #7cdddc22}
+#roomExitScreen .lobbyLoadSatellite{position:absolute;inset:0;border:1px dashed #b6eced44;border-radius:50%;animation:lobby-load-orbit 3.6s linear infinite}
+#roomExitScreen .lobbyLoadSatellite i{position:absolute;top:8px;left:28px;width:16px;height:26px;border-radius:60% 60% 30% 30%;background:linear-gradient(90deg,#69a5c6,#effffe 55%,#b9e9e5);transform:rotate(-40deg);box-shadow:0 9px 12px #69d6ff88}
+#roomExitScreen .lobbyLoadSatellite i::after{content:"";position:absolute;left:5px;top:7px;width:6px;height:8px;background:#246078;border-radius:50%}
+
+@keyframes lobby-load-orbit{to{transform:rotate(360deg)}}
+@keyframes lobby-planet-float{50%{transform:translateY(-7px)}}
+@media(max-height:500px){#roomExitScreen .lobbyLoadOrbit{width:108px;height:108px;margin-bottom:10px}#roomExitScreen .lobbyLoadPlanet{width:62px;height:62px}#roomExitScreen .lobbyLoadSatellite i{top:-2px;left:20px}#roomExitScreen .lobbyLoadCard{padding:0}#roomExitScreen .lobbyLoadStatus{margin-bottom:10px}#roomExitScreen .lobbyLoadCard h2{margin:4px 0}}

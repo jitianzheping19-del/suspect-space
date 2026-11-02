@@ -445,3 +445,42 @@ html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
   html body[data-phase="meeting"] #roundRoleBtn{top:calc(max(8px,env(safe-area-inset-top)) + 52px)!important;left:auto!important;right:max(8px,env(safe-area-inset-right))!important;bottom:auto!important;transform:none!important;box-sizing:border-box!important;width:78px!important;min-width:78px!important;height:44px!important;min-height:44px!important;padding:4px!important;font-size:11px!important}
  }
 }
+
+/* Keep the room code at the top and reserve space below it on narrow phones. */
+@layer play-action-layout {
+ html body[data-phase="lobby"] #lobbyRoomCode {
+  left:50%!important;right:auto!important;top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;transform:translateX(-50%)!important;
+ }
+ @media(pointer:coarse) and (max-width:700px) {
+  html body[data-phase="lobby"] #lobbyRoomCode {left:max(8px,env(safe-area-inset-left))!important;transform:none!important;}
+  html body[data-phase="lobby"] #lobbyRoster {top:calc(var(--lobby-phone-top) + 52px)!important;max-height:min(28dvh,128px)!important;}
+  html body[data-phase="lobby"] :is(#voiceToggleBtn,#lobbyMiniGameToggle) {top:calc(var(--lobby-phone-top) + 52px)!important;}
+  html body[data-phase="lobby"] #lobbyMiniGamePanel {left:auto!important;right:max(8px,env(safe-area-inset-right))!important;top:calc(var(--lobby-phone-top) + 104px)!important;bottom:auto!important;transform:none!important;width:calc(100vw - var(--lobby-roster-width) - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))!important;overflow:auto!important;}
+ }
+ @media(pointer:coarse) and (max-width:700px) and (orientation:portrait) {
+  html body[data-phase="lobby"] #lobbyMiniGamePanel {max-height:76px!important;}
+ }
+ @media(pointer:coarse) and (max-width:700px) and (orientation:landscape) {
+  html body[data-phase="lobby"] #lobbyMiniGamePanel {left:calc(max(8px,env(safe-area-inset-left)) + var(--lobby-roster-width) + 8px)!important;right:auto!important;width:min(310px,calc(100vw - var(--lobby-roster-width) - 112px - env(safe-area-inset-left) - env(safe-area-inset-right)))!important;}
+ }
+ @media(pointer:coarse) and (max-width:700px),(pointer:coarse) and (max-height:600px) {
+  html body[data-phase="lobby"]:is([data-lobby-minigame],.lobbyTagPlaying,.lobbySurvivalRoom) #controls #buttons>#jumpBtn:not(.hidden) {
+   width:min(104px,29vw)!important;min-width:min(104px,29vw)!important;max-width:min(104px,29vw)!important;
+   height:78px!important;min-height:78px!important;max-height:78px!important;font-size:15px!important;
+  }
+  html body[data-phase="lobby"]:is(.lobbyTagPlaying,.lobbySurvivalRoom):not([data-lobby-minigame]) #lobbyUseBtn:not(.hidden) {right:calc(max(8px,env(safe-area-inset-right)) + min(104px,29vw) + 6px)!important;}
+  html body[data-phase="lobby"][data-lobby-minigame="survival"] #lobbyUseBtn:not(.hidden) {right:calc(max(8px,env(safe-area-inset-right)) + min(104px,29vw) + 6px)!important;}
+  html body[data-phase="lobby"].lobbyTagPlaying #lobbyTagTouchBtn {bottom:calc(max(8px,env(safe-area-inset-bottom)) + 90px)!important;}
+  html body[data-phase="lobby"].lobbyTagPlaying #lobbyChatToggleBtn {bottom:calc(max(8px,env(safe-area-inset-bottom)) + 162px)!important;}
+ }
+}
+
+@layer play-action-layout {
+ @media(pointer:coarse) and (max-width:700px),(pointer:coarse) and (max-height:600px) {
+  html body[data-phase="lobby"] #lobbyMiniGameToggle {left:calc(max(8px,env(safe-area-inset-left)) + var(--lobby-roster-width) + 60px)!important;top:var(--lobby-phone-top)!important;width:44px!important;padding:0 3px!important;}
+  html body[data-phase="lobby"].voiceAvailable #voiceToggleBtn {left:calc(max(8px,env(safe-area-inset-left)) + var(--lobby-roster-width) + 8px)!important;right:auto!important;top:var(--lobby-phone-top)!important;}
+ }
+ @media(pointer:coarse) and (max-width:700px) {
+  html body[data-phase="lobby"] #lobbyMiniGameToggle,html body[data-phase="lobby"].voiceAvailable #voiceToggleBtn {top:calc(var(--lobby-phone-top) + 52px)!important;}
+ }
+}
