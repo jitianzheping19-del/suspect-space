@@ -12,3 +12,48 @@ body[data-phase="lobby"].lobbyMiniGameOpen #startBtn,body[data-phase="lobby"].lo
 @media(max-height:500px){#lobbyMiniGamePanel{left:calc(50% - 26px);bottom:9px;width:min(310px,calc(100vw - 344px));padding:6px 8px}#lobbyMiniGameToggle{top:114px;left:8px;padding:5px 10px;min-height:32px}#lobbyMiniGamePanel strong{font-size:13px}.miniGameButtons button{min-height:30px;padding:4px 7px}}
 @media(max-width:500px) and (min-height:501px){#lobbyMiniGamePanel{bottom:155px;width:min(280px,calc(100vw - 132px))}#lobbyMiniGameToggle{top:132px}}
 @media(min-width:501px) and (min-height:501px){#lobbyTagTouchBtn{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 112px)}@layer play-action-layout{html body[data-phase="lobby"].lobbyTagPlaying #lobbyChatToggleBtn{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 182px)!important}}}
+
+/* Reserve a utility row above the tablet roster, and a separate phone slot. */
+@layer play-action-layout {
+ html body[data-phase="lobby"] #lobbyMiniGameToggle{left:calc(max(8px,env(safe-area-inset-left)) + 52px)!important;right:auto!important;top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;transform:none!important;box-sizing:border-box!important;width:96px!important;height:44px!important;min-height:44px!important;padding:0 10px!important;z-index:46!important;color:#ecfaff;background:linear-gradient(#245779,#123047);border:1px solid #97d5fa;box-shadow:0 4px 0 #071d2c,inset 0 1px #d8f2ff55;font-weight:850;}
+ html body[data-phase="lobby"] #lobbyOpenBtn{display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;padding:0 12px!important;line-height:1.2!important;}
+ html body[data-phase="lobby"] #lobbyOpenBtn.hidden{display:none!important;}
+ @media(min-width:701px) and (min-height:601px){
+  html body[data-phase="lobby"] #voiceToggleBtn{left:max(8px,env(safe-area-inset-left))!important;right:auto!important;top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;transform:none!important;width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;}
+  html body[data-phase="lobby"] #lobbyRoster{left:max(8px,env(safe-area-inset-left))!important;top:calc(max(8px,env(safe-area-inset-top)) + 56px)!important;bottom:auto!important;max-height:min(38dvh,calc(100dvh - 250px))!important;}
+  html body[data-phase="lobby"] #lobbyRoomCode{left:calc(max(8px,env(safe-area-inset-left)) + 160px)!important;right:auto!important;top:max(8px,env(safe-area-inset-top))!important;transform:none!important;}
+  html body[data-phase="lobby"].voicePromptOpen #lobbyRoster{top:calc(max(8px,env(safe-area-inset-top)) + 210px)!important;}
+ }
+ @media(pointer:coarse) and (max-width:700px),(pointer:coarse) and (max-height:600px){
+  html body[data-phase="lobby"] #lobbyMiniGameToggle{left:calc(max(8px,env(safe-area-inset-left)) + var(--lobby-roster-width) + 8px)!important;top:calc(max(8px,env(safe-area-inset-top)) + 52px)!important;width:52px!important;padding:0 3px!important;font-size:11px!important;}
+ }
+ @media(pointer:coarse) and (max-height:600px) and (orientation:landscape){
+  html body[data-phase="lobby"] #lobbyRoomCode{left:auto!important;right:calc(max(8px,env(safe-area-inset-right)) + 60px)!important;transform:none!important;}
+ }
+ html body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"]{background:transparent!important;border-color:transparent!important;box-shadow:none!important;}
+ html body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"][data-three-action-layout="icon"]{padding-left:var(--three-action-label-inset,32px)!important;padding-right:5px!important;}
+ html body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"][data-three-action-layout="compact"]{padding-top:var(--three-action-compact-top,22px)!important;}
+}
+body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"]{background:transparent!important;border-color:transparent!important;box-shadow:none!important;text-shadow:0 2px 3px #020b17;overflow:visible!important;}
+body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"][data-three-action-layout="icon"]{padding-left:var(--three-action-label-inset,32px)!important;padding-right:5px!important;}
+body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"][data-three-action-layout="compact"]{padding-top:var(--three-action-compact-top,22px)!important;}
+#lobbyMiniGameCountdown[hidden]{display:none!important}
+#lobbyMiniGameCountdown{position:fixed;inset:0;z-index:12010;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#e8fbff;text-align:center;background:radial-gradient(circle, #051e38b8,transparent 48%);font:850 clamp(16px,3vmin,24px)/1.2 system-ui;text-shadow:0 3px 12px #001425;}
+#lobbyMiniGameCountdown strong{display:grid;place-items:center;min-width:2.2em;height:1.4em;color:#b8f5ff;font-size:clamp(64px,20vmin,150px);font-variant-numeric:tabular-nums;text-shadow:0 0 24px #63d7ff88,0 6px 0 #144762;}
+
+@layer play-action-layout {
+ html body[data-phase="lobby"][data-lobby-minigame] :is(#lobbyRoster,#lobbyRoomCode,#voiceToggleBtn,#voicePermissionPanel,#titleInputSettingsBtn,#audioSettingsBtn,#inviteOnlineFloating,#roomInviteBanner,#petInteractBtn,#lobbyChatToggleBtn,#lobbyChat,#lobbyOpenBtn,#lobbyUnstuckBtn,#startBtn,#readyBtn,#roundRoleBtn,#lobbyMiniGameToggle,.ssTicketBadge,#hud,#ghostHud,#taskProgressHud,#role,#fpsCounter){display:none!important;visibility:hidden!important;pointer-events:none!important;}
+ html body[data-phase="lobby"][data-lobby-minigame] #lobbyMiniGamePanel{left:max(8px,env(safe-area-inset-left))!important;top:max(8px,env(safe-area-inset-top))!important;right:auto!important;bottom:auto!important;transform:none!important;width:min(300px,calc(100vw - 120px))!important;padding:6px 10px!important;}
+ html body[data-phase="lobby"][data-lobby-minigame] #lobbyMiniGamePanel strong{font-size:13px!important;}
+ html body[data-phase="lobby"][data-lobby-minigame="soccer"] #jumpBtn{display:none!important;}
+ html body[data-phase="lobby"][data-lobby-minigame="tag"] #lobbyUseBtn{display:none!important;}
+}
+#lobbySoccerScore[hidden]{display:none!important}
+#lobbySoccerScore{position:fixed;z-index:112;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:min(460px,calc(100vw - 24px));box-sizing:border-box;padding:9px 18px;color:#f5f8ff;background:linear-gradient(110deg,#143954f2,#141e30f2 50%,#522b40f2);border:1px solid #9bc4dd80;border-radius:18px;box-shadow:0 8px 24px #0005;text-align:center;font:700 16px system-ui}
+#lobbySoccerScore details{font-size:12px;font-weight:500}#lobbySoccerScore summary{cursor:pointer;padding:6px 10px;min-height:24px;touch-action:manipulation}#lobbySoccerScore p{margin:6px 0;overflow-wrap:anywhere}#lobbySoccerScore [data-team="0"]{color:#a0dcff}#lobbySoccerScore [data-team="1"]{color:#ffb8c5}
+body.lobbySoccerRoom #lobbyRoomCode{visibility:hidden!important}
+#lobbySoccerScore details[open]{max-height:30dvh;overflow:auto}
+@layer play-action-layout {
+ html body[data-phase="lobby"].lobbySoccerRoom #lobbyMiniGamePanel{top:auto!important;left:50%!important;bottom:150px!important;transform:translateX(-50%)!important;width:min(300px,54vw)!important;}
+ @media(max-height:500px){html body[data-phase="lobby"].lobbySoccerRoom #lobbyMiniGamePanel{bottom:max(9px,env(safe-area-inset-bottom))!important;width:min(310px,calc(100vw - 344px))!important;}}
+}

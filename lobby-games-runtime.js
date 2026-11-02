@@ -1,7 +1,7 @@
 import {createLobbyGamesRules} from './lobby-games-rules.js';
 import './lobby-games.css';
 
-export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transport,toast,onAreaChange=()=>{},clock=Date.now}){
+export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transport,toast,onAreaChange=()=>{},onPhoto=()=>{},clock=Date.now}){
   const rules=createLobbyGamesRules();
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
   let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='';
@@ -11,6 +11,11 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   start.textContent='開始';stop.textContent='終了';start.hidden=stop.hidden=true;stop.id='lobbyMiniGameStop';exit.textContent='ロビーへ戻る';buttons.append(start,stop,exit);
   const toggle=document.createElement('button');toggle.id='lobbyMiniGameToggle';toggle.textContent='遊び';toggle.className='secondary hidden';document.body.append(toggle);
   const touch=document.createElement('button');touch.id='lobbyTagTouchBtn';touch.textContent='タッチ';touch.className='hidden';document.body.append(touch);
+  const countdown=document.createElement('div');countdown.id='lobbyMiniGameCountdown';countdown.hidden=true;countdown.setAttribute('role','status');countdown.setAttribute('aria-live','polite');countdown.setAttribute('aria-atomic','true');
+  const countdownLabel=document.createElement('span'),countdownNumber=document.createElement('strong');countdown.append(countdownLabel,countdownNumber);document.body.append(countdown);
+  const score=document.createElement('section');score.id='lobbySoccerScore';score.hidden=true;score.setAttribute('aria-label','フットサルの得点とチーム');
+  const scoreline=document.createElement('strong'),teams=document.createElement('details'),summary=document.createElement('summary'),teamNames=document.createElement('div');
+  summary.textContent='チームを見る';teams.append(summary,teamNames);score.append(scoreline,teams);document.body.append(score);
   toggle.onclick=()=>{menuOpen=!menuOpen;render();};
   start.onclick=()=>request('start-'+(localArea==='lobby'?'tag':localArea));
   stop.onclick=()=>request('stop',{game:rules.active(state?.tag)||localArea==='lobby'?'tag':localArea});
@@ -59,17 +64,28 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     if(!data?.type?.startsWith('lobby-games-'))return false;
     const c=context();if(!c.enabled)return true;
     if(data.type==='lobby-games-action'&&['lobby','survival','soccer'].includes(data.area)){
-      action={enabled:data.enabled===true,target:typeof data.target==='string'?data.target:'',yaw:Number.isFinite(data.yaw)?data.yaw:0};const changed=localArea!==data.area;localArea=data.area;if(changed)onAreaChange();decorateAction();render();
+      action={enabled:data.enabled===true,target:typeof data.target==='string'?data.target:'',yaw:Number.isFinite(data.yaw)?data.yaw:0,passTarget:typeof data.passTarget==='string'?data.passTarget:''};const changed=localArea!==data.area;localArea=data.area;if(changed)onAreaChange();decorateAction();render();
     }else if(data.type==='lobby-games-command'&&['kick','tag'].includes(data.kind))request(data.kind,{yaw:Number(data.yaw)||0,target:String(data.target||'')});
     return true;
   }
   function decorateAction(){
     const button=document.getElementById('lobbyUseBtn');if(!button||!context().enabled||localArea!=='soccer')return;
-    button.textContent='蹴る [F]';button.dataset.actionIcon='kick';button.disabled=!action.enabled||!!pending;button.classList.toggle('armed',!!action.enabled);
+    button.textContent=action.passTarget?'パス':'シュート';button.title=(action.passTarget?(context().players[action.passTarget]?.name||'味方')+'へパス':'シュート')+' [F]';button.setAttribute('aria-label',button.title);button.dataset.actionIcon='kick';button.disabled=!action.enabled||!!pending;button.classList.toggle('armed',!!action.enabled);
   }
   function use(){if(!context().enabled||localArea!=='soccer')return false;if(action.enabled)request('kick',{yaw:action.yaw});return true;}
   function render(){
-    const c=context(),enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
+    const c=context();onPhoto(c.enabled?state?.photo:null);const enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
+    const participation=enabled&&rules.live(c.players[c.uid])&&Object.entries({tag:state?.tag,survival:state?.survival,soccer:state?.soccer}).find(([,g])=>rules.active(g)&&Object.hasOwn(g.members||{},c.uid));
+    if(participation){if(document.body.dataset.lobbyMinigame!==participation[0])document.body.dataset.lobbyMinigame=participation[0];}
+    else if(document.body.hasAttribute('data-lobby-minigame'))delete document.body.dataset.lobbyMinigame;
+    score.hidden=!enabled||localArea!=='soccer'||tagPlaying;
+    document.body.classList.toggle('lobbySoccerRoom',!score.hidden);
+    if(!score.hidden){
+      const g=state?.soccer,remaining=g?.status==='playing'?Math.max(0,Math.ceil((g.endAt-clock())/1000)):180;
+      scoreline.textContent=`青 ${g?.score?.[0]||0} — ${g?.score?.[1]||0} 赤 · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
+      const names=[0,1].map(team=>Object.entries(g?.members||{}).filter(([id,t])=>t===team&&rules.live(c.players[id])).map(([id])=>(c.players[id].name||'クルー')+(id===c.uid?'（あなた）':'')).join('・')||'待機中');
+      const key=JSON.stringify(names);if(teamNames.dataset.names!==key){teamNames.dataset.names=key;teamNames.replaceChildren(...names.map((names,team)=>{const row=document.createElement('p');row.dataset.team=String(team);row.textContent=(team===0?'青：':'赤：')+names;return row;}));}
+    }else teams.open=false;
     const playing=rules.active(game),canStart=!!c.uid&&c.uid===c.host,inRoom=localArea!=='lobby';
     if(!canStart)menuOpen=false;
     panel.classList.toggle('hidden',!enabled||!inRoom&&!rules.active(tag)&&!menuOpen);
@@ -78,6 +94,9 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     document.body.classList.toggle('lobbyTagPlaying',enabled&&tagPlaying);
     title.textContent=tagPlaying?'鬼ごっこ':localArea==='survival'?'消える床サバイバル':localArea==='soccer'?'フットサル':'鬼ごっこ';
     const t=clock(),remaining=game?.startAt>t?Math.ceil((game.startAt-t)/1000):0;
+    const starting=participation&&t<participation[1].startAt+650&&participation;
+    countdown.hidden=!starting;
+    if(starting){const [name,g]=starting,label={tag:'鬼ごっこ',survival:'消える床サバイバル',soccer:'フットサル'}[name],number=t<g.startAt?String(Math.ceil((g.startAt-t)/1000)):'START!';if(countdownLabel.textContent!==label)countdownLabel.textContent=label;if(countdownNumber.textContent!==number)countdownNumber.textContent=number;}
     if(remaining)status.textContent=`開始まで ${remaining}`;
     else if(localArea==='soccer'&&!tagPlaying){
       const team=game?.members?.[c.uid];

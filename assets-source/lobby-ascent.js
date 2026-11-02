@@ -114,6 +114,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
   }
   const arrow=new THREE.Shape();arrow.moveTo(-.22,-.10);arrow.lineTo(0,.12);arrow.lineTo(.22,-.10);arrow.lineTo(.22,.02);arrow.lineTo(0,.26);arrow.lineTo(-.22,.02);arrow.closePath();
   geometries.arrow=new THREE.ShapeGeometry(arrow);
+  const padRanges=[];
   route.forEach(([x,z,y],i)=>{
     const summit=i===route.length-1,next=route[i+1],section=Math.floor(i/7);
     const[,,,kit,width,depth,h]=course[i],shape=kit==='hex'||kit==='circle'?kit:'rect',radius=shape==='rect'?0:width;
@@ -122,7 +123,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
       [-w/2+corner,-d/2],[w/2-corner,-d/2],[w/2,-d/2+corner],[w/2,d/2-corner],
       [w/2-corner,d/2],[-w/2+corner,d/2],[-w/2,d/2-corner],[-w/2,-d/2+corner]
     ];
-    const obstacle={x,z,w,d,top:y,bottom:y-h,platform:true,ascent:true,shape,radius,polygon:shape==='circle'?null:points,section,kit};obstacles.push(obstacle);
+    const obstacle={x,z,w,d,top:y,bottom:y-h,platform:true,ascent:true,revealed:i<2,shape,radius,polygon:shape==='circle'?null:points,section,kit};obstacles.push(obstacle);
     const kind='pad-'+i;polygonGeometry(kind,points);
     // Landing plane stays at y. Three recessed tiers give the slab a bevelled silhouette.
     add(kind,4,x,y-h*.70,z,.91,h*.30,.91);
@@ -162,13 +163,15 @@ function createLobbyAscent({THREE,scene,obstacles}){
       box(4,x,y-.32,z+d/2+.008,2.3,.47,.025);decal(30,x,y-.32,z+d/2+.024,2.25,1.05,0);
     }
     if(summit)decal(31,x,y+.026,z+1.12,1.7,.75);
+    padRanges.push(new Map([...batches].map(([m,batch])=>[m,batch.positions.length/3])));
   });
   for(const [m,batch]of batches){
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(batch.positions,3));geometry.setAttribute('normal',new THREE.Float32BufferAttribute(batch.normals,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(batch.uvs,2));geometry.computeBoundingSphere();
-    const mesh=new THREE.Mesh(geometry,materials[m]);mesh.name='ascent-finish-'+m;mesh.matrixAutoUpdate=false;root.add(mesh);
+    geometry.setDrawRange(0,padRanges[1].get(m)||0);const mesh=new THREE.Mesh(geometry,materials[m]);mesh.userData.padRanges=padRanges.map(range=>range.get(m)||0);mesh.name='ascent-finish-'+m;mesh.matrixAutoUpdate=false;root.add(mesh);
   }
   for(const geometry of new Set([...Object.values(geometries),...flatGeometry.values()]))geometry.dispose();
   function distanceTo(obstacle,x,z){
+    if(obstacle.revealed===false)return Infinity;
     const px=x-obstacle.x,pz=z-obstacle.z;
     if(obstacle.shape==='circle')return Math.hypot(px,pz)-obstacle.radius;
     if(obstacle.polygon){let inside=false,distance=Infinity;const polygon=obstacle.polygon;
@@ -240,12 +243,14 @@ function createLobbyAscent({THREE,scene,obstacles}){
     return true;
   }
   const [gx,gz,gy]=route.at(-1);
-  let reached=false,notice=null,noticeUntil=0;
+  let reached=false,notice=null,noticeUntil=0,visiblePads=2;
   function update(position,stamp,name){
+    const landing=pads.findIndex(pad=>pad.revealed&&Math.abs(position.y-pad.top)<.10&&distanceTo(pad,position.x,position.z)<=.05);
+    if(landing>=0&&landing+3>visiblePads){visiblePads=Math.min(pads.length,landing+3);for(let i=0;i<pads.length;i++)pads[i].revealed=i<visiblePads;for(const mesh of root.children)if(mesh.userData.padRanges)mesh.geometry.setDrawRange(0,mesh.userData.padRanges[visiblePads-1]);}
     if(position.y<1.5)reached=false;
     if(!reached&&Math.abs(position.y-gy)<.12&&Math.hypot(position.x-gx,position.z-gz)<1.25){reached=true;noticeUntil=stamp+3600;notice=document.createElement('div');notice.setAttribute('role','status');notice.style.cssText='position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:50;padding:16px 26px;border:1px solid #e6d09e;border-radius:18px;background:linear-gradient(140deg,#283f48,#10212d);color:#fff3c5;font:800 clamp(20px,4vw,34px) system-ui;box-shadow:0 12px 40px #0008;pointer-events:none;text-align:center';notice.textContent=(name||'クルー')+' 登頂！';document.body.append(notice);}
     if(notice&&stamp>=noticeUntil){notice.remove();notice=null;}
   }
-  return{root,route,height:gy,update,distanceTo,prepareView,restoreView};
+  return{root,route,height:gy,get visiblePads(){return visiblePads;},update,distanceTo,prepareView,restoreView};
 }
 /* LOBBY_ASCENT_END */

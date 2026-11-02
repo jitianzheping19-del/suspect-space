@@ -63,41 +63,54 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
    const star=mesh(new THREE.OctahedronGeometry(.14+i*.025),i%2?glow:warm,side*(3.3+i*.17),3.50+i*.44,12.55);star.rotation.z=.2+i*.4;
   }
  }
+ // Camera kiosk in front of the deck, with an illuminated rear screen.
+ const station=new THREE.Group();station.name='lobby-photo-camera-station';station.position.set(0,0,7.8);root.add(station);
+ const part=(geometry,material,x,y,z)=>{const n=new THREE.Mesh(geometry,material);n.position.set(x,y,z);station.add(n);return n;};
+ part(new THREE.CylinderGeometry(.13,.22,.12,20),gold,0,.06,0);
+ part(new THREE.CylinderGeometry(.045,.07,1.25,12),shell,0,.72,0);
+ for(const side of [-1,1]){const leg=part(new THREE.CylinderGeometry(.035,.045,.8,8),gold,side*.22,.35,0);leg.rotation.z=side*.62;}
+ part(new THREE.BoxGeometry(.66,.43,.32),shell,0,1.5,0);
+ const lens=part(new THREE.CylinderGeometry(.18,.21,.24,24),gold,0,1.5,.24);lens.rotation.x=Math.PI/2;
+ const glass=part(new THREE.CylinderGeometry(.145,.145,.02,24),new THREE.MeshStandardMaterial({color:0x72bfce,metalness:.8,roughness:.18,emissive:0x153843}),0,1.5,.37);glass.rotation.x=Math.PI/2;
+ part(new THREE.BoxGeometry(.24,.08,.15),warm,0,1.77,.04);
+ part(new THREE.BoxGeometry(.5,.26,.02),glow,0,1.5,-.17);
+ const label=document.createElement('canvas');label.width=512;label.height=160;const labelContext=label.getContext('2d');labelContext.fillStyle='#102735';labelContext.fillRect(0,0,512,160);labelContext.textAlign='center';labelContext.fillStyle='#dffbef';labelContext.font='bold 40px system-ui';labelContext.fillText('写真を保存',256,65);labelContext.font='26px system-ui';labelContext.fillText('撮影後 1分間',256,117);
+ const labelMap=new THREE.CanvasTexture(label);labelMap.colorSpace=THREE.SRGBColorSpace;
+ part(new THREE.PlaneGeometry(1.3,.406),new THREE.MeshBasicMaterial({map:labelMap,side:THREE.DoubleSide,toneMapped:false}),0,2.13,0);
+ addObstacle(0,7.8,.65,.5,1.8,false);
  // Freeze static matrix work. Only the single aurora time uniform changes.
  root.traverse(n=>{n.updateMatrix();n.matrixAutoUpdate=false;});
  let last=-Infinity;
  return{root,spots:rows,update(stamp){if(stamp-last<100)return;last=stamp;aurora.uniforms.time.value=stamp*.001;},dispose(){root.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set();root.traverse(n=>{if(n.geometry)geometries.add(n.geometry);for(const m of Array.isArray(n.material)?n.material:n.material?[n.material]:[]){materials.add(m);if(m.map)textures.add(m.map);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}};
 }
-function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,onStart,crews=()=>[player],ascent=()=>null,circuit=()=>null}){
- const photoCamera=new THREE.PerspectiveCamera(43,16/9,.1,80);photoCamera.position.set(0,5.2,3.0);photoCamera.lookAt(0,2.9,11.8);
- let timer=0,pending=null;const size=new THREE.Vector2();
- const near=()=>Math.abs(player.root.position.x)<4.15&&player.root.position.z>9.1&&player.root.position.z<13.0&&player.root.position.y<1.8;
- // Hide only for this draw so normal lobby visibility survives leaving the
- // deck, cancellation, and labels rebuilt by live voice/roster updates.
+function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[player],ascent=()=>null,circuit=()=>null}){
+ const photoCamera=new THREE.PerspectiveCamera(43,16/9,.1,80);photoCamera.position.set(0,5.2,3);photoCamera.lookAt(0,2.9,11.8);
+ let timer=0,pending=null,preview=false,capturing=false;const size=new THREE.Vector2();
+ const inPhoto=p=>Math.abs(p.x)<4.15&&p.z>9.1&&p.z<13&&p.y<2.8;
+ const near=()=>inPhoto(player.root.position);
  function prepareView(){
-  if(!near()&&!pending)return()=>{};
-  const saved=[],hide=node=>{if(node?.visible){saved.push(node);node.visible=false;}};
-  hide(ascent());
-  const track=circuit();
-  for(const node of [track?.root,track?.skyMap?.root,track?.spaceMap?.root,track?.vehicles])hide(node);
+  if(!near()&&!preview&&!capturing)return()=>{};
+  const saved=[],set=(node,visible)=>{if(node&&node.visible!==visible){saved.push([node,node.visible]);node.visible=visible;}};
+  set(ascent(),false);set(scene.getObjectByName('lobby-photo-camera-station'),false);
+  const track=circuit();for(const node of [track?.root,track?.skyMap?.root,track?.spaceMap?.root,track?.vehicles])set(node,false);
   for(const crew of crews()){
    const data=crew.root?.userData||{};
-   for(const node of [crew.label,data.lobbyNameTag,data.lobbyMicTag,data.lobbyMicCross,data.readyTag,data.connectionIndicator?.root])hide(node);
+   if(capturing)set(crew.root,inPhoto(crew.root.position));else if(preview&&crew===player)set(crew.root,true);
+   for(const node of [crew.label,data.lobbyNameTag,data.lobbyMicTag,data.lobbyMicCross,data.readyTag,data.connectionIndicator?.root])set(node,false);
   }
-  const ownVisible=player.root.visible;if(pending)player.root.visible=true;
-  return()=>{for(const node of saved)node.visible=true;player.root.visible=ownVisible;};
+  return()=>{for(const [node,visible]of saved)node.visible=visible;};
  }
  function render(viewCamera){const restore=prepareView();try{renderer.render(scene,viewCamera);}finally{restore();}}
- function cancel(){clearTimeout(timer);timer=0;pending=null;window.__lobbyPhotoCamera=null;}
+ function cancel(){clearTimeout(timer);timer=0;pending=null;preview=false;capturing=false;window.__lobbyPhotoCamera=null;}
  window.addEventListener('message',event=>{
   if(event.source!==parent)return;const data=event.data||{};
   if(data.type==='lobby-photo-cancel'||data.type==='lobby-render-state'&&data.active!==true){cancel();return;}
-  if(data.type!=='lobby-photo-start'||pending||!near()||typeof data.id!=='string'||data.id.length>100||!Number.isFinite(data.at)||Math.abs(data.at-Date.now()-5000)>3000)return;
-  pending=data.id;onStart?.();window.__lobbyPhotoCamera=photoCamera;
+  if(data.type!=='lobby-photo-start'||pending||typeof data.id!=='string'||data.id.length>100||!Number.isFinite(data.at)||data.at<Date.now()-100||data.at>Date.now()+6000)return;
+  pending=data.id;preview=data.preview===true&&near();if(preview)window.__lobbyPhotoCamera=photoCamera;
   timer=setTimeout(()=>{const id=pending;if(!id)return;
    if(document.hidden||window.SpaceSuspectLobby?.__lobbyRenderActive===false){cancel();parent.postMessage({type:'lobby-photo-error',id},'*');return;}
    const ratio=renderer.getPixelRatio();renderer.getSize(size);const width=size.x,height=size.y;
-   try{renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const image=renderer.domElement.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
+   try{capturing=true;renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const image=renderer.domElement.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
    catch(error){console.warn('集合写真の撮影に失敗しました',error);parent.postMessage({type:'lobby-photo-error',id},'*');}
    finally{renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();render(camera);}
   },Math.max(0,data.at-Date.now()));

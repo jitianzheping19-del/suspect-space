@@ -32,7 +32,8 @@ body .ssGacha .gachaUnknown>span{color:#6a8797;font-family:system-ui;font-size:3
 body .ssGacha .gachaUnknown>strong{color:#7894a3}
 /* Planet-first presentation and an animated 80% owned collection drawer. */
 body .ssGacha .gachaPanel{position:relative;background:radial-gradient(ellipse at 45% 45%,#153345,#060d1b 68%)}
-body .ssGacha .gachaToolbar{position:absolute;left:0;right:0;top:env(safe-area-inset-top);z-index:5;background:linear-gradient(#081522ee,#08152200);border:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body .ssGacha .gachaToolbar{position:absolute;left:env(safe-area-inset-left);right:env(safe-area-inset-right);top:max(8px,env(safe-area-inset-top));padding-right:58px;z-index:5;background:linear-gradient(#081522ee,#08152200);border:0}
 body .ssGacha .gachaContent{display:block;position:absolute;inset:0}
 body .ssGacha .gachaStage{position:absolute;inset:0;overflow:hidden}
 body .ssGacha .gachaStage>canvas{width:100%;height:100%;position:absolute;inset:0}
@@ -51,7 +52,7 @@ body .ssGacha .gachaPlanetTap[hidden]{display:none}
 body .ssGacha .gachaResult:not(.gachaBatchResult){left:30%;right:30%;top:16%;bottom:14%;z-index:6}
 @media(max-height:600px){body .ssGacha .gachaToolbar .gachaCount button{width:135px;height:53px;min-height:53px}body .ssGacha .gachaCount{right:18px;bottom:18px;gap:12px}body .ssGacha .gachaCollectionToggle{padding:6px 10px;font-size:12px}body .ssGacha .gachaResult:not(.gachaBatchResult){left:32%;right:32%;top:15%;bottom:8%}}
 @media(prefers-reduced-motion:reduce){body .ssGacha .gachaSelection{transition:none}}
-body .ssGacha[data-stage=reveal] .gachaCount{visibility:hidden;pointer-events:none}
+body .ssGacha:is([data-stage=drawing],[data-stage=reveal]) .gachaCount{visibility:hidden;pointer-events:none}
 body .ssGacha .gachaResult .gachaResultBack{padding:6px 16px;background:#173142;color:#d5e6e8;border:1px solid #6b8d9d}
 
 /* Choose the draw category directly above the planet. */

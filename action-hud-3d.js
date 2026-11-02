@@ -49,7 +49,11 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   function icon(kind,accent) {
     const model=buildAbilityActionIcon({THREE,kind,accent,geometry,material,basic,polygon,mesh,cube});if(model)return model;
     const group=new THREE.Group(),metal=material(0xdbedf4,{metalness:.7,roughness:.25}),tint=material(accent,{emissive:accent,emissiveIntensity:.2});
-    if(kind==='outfit'){
+    if(kind==='games'){
+      mesh(group,polygon([[-.72,-.38],[-.58,.35],[-.36,.48],[.36,.48],[.58,.35],[.72,-.38],[.48,-.52],[.25,-.22],[-.25,-.22],[-.48,-.52]]),metal);
+      mesh(group,cube,tint,-.32,.13,.2,[.4,.12,.09]);mesh(group,cube,tint,-.32,.13,.2,[.12,.4,.09]);
+      for(const [x,y]of [[.36,.24],[.48,.02]])mesh(group,geometry('gamepad-button',()=>new THREE.SphereGeometry(1,10,8)),tint,x,y,.22,[.1,.1,.06]);
+    }else if(kind==='outfit'){
       mesh(group,polygon([[-.65,.42],[-.3,.65],[-.16,.5],[.16,.5],[.3,.65],[.65,.42],[.44,.14],[.27,.25],[.27,-.6],[-.27,-.6],[-.27,.25],[-.44,.14]]),metal);mesh(group,cube,tint,0,-.05,.18,[.16,.75,.07]);
     }else if(kind==='capsule'){
       mesh(group,geometry('capsule-top',()=>new THREE.SphereGeometry(.56,18,10,0,Math.PI*2,0,Math.PI/2)),tint,0,0,.02);mesh(group,geometry('capsule-bottom',()=>new THREE.SphereGeometry(.56,18,10,0,Math.PI*2,Math.PI/2,Math.PI/2)),metal,0,0,.02);const seam=mesh(group,geometry('capsule-seam',()=>new THREE.TorusGeometry(.56,.025,6,22)),metal);seam.rotation.x=Math.PI/2;
@@ -151,7 +155,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   for(const r of records.values())if(r.spec.utility)observer.observe(r.button,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','disabled','hidden','data-state','data-speaking']});
   const resize=typeof ResizeObserver==='function'?new ResizeObserver(invalidate):null;
   if(root)resize?.observe(root);for(const r of records.values())if(r.spec.utility)resize?.observe(r.button);
-  window.addEventListener('resize',invalidate);window.visualViewport?.addEventListener('resize',invalidate);
+  window.addEventListener('resize',invalidate);window.addEventListener('spaceviewportchange',invalidate);window.visualViewport?.addEventListener('resize',invalidate);window.visualViewport?.addEventListener('scroll',invalidate);
   const hit=event=>records.get(event.target?.closest?.('button')?.id);
   const press=event=>{const r=hit(event);if(r&&!r.button.disabled)r.pressUntil=performance.now()+135;};
   const over=event=>{const r=hit(event);if(r)r.hover=event.pointerType==='mouse';};
@@ -233,7 +237,7 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
     }catch(error){failed=true;setActive(false);console.warn('3D操作ボタンを通常表示へ切り替えました',error);
     }finally{renderer.shadowMap.autoUpdate=shadowAutoUpdate;renderer.shadowMap.needsUpdate=shadowNeedsUpdate;renderer.autoClear=autoClear;renderer.info.autoReset=autoReset;renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(scissorTest);}
   }
-  function dispose(){if(disposed)return;disposed=true;setActive(false);observer.disconnect();resize?.disconnect();window.removeEventListener('resize',invalidate);window.visualViewport?.removeEventListener('resize',invalidate);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',invalidate);document.removeEventListener('pointerdown',press,true);document.removeEventListener('pointerover',over);document.removeEventListener('pointerout',out);for(const r of records.values()){delete r.button.dataset.threeAction;delete r.button.dataset.threeActionLayout;}for(const g of geometries)g.dispose();for(const m of materials)m.dispose();scene.clear();records.clear();}
+  function dispose(){if(disposed)return;disposed=true;setActive(false);observer.disconnect();resize?.disconnect();window.removeEventListener('resize',invalidate);window.removeEventListener('spaceviewportchange',invalidate);window.visualViewport?.removeEventListener('resize',invalidate);window.visualViewport?.removeEventListener('scroll',invalidate);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',invalidate);document.removeEventListener('pointerdown',press,true);document.removeEventListener('pointerover',over);document.removeEventListener('pointerout',out);for(const r of records.values()){delete r.button.dataset.threeAction;delete r.button.dataset.threeActionLayout;}for(const g of geometries)g.dispose();for(const m of materials)m.dispose();scene.clear();records.clear();}
   return {draw,dispose,invalidate,getStats:()=>({active,failed,draws,objects:records.size,geometries:geometries.size,materials:materials.size,
     visible:[...records.values()].filter(r=>r.group.visible).map(r=>({id:r.button.id,width:r.w,height:r.h,disabled:r.disabled,cooldown:r.cooling,cooldownIndices:r.arc.geometry.drawRange.count,spent:r.spent.visible,icon:r.iconKind,pressed:r.press}))})};
 }

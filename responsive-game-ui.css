@@ -1,4 +1,12 @@
 /* Shared layout rules applied after the legacy entrypoint styles. */
+@layer play-action-layout {
+ @media(pointer:coarse) and (min-width:701px) and (max-width:1100px) and (min-height:601px){
+  html body[data-phase="play"] #taskProgressHud:not(.hidden){left:calc(max(8px,env(safe-area-inset-left)) + 174px)!important;right:auto!important;transform:none!important;width:min(260px,calc(100vw - 520px - env(safe-area-inset-left) - env(safe-area-inset-right)))!important;min-width:0!important;}
+  html body[data-phase="meeting"] #meeting #meetingCountdown{position:fixed!important;left:max(8px,env(safe-area-inset-left))!important;right:calc(max(8px,env(safe-area-inset-right)) + 148px)!important;top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;transform:none!important;width:auto!important;max-width:none!important;height:48px!important;box-sizing:border-box!important;margin:0!important;padding:10px!important;}
+  html body[data-phase="meeting"] #meeting .card>#meetingMapBtn:not(.hidden){right:max(8px,env(safe-area-inset-right))!important;top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;width:76px!important;height:48px!important;}
+  html body[data-phase="meeting"].voiceAvailable #voiceToggleBtn{left:auto!important;right:calc(max(8px,env(safe-area-inset-right)) + 84px)!important;top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;width:48px!important;height:48px!important;}
+ }
+}
 /* Keep the phone chat inside one framed column. Older fullscreen rules left
    max-width in place, which clipped result bubbles and removed the housing. */
 @layer play-action-layout {
@@ -399,7 +407,7 @@ html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
   html body[data-phase="play"] #voiceToggleBtn {top:calc(max(8px,env(safe-area-inset-top)) + 52px)!important}
  }
  @media (pointer:coarse) and (max-width:700px) and (orientation:portrait) {
-  html body[data-phase="play"] {--phone-task-width:min(220px,calc(100vw - 152px))}
+  html body[data-phase="play"] {--phone-task-width:min(220px,calc(100vw - 152px - env(safe-area-inset-left) - env(safe-area-inset-right)))}
   html body[data-phase="play"] #taskProgressHud {left:max(8px,env(safe-area-inset-left))!important;top:calc(max(8px,env(safe-area-inset-top)) + 52px)!important}
   html body[data-phase="play"] #roundRoleBtn {left:calc(max(8px,env(safe-area-inset-left)) + var(--phone-task-width) + 6px)!important;top:calc(max(8px,env(safe-area-inset-top)) + 52px)!important}
   html body[data-phase="play"] #role {max-width:calc(100vw - 180px)!important}
