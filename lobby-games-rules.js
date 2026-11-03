@@ -1,4 +1,5 @@
-import {SOCCER_SKILLS,sampleSoccerSkill} from './lobby-soccer-skills.js';
+import {SOCCER_SKILLS,sampleSoccerSkill,sampleSoccerDribble} from './lobby-soccer-skills.js';
+import {SOCCER_PRESS,soccerPressTarget,soccerPressActive,soccerPressThreat,applySoccerPress,stepSoccerPress} from './lobby-soccer-press.js';
 // Shared by the host simulation and the embedded lobby. No browser globals.
 export function createLobbyGamesRules(){
   const SURVIVAL={minX:-36,maxX:-12,minZ:-5,maxZ:14,cols:8,rows:7,tile:2,x:-34,z:-3,top:3,delay:700};
@@ -18,6 +19,10 @@ export function createLobbyGamesRules(){
     return live(p)&&area(p)==='soccer'&&b&&g.status!=='finished'&&(!active(g)||g.status==='playing'&&g.members?.[id]!==undefined)&&time>=Number(b.resetUntil||0)&&distance(p,b)<=1.85&&Math.abs((p.lobbyY||0)+.4-b.y)<1.3&&time-Number(g.kicks?.[id]?.at||0)>=450&&!(g.skills?.[id]&&!g.skills[id].cancelled&&time<g.skills[id].at+SOCCER_SKILLS[g.skills[id].kind]?.duration);
   };
   const canSkill=(s,id,roster,time)=>canKick(s,id,roster,time)&&s.soccer.ball.y<.5&&Math.abs(s.soccer.ball.vy)<1&&(!s.soccer.ball.dribbler||s.soccer.ball.dribbler===id)&&distance(roster[id],s.soccer.ball)<1.2&&time>=Number(s.soccer.skills?.[id]?.cooldownUntil||0);
+  const canDash=(s,id,roster,time)=>{
+    const g=s?.soccer,p=roster[id],skill=g?.skills?.[id];
+    return !!(g&&['idle','playing'].includes(g.status)&&live(p)&&area(p)==='soccer'&&Math.abs(p.lobbyY||0)<.2&&(g.status==='idle'||g.members?.[id]!==undefined)&&time>=Number(g.dashes?.[id]?.readyAt||0)&&!soccerPressActive(g,id,time)&&!(skill&&!skill.cancelled&&time<skill.at+SOCCER_SKILLS[skill.kind]?.duration));
+  };
   function passTarget(s,id,roster,yaw){
     const g=s.soccer,p=roster[id],team=g?.members?.[id];
     if(!p||team===undefined||!active(g)||!Number.isFinite(yaw))return '';
@@ -74,6 +79,9 @@ export function createLobbyGamesRules(){
       const target=tagTarget(s,id,roster,time);
       if(!target||request.target!==target)return fail('タッチできる相手が近くにいません。');
       s.tag.oni=target;s.tag.frozenUntil=time+1000;s.tag.immune[id]=time+5000;s.tag.transfers++;s.tag.lastTouch={from:id,to:target,at:time};
+    }else if(kind==='soccer-dash'){
+      if(!canDash(s,id,roster,time))return fail('体勢を整えてからダッシュできます。');
+      s.soccer.dashes||={};s.soccer.dashes[id]={at:time,until:time+650,readyAt:time+950};
     }else if(kind==='soccer-skill'){
       const skill=Object.hasOwn(SOCCER_SKILLS,request.skill)?SOCCER_SKILLS[request.skill]:null;
       if(!skill||!Number.isFinite(request.yaw)||![1,-1].includes(request.side))return fail('フェイントの入力を確認してください。');
@@ -133,7 +141,7 @@ export function createLobbyGamesRules(){
         if(game.status==='playing'&&(game.practice?Object.keys(game.members).length===0:new Set(Object.values(game.members)).size<2)){game.status='finished';game.endedAt=time;game.cancelled=true;changed=true;}
       }
       const b=game.ball;
-      if(game.status==='countdown'||game.status==='finished'){b.vx=b.vy=b.vz=0;b.dribbler='';game.skills={};}
+      if(game.status==='countdown'||game.status==='finished'){b.vx=b.vy=b.vz=0;b.dribbler='';game.skills={};game.presses={};game.dashes={};}
       else if(time>=b.resetUntil){
         const eligible=id=>live(roster[id])&&area(roster[id])==='soccer'&&(!active(game)||game.members[id]!==undefined);
         for(const [id,k]of Object.entries(game.kicks||{}))if(!k.applied&&time>=k.at+120){
@@ -153,21 +161,31 @@ export function createLobbyGamesRules(){
           const spec=SOCCER_SKILLS[k.kind],p=roster[id];
           if(!spec||!eligible(id)||b.dribbler!==id||distance(p,b)>2||Math.abs(p.lobbyY||0)>.2){k.cancelled=true;changed=true;continue;}
           if(time>=k.at+spec.release){
-            k.released=true;owner='';b.dribbler='';b.vx=Math.sin(k.yaw)*spec.speed;b.vz=Math.cos(k.yaw)*spec.speed;b.vy=spec.lift;b.freeUntil=time+140;b.releaseUntil=time+(k.kind==='heelLift'?430:200);changed=true;
+            k.released=true;changed=true;
+            if(k.kind==='heelLift'){owner='';b.dribbler='';b.vx=Math.sin(k.yaw)*spec.speed;b.vz=Math.cos(k.yaw)*spec.speed;b.vy=spec.lift;b.freeUntil=time+140;b.releaseUntil=time+430;}
+            else game.dribble={uid:id,at:time};
           }
         }
-        if(time>=Number(b.freeUntil||0)&&b.y<.65&&Math.abs(b.vy)<1.5){
+        if(stepSoccerPress(game,roster,time)){changed=true;owner=b.dribbler;}
+        if(!owner&&time>=Number(b.freeUntil||0)&&b.y<.65&&Math.abs(b.vy)<1.5){
           const candidates=Object.keys(roster).filter(id=>eligible(id)&&Math.abs(roster[id].lobbyY||0)<.2&&distance(roster[id],b)<1.05&&!(b.lastTouch===id&&time<Number(b.releaseUntil||0)));
           candidates.sort((a,bid)=>distance(roster[a],b)-distance(roster[bid],b)||a.localeCompare(bid));
           const nearest=candidates[0];
           if(nearest&&(!owner||nearest!==owner&&distance(roster[nearest],b)+.18<distance(roster[owner],b))){owner=nearest;b.dribbler=owner;b.lastTouch=owner;game.dribble={uid:owner,at:time};changed=true;}
         }
         if(owner){
-          const p=roster[owner],skill=game.skills?.[owner],sample=skill&&!skill.cancelled&&!skill.released?sampleSoccerSkill(skill.kind,time-skill.at,skill.side):null,yaw=sample?skill.yaw:Number(p.yaw)||0,phase=(time-Number(game.dribble?.at||time))/1000*12;
-          const reach=.87+(p.walking ? .09*Math.sin(phase) : 0),tx=p.x+Math.sin(yaw)*reach,tz=p.z+Math.cos(yaw)*reach;
+          const p=roster[owner],skill=game.skills?.[owner],sample=skill&&!skill.cancelled&&!skill.released?sampleSoccerSkill(skill.kind,time-skill.at,skill.side):null,yaw=sample?skill.yaw:Number(p.yaw)||0;
+          const control=game.dribble?.uid===owner?game.dribble:(game.dribble={uid:owner,at:time});
+          if(p.walking&&!control.walking&&!sample){control.rollAt=time;const dx=p.x-(control.x??p.x),dz=p.z-(control.z??p.z);control.rollSide=dx*Math.cos(yaw)-dz*Math.sin(yaw)<0?-1:1;}
+          control.walking=!!p.walking;control.x=p.x;control.z=p.z;
+          const touch=sampleSoccerDribble(time-Number(control.at??time),!!p.walking,control.rollAt===undefined?-1:time-control.rollAt,control.rollSide,time<Number(game.dashes?.[owner]?.until||0)),threat=soccerPressThreat(game,owner,time),challenger=threat?Object.entries(game.presses).find(([,v])=>v===threat)?.[0]:null,defender=roster[challenger];
+          // Keep the ball on the far foot while shielding; a skill keeps its authored path.
+          const protect=defender?Math.max(0,1-threat.distance/2.3)*.18:0,away=defender?Math.atan2(p.x-defender.x,p.z-defender.z):yaw;
+          const tx=p.x+Math.sin(yaw)*touch.z+Math.cos(yaw)*touch.x+Math.sin(away)*protect,tz=p.z+Math.cos(yaw)*touch.z-Math.sin(yaw)*touch.x+Math.cos(away)*protect;
           // A damped touch keeps the ball ahead of the feet without teleporting through posts.
           const sx=sample?p.x+Math.sin(yaw)*sample.z+Math.cos(yaw)*sample.x:tx,sz=sample?p.z+Math.cos(yaw)*sample.z-Math.sin(yaw)*sample.x:tz;
-          b.vx=(sx-b.x)*(sample?28:18);b.vz=(sz-b.z)*(sample?28:18);b.vy=sample?(sample.y-b.y)*22:0;
+          const step=Math.max(.001,Math.min(.1,dt)),follow=(1-Math.exp(-(sample?28:18)*step))/step;
+          b.vx=(sx-b.x)*follow;b.vz=(sz-b.z)*follow;b.vy=sample?(sample.y-b.y)*22:0;
           const speed=Math.hypot(b.vx,b.vz);if(speed>15){b.vx*=15/speed;b.vz*=15/speed;}
         }
         const moving=Math.abs(b.vx)+Math.abs(b.vy)+Math.abs(b.vz)>.015||b.y>.301;
@@ -179,7 +197,7 @@ export function createLobbyGamesRules(){
             if(b.y<.3){b.y=.3;b.vy=Math.abs(b.vy)>.8?-b.vy*.48:0;}
             const drag=Math.exp(-(b.y<=.301 ? .45 : .18)*h);b.vx*=drag;b.vz*=drag;
             if(b.y<1.5)for(const [id,p]of Object.entries(roster)){
-              if(!eligible(id)||id===b.dribbler||Math.abs((p.lobbyY||0)+.4-b.y)>1.1||b.lastTouch===id&&time<Number(b.releaseUntil||0))continue;
+              if(b.dribbler||!eligible(id)||Math.abs((p.lobbyY||0)+.4-b.y)>1.1||b.lastTouch===id&&time<Number(b.releaseUntil||0)||time<Number(b.contestUntil||0)&&id!==b.contestOwner)continue;
               const d=distance(p,b);if(d>=.72)continue;
               const nx=d>.001?(b.x-p.x)/d:Math.sin(Number(p.yaw)||0),nz=d>.001?(b.z-p.z)/d:Math.cos(Number(p.yaw)||0);
               b.x=p.x+nx*.72;b.z=p.z+nz*.72;
@@ -217,5 +235,5 @@ export function createLobbyGamesRules(){
     }
     if(changed){s.at=time;s.revision++;}return changed;
   }
-  return {SURVIVAL,SOCCER,QUEUE,inside,area,live,active,ball,fresh,tileAt,tilePoint,distance,canKick,canSkill,passTarget,tagTarget,command,step,goalContact,goalSegments};
+  return {SURVIVAL,SOCCER,QUEUE,inside,area,live,active,ball,fresh,tileAt,tilePoint,distance,canKick,canSkill,canDash,passTarget,tagTarget,command,step,goalContact,goalSegments,pressTarget:soccerPressTarget,pressActive:soccerPressActive,pressThreat:soccerPressThreat,pressInput:applySoccerPress};
 }

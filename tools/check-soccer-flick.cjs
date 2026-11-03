@@ -12,7 +12,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
   const page=await browser.newPage({viewport:{width,height},hasTouch:true,isMobile:true});await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#174b39}#stick{position:fixed;bottom:30px;left:20px;width:90px;height:90px;touch-action:none}</style><div id="stick"><div id="knob"></div></div><div id="setup" class="hidden"></div><div id="controls"></div>');await page.clock.install();
   await page.addStyleTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.css')).text});await page.addScriptTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.js')).text});
   await page.addScriptTag({content:'const code="test",game={phase:"lobby"};'+inputFixture+reset+stick+'const touchActionButtons='+filter});
-  await page.evaluate(()=>{window.ctx={visible:true,enabled:true,canSkill:true,yaw:0,rightX:1,rightZ:0,forwardX:0,forwardZ:1};window.commands=[];window.flick=Flick.createSoccerFlickControls({document,window,context:()=>ctx,send:(kind,data)=>commands.push({kind,...data})});flick.update();});
+  await page.evaluate(()=>{window.ctx={visible:true,enabled:true,canSkill:true,canDash:true,hasBall:true,canPress:false,yaw:0,rightX:1,rightZ:0,forwardX:0,forwardZ:1};window.commands=[];window.flick=Flick.createSoccerFlickControls({document,window,context:()=>ctx,send:(kind,data)=>commands.push({kind,...data})});flick.update();});
   assert.equal(await page.locator('#soccerFlickZone button').count(),0);
   const rect=await page.locator('#soccerFlickZone').boundingBox(),x=rect.x+rect.width*.5,y=rect.y+rect.height*.45,cdp=await page.context().newCDPSession(page);
   async function stroke(points,hold=0,cancel=false){await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:x+points[0][0],y:y+points[0][1]}]});if(hold)await page.clock.runFor(hold);for(const [dx,dy]of points.slice(1)){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx,y:y+dy}]});await page.clock.runFor(12);}await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await page.clock.runFor(30);}
@@ -35,9 +35,9 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    const move=await page.evaluate(()=>commands.at(-1));assert.equal(move.skill,skill);assert.equal(move.yaw,.8,'skill uses facing at the right press');assert.equal(move.side,dx<0?-1:1);assert.equal(await count(),++expected);
    await touches('touchMove',[...(held?[right]:[]),left(-dx,-dz)]);await page.clock.runFor(1200);await touches('touchEnd',[]);assert.equal(await count(),expected,'one skill, no extra shot on release');
   }
-  // An already held direction is ignored until the stick changes direction.
-  await touches('touchStart',[left(0,-1)]);await touches('touchStart',[left(0,-1),right]);await page.clock.runFor(200);assert.equal(await count(),expected);
-  await touches('touchMove',[left(1,0),right]);assert.equal((await page.evaluate(()=>commands.at(-1))).skill,'roulette');assert.equal(await count(),++expected);await touches('touchEnd',[]);
+  // With the stick already held, a right tap dashes instead of selecting a skill.
+  await touches('touchStart',[left(0,-1)]);await touches('touchStart',[left(0,-1),right]);await touches('touchEnd',[right]);
+  assert.equal((await page.evaluate(()=>commands.at(-1))).kind,'soccer-dash');assert.equal(await count(),++expected);await touches('touchEnd',[]);
   // Cancels and expired taps must not leave a queued skill behind.
   for(const cancel of ['expiry','cancel','blur','disabled','possession','exit']){
    await touches('touchStart',[right]);await touches(cancel==='cancel'?'touchCancel':'touchEnd',[]);
@@ -48,6 +48,24 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    if(cancel==='possession'){await page.evaluate(()=>{ctx.canSkill=false;});await page.clock.runFor(35);await page.evaluate(()=>{ctx.canSkill=true;});}
    await touches('touchStart',[left()]);await touches('touchMove',[left(0,1)]);await touches('touchEnd',[]);assert.equal(await count(),expected,cancel+' clears queued skill');
   }
+  const button=page.locator('#soccerFeintBtn'),brect=await button.boundingBox(),finger={id:3,x:brect.x+brect.width/2,y:brect.y+brect.height/2};
+  assert(brect.x>width/2&&brect.x+brect.width<=width&&brect.y+brect.height<=height);assert(Math.abs(brect.width-brect.height)<1,'round button');
+  await touches('touchStart',[finger]);await touches('touchEnd',[]);assert.equal(await count(),++expected);assert.equal((await page.evaluate(()=>commands.at(-1))).skill,'doubleTouch');
+  await touches('touchStart',[left()]);assert.equal(await button.getAttribute('data-mode'),'dash');
+  await touches('touchMove',[left(-1,0)]);await touches('touchStart',[left(-1,0),finger]);await touches('touchEnd',[]);assert.equal(await count(),++expected);assert.equal((await page.evaluate(()=>commands.at(-1))).kind,'soccer-dash');
+  await page.evaluate(()=>{ctx.hasBall=false;ctx.canSkill=false;ctx.enabled=false;ctx.canPress=true;flick.update();});assert.equal(await button.getAttribute('data-mode'),'press');
+  await touches('touchStart',[finger]);await touches('touchEnd',[]);assert.equal(await count(),expected,'quick press tap does not tackle');
+  await touches('touchStart',[finger]);await page.clock.runFor(230);assert.equal(await count(),++expected);assert.equal((await page.evaluate(()=>commands.at(-1))).held,true);
+  await page.clock.runFor(500);const renewed=await count();assert(renewed>expected,'held press renews');expected=renewed;
+  await touches('touchEnd',[]);assert.equal(await count(),++expected);assert.equal((await page.evaluate(()=>commands.at(-1))).held,false);await page.clock.runFor(900);assert.equal(await count(),expected);
+  // Possession change stops the held press without turning the release into a feint.
+  await touches('touchStart',[finger]);await page.clock.runFor(230);expected++;
+  await page.evaluate(()=>{ctx.hasBall=true;ctx.canSkill=true;ctx.enabled=true;ctx.canPress=false;flick.update();});assert.equal(await count(),++expected);assert.equal((await page.evaluate(()=>commands.at(-1))).held,false);await touches('touchEnd',[]);assert.equal(await count(),expected);
+  // A keyboard hold is also released on blur; hidden/exited controls stay inert.
+  await page.evaluate(()=>{ctx.hasBall=false;ctx.canSkill=false;ctx.canPress=true;flick.update();});await button.focus();await page.keyboard.down('Space');await page.clock.runFor(230);expected++;
+  await page.evaluate(()=>window.dispatchEvent(new Event('blur')));assert.equal(await count(),++expected);assert.equal((await page.evaluate(()=>commands.at(-1))).held,false);await page.keyboard.up('Space');
+  await page.evaluate(()=>{ctx.hasBall=true;ctx.canSkill=true;ctx.canPress=false;flick.update();});
+  console.log('PASS round button modes, tap vs hold, second finger dash, release, possession transition and blur',width,height);
   // Right-side passing and shooting still work after using skills.
   await stroke([[0,0],[0,-55]]);assert.equal((await page.evaluate(()=>commands.at(-1))).mode,'pass');expected++;
   await stroke([[0,0],[55,0]],500);assert.equal((await page.evaluate(()=>commands.at(-1))).mode,'shot');expected++;

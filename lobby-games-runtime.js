@@ -6,7 +6,15 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   const rules=createLobbyGamesRules();
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
   let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='',feedback='',feedbackUntil=0;
-  const flickControls=createSoccerFlickControls({document,window,context:()=>({visible:context().enabled&&localArea==='soccer'&&!rules.active(state?.tag),enabled:!!action.enabled&&!pending,canSkill:!!action.canSkill,pending:!!pending,yaw:action.yaw||0,rightX:action.rightX??1,rightZ:action.rightZ??0,forwardX:action.forwardX??0,forwardZ:action.forwardZ??1}),send:(kind,data)=>request(kind,data)});
+  let pressSerial=0,pressWrite=Promise.resolve();
+  function soccerControlContext(){
+    const c=context(),g=state?.soccer,t=clock(),press=g?.presses?.[c.uid],target=rules.pressTarget(g,c.uid,c.players,t),owner=g?.ball?.dribbler;
+    const recovering=!!press?.outcome&&t<press.recoverUntil;
+    const duel=Object.entries(g?.presses||{}).filter(([id,p])=>(id===c.uid||p.target===c.uid)&&p.contact&&t-p.contact.at<1400).sort((a,b)=>b[1].contact.at-a[1].contact.at)[0];
+    const feedback=duel?{at:duel[1].contact.at,result:duel[1].result,text:duel[0]===c.uid?({won:'ボール奪取！',evaded:'かわされた',shielded:'身体でブロックされた',miss:'届かなかった'}[duel[1].result]):({won:'ボールを奪われた',evaded:'フェイント成功',shielded:'ボールをキープ',miss:'プレスを回避'}[duel[1].result])}:null;
+    return {visible:c.enabled&&localArea==='soccer'&&!rules.active(state?.tag),enabled:!!action.enabled&&!pending,canSkill:!!action.canSkill,canDash:rules.canDash(state,c.uid,c.players,t)&&!pending,dashing:t<Number(g?.dashes?.[c.uid]?.until||0),hasBall:owner===c.uid,canPress:!!target&&!recovering,press:press?.held?press:null,recovering,duel:feedback,teammateBall:!!owner&&owner!==c.uid&&g?.status==='playing'&&g.members?.[owner]===g.members?.[c.uid],pending:!!pending,yaw:action.yaw||0,rightX:action.rightX??1,rightZ:action.rightZ??0,forwardX:action.forwardX??0,forwardZ:action.forwardZ??1};
+  }
+  const flickControls=createSoccerFlickControls({document,window,context:soccerControlContext,send:(kind,data)=>request(kind,data),sendPress:requestPress});
   const panel=document.createElement('section');panel.id='lobbyMiniGamePanel';panel.className='hidden';panel.setAttribute('aria-label','ロビーの遊び');
   const title=document.createElement('strong'),status=document.createElement('div'),buttons=document.createElement('div');buttons.className='miniGameButtons';panel.append(title,status,buttons);document.body.append(panel);
   const start=document.createElement('button'),stop=document.createElement('button'),exit=document.createElement('button');
@@ -30,6 +38,20 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   const send=value=>frame()?.postMessage(value,'*');
   const worldRoster=c=>c.players;
+  function acceptPress(command){
+    const c=context();if(!ownHost||!state||!c.enabled||command.owner!==c.host||!rules.live(c.players[command.uid]))return;
+    if(rules.pressInput(state.soccer,command,c.players,clock())){state.at=clock();state.revision++;dirty=true;}
+  }
+  function requestPress(held){
+    const c=context();frame()?.postMessage({type:'lobby-soccer-press-intent',held},'*');
+    if(!c.enabled||!c.uid||!c.room)return;
+    const command={uid:c.uid,owner:c.host,held,serial:pressSerial=Math.max(pressSerial+1,Math.floor(clock())),at:clock()};
+    if(ownHost){acceptPress(command);return;}
+    try{transport()?.publishEphemeral({kind:'lobby-games-press',command},[c.host],{latest:true});}catch{}
+    // Ordered fallback writes ensure release cannot be overwritten by an older heartbeat.
+    const path=`rooms/${c.room}/players/${c.uid}`;
+    pressWrite=pressWrite.catch(()=>{}).then(()=>update(ref(db(),path),{lobbyPressCommand:command})).catch(()=>{});
+  }
   function error(message){feedback=message;feedbackUntil=clock()+6000;render();if(clock()-lastError>2500){lastError=clock();toast(message);}}
   async function request(kind,extra={}){
     const c=context();if(!c.enabled||!c.uid||pending)return;
@@ -57,6 +79,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     if(!payload?.kind?.startsWith('lobby-games-'))return false;
     const c=context();if(!c.enabled)return true;
     if(payload.kind==='lobby-games-command'&&ownHost&&payload.command?.uid===meta.from)accept(payload.command);
+    if(payload.kind==='lobby-games-press'&&ownHost&&payload.command?.uid===meta.from)acceptPress(payload.command);
     if(payload.kind==='lobby-games-state'&&meta.from===c.host&&!ownHost&&payload.state?.owner===c.host&&Number(payload.state.at)>=Number(state?.at||0))state=payload.state;
     if(payload.kind==='lobby-games-result'&&meta.from===c.host)acknowledge(payload);
     return true;
@@ -136,7 +159,10 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     if(pending&&state?.seen?.[c.uid]===pending.id)pending=null;
     if(pending&&t>pending.until){pending=null;error('操作の返答がありません。もう一度お試しください。');}
     if(ownHost){
-      for(const [id,p]of Object.entries(c.players))if(p.lobbyGameCommand?.uid===id&&state.seen[id]!==p.lobbyGameCommand.id)accept(p.lobbyGameCommand);
+      for(const [id,p]of Object.entries(c.players)){
+        if(p.lobbyGameCommand?.uid===id&&state.seen[id]!==p.lobbyGameCommand.id)accept(p.lobbyGameCommand);
+        if(p.lobbyPressCommand?.uid===id)acceptPress(p.lobbyPressCommand);
+      }
       const dt=Math.min(.1,Math.max(0,(t-lastStep)/1000)),steps=Math.max(1,Math.ceil(dt/(1/60)));
       for(let i=0;i<steps;i++)dirty=rules.step(state,c.players,t-dt*1000+(i+1)*dt*1000/steps,dt/steps)||dirty;
       if(t-lastSend>=50&&(dirty||t-lastSend>=2000)){
@@ -157,5 +183,5 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   const timer=setInterval(()=>void tick(),50);
   window.addEventListener('pagehide',event=>{if(!event.persisted)clearInterval(timer);});
-  return {handleFrame,receive,use,decorateAction,get area(){return localArea;},rules,request};
+  return {handleFrame,receive,use,decorateAction,get area(){return localArea;},rules,request,requestPress};
 }
