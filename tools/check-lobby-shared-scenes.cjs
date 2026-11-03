@@ -47,11 +47,17 @@ const {build}=require('esbuild'),{chromium}=require('playwright');
   await page.waitForTimeout(120);
   await page.evaluate(()=>window.postMessage({type:'lobby-photo-start',id:'shared-shot',at:Date.now()+400,preview:true},'*'));
   await page.waitForFunction(()=>!!window.__lobbyPhotoCamera);
+  const framing=await page.evaluate(()=>{
+   const overhead=QA.scene.getObjectByName('lobby-overhead-sculpture'),station=QA.scene.getObjectByName('lobby-photo-camera-station'),wasVisible=overhead.visible;
+   const restore=window.__lobbyPhotoView.prepareView(),clear=!overhead.visible,stationVisible=station.visible;restore();
+   return{clear,stationVisible,restored:overhead.visible===wasVisible};
+  });assert(framing.clear&&framing.stationVisible&&framing.restored,'photo view hides overhead sculpture and restores it after rendering');
   const moved=await page.evaluate(()=>{const start=QA.player.root.position.x;window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyD',key:'d'}));return start;});
   await page.waitForTimeout(120);await page.evaluate(()=>window.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyD',key:'d'})));
   assert.notEqual(await page.evaluate(()=>QA.player.root.position.x),moved,'movement works during countdown');
   await page.waitForFunction(()=>received.some(d=>d.type==='lobby-photo-result'&&d.id==='shared-shot'));
   const photo=await page.evaluate(()=>received.find(d=>d.type==='lobby-photo-result'&&d.id==='shared-shot').image);if(dir)fs.writeFileSync(dir+'/shared-photo.png',Buffer.from(photo.split(',')[1],'base64'));
+  const dimensions=await page.evaluate(async source=>{const image=new Image();image.src=source;await image.decode();return[image.naturalWidth,image.naturalHeight];},photo);assert.deepEqual(dimensions,[1280,720]);
   assert.equal(await page.evaluate(()=>window.__lobbyPhotoCamera),null);
   const station=await page.evaluate(()=>!!QA.scene.getObjectByName('lobby-photo-camera-station'));assert(station);
   console.log('PASS photo capture in actual lobby, camera station, movement during shared countdown, camera restored');

@@ -46,3 +46,11 @@ assert.deepEqual(Object.keys(state.photo.members).sort(),['guest','host']);asser
 assert.equal(photo('host','concurrent',T+50).ok,false,'only one shared countdown');
 R.step(state,people,T+64999,1/60);assert(state.photo);R.step(state,people,T+65000,1/60);assert.equal(state.photo,null);
 console.log('PASS photo participant selection, shared shutter, concurrent starts and one-minute expiry');
+
+const bg=(uid,id,background,at=T)=>R.command(R.fresh('host',T),{uid,id,kind:'photo-background',background,at},people,'host',new Set(['guest']),at);
+assert.equal(bg('guest','denied','rose').ok,false,'admin guest cannot change backgrounds');assert.equal(bg('host','invalid','unknown').ok,false);
+const themed=bg('host','theme','sunset');assert(themed.ok);assert.equal(themed.state.photoBackground,'sunset');
+const atCamera={...people,host:player(-4.1,8.0)};
+const cameraShot=R.command(themed.state,{uid:'host',id:'camera',kind:'photo-start',at:T},atCamera,'host',new Set(),T);assert(cameraShot.ok);assert.equal(cameraShot.state.photo.background,'sunset');assert(cameraShot.state.photo.members.host);
+assert.equal(R.command(cameraShot.state,{uid:'host',id:'busy-background',kind:'photo-background',background:'moon',at:T+100},atCamera,'host',new Set(),T+100).ok,false,'background locked through shutter');
+console.log('PASS host-only background validation, invalid theme rejection, camera start and fixed shot backdrop');

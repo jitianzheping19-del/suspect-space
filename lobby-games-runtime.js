@@ -1,10 +1,12 @@
 import {createLobbyGamesRules} from './lobby-games-rules.js';
+import {createSoccerFlickControls} from './lobby-soccer-flick.js';
 import './lobby-games.css';
 
 export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transport,toast,onAreaChange=()=>{},onPhoto=()=>{},clock=Date.now}){
   const rules=createLobbyGamesRules();
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
   let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='',feedback='',feedbackUntil=0;
+  const flickControls=createSoccerFlickControls({document,window,context:()=>({visible:context().enabled&&localArea==='soccer'&&!rules.active(state?.tag),enabled:!!action.enabled&&!pending,canSkill:!!action.canSkill,pending:!!pending,yaw:action.yaw||0,rightX:action.rightX??1,rightZ:action.rightZ??0,forwardX:action.forwardX??0,forwardZ:action.forwardZ??1}),send:(kind,data)=>request(kind,data)});
   const panel=document.createElement('section');panel.id='lobbyMiniGamePanel';panel.className='hidden';panel.setAttribute('aria-label','ロビーの遊び');
   const title=document.createElement('strong'),status=document.createElement('div'),buttons=document.createElement('div');buttons.className='miniGameButtons';panel.append(title,status,buttons);document.body.append(panel);
   const start=document.createElement('button'),stop=document.createElement('button'),exit=document.createElement('button');
@@ -64,7 +66,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     if(!data?.type?.startsWith('lobby-games-'))return false;
     const c=context();if(!c.enabled)return true;
     if(data.type==='lobby-games-action'&&['lobby','survival','soccer'].includes(data.area)){
-      action={enabled:data.enabled===true,target:typeof data.target==='string'?data.target:'',yaw:Number.isFinite(data.yaw)?data.yaw:0,passTarget:typeof data.passTarget==='string'?data.passTarget:''};const changed=localArea!==data.area;localArea=data.area;if(changed)onAreaChange();decorateAction();render();
+      action={enabled:data.enabled===true,canSkill:data.canSkill===true,target:typeof data.target==='string'?data.target:'',yaw:Number.isFinite(data.yaw)?data.yaw:0,passTarget:typeof data.passTarget==='string'?data.passTarget:'',...Object.fromEntries(['rightX','rightZ','forwardX','forwardZ'].filter(k=>Number.isFinite(data[k])).map(k=>[k,data[k]]))};const changed=localArea!==data.area;localArea=data.area;if(changed)onAreaChange();decorateAction();render();
     }else if(data.type==='lobby-games-command'&&['kick','tag'].includes(data.kind))request(data.kind,{yaw:Number(data.yaw)||0,target:String(data.target||'')});
     return true;
   }
@@ -74,7 +76,8 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   function use(){if(!context().enabled||localArea!=='soccer')return false;if(action.enabled)request('kick',{yaw:action.yaw});return true;}
   function render(){
-    const c=context();onPhoto(c.enabled?state?.photo:null);const enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
+    flickControls.update();
+    const c=context();onPhoto(c.enabled?state?.photo:null,state?.photoBackground||'aurora');const enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
     const participation=enabled&&rules.live(c.players[c.uid])&&Object.entries({tag:state?.tag,survival:state?.survival,soccer:state?.soccer}).find(([,g])=>rules.active(g)&&Object.hasOwn(g.members||{},c.uid));
     if(participation){if(document.body.dataset.lobbyMinigame!==participation[0])document.body.dataset.lobbyMinigame=participation[0];}
     else if(document.body.hasAttribute('data-lobby-minigame'))delete document.body.dataset.lobbyMinigame;
@@ -128,7 +131,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
       render();lastStep=t;return;
     }
     const key=c.room+':'+c.host;
-    if(key!==roomKey){roomKey=key;ownHost=c.uid===c.host;state=ownHost?rules.fresh(c.uid,t):null;lastWrite=lastSend=0;lastFrame='';dirty=ownHost;pending=null;lastRequestId=reportedResult=feedback='';feedbackUntil=0;lastStep=t;}
+    if(key!==roomKey){roomKey=key;ownHost=c.uid===c.host;state=ownHost?rules.fresh(c.uid,t):null;if(ownHost&&['aurora','sunset','moon','rose'].includes(c.snapshot?.photoBackground))state.photoBackground=c.snapshot.photoBackground;lastWrite=lastSend=0;lastFrame='';dirty=ownHost;pending=null;lastRequestId=reportedResult=feedback='';feedbackUntil=0;lastStep=t;}
     if(!ownHost&&c.snapshot?.owner===c.host&&Number(c.snapshot.at)>=Number(state?.at||0))state=c.snapshot;
     acknowledge(state?.results?.[c.uid]);
     if(pending&&state?.seen?.[c.uid]===pending.id)pending=null;
