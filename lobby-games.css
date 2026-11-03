@@ -49,10 +49,11 @@ body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"][data-thre
  html body[data-phase="lobby"][data-lobby-minigame="tag"] #lobbyUseBtn{display:none!important;}
 }
 #lobbySoccerScore[hidden]{display:none!important}
-#lobbySoccerScore{position:fixed;z-index:112;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:min(460px,calc(100vw - 24px));box-sizing:border-box;padding:9px 18px;color:#f5f8ff;background:linear-gradient(110deg,#143954f2,#141e30f2 50%,#522b40f2);border:1px solid #9bc4dd80;border-radius:18px;box-shadow:0 8px 24px #0005;text-align:center;font:700 16px system-ui}
-#lobbySoccerScore details{font-size:12px;font-weight:500}#lobbySoccerScore summary{cursor:pointer;padding:6px 10px;min-height:24px;touch-action:manipulation}#lobbySoccerScore p{margin:6px 0;overflow-wrap:anywhere}#lobbySoccerScore [data-team="0"]{color:#a0dcff}#lobbySoccerScore [data-team="1"]{color:#ffb8c5}
+#lobbySoccerScore{position:fixed;z-index:112;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));width:max-content;max-width:calc(100vw - 108px);box-sizing:border-box;padding:9px 18px;color:#f5f8ff;background:linear-gradient(110deg,#143954f2,#141e30f2 50%,#522b40f2);border:1px solid #9bc4dd80;border-radius:18px;box-shadow:0 8px 24px #0005;text-align:center;font:700 16px system-ui}
+.soccerScoreActions{display:flex;gap:6px;justify-content:flex-start}.soccerScoreActions:empty{display:none}.soccerScoreActions button{margin-top:6px;min-height:34px;padding:4px 9px;border:1px solid #8db1c4;border-radius:8px;color:#eaf7ff;background:#17384c;font:600 11px system-ui;touch-action:manipulation}.soccerScoreActions button[hidden]{display:none!important}
 body.lobbySoccerRoom #lobbyRoomCode{visibility:hidden!important}
-#lobbySoccerScore details[open]{max-height:30dvh;overflow:auto}
+#lobbyMiniGamePanel.hidden{display:none!important}
+@media(max-width:500px){#lobbySoccerScore{font-size:14px;padding:7px 10px}}
 @layer play-action-layout {
  html body[data-phase="lobby"].lobbySoccerRoom #lobbyMiniGamePanel{top:auto!important;left:50%!important;bottom:150px!important;transform:translateX(-50%)!important;width:min(300px,54vw)!important;}
  @media(max-height:500px){html body[data-phase="lobby"].lobbySoccerRoom #lobbyMiniGamePanel{bottom:max(9px,env(safe-area-inset-bottom))!important;width:min(310px,calc(100vw - 344px))!important;}}

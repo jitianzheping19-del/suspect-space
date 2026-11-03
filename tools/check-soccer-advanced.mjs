@@ -28,3 +28,6 @@ assert.deepEqual(classifySoccerGesture(points([[0,0],[0,35],[0,-45]])),{skill:'h
 const arc=Array.from({length:15},(_,i)=>({x:Math.cos(i/14*Math.PI)*40,y:Math.sin(i/14*Math.PI)*40}));assert.equal(classifySoccerGesture(arc).skill,'roulette');
 assert.equal(classifySoccerGesture(points([[0,0],[40,0],[70,0]])),null);assert.equal(classifySoccerGesture(points([[0,0],[2,0]])),null);
 console.log('PASS skill validation, possession interruption, explicit shot power and advanced gesture recognition');
+
+for(const side of [-1,1]){const loose=[[0,0],[12*side,5],[25*side,14],[36*side,-7],[42*side,-36]];assert.deepEqual(classifySoccerGesture(points(loose)),{skill:'doubleTouch',side});}
+console.log('PASS rounded and diagonal double-touch gestures on both sides');

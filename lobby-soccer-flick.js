@@ -19,7 +19,7 @@ export function createSoccerFlickControls({document,window,context,send,clock=()
   if(!c.enabled){notice(c.pending?'操作を送信中…':'ボールに近づいて操作');return;}
   const rect=zone.getBoundingClientRect();gesture={id:event.pointerId,at:clock(),points:[{x:event.clientX,y:event.clientY}],rect,basis:c};zone.setPointerCapture?.(event.pointerId);zone.classList.add('holding');draw();
  },{passive:false});
- zone.addEventListener('pointermove',event=>{if(!gesture||event.pointerId!==gesture.id)return;event.preventDefault();event.stopPropagation();const points=gesture.points,p={x:event.clientX,y:event.clientY};if(Math.hypot(p.x-points.at(-1).x,p.y-points.at(-1).y)>3){points.push(p);if(points.length>100)points.splice(1,1);}},{passive:false});
+ zone.addEventListener('pointermove',event=>{if(!gesture||event.pointerId!==gesture.id)return;event.preventDefault();event.stopPropagation();const points=gesture.points,samples=event.getCoalescedEvents?.()||[];for(const sample of samples.length?samples:[event]){const p={x:sample.clientX,y:sample.clientY};if(Math.hypot(p.x-points.at(-1).x,p.y-points.at(-1).y)>3){points.push(p);if(points.length>100)points.splice(1,1);}}},{passive:false});
  zone.addEventListener('pointerup',event=>{
   if(!gesture||event.pointerId!==gesture.id)return;event.preventDefault();event.stopPropagation();const g=gesture,c=context(),age=clock()-g.at;
   const end={x:event.clientX,y:event.clientY};if(Math.hypot(end.x-g.points.at(-1).x,end.y-g.points.at(-1).y)>3)g.points.push(end);

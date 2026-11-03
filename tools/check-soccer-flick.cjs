@@ -16,8 +16,9 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
   await stroke([[0,0],[30,0],[40,0],[40,-35],[40,-50]]);assert.equal(await page.evaluate(()=>commands.at(-1).skill),'doubleTouch');
   await stroke([[0,0],[0,30],[0,40],[0,0],[0,-40]]);assert.equal(await page.evaluate(()=>commands.at(-1).skill),'heelLift');
   await stroke(Array.from({length:15},(_,i)=>[Math.cos(i/14*Math.PI)*40,Math.sin(i/14*Math.PI)*40]));assert.equal(await page.evaluate(()=>commands.at(-1).skill),'roulette');
-  await stroke([[0,0],[50,0]],0,true);assert.equal(await page.evaluate(()=>commands.length),5);
-  await page.evaluate(()=>{ctx.enabled=false;flick.update();});await stroke([[0,0],[55,0]]);assert.equal(await page.evaluate(()=>commands.length),5);
+  for(const side of [-1,1]){await stroke([[0,0],[12*side,5],[25*side,14],[36*side,-7],[42*side,-36]]);const move=await page.evaluate(()=>commands.at(-1));assert.equal(move.skill,'doubleTouch');assert.equal(move.side,side);}
+  await stroke([[0,0],[50,0]],0,true);assert.equal(await page.evaluate(()=>commands.length),7);
+  await page.evaluate(()=>{ctx.enabled=false;flick.update();});await stroke([[0,0],[55,0]]);assert.equal(await page.evaluate(()=>commands.length),7);
   await page.evaluate(()=>{ctx.visible=false;flick.update();});assert(await page.locator('#soccerFlickZone').isHidden());
   console.log('PASS flick pass/charged shot, three gestures, cancel and inactive guard',width,height);await page.close();
  }}finally{await browser.close();}

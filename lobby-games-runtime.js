@@ -15,9 +15,8 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   const touch=document.createElement('button');touch.id='lobbyTagTouchBtn';touch.textContent='タッチ';touch.className='hidden';document.body.append(touch);
   const countdown=document.createElement('div');countdown.id='lobbyMiniGameCountdown';countdown.hidden=true;countdown.setAttribute('role','status');countdown.setAttribute('aria-live','polite');countdown.setAttribute('aria-atomic','true');
   const countdownLabel=document.createElement('span'),countdownNumber=document.createElement('strong');countdown.append(countdownLabel,countdownNumber);document.body.append(countdown);
-  const score=document.createElement('section');score.id='lobbySoccerScore';score.hidden=true;score.setAttribute('aria-label','フットサルの得点とチーム');
-  const scoreline=document.createElement('strong'),teams=document.createElement('details'),summary=document.createElement('summary'),teamNames=document.createElement('div');
-  summary.textContent='チームを見る';teams.append(summary,teamNames);score.append(scoreline,teams);document.body.append(score);
+  const score=document.createElement('section');score.id='lobbySoccerScore';score.hidden=true;score.setAttribute('aria-label','フットサルの得点と残り時間');
+  const scoreline=document.createElement('strong'),scoreActions=document.createElement('div');scoreActions.className='soccerScoreActions';score.append(scoreline,scoreActions);document.body.append(score);
   toggle.onclick=()=>{menuOpen=!menuOpen;render();};
   start.onclick=()=>request('start-'+(localArea==='lobby'?'tag':localArea));
   stop.onclick=()=>request('stop',{game:rules.active(state?.tag)||localArea==='lobby'?'tag':localArea});
@@ -86,12 +85,12 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     if(!score.hidden){
       const g=state?.soccer,remaining=g?.status==='playing'?Math.max(0,Math.ceil((g.endAt-clock())/1000)):180;
       scoreline.textContent=`青 ${g?.score?.[0]||0} — ${g?.score?.[1]||0} 赤 · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
-      const names=[0,1].map(team=>Object.entries(g?.members||{}).filter(([id,t])=>t===team&&rules.live(c.players[id])).map(([id])=>(c.players[id].name||'クルー')+(id===c.uid?'（あなた）':'')).join('・')||'待機中');
-      const key=JSON.stringify(names);if(teamNames.dataset.names!==key){teamNames.dataset.names=key;teamNames.replaceChildren(...names.map((names,team)=>{const row=document.createElement('p');row.dataset.team=String(team);row.textContent=(team===0?'青：':'赤：')+names;return row;}));}
-    }else teams.open=false;
+    }
     const playing=rules.active(game),canStart=!!c.uid&&c.uid===c.host,inRoom=localArea!=='lobby';
+    const soccerPlaying=localArea==='soccer'&&!tagPlaying&&playing;
+    const actionsParent=soccerPlaying?scoreActions:buttons;if(stop.parentNode!==actionsParent)actionsParent.append(stop,exit);
     if(!canStart)menuOpen=false;
-    panel.classList.toggle('hidden',!enabled||!inRoom&&!rules.active(tag)&&!menuOpen);
+    panel.classList.toggle('hidden',!enabled||soccerPlaying||!inRoom&&!rules.active(tag)&&!menuOpen);
     toggle.classList.toggle('hidden',!enabled||!canStart||inRoom||rules.active(tag));
     document.body.classList.toggle('lobbyMiniGameOpen',enabled&&(inRoom||rules.active(tag)||menuOpen));
     document.body.classList.toggle('lobbyTagPlaying',enabled&&tagPlaying);

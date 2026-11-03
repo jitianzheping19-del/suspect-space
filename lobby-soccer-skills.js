@@ -9,19 +9,25 @@ export function sampleSoccerSkill(kind,age,side=1){
  const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
  const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>v+(b[j+1]-v)*u);};
  const p=age/skill.duration,w=Math.sin(Math.PI*p),s=side<0?-1:1;
- let points,turn=0,left=0,right=0,lean=0,bank=0,bounce=0,stance=0;
+ let points,turn=0,left=0,right=0,lean=0,bank=0,bounce=0,stance=0,travelX=0,travelZ=0,plant=0;
  if(kind==='doubleTouch'){
   points=[[0,0,.85,.3],[.18,-.34,.55,.3],[.43,.52,.62,.3],[.77,.64,1.05,.3],[1,.64,1.3,.3]];
+  travelX=.62*smooth(p/.5);travelZ=1.8*smooth((p-.28)/.72);
   left=-.65*Math.sin(Math.PI*Math.min(1,p/.44));right=-.85*Math.sin(Math.PI*Math.max(0,(p-.28)/.72));bank=s*.2*Math.sin(p*Math.PI*2);lean=.12*w;stance=.1*w;
  }else if(kind==='roulette'){
   points=[[0,0,.85,.3],[.22,.36,.36,.3],[.48,.40,-.40,.3],[.70,-.20,.12,.3],[.83,-.35,.98,.3],[1,-.35,1.3,.3]];
-  turn=s*Math.PI*2*smooth(p);left=-.7*Math.sin(p*Math.PI*2);right=.7*Math.sin(p*Math.PI*2+.4);bank=s*.18*w;lean=.16*w;stance=.12*w;
+  // First half: pivot around the planted right foot. Then step around and accelerate out.
+  turn=s*Math.PI*2*smooth(Math.min(1,p/.84));
+  const pivotX=.23*(1-Math.cos(turn)),pivotZ=.23*Math.sin(turn)*s;
+  const escape=smooth((p-.45)/.55);travelX=pivotX*(1-escape)+1.05*escape;travelZ=pivotZ*(1-escape)+2.8*escape;
+  plant=1-smooth((p-.40)/.12);left=-.65*Math.sin(Math.PI*Math.min(1,p/.6));right=-.5*Math.sin(Math.PI*Math.max(0,(p-.45)/.55));bank=s*.12*w*(1-plant);lean=.12*w;stance=.08*w;
  }else{
   points=[[0,0,.85,.3],[.16,0,.1,.3],[.29,0,-.3,.33],[.384,0,-.36,.55],[1,0,1.3,.55]];
+  travelZ=3.0*smooth((p-.27)/.73);
   left=curve([[0,0],[.22,.35],[.38,1.3],[.56,-.55],[1,0]],p)[0];right=curve([[0,0],[.22,-.4],[.38,1.05],[.56,-.35],[1,0]],p)[0];lean=curve([[0,0],[.25,.28],[.4,-.24],[.65,.16],[1,0]],p)[0];bounce=.12*Math.sin(Math.PI*Math.max(0,Math.min(1,(p-.27)/.4)));stance=-.10*w;
  }
  const [x,z,y]=curve(points,p);
- return{side:s,x:x*s,z,y,turn,left:s<0?right:left,right:s<0?left:right,lean,bank,bounce,stance,weight:w};
+ return{side:s,x:x*s,z,y,turn,left:s<0?right:left,right:s<0?left:right,lean,bank,bounce,stance,weight:w,travelX:travelX*s,travelZ,plant};
 }
 
 // Compound strokes select skills; straight strokes remain passes and shots.
@@ -32,8 +38,9 @@ export function classifySoccerGesture(points){
  const length=points.slice(1).reduce((n,p,i)=>n+Math.hypot(p.x-points[i].x,p.y-points[i].y),0);
  const down=Math.max(...points.map(p=>p.y-origin.y));
  if(down>22&&dy< -25&&Math.abs(dx)<Math.max(35,-dy*.7))return{skill:'heelLift',side:1};
+ // Accept rounded corners and diagonals on small screens; a sharp L is not required.
+ const corner=points.slice(1,-1).find(p=>{const side=p.x-origin.x,rise=p.y-last.y;return Math.abs(side)>=18&&Math.abs(p.y-origin.y)<Math.max(22,Math.abs(side)*.65)&&rise>=24&&dy< -15&&Math.abs(last.x-p.x)<Math.max(36,rise*.65);});
+ if(corner&&Math.abs(turn)<2.65)return{skill:'doubleTouch',side:corner.x>origin.x?1:-1};
  if(length>65&&Math.abs(turn)>2.2)return{skill:'roulette',side:turn>0?1:-1};
- const corner=points.find(p=>Math.abs(p.x-origin.x)>24&&Math.abs(p.y-origin.y)<18);
- if(corner&&dy< -28&&Math.abs(last.x-corner.x)<30)return{skill:'doubleTouch',side:corner.x>origin.x?1:-1};
  return null;
 }

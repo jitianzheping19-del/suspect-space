@@ -80,8 +80,8 @@ const {chromium}=require('playwright');
      await start.tap();await page.waitForFunction(area=>window.frameState.state[area]?.status==='countdown'&&window.frameState.state[area].practice,area);
      assert(await page.locator('#lobbyMiniGameCountdown').isVisible(),area+' participant countdown');
      if(area==='soccer'){
-      assert(await page.locator('#lobbySoccerScore').isVisible());assert.match(await page.locator('#lobbySoccerScore').textContent(),/Crew（あなた）/);
-      const a=await page.locator('#lobbySoccerScore').boundingBox(),b=await page.locator('#lobbyMiniGamePanel').boundingBox();assert(a.y+a.height<=b.y||b.y+b.height<=a.y,'score does not overlap controls');
+      assert(await page.locator('#lobbySoccerScore').isVisible());assert.match(await page.locator('#lobbySoccerScore').textContent(),/青 0 — 0 赤/);assert.equal(await page.locator('#lobbySoccerScore details').count(),0);
+      const a=await page.locator('#lobbySoccerScore').boundingBox();assert(a.x<=12&&a.y<=12,'score at upper left');assert(await page.locator('#lobbyMiniGamePanel').isHidden(),'no duplicate bottom panel');
      }
      await stop.tap();await page.waitForFunction(area=>window.frameState.state[area]?.status==='finished',area);
      assert.equal(await page.locator('#lobbyMiniGameCountdown').isVisible(),false,'cancel clears countdown');

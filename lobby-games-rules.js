@@ -2,7 +2,7 @@ import {SOCCER_SKILLS,sampleSoccerSkill} from './lobby-soccer-skills.js';
 // Shared by the host simulation and the embedded lobby. No browser globals.
 export function createLobbyGamesRules(){
   const SURVIVAL={minX:-36,maxX:-12,minZ:-5,maxZ:14,cols:8,rows:7,tile:2,x:-34,z:-3,top:3,delay:700};
-  const SOCCER={minX:12,maxX:34,minZ:-3.5,maxZ:24,left:15,right:31,near:-1,far:21,goal:5,goalHeight:2.2,postRadius:.075,radius:.3};
+  const SOCCER={minX:12,maxX:34,minZ:-3.5,maxZ:24,left:15,right:31,near:-1,far:21,goal:5,goalHeight:2.2,goalDepth:1.2,postRadius:.075,radius:.3};
   const QUEUE={minX:-17.2,maxX:-13,minZ:-3,maxZ:1.6};
   const inside=(p,b,pad=0)=>!!p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.x>=b.minX+pad&&p.x<=b.maxX-pad&&p.z>=b.minZ+pad&&p.z<=b.maxZ-pad;
   const area=p=>p?.lobbyCircuit||p?.lobbyKart?'lobby':inside(p,SURVIVAL)?'survival':inside(p,SOCCER)&&p.z> -3.5?'soccer':'lobby';
@@ -91,7 +91,8 @@ export function createLobbyGamesRules(){
   }
   const goalSegments=()=>[SOCCER.near,SOCCER.far].flatMap(z=>{
     const l=23-SOCCER.goal/2,r=23+SOCCER.goal/2,h=SOCCER.goalHeight;
-    return [[l,0,z,l,h,z],[r,0,z,r,h,z],[l,h,z,r,h,z]];
+    const back=z+(z===SOCCER.near?-1:1)*SOCCER.goalDepth;
+    return [[l,0,z,l,h,z],[r,0,z,r,h,z],[l,h,z,r,h,z],[l,0,back,l,h,back],[r,0,back,r,h,back],[l,h,back,r,h,back],[l,0,back,r,0,back],...[l,r].flatMap(x=>[[x,h,z,x,h,back],[x,0,z,x,0,back]])];
   });
   function goalContact(x,y,z,radius){
     for(const [ax,ay,az,bx,by,bz]of goalSegments()){
@@ -199,7 +200,7 @@ export function createLobbyGamesRules(){
               if((old.z-boundary)*dir<=0&&(b.z-boundary)*dir>0){
                 const f=(boundary-old.z)/(b.z-old.z),x=old.x+(b.x-old.x)*f,y=old.y+(b.y-old.y)*f;
                 if(!contact&&Math.abs(x-23)<SOCCER.goal/2-SOCCER.postRadius-SOCCER.radius&&y+SOCCER.radius<SOCCER.goalHeight-SOCCER.postRadius){
-                  game.score[team]++;game.lastGoal={team,at:time,scorer:b.lastTouch||''};game.ball={...ball(time),resetUntil:time+2000};scored=true;break;
+                  game.score[team]++;game.lastGoal={team,at:time,scorer:b.lastTouch||'',x,y,z:boundary,speed:Math.hypot(b.vx,b.vy,b.vz)};game.ball={...ball(time),resetUntil:time+2000};scored=true;break;
                 }
               }
             }

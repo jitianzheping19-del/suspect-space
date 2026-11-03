@@ -9,3 +9,7 @@
 .soccerFlickGuide i{display:block;height:4px;margin:5px 0 5px auto;width:110px;border-radius:9px;background:#c3e6fa22;overflow:hidden}.soccerFlickGuide b{display:block;height:100%;background:linear-gradient(90deg,#6ef2c8,#e8d175,#f88468);transform:scaleX(0);transform-origin:left}
 @layer play-action-layout{html body[data-phase="lobby"].lobbySoccerRoom :is(#lobbyUseBtn,#jumpBtn){display:none!important;pointer-events:none!important}}
 @media(max-width:500px){#soccerFlickZone{width:48vw;height:50dvh}.soccerFlickGuide span{font-size:9px}.soccerFlickGuide strong{font-size:11px}}
+
+/* The play surface accepts gestures without a visible touch panel. */
+#soccerFlickZone,#soccerFlickZone.holding{background:none;border:0;border-radius:0}
+#soccerFlickZone .soccerFlickGuide{display:none}
