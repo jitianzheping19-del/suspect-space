@@ -53,6 +53,17 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    return{high,low,kicked,shot};
   });
   assert(punt.high-punt.low>.4&&punt.kicked);save('keeper-punt',punt.shot);assert.deepEqual(errors,[]);
+  const restart=await page.evaluate(()=>{
+   testNow=400000;people={self:{online:true,x:23,z:10,lobbyY:0,yaw:0},enemy:{online:true,x:28,z:14,lobbyY:0,yaw:Math.PI}};state=QA.rules.fresh('self',testNow);
+   Object.assign(state.soccer,{id:'restart-test',status:'playing',endAt:testNow+180000,members:{self:0,enemy:1}});
+   Object.assign(state.soccer.ball,{x:23.5,z:QA.rules.SOCCER.far-.4,y:.9,vz:12});
+   for(let i=0;i<15&&!state.soccer.kickoff;i++){testNow+=1000/60;QA.rules.step(state,people,testNow,1/60);}
+   sync();const k=state.soccer.kickoff,slot=k.slots.self,position=QA.player.root.position,placed=Math.hypot(position.x-slot.x,position.z-slot.z)<.001,locked=__lobbyGames.motionLocked();
+   for(const [id,p]of Object.entries(k.slots))Object.assign(people[id],p);
+   testNow=k.readyAt-800;sync();__lobbyGames.beforeRender(.016);const centered=__lobbyGames.ballMesh.position.distanceTo(new QA.THREE.Vector3(23,.3,10))<.01;__lobbyGames.afterRender();
+   testNow=k.readyAt+1;QA.rules.step(state,people,testNow,.001);sync();return{placed,locked,centered,unlocked:!__lobbyGames.motionLocked(),owner:state.soccer.ball.dribbler};
+  });assert(restart.placed&&restart.locked&&restart.centered&&restart.unlocked);assert.equal(restart.owner,'enemy');
+  console.log('PASS scene goal reset teleports once, centers ball, freezes during celebration and unlocks opposing kickoff');
   console.log('PASS actual scene: solo bots, matching keeper uniforms, overhead contact and restored poses, dropped-ball punt and cleanup');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

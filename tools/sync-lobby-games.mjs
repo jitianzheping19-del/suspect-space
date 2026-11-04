@@ -6,10 +6,11 @@ const press=(await readFile(new URL('../lobby-soccer-press.js',import.meta.url),
 const air=(await readFile(new URL('../lobby-soccer-air.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
 const bots=(await readFile(new URL('../lobby-soccer-bots.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'').replaceAll('export function ','function ');
 const finishes=(await readFile(new URL('../lobby-soccer-finishes.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
+const kickoff=(await readFile(new URL('../lobby-soccer-kickoff.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
 const stadium=await readFile(new URL('../assets-source/lobby-soccer-stadium.js',import.meta.url),'utf8');
-const rules=(await readFile(new URL('../lobby-games-rules.js',import.meta.url),'utf8')).replace(/^import .*lobby-soccer-(?:skills|press|air|bots|finishes).js';\n/gm,'').replace('export function createLobbyGamesRules','function createLobbyGamesRules');
+const rules=(await readFile(new URL('../lobby-games-rules.js',import.meta.url),'utf8')).replace(/^import .*lobby-soccer-(?:skills|press|air|bots|finishes|kickoff).js';\n/gm,'').replace('export function createLobbyGamesRules','function createLobbyGamesRules');
 const scene=await readFile(new URL('../assets-source/lobby-games-scene.js',import.meta.url),'utf8');
-const content='/* LOBBY_GAMES_BUNDLE_BEGIN */\n'+skills+'\n'+press+'\n'+air+'\n'+bots+'\n'+finishes+'\n'+rules+'\n'+stadium+'\n'+scene+'\n/* LOBBY_GAMES_BUNDLE_END */';
+const content='/* LOBBY_GAMES_BUNDLE_BEGIN */\n'+skills+'\n'+press+'\n'+air+'\n'+bots+'\n'+finishes+'\n'+kickoff+'\n'+rules+'\n'+stadium+'\n'+scene+'\n/* LOBBY_GAMES_BUNDLE_END */';
 const marker=/\/\* LOBBY_GAMES_BUNDLE_BEGIN \*\/[\s\S]*?\/\* LOBBY_GAMES_BUNDLE_END \*\//;
 if(marker.test(html))html=html.replace(marker,()=>content);
 else{

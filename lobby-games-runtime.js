@@ -1,9 +1,10 @@
+import {createSoccerGoalPresentation} from './lobby-soccer-goal-ui.js';
 import {createLobbyGamesRules} from './lobby-games-rules.js';
 import {createSoccerFlickControls} from './lobby-soccer-flick.js';
 import './lobby-games.css';
 
 export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transport,toast,onAreaChange=()=>{},onPhoto=()=>{},clock=Date.now}){
-  const rules=createLobbyGamesRules();
+  const rules=createLobbyGamesRules(),goalPresentation=createSoccerGoalPresentation({document,clock});
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
   let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='',feedback='',feedbackUntil=0;
   let pressSerial=0,pressWrite=Promise.resolve(),dashWrite=Promise.resolve();
@@ -124,6 +125,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     else if(document.body.hasAttribute('data-lobby-minigame'))delete document.body.dataset.lobbyMinigame;
     const soccerVisible=enabled&&localArea==='soccer'&&!tagPlaying;
     document.body.classList.toggle('lobbySoccerRoom',soccerVisible);
+    goalPresentation.update(state?.soccer,soccerVisible);
     const playing=rules.active(game),canStart=!!c.uid&&c.uid===c.host,inRoom=localArea!=='lobby';
     const soccerPlaying=localArea==='soccer'&&!tagPlaying&&playing;
     scoreActions.hidden=!soccerVisible||!soccerPlaying;

@@ -47,7 +47,7 @@ function createLobbySoccerBall(THREE){
 }
 function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotion}){
   const rules=createLobbyGamesRules(),S=rules.SURVIVAL,F=rules.SOCCER;
-  let enabled=false,uid='',state=null,roster={},offset=0,roundSeen='',eliminatedSeen='',finishedSeen='',lastAction='',lastBall=null,localArea='lobby',previousX=player.root.position.x;
+  let enabled=false,uid='',state=null,roster={},offset=0,roundSeen='',kickoffSeen='',eliminatedSeen='',finishedSeen='',lastAction='',lastBall=null,localArea='lobby',previousX=player.root.position.x;
   const roots={survival:new THREE.Group(),soccer:new THREE.Group()},doors=[],badges=new Map(),soccerBots=new Map();
   for(const [name,root]of Object.entries(roots)){root.name='lobby-game-'+name;root.visible=false;scene.add(root);}
   const mats=new Map(),unitBox=new THREE.BoxGeometry(1,1,1);
@@ -155,8 +155,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     if(g?.id&&rules.active(g)&&g.members?.[uid]!==undefined&&roundSeen!==g.id){
       roundSeen=g.id;eliminatedSeen=finishedSeen='';
       if(a==='survival'){const n=g.members[uid].slot,p=rules.tilePoint((Math.floor(n/8)*16+n%8)%56);teleport(p.x,3,p.z);}
-      else if(a==='soccer'){const ids=Object.keys(g.members).filter(id=>g.members[id]===g.members[uid]),i=ids.indexOf(uid);teleport(17+(i%4)*3,0,g.members[uid]===0?3+Math.floor(i/4)*2:17-Math.floor(i/4)*2);player.root.rotation.y=g.members[uid]===0?0:Math.PI;}
+      else if(a==='soccer'&&!g.kickoff?.slots?.[uid]){const ids=Object.keys(g.members).filter(id=>g.members[id]===g.members[uid]),i=ids.indexOf(uid);teleport(17+(i%4)*3,0,g.members[uid]===0?3+Math.floor(i/4)*2:17-Math.floor(i/4)*2);player.root.rotation.y=g.members[uid]===0?0:Math.PI;}
     }
+    const restart=state?.soccer?.kickoff,slot=restart?.slots?.[uid];
+    if(a==='soccer'&&rules.active(state.soccer)&&slot&&kickoffSeen!==restart.id){kickoffSeen=restart.id;player.root.rotation.y=slot.yaw;teleport(slot.x,0,slot.z);aimIntent={active:false};pressIntent=false;dashIntent=null;}
     const fall=state?.survival;
     if(a==='survival'&&fall?.members?.[uid]?.alive===false&&eliminatedSeen!==fall.id){eliminatedSeen=fall.id;teleport(-30+(fall.members[uid].slot%12),7,12.5);}
   });
@@ -170,6 +172,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     }
     for(const [id,p]of Object.entries(bots)){
       let crew=soccerBots.get(id);if(!crew){crew=createCrew(p.team===0?'#62bcff':'#ff7185',p.name,p.x,p.z);crew.root.name=id;soccerBots.set(id,crew);roots.soccer.add(crew.root);}
+      const restart=state?.soccer?.kickoff;if(restart&&crew.root.userData.kickoff!==restart.id){crew.root.position.set(p.x,0,p.z);crew.root.rotation.y=p.yaw;crew.root.userData.kickoff=restart.id;}
       const old=crew.root.position.clone(),blend=1-Math.exp(-18*Math.max(0,dt));
       if(old.distanceTo(new THREE.Vector3(p.x,0,p.z))>3)crew.root.position.set(p.x,0,p.z);else{crew.root.position.x+=(p.x-old.x)*blend;crew.root.position.z+=(p.z-old.z)*blend;}
       const turn=Math.atan2(Math.sin(p.yaw-crew.root.rotation.y),Math.cos(p.yaw-crew.root.rotation.y));crew.root.rotation.y+=turn*blend;
@@ -237,7 +240,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     parent.postMessage({type:'lobby-position',gameArea:'soccer',x:player.root.position.x,z:player.root.position.z,lobbyY:player.root.position.y,yaw:skill.yaw,walking:true},'*');
   }
   function teamColor(id){const team=state?.soccer?.members?.[id];return enabled&&area()==='soccer'&&rules.active(state?.soccer)?team===0?'#62bcff':team===1?'#ff7185':'#f8fdff':'#f8fdff';}
-  function motionLocked(){const g=state?.[area()];return !!(enabled&&area()==='soccer'&&state?.soccer?.finishes?.[uid]&&now()<state.soccer.finishes[uid].until)||!!(enabled&&area()==='soccer'&&state?.soccer?.receives?.[uid]&&now()<state.soccer.receives[uid].until)||!!activeLocalSkill()||!!activeLocalPress()||enabled&&(rules.active(g)&&g.status==='countdown'&&g.members?.[uid]!==undefined||state?.tag?.oni===uid&&rules.active(state.tag)&&now()<state.tag.frozenUntil);}
+  function motionLocked(){const g=state?.[area()];return !!(enabled&&area()==='soccer'&&rules.active(g)&&g?.members?.[uid]!==undefined&&g?.kickoff&&now()<g.kickoff.readyAt)|| !!(enabled&&area()==='soccer'&&state?.soccer?.finishes?.[uid]&&now()<state.soccer.finishes[uid].until)||!!(enabled&&area()==='soccer'&&state?.soccer?.receives?.[uid]&&now()<state.soccer.receives[uid].until)||!!activeLocalSkill()||!!activeLocalPress()||enabled&&(rules.active(g)&&g.status==='countdown'&&g.members?.[uid]!==undefined||state?.tag?.oni===uid&&rules.active(state.tag)&&now()<state.tag.frozenUntil);}
   function speedMultiplier(){
     if(enabled&&area()==='soccer'){
       const g=state?.soccer,p=g?.presses?.[uid];if(p?.outcome&&p.outcome!=='won'&&now()<p.recoverUntil)return .55;
@@ -329,7 +332,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     if(b&&roots.soccer.visible){
       const age=Math.max(0,Math.min(.12,(t-b.at)/1000)),target=new THREE.Vector3(b.x+b.vx*age,Math.max(.3,b.y+b.vy*age),b.z+b.vz*age);
       const goal=state.soccer.lastGoal,goalAge=goal?(t-goal.at)/1000:99;
-      if(goalAge>=0&&goalAge<1.7&&t<b.resetUntil){const dir=goal.team===0?1:-1;target.set(goal.x??23,Math.max(.3,(goal.y??.3)-goalAge*goalAge*2),(goal.z??(dir>0?F.far:F.near))+dir*Math.min(F.goalDepth-F.radius*2,goalAge*Math.max(4,goal.speed||10)));}
+      if(goalAge>=0&&goalAge<1.25&&t<b.resetUntil){const dir=goal.team===0?1:-1;target.set(goal.x??23,Math.max(.3,(goal.y??.3)-goalAge*goalAge*2),(goal.z??(dir>0?F.far:F.near))+dir*Math.min(F.goalDepth-F.radius*2,goalAge*Math.max(4,goal.speed||10)));}
       if(!lastBall||ballMesh.position.distanceTo(target)>4)ballMesh.position.copy(target);else ballMesh.position.lerp(target,1-Math.exp(-18*dt));
       ballMesh.rotation.x+=b.vz*dt/.3;ballMesh.rotation.z-=b.vx*dt/.3;lastBall=b;
       const height=Math.max(0,ballMesh.position.y-.3);ballShadow.position.set(ballMesh.position.x,.055,ballMesh.position.z);ballShadow.scale.setScalar(1+Math.min(2,height)*.4);ballShadow.material.opacity=.8/(1+height*1.5);

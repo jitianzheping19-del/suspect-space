@@ -5,6 +5,7 @@ const pressPlayer=p=>p?.online===true&&(!p.bot||p.soccerBot===true)&&!p.observer
 const pressGrounded=p=>pressPlayer(p)&&Math.abs(p.lobbyY||0)<.2;
 export function soccerPressTarget(g,id,roster,time){
  const target=g?.ball?.dribbler,p=roster[id],q=roster[target];
+ if(g?.kickoff&&!g.kickoff.released&&time<g.kickoff.until)return '';
  if(!target||target===id||!pressGrounded(p)||!pressGrounded(q)||!['idle','playing'].includes(g.status)||time<Number(g.ball.resetUntil||0)||pressDistance(p,q)>SOCCER_PRESS.range)return '';
  if(g.status==='playing'&&(g.members?.[id]===undefined||g.members?.[target]===undefined||g.members[id]===g.members[target]))return '';
  return target;
