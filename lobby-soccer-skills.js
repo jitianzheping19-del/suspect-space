@@ -4,18 +4,16 @@ export const SOCCER_SKILLS={
  roulette:{name:'ルーレット',duration:960,release:960,speed:4.2,lift:.3,cooldown:1350},
  heelLift:{name:'ヒールリフト',duration:1120,release:430,speed:4.8,lift:7,cooldown:1450}
 };
-// Alternate short inside-foot touches every 220 ms, using the shared possession clock.
-export function sampleSoccerDribble(age,walking=true,rollAge=-1,rollSide=1,dashing=false){
- const cycle=Math.max(0,age)/(dashing?170:220),phase=cycle*Math.PI;
- const contacts=[0,1].map(i=>{
-  const p=(cycle+2-i)%2;
-  if(!walking||p>=.85)return 0;
-  const u=p<.28?p/.28:(.85-p)/.57;
-  return u*u*(3-2*u);
- });
+// Contact, follow-through and recovery share one clock on the host and renderer.
+export function sampleSoccerDribble(age,walking=true,rollAge=-1,rollSide=1,dashing=false,phaseOverride=null){
+ const cycle=phaseOverride??Math.max(0,age)/(dashing?340:300),step=Math.floor(cycle),u=cycle-step,foot=step%2,phase=cycle*Math.PI;
+ const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
+ const contact=walking?(u<.25?smooth(u/.25):1-smooth((u-.25)/.28)):0,contacts=[0,0];contacts[foot]=contact;
+ const push=smooth((u-.22)/.21)*(1-smooth((u-.49)/.51)),side=foot===0?-1:1;
+ let x=walking?side*.16*(1-smooth((u-.53)/.47)*2):0,z=.64+(walking?push*(dashing?.82:.27):0);
  const sole=rollAge>=0&&rollAge<320?Math.sin(rollAge/320*Math.PI):0;
- if(sole){contacts[rollSide<0?0:1]=sole;contacts[rollSide<0?1:0]=0;}
- return {x:sole?rollSide*.12*sole:walking?-.1*Math.cos(phase):0,z:(dashing?.88:.74)+(sole?-.12*sole:walking?.055*Math.sin(phase*2-.56*Math.PI):0),contacts,phase,sole,foot:rollSide<0?0:1};
+ if(sole){contacts[rollSide<0?0:1]=sole;contacts[rollSide<0?1:0]=0;x=rollSide*.12*sole;z-=.1*sole;}
+ return {x,z,contacts,phase,sole,foot:sole?(rollSide<0?0:1):foot,push,stride:dashing?1.2:.65};
 }
 export function sampleSoccerSkill(kind,age,side=1){
  const skill=SOCCER_SKILLS[kind];if(!skill||age<0||age>skill.duration)return null;
@@ -28,9 +26,9 @@ export function sampleSoccerSkill(kind,age,side=1){
   travelX=.62*smooth(p/.5);travelZ=1.8*smooth((p-.28)/.72);
   left=-.65*Math.sin(Math.PI*Math.min(1,p/.44));right=-.85*Math.sin(Math.PI*Math.max(0,(p-.28)/.72));bank=s*.2*Math.sin(p*Math.PI*2);lean=.12*w;stance=.1*w;
  }else if(kind==='roulette'){
-  points=[[0,0,.74,.3],[.22,.36,.36,.3],[.48,.40,-.40,.3],[.70,-.20,.12,.3],[.83,-.18,.78,.3],[1,0,.74,.3]];
+  points=[[0,0,.74,.3],[.16,.28,.56,.3],[.36,.36,-.18,.3],[.50,.24,-.42,.3],[.66,-.30,.05,.3],[.84,-.20,.84,.3],[1,0,.74,.3]];
   // First half: pivot around the planted right foot. Then step around and accelerate out.
-  turn=s*Math.PI*2*smooth(Math.min(1,p/.84));
+  turn=s*curve([[0,0],[.16,.18*Math.PI],[.40,.94*Math.PI],[.64,1.55*Math.PI],[.84,2*Math.PI],[1,2*Math.PI]],p)[0];
   const pivotX=.23*(1-Math.cos(turn)),pivotZ=.23*Math.sin(turn)*s;
   const escape=smooth((p-.45)/.55);travelX=pivotX*(1-escape)+1.05*escape;travelZ=pivotZ*(1-escape)+2.8*escape;
   plant=1-smooth((p-.40)/.12);left=-.65*Math.sin(Math.PI*Math.min(1,p/.6));right=-.5*Math.sin(Math.PI*Math.max(0,(p-.45)/.55));bank=s*.12*w*(1-plant);lean=.12*w;stance=.08*w;

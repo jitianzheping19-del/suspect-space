@@ -1,7 +1,7 @@
 // Shared host rules and visual timing for a held, interruptible standing tackle.
 export const SOCCER_PRESS={hold:180,lease:850,heartbeat:240,windup:190,recovery:560,exhaustion:4200,rest:1100,reach:1.16,range:14};
 const pressDistance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
-const pressPlayer=p=>p?.online===true&&!p.bot&&!p.observer&&!p.lobbyKart&&!p.lobbyCircuit&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.x>12.5&&p.x<33.5&&p.z> -3&&p.z<23.5;
+const pressPlayer=p=>p?.online===true&&(!p.bot||p.soccerBot===true)&&!p.observer&&!p.lobbyKart&&!p.lobbyCircuit&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.x>12.5&&p.x<36.5&&p.z> -5&&p.z<25.5;
 const pressGrounded=p=>pressPlayer(p)&&Math.abs(p.lobbyY||0)<.2;
 export function soccerPressTarget(g,id,roster,time){
  const target=g?.ball?.dribbler,p=roster[id],q=roster[target];

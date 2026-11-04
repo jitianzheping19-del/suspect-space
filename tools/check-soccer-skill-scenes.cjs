@@ -35,7 +35,7 @@ if(JSON.stringify(signature())!==JSON.stringify(base))changed++;
   }
   const goal=await page.evaluate(()=>{
    const game=__lobbyGames,g=game.state.soccer;testNow=200000;g.status='playing';g.endAt=testNow+180000;g.members={self:0,friend:1};g.skills={};g.kicks={};
-   Object.assign(g.ball,{x:23.5,y:.9,z:20.6,vx:0,vy:0,vz:12,at:testNow,dribbler:'',resetUntil:0});
+   Object.assign(g.ball,{x:23.5,y:.9,z:QA.rules.SOCCER.far-.4,vx:0,vy:0,vz:12,at:testNow,dribbler:'',resetUntil:0});
    const nets=game.roots.soccer.children.filter(n=>n.name==='soccer-goal-net'),frames=game.roots.soccer.children.filter(n=>n.name==='soccer-goal-frame'),base=nets.map(n=>Array.from(n.geometry.attributes.position.array));
    for(let i=0;i<12;i++){testNow+=1000/60;QA.rules.step(game.state,people,testNow,1/60);}
    game.beforeRender(1/60);game.afterRender();const changed=nets.map((n,j)=>Array.from(n.geometry.attributes.position.array).some((v,i)=>v!==base[j][i]));

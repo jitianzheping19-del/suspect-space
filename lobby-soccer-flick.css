@@ -1,38 +1,27 @@
-#soccerFlickZone[hidden]{display:none!important}
-#soccerFlickZone{position:fixed;z-index:114;right:max(8px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));width:min(44vw,480px);height:min(62dvh,420px);touch-action:none;user-select:none;-webkit-user-select:none;outline-offset:3px;border-radius:26px;background:linear-gradient(0deg,#061c2e65,transparent 68%);color:#d9edfa;box-sizing:border-box}
-#soccerFlickZone.holding{background:radial-gradient(ellipse at bottom,#1a698b55,transparent 80%)}
-#soccerFlickZone svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-#soccerFlickZone path{fill:none;stroke:#9ff5ed;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 5px #50dedc)}
-#soccerFlickZone circle{fill:#f0ffff;stroke:#64d8f4;stroke-width:2;display:none}
-.soccerFlickGuide{position:absolute;left:10px;right:10px;bottom:8px;text-align:right;pointer-events:none;font:500 10px/1.55 system-ui;text-shadow:0 1px 4px #00101f}
-.soccerFlickGuide strong,.soccerFlickGuide span,.soccerFlickGuide output{display:block}.soccerFlickGuide strong{font-size:12px;color:#e4fcff}.soccerFlickGuide output{min-height:20px;font-weight:800;font-size:13px;color:#a2ede5}
-.soccerFlickGuide i{display:block;height:4px;margin:5px 0 5px auto;width:110px;border-radius:9px;background:#c3e6fa22;overflow:hidden}.soccerFlickGuide b{display:block;height:100%;background:linear-gradient(90deg,#6ef2c8,#e8d175,#f88468);transform:scaleX(0);transform-origin:left}
-@layer play-action-layout{html body[data-phase="lobby"].lobbySoccerRoom :is(#lobbyUseBtn,#jumpBtn){display:none!important;pointer-events:none!important}}
-@media(max-width:500px){#soccerFlickZone{width:48vw;height:50dvh}.soccerFlickGuide span{font-size:9px}.soccerFlickGuide strong{font-size:11px}}
-
-/* The play surface accepts gestures without a visible touch panel. */
-#soccerFlickZone,#soccerFlickZone.holding{background:none;border:0;border-radius:0}
-#soccerFlickZone .soccerFlickGuide{display:none}
-#soccerFeintBtn[hidden]{display:none!important}
-#soccerFeintBtn{position:fixed;z-index:115;right:calc(max(12px,env(safe-area-inset-right)) + 8px);bottom:calc(max(12px,env(safe-area-inset-bottom)) + 12px);width:88px;height:82px;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px;border:2px solid #b1f6e4;border-radius:24px;background:linear-gradient(155deg,#28777d,#123e55);box-shadow:0 4px 0 #071e2e,inset 0 1px 0 #e7fffa55;color:#f0fffc;font:800 12px/1.2 system-ui;touch-action:none;user-select:none;-webkit-user-select:none}
-#soccerFeintBtn svg{width:38px;height:30px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
-#soccerFeintBtn span{pointer-events:none}
-#soccerFeintBtn:disabled{opacity:.45;filter:saturate(.35)}
-#soccerFeintBtn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 #071e2e}
-#soccerFeintBtn:focus-visible{outline:3px solid #fff;outline-offset:4px}
-@media(max-height:400px){#soccerFeintBtn{width:76px;height:68px;border-radius:20px;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom))}#soccerFeintBtn svg{height:24px}}
-#soccerFeintBtn small{font:700 9px/1.1 system-ui;white-space:nowrap;min-height:10px;pointer-events:none}
-#soccerFeintBtn[data-mode="press"]{border-color:#ffd79a;background:linear-gradient(150deg,#876138,#4b382e);color:#fff3dc}
-#soccerFeintBtn.pressHolding{border-color:#fff0bb;box-shadow:0 0 18px #ffb94b55,inset 0 0 14px #ffcf7733;transform:translateY(2px)}
-#soccerFeintBtn.pressHolding:after{content:"";position:absolute;inset:-5px;border-radius:inherit;padding:3px;background:conic-gradient(#ffe2a0 calc(var(--press-fill,0)*1turn),#ffe2a025 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;pointer-events:none}
-#soccerDuelFeedback{position:fixed;z-index:115;right:max(16px,env(safe-area-inset-right));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 110px);max-width:180px;padding:7px 12px;border:1px solid #eed4a678;border-radius:12px;background:#17232ee8;color:#fff0d2;font:800 13px/1.3 system-ui;pointer-events:none;box-shadow:0 4px 14px #0004}
-#soccerDuelFeedback[hidden]{display:none!important}#soccerDuelFeedback[data-result="won"]{color:#a8ffe2;border-color:#79e5c0}
-@media(max-height:400px){#soccerDuelFeedback{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 82px);font-size:11px}}
-#soccerFeintBtn{width:96px;height:96px;border-radius:50%;gap:2px;padding:8px 0 13px;justify-content:flex-end;isolation:isolate}
+#soccerFlickZone[hidden],#soccerDuelFeedback[hidden]{display:none!important}
+#soccerFlickZone{--soccer-button:clamp(108px,28vw,128px);position:fixed;z-index:115;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:calc(var(--soccer-button)*1.72 + 12px);height:calc(var(--soccer-button)*1.72 + 12px);pointer-events:none;user-select:none;-webkit-user-select:none}
+#soccerFlickZone button{position:absolute;width:var(--soccer-button);height:var(--soccer-button);min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:12px 2px 17px;box-sizing:border-box;border:2px solid #b1f6e4;border-radius:50%;background:linear-gradient(155deg,#28777d,#123e55);box-shadow:0 5px 0 #071e2e,0 7px 22px #0004,inset 0 1px #e7fffa55;color:#f0fffc;font:800 15px/1.2 system-ui;touch-action:none;pointer-events:auto;-webkit-touch-callout:none;isolation:isolate}
+#soccerFeintBtn{top:0;left:0}
+#soccerKickBtn{bottom:0;right:0}
+#soccerFlickZone button>svg{width:46px;height:40px;fill:none;stroke:currentColor;stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+#soccerFlickZone button :is(span,small){pointer-events:none;text-shadow:0 1px 3px #001520}
+#soccerFlickZone small{font:650 10px/1.2 system-ui;white-space:nowrap}
+#soccerFlickZone button:disabled{opacity:.4;filter:saturate(.35)}
+#soccerFlickZone button.holding{transform:translateY(3px);box-shadow:0 2px 0 #071e2e,0 0 25px #a5f4d84d}
+#soccerFlickZone button:focus-visible{outline:3px solid #fff;outline-offset:4px}
+#soccerKickBtn[data-mode="shot"]{background:linear-gradient(155deg,#a15c36,#593827);border-color:#ffdb9c;color:#fff3d6}
+#soccerFeintBtn[data-mode="dash"]{background:linear-gradient(155deg,#326fa1,#163c69);border-color:#b4e0ff}
 #soccerFeintBtn .soccerActionModel{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);z-index:-1;pointer-events:none}
-#soccerFeintBtn[data-model3d="true"]{background:transparent;border-color:transparent;box-shadow:0 4px 10px #0005}
+#soccerFeintBtn[data-model3d="true"]{background:transparent;border-color:transparent}
 #soccerFeintBtn[data-model3d="true"]>svg{visibility:hidden;position:absolute}
-#soccerFeintBtn span,#soccerFeintBtn small{text-shadow:0 1px 3px #001520}
-#soccerFeintBtn[data-mode="dash"]{color:#e3f5ff;border-color:#a6d9ff;background:linear-gradient(140deg,#275f93,#12365c)}
-#soccerFeintBtn[data-mode="dash"][data-model3d="true"]{background:transparent;border-color:transparent}
-@media(max-height:400px){#soccerFeintBtn{width:82px;height:82px;border-radius:50%;padding-bottom:10px;font-size:11px}#soccerFeintBtn small{font-size:8px}}
+#soccerDuelFeedback{position:absolute;right:0;bottom:calc(100% + 10px);max-width:220px;padding:8px 12px;border:1px solid #eed4a678;border-radius:12px;background:#17232ee8;color:#fff0d2;font:800 13px/1.3 system-ui;pointer-events:none}
+#soccerDuelFeedback[data-result="won"]{color:#a8ffe2;border-color:#79e5c0}
+@layer play-action-layout{html body[data-phase="lobby"].lobbySoccerRoom :is(#lobbyUseBtn,#jumpBtn){display:none!important;pointer-events:none!important}}
+@media(max-height:400px){#soccerFlickZone{--soccer-button:112px;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom))}}
+@media(max-width:340px){#soccerFlickZone{--soccer-button:108px;right:max(10px,env(safe-area-inset-right))}#soccerFlickZone button{font-size:14px}#soccerFlickZone small{font-size:9px}}
+
+#soccerKickBtn[data-mode="lob"]{background:linear-gradient(150deg,#7151a1,#33264e);border-color:#d8baff;color:#f9efff}
+#soccerKickBtn[data-mode="header"]{background:linear-gradient(150deg,#a77d37,#5b4125);border-color:#ffe4a6;color:#fff6df}
+
+#soccerKickBtn[data-mode="overhead"]{background:linear-gradient(150deg,#7959a8,#43305f);border-color:#f5dc9d;color:#fff6dd}
+#soccerKickBtn[data-mode="overhead"]>span{font-size:13px;white-space:nowrap}

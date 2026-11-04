@@ -6,15 +6,16 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   const rules=createLobbyGamesRules();
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
   let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='',feedback='',feedbackUntil=0;
-  let pressSerial=0,pressWrite=Promise.resolve();
+  let pressSerial=0,pressWrite=Promise.resolve(),dashWrite=Promise.resolve();
   function soccerControlContext(){
-    const c=context(),g=state?.soccer,t=clock(),press=g?.presses?.[c.uid],target=rules.pressTarget(g,c.uid,c.players,t),owner=g?.ball?.dribbler;
+    const base=context(),c={...base,players:rules.soccerRoster(state?.soccer,base.players)},g=state?.soccer,t=clock(),press=g?.presses?.[c.uid],target=rules.pressTarget(g,c.uid,c.players,t),owner=g?.ball?.dribbler;
+    const reception=rules.reception(state,c.uid,c.players,t);
     const recovering=!!press?.outcome&&t<press.recoverUntil;
     const duel=Object.entries(g?.presses||{}).filter(([id,p])=>(id===c.uid||p.target===c.uid)&&p.contact&&t-p.contact.at<1400).sort((a,b)=>b[1].contact.at-a[1].contact.at)[0];
     const feedback=duel?{at:duel[1].contact.at,result:duel[1].result,text:duel[0]===c.uid?({won:'ボール奪取！',evaded:'かわされた',shielded:'身体でブロックされた',miss:'届かなかった'}[duel[1].result]):({won:'ボールを奪われた',evaded:'フェイント成功',shielded:'ボールをキープ',miss:'プレスを回避'}[duel[1].result])}:null;
-    return {visible:c.enabled&&localArea==='soccer'&&!rules.active(state?.tag),enabled:!!action.enabled&&!pending,canSkill:!!action.canSkill,canDash:rules.canDash(state,c.uid,c.players,t)&&!pending,dashing:t<Number(g?.dashes?.[c.uid]?.until||0),hasBall:owner===c.uid,canPress:!!target&&!recovering,press:press?.held?press:null,recovering,duel:feedback,teammateBall:!!owner&&owner!==c.uid&&g?.status==='playing'&&g.members?.[owner]===g.members?.[c.uid],pending:!!pending,yaw:action.yaw||0,rightX:action.rightX??1,rightZ:action.rightZ??0,forwardX:action.forwardX??0,forwardZ:action.forwardZ??1};
+    return {visible:c.enabled&&localArea==='soccer'&&!rules.active(state?.tag),overheadReady:rules.canOverhead(state,c.uid,c.players,t),headerReady:reception.header,canTrap:reception.trap,enabled:(!!action.enabled||reception.header||rules.canOverhead(state,c.uid,c.players,t))&&(!pending||pending.kind==='soccer-dash'),resolveLobAim:yaw=>{const target=state?rules.passTarget(state,c.uid,c.players,yaw):'',p=c.players[c.uid],q=c.players[target];return q?{mode:'lob',target,yaw:Math.atan2(q.x-p.x,q.z-p.z),x:q.x,z:q.z}:null;},resolveAim:(yaw,forceShot)=>rules.kickAim(state,c.uid,c.players,yaw,forceShot),canSkill:!!action.canSkill,canDash:rules.canDash(state,c.uid,c.players,t)&&!pending,dashing:t<Number(g?.dashes?.[c.uid]?.until||0),hasBall:owner===c.uid,canPress:!!target&&!recovering,press:press?.held?press:null,recovering,duel:feedback,teammateBall:!!owner&&owner!==c.uid&&g?.status==='playing'&&g.members?.[owner]===g.members?.[c.uid],pending:!!pending,yaw:action.yaw||0,rightX:action.rightX??1,rightZ:action.rightZ??0,forwardX:action.forwardX??0,forwardZ:action.forwardZ??1};
   }
-  const flickControls=createSoccerFlickControls({document,window,context:soccerControlContext,send:(kind,data)=>request(kind,data),sendPress:requestPress});
+  const flickControls=createSoccerFlickControls({document,window,context:soccerControlContext,send:requestSoccerAction,onAim:value=>frame()?.postMessage({type:'lobby-soccer-aim',...value},'*'),sendDash:requestDash});
   const panel=document.createElement('section');panel.id='lobbyMiniGamePanel';panel.className='hidden';panel.setAttribute('aria-label','ロビーの遊び');
   const title=document.createElement('strong'),status=document.createElement('div'),buttons=document.createElement('div');buttons.className='miniGameButtons';panel.append(title,status,buttons);document.body.append(panel);
   const start=document.createElement('button'),stop=document.createElement('button'),exit=document.createElement('button');
@@ -23,8 +24,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   const touch=document.createElement('button');touch.id='lobbyTagTouchBtn';touch.textContent='タッチ';touch.className='hidden';document.body.append(touch);
   const countdown=document.createElement('div');countdown.id='lobbyMiniGameCountdown';countdown.hidden=true;countdown.setAttribute('role','status');countdown.setAttribute('aria-live','polite');countdown.setAttribute('aria-atomic','true');
   const countdownLabel=document.createElement('span'),countdownNumber=document.createElement('strong');countdown.append(countdownLabel,countdownNumber);document.body.append(countdown);
-  const score=document.createElement('section');score.id='lobbySoccerScore';score.hidden=true;score.setAttribute('aria-label','フットサルの得点と残り時間');
-  const scoreline=document.createElement('strong'),scoreActions=document.createElement('div');scoreActions.className='soccerScoreActions';score.append(scoreline,scoreActions);document.body.append(score);
+  const scoreActions=document.createElement('div');scoreActions.id='lobbySoccerActions';scoreActions.className='soccerScoreActions';scoreActions.hidden=true;document.body.append(scoreActions);
   toggle.onclick=()=>{menuOpen=!menuOpen;render();};
   start.onclick=()=>request('start-'+(localArea==='lobby'?'tag':localArea));
   stop.onclick=()=>request('stop',{game:rules.active(state?.tag)||localArea==='lobby'?'tag':localArea});
@@ -37,10 +37,27 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     button.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' ')pointerAt=-Infinity;});
   }
   const send=value=>frame()?.postMessage(value,'*');
-  const worldRoster=c=>c.players;
+  const worldRoster=c=>rules.soccerRoster(state?.soccer,c.players);
+  function waitForPending(){return pending?new Promise(resolve=>{const old=pending.resolve;pending.resolve=value=>{old(value);resolve();};}):Promise.resolve();}
+  async function requestSoccerAction(kind,data){
+    const key=roomKey;
+    while(roomKey===key&&pending?.kind==='soccer-dash')await waitForPending();
+    if(roomKey===key&&context().enabled)return request(kind,data);
+  }
+  function requestDash(held){
+    const c=context(),key=c.room+':'+c.host;
+    frame()?.postMessage({type:'lobby-soccer-dash-intent',held},'*');
+    // Preserve release order even if the initial dash is awaiting its host ack.
+    dashWrite=dashWrite.catch(()=>{}).then(async()=>{
+      if(roomKey!==key)return;
+      while(roomKey===key&&pending)await waitForPending();
+      if(roomKey===key&&context().enabled)return request('soccer-dash',{held});
+    });
+    return dashWrite;
+  }
   function acceptPress(command){
     const c=context();if(!ownHost||!state||!c.enabled||command.owner!==c.host||!rules.live(c.players[command.uid]))return;
-    if(rules.pressInput(state.soccer,command,c.players,clock())){state.at=clock();state.revision++;dirty=true;}
+    if(rules.pressInput(state.soccer,command,worldRoster(c),clock())){state.at=clock();state.revision++;dirty=true;}
   }
   function requestPress(held){
     const c=context();frame()?.postMessage({type:'lobby-soccer-press-intent',held},'*');
@@ -54,13 +71,15 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   function error(message){feedback=message;feedbackUntil=clock()+6000;render();if(clock()-lastError>2500){lastError=clock();toast(message);}}
   async function request(kind,extra={}){
-    const c=context();if(!c.enabled||!c.uid||pending)return;
+    const c=context();if(!c.enabled||!c.uid||pending)return {ok:false,message:"接続を確認してもう一度お試しください。"};
     const command={kind,...extra,id:c.uid+':'+clock()+':'+(++sequence),uid:c.uid,owner:c.host,at:clock()};
-    lastRequestId=command.id;pending={id:command.id,until:clock()+6000};feedback='';render();
-    if(ownHost){accept(command);return;}
+    let resolve;const completion=new Promise(done=>resolve=done);
+    lastRequestId=command.id;pending={id:command.id,kind,until:clock()+6000,resolve};feedback='';render();
+    if(ownHost){accept(command);return completion;}
     try{transport()?.publishEphemeral({kind:'lobby-games-command',command},[c.host]);}catch{ /* The Firebase fallback still delivers commands when RTC is unavailable. */ }
-    try{await update(ref(db(),`rooms/${c.room}/players/${c.uid}`),{lobbyGameCommand:command});}
-    catch{pending=null;error('遊びの操作を送れませんでした。接続を確認してください。');}
+    try{Promise.resolve(update(ref(db(),`rooms/${c.room}/players/${c.uid}`),{lobbyGameCommand:command})).catch(()=>acknowledge({id:command.id,ok:false,message:'遊びの操作を送れませんでした。接続を確認してください。'}));}
+    catch{acknowledge({id:command.id,ok:false,message:'遊びの操作を送れませんでした。接続を確認してください。'});}
+    return completion;
   }
   function accept(command){
     const c=context();if(!ownHost||!state||!c.enabled||state.owner!==c.uid||command.owner!==c.host)return;
@@ -73,7 +92,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   function acknowledge(result){
     if(result?.id!==lastRequestId||reportedResult===result.id)return;
-    reportedResult=result.id;pending=null;if(result.message)error(result.message);else render();
+    reportedResult=result.id;pending?.resolve(result);pending=null;if(result.message)error(result.message);else render();
   }
   function receive(payload,meta){
     if(!payload?.kind?.startsWith('lobby-games-'))return false;
@@ -96,21 +115,18 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     const button=document.getElementById('lobbyUseBtn');if(!button||!context().enabled||localArea!=='soccer')return;
     button.textContent=action.passTarget?'パス':'シュート';button.title=(action.passTarget?(context().players[action.passTarget]?.name||'味方')+'へパス':'シュート')+' [F]';button.setAttribute('aria-label',button.title);button.dataset.actionIcon='kick';button.disabled=!action.enabled||!!pending;button.classList.toggle('armed',!!action.enabled);
   }
-  function use(){if(!context().enabled||localArea!=='soccer')return false;if(action.enabled)request('kick',{yaw:action.yaw});return true;}
+  function use(){const c=context();if(!c.enabled||localArea!=='soccer')return false;if(rules.canOverhead(state,c.uid,c.players,clock()))request('soccer-overhead');else if(action.enabled)request('kick',{yaw:action.yaw});return true;}
   function render(){
     flickControls.update();
     const c=context();onPhoto(c.enabled?state?.photo:null,state?.photoBackground||'aurora');const enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
     const participation=enabled&&rules.live(c.players[c.uid])&&Object.entries({tag:state?.tag,survival:state?.survival,soccer:state?.soccer}).find(([,g])=>rules.active(g)&&Object.hasOwn(g.members||{},c.uid));
     if(participation){if(document.body.dataset.lobbyMinigame!==participation[0])document.body.dataset.lobbyMinigame=participation[0];}
     else if(document.body.hasAttribute('data-lobby-minigame'))delete document.body.dataset.lobbyMinigame;
-    score.hidden=!enabled||localArea!=='soccer'||tagPlaying;
-    document.body.classList.toggle('lobbySoccerRoom',!score.hidden);
-    if(!score.hidden){
-      const g=state?.soccer,remaining=g?.status==='playing'?Math.max(0,Math.ceil((g.endAt-clock())/1000)):180;
-      scoreline.textContent=`青 ${g?.score?.[0]||0} — ${g?.score?.[1]||0} 赤 · ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
-    }
+    const soccerVisible=enabled&&localArea==='soccer'&&!tagPlaying;
+    document.body.classList.toggle('lobbySoccerRoom',soccerVisible);
     const playing=rules.active(game),canStart=!!c.uid&&c.uid===c.host,inRoom=localArea!=='lobby';
     const soccerPlaying=localArea==='soccer'&&!tagPlaying&&playing;
+    scoreActions.hidden=!soccerVisible||!soccerPlaying;
     const actionsParent=soccerPlaying?scoreActions:buttons;if(stop.parentNode!==actionsParent)actionsParent.append(stop,exit);
     if(!canStart)menuOpen=false;
     panel.classList.toggle('hidden',!enabled||soccerPlaying||!inRoom&&!rules.active(tag)&&!menuOpen);
@@ -126,7 +142,8 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     else if(localArea==='soccer'&&!tagPlaying){
       const team=game?.members?.[c.uid];
       const result=game?.status==='finished'?(game.cancelled?'参加者不足で終了':game.winner===-1?'引き分け':(game.winner===0?'青':'赤')+'チームの勝ち'):'';
-      status.textContent=`青 ${game?.score?.[0]||0} − ${game?.score?.[1]||0} 赤`+(result?' · '+result:playing?` · 残り ${Math.max(0,Math.ceil((game.endAt-t)/1000))}秒`:' · 3分間')+(playing?(team===0?' · あなたは青':team===1?' · あなたは赤':' · 観戦中'):result?'':' · 近くで蹴る');
+      status.textContent=result|| (playing?(team===0?'あなたは青チーム':team===1?'あなたは赤チーム':'観戦中'):'3分間 · 得点と時間はコート横の得点板へ');
+      if(playing&&game?.bots&&Object.keys(game.bots).length)status.textContent+=' · BOT 2体参加';
     }else if(localArea==='survival'&&!tagPlaying)status.textContent=playing?`残り ${Object.values(game.members).filter(m=>m.alive).length}人`+(game.members?.[c.uid]?.alive?'':' · 2階で観戦できます'):game?.status==='finished'?'終了 · '+(game.winners?.length?game.winners.map(id=>c.players[id]?.name||'クルー').join('・')+' の勝ち':'勝者なし'):'参加希望の枠に入って待機';
     else status.textContent=playing?`鬼：${c.players[tag.oni]?.name||'クルー'}`+(tag.oni===c.uid?(t<tag.frozenUntil?' · 1秒停止中':tag.practice?' · 自由に移動できます':' · 近づいてタッチ'):(tag.immune?.[c.uid]>t?` · 無敵 ${Math.ceil((tag.immune[c.uid]-t)/1000)}秒`:'')):'ロビー全員参加 · 1人でも練習できます';
     if(playing&&game?.practice)status.textContent='1人練習 · '+status.textContent;
@@ -149,15 +166,16 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   async function tick(){
     const c=context(),t=clock();
     if(!c.enabled){
+      pending?.resolve({ok:false,message:'部屋を退出しました。'});
       if(roomKey){send({type:'lobby-games-state',enabled:false,state:null});roomKey='';state=null;pending=null;localArea='lobby';action={};}
       render();lastStep=t;return;
     }
     const key=c.room+':'+c.host;
-    if(key!==roomKey){roomKey=key;ownHost=c.uid===c.host;state=ownHost?rules.fresh(c.uid,t):null;if(ownHost&&['aurora','sunset','moon','rose'].includes(c.snapshot?.photoBackground))state.photoBackground=c.snapshot.photoBackground;lastWrite=lastSend=0;lastFrame='';dirty=ownHost;pending=null;lastRequestId=reportedResult=feedback='';feedbackUntil=0;lastStep=t;}
+    if(key!==roomKey){pending?.resolve({ok:false,message:'部屋の接続が変わりました。'});roomKey=key;ownHost=c.uid===c.host;state=ownHost?rules.fresh(c.uid,t):null;if(ownHost&&['aurora','sunset','moon','rose'].includes(c.snapshot?.photoBackground))state.photoBackground=c.snapshot.photoBackground;lastWrite=lastSend=0;lastFrame='';dirty=ownHost;pending=null;lastRequestId=reportedResult=feedback='';feedbackUntil=0;lastStep=t;}
     if(!ownHost&&c.snapshot?.owner===c.host&&Number(c.snapshot.at)>=Number(state?.at||0))state=c.snapshot;
     acknowledge(state?.results?.[c.uid]);
-    if(pending&&state?.seen?.[c.uid]===pending.id)pending=null;
-    if(pending&&t>pending.until){pending=null;error('操作の返答がありません。もう一度お試しください。');}
+    if(pending&&state?.seen?.[c.uid]===pending.id)acknowledge(state.results?.[c.uid]||{id:pending.id,ok:true});
+    if(pending&&t>pending.until)acknowledge({id:pending.id,ok:false,message:'操作の返答がありません。もう一度お試しください。'});
     if(ownHost){
       for(const [id,p]of Object.entries(c.players)){
         if(p.lobbyGameCommand?.uid===id&&state.seen[id]!==p.lobbyGameCommand.id)accept(p.lobbyGameCommand);
@@ -183,5 +201,5 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   const timer=setInterval(()=>void tick(),50);
   window.addEventListener('pagehide',event=>{if(!event.persisted)clearInterval(timer);});
-  return {handleFrame,receive,use,decorateAction,get area(){return localArea;},rules,request,requestPress};
+  return {handleFrame,receive,use,decorateAction,get area(){return localArea;},rules,request,requestPress,requestDash};
 }

@@ -48,12 +48,12 @@ body[data-phase="lobby"] #lobbyMiniGameToggle[data-lobby-three="true"][data-thre
  html body[data-phase="lobby"][data-lobby-minigame="soccer"] #jumpBtn{display:none!important;}
  html body[data-phase="lobby"][data-lobby-minigame="tag"] #lobbyUseBtn{display:none!important;}
 }
-#lobbySoccerScore[hidden]{display:none!important}
-#lobbySoccerScore{position:fixed;z-index:112;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));width:max-content;max-width:calc(100vw - 108px);box-sizing:border-box;padding:9px 18px;color:#f5f8ff;background:linear-gradient(110deg,#143954f2,#141e30f2 50%,#522b40f2);border:1px solid #9bc4dd80;border-radius:18px;box-shadow:0 8px 24px #0005;text-align:center;font:700 16px system-ui}
+#lobbySoccerActions[hidden]{display:none!important}
+#lobbySoccerActions{position:fixed;z-index:112;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));}
 .soccerScoreActions{display:flex;gap:6px;justify-content:flex-start}.soccerScoreActions:empty{display:none}.soccerScoreActions button{margin-top:6px;min-height:34px;padding:4px 9px;border:1px solid #8db1c4;border-radius:8px;color:#eaf7ff;background:#17384c;font:600 11px system-ui;touch-action:manipulation}.soccerScoreActions button[hidden]{display:none!important}
 body.lobbySoccerRoom #lobbyRoomCode{visibility:hidden!important}
 #lobbyMiniGamePanel.hidden{display:none!important}
-@media(max-width:500px){#lobbySoccerScore{font-size:14px;padding:7px 10px}}
+
 @layer play-action-layout {
  html body[data-phase="lobby"].lobbySoccerRoom #lobbyMiniGamePanel{top:auto!important;left:50%!important;bottom:150px!important;transform:translateX(-50%)!important;width:min(300px,54vw)!important;}
  @media(max-height:500px){html body[data-phase="lobby"].lobbySoccerRoom #lobbyMiniGamePanel{bottom:max(9px,env(safe-area-inset-bottom))!important;width:min(310px,calc(100vw - 344px))!important;}}
