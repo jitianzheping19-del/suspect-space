@@ -7,7 +7,7 @@ for(const count of [2,3,6,20])for(const team of [0,1]){
  let time=T;
  function score(scoring){const dir=scoring===0?1:-1;Object.assign(g.ball,{x:23.5,y:.9,z:(scoring===0?F.far:F.near)-dir*.4,vx:0,vy:0,vz:dir*12,dribbler:'',resetUntil:0});g.kickoff=null;for(let i=0;i<12&&!g.kickoff;i++){time+=1000/60;R.step(s,players,time,1/60);}assert(g.kickoff);}
  score(team);const goal=g.lastGoal,k=g.kickoff;
- assert.deepEqual(goal.beforeScore,[9,3]);assert.deepEqual(goal.score,team===0?[10,3]:[9,4]);assert.equal(k.team,1-team);assert.equal(g.members[k.kicker],1-team);assert.equal(g.ball.x,23);assert.equal(g.ball.z,10);assert.equal(g.ball.vx+g.ball.vy+g.ball.vz,0);
+ assert.deepEqual(goal.beforeScore,[9,3]);assert.deepEqual(goal.score,team===0?[10,3]:[9,4]);assert.equal(k.team,1-team);assert.equal(g.members[k.kicker],1-team);assert.equal(g.ball.x,23);assert.equal(g.ball.z,10-(k.team===0?1:-1)*2);assert.equal(g.ball.vx+g.ball.vy+g.ball.vz,0);
  const slots=Object.values(k.slots);assert.equal(slots.length,count);
  for(const [id,p]of Object.entries(k.slots)){assert(p.x>=F.left&&p.x<=F.right&&p.z>F.near&&p.z<F.far);assert((p.z-10)*(g.members[id]===0?-1:1)>0);Object.assign(players[id],p);}
  for(let i=0;i<slots.length;i++)for(let j=i+1;j<slots.length;j++)assert(Math.hypot(slots[i].x-slots[j].x,slots[i].z-slots[j].z)>2,'formation spacing');

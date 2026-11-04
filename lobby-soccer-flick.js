@@ -2,7 +2,7 @@ import {SOCCER_SKILLS} from './lobby-soccer-skills.js';
 import {createSoccerAction3D} from './lobby-soccer-action-3d.js';
 import './lobby-soccer-flick.css';
 
-const CHARGE_MS=1200,DASH_HOLD_MS=280,DOUBLE_TAP_MS=300;
+const CHARGE_MS=1000,DASH_HOLD_MS=280,DOUBLE_TAP_MS=300;
 export function createSoccerFlickControls({document,window,context,send,onAim=()=>{},sendDash=held=>send('soccer-dash',{held}),clock=()=>window.performance.now(),readStick=()=>window.__spaceInputVector||{x:0,z:0}}){
  const zone=document.createElement('div');zone.id='soccerFlickZone';zone.hidden=true;zone.setAttribute('role','group');zone.setAttribute('aria-label','サッカー操作');
  zone.innerHTML='<button id="soccerFeintBtn" type="button" data-space-pointer-action="direct"><svg viewBox="0 0 40 32" aria-hidden="true"><path d="M7 26V19Q7 14 14 14H26Q33 14 33 7V5M27 10L33 4L38 10"/></svg><span>フェイント</span><small>長押し：ダッシュ</small></button><button id="soccerKickBtn" type="button" data-space-pointer-action="direct"><svg viewBox="0 0 48 42" aria-hidden="true"><circle cx="13" cy="29" r="8"/><path d="M22 25L40 7M27 7H40V20"/></svg><span>パス</span><small>2回タップ：シュート</small></button><output id="soccerDuelFeedback" aria-live="polite" hidden></output>';
@@ -16,7 +16,7 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
   kick.dataset.mode=c.overheadReady?'overhead':c.headerReady?'header':aim.mode;kick.querySelector('span').textContent=c.overheadReady?'オーバーヘッド':c.headerReady?'ヘディング':aim.mode==='lob'?'フライパス':aim.mode==='pass'?'パス':'シュート';
   kick.querySelector('small').textContent=c.overheadReady?'タップで空中シュート':c.headerReady?'合わせてタップ':aim.mode==='lob'?'離して浮かせる':'狙って戻す：フライ';
   kick.setAttribute('aria-label',c.overheadReady?'タップでオーバーヘッドシュート':c.headerReady?'タップでダイビングヘディング':aim.mode==='lob'?'離して味方へフライパス':(aim.mode==='pass'?'味方へパス':'シュート')+'。狙ってボタンへ戻すとフライパス。2回タップでシュート');
-  const value={active:!!c.visible&&!!c.enabled,yaw,forceShot,lob:!!gesture?.lob,charging:!!gesture,power:power()},key=JSON.stringify({...value,yaw:Math.round(yaw*100)/100,power:Math.round(value.power*50)/50});
+  const value={active:!!gesture&&!!c.visible&&!!c.enabled,yaw,forceShot,lob:!!gesture?.lob,charging:!!gesture,power:power()},key=JSON.stringify({...value,yaw:Math.round(yaw*100)/100,power:Math.round(value.power*50)/50});
   if(key!==lastAim){lastAim=key;onAim(value);}
   return aim;
  }

@@ -1,0 +1,9 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require('esbuild'),{chromium}=require('playwright');
+(async()=>{
+ const b=await build({entryPoints:['lobby-soccer-flick.js'],bundle:true,write:false,format:'iife',globalName:'Flick',loader:{'.css':'empty'}}),browser=await chromium.launch({args:['--no-sandbox']});
+ try{const page=await browser.newPage({viewport:{width:844,height:390}});await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1">');await page.clock.install();await page.addStyleTag({content:fs.readFileSync('lobby-soccer-flick.css','utf8')});await page.addScriptTag({content:b.outputFiles[0].text});
+ await page.evaluate(()=>{window.ctx={visible:true,enabled:true,canSkill:true,canDash:true,yaw:0,rightX:1,rightZ:0,forwardX:0,forwardZ:1};window.commands=[];window.aim=null;window.control=Flick.createSoccerFlickControls({document,window,context:()=>ctx,send:(kind,data)=>commands.push({kind,...data}),onAim:value=>aim=value});control.update();});
+ assert.equal(await page.evaluate(()=>aim.active),false,'no line at rest');
+ const r=await page.locator('#soccerKickBtn').boundingBox();await page.mouse.move(r.x+r.width/2,r.y+r.height/2);await page.mouse.down();await page.clock.runFor(600);assert.equal(await page.evaluate(()=>aim.active),true,'line while preparing kick');const partial=await page.evaluate(()=>aim.power);assert(partial>.56&&partial<.65);await page.clock.runFor(500);assert.equal(await page.evaluate(()=>aim.power),1);await page.mouse.up();assert.equal(await page.evaluate(()=>aim.active),false,'release hides line');assert.equal(await page.evaluate(()=>commands.length),1);assert.equal(await page.evaluate(()=>commands[0].power),1);console.log('PASS kick gauge charges progressively and reaches full power in 1 second, exactly one kick on release');
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -16,10 +16,12 @@ const {chromium}=require('playwright'),{build}=require('esbuild'),assert=require
    },{id,s:server});
   }
   const host=pages.get('host'),guest=pages.get('guest');await guest.waitForFunction(()=>window.frameState?.state);
-  await host.evaluate(()=>controller.request('start-soccer'));await guest.waitForFunction(()=>frameState.state.soccer.status==='countdown');
+  await host.evaluate(()=>{Math.random=()=>.5;return controller.request('start-soccer');});await guest.waitForFunction(()=>frameState.state.soccer.status==='countdown');
+  const slots=await host.evaluate(()=>frameState.state.soccer.kickoff.slots);for(const [id,slot]of Object.entries(slots))Object.assign(server.players[id],slot);await sync();
   await Promise.all([...pages.values()].map(p=>p.evaluate(()=>ctx.offset+=3100)));await guest.waitForFunction(()=>frameState.state.soccer.ball.dribbler==='host');
+  await Promise.all([...pages.values()].map(p=>p.evaluate(()=>ctx.offset+=5100)));await guest.waitForFunction(()=>frameState.state.soccer.kickoff.released);
   await guest.evaluate(()=>controller.handleFrame({type:'lobby-games-action',area:'soccer',enabled:false,canSkill:false,yaw:Math.PI}));
-  await guest.waitForFunction(()=>document.querySelector('#soccerFeintBtn span')?.textContent==='プレス');
+  await guest.waitForFunction(()=>!document.querySelector('#soccerDefenseZone').hidden&&document.querySelector('#soccerPressBtn span')?.textContent==='プレス');
   await guest.evaluate(()=>controller.requestPress(true));await host.waitForFunction(()=>frameState.state.soccer.presses?.guest?.held);
   const old=await host.evaluate(()=>({...frameState.state.soccer.pressInputs.guest}));
   await guest.evaluate(()=>controller.requestPress(false));await host.waitForFunction(()=>!frameState.state.soccer.presses.guest.held);
@@ -27,7 +29,7 @@ const {chromium}=require('playwright'),{build}=require('esbuild'),assert=require
   assert.equal(await host.evaluate(()=>frameState.state.soccer.presses.guest.held),false,'late heartbeat cannot resume');
   // Database fallback: hold, approach, and resolve on the host only.
   await Promise.all([...pages.values()].map(p=>p.evaluate(()=>ctx.rtc=false)));
-  Object.assign(server.players.guest,{z:11.3});await sync();
+  Object.assign(server.players.guest,{z:server.players.host.z+1.3});await sync();
   await guest.evaluate(()=>{window.hold=setInterval(()=>controller.requestPress(true),230);controller.requestPress(true);});
   await guest.waitForFunction(()=>frameState.state.soccer.ball.dribbler==='guest');await guest.evaluate(()=>{clearInterval(hold);controller.requestPress(false);});
   assert.equal(await host.evaluate(()=>frameState.state.soccer.ball.dribbler),'guest');
