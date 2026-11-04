@@ -402,7 +402,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       if(enabled&&other==='soccer'&&crew.legs?.[1]){
         const skill=state?.soccer?.skills?.[id],motion=skill&&!skill.cancelled?sampleSoccerSkill(skill.kind,t-skill.at,skill.side):null;
         const control=state?.soccer?.dribble,rollAge=control?.rollAt===undefined?-1:t-control.rollAt,walking=own?player.root.userData.walking:roster[id]?.walking;
-        const sprint=t<Number(state?.soccer?.dashes?.[id]?.until||0)&&walking,shooting=age>=0&&age<(kick?.mode==='lob'?.75:.55),dribbling=b?.dribbler===id&&(walking||rollAge>=0&&rollAge<320);
+        const sprint=t<Number(state?.soccer?.dashes?.[id]?.until||0)&&walking,shooting=age>=0&&age<(kick?.mode==='lob'?.75:.55),dribbling=b?.dribbler===id&&(walking||rollAge>=0&&rollAge<(control?.rollDuration||320));
         if(motion||shooting||dribbling||pressPose||threat||reaction||sprint){
           const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
           for(const node of [...crew.legs,crew.body,crew.pack,crew.visor,crew.shine,...arms])pose(node);
@@ -460,7 +460,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
             for(const node of [crew.body,crew.pack,crew.visor,crew.shine])if(node){node.rotation.x+=weight*.12;node.position.y-=weight*.06;node.position.x-=weight*.04;}
             arms.forEach((arm,i)=>{arm.rotation.x=(i?-.5:.35)*weight;arm.rotation.z=(i?-.45:.45)*weight;});
           }else if(dribbling){
-            const touch=sampleSoccerDribble(t-Number(control?.at??t),!!walking,rollAge,control?.rollSide,!!sprint,control?.phase===undefined?null:control.phase+(walking?Math.max(0,Math.min(100,t-control.phaseAt))/(sprint?340:300):0)),localBall=crew.root.worldToLocal(ballMesh.getWorldPosition(new THREE.Vector3()));
+            const touch=sampleSoccerDribble(t-Number(control?.at??t),control?.walking??!!walking,rollAge,control?.rollSide,!!sprint,control?.phase===undefined?null:control.phase+Math.max(0,Math.min(100,t-control.phaseAt))/1000*(control.phaseRate||0),control),localBall=crew.root.worldToLocal(ballMesh.getWorldPosition(new THREE.Vector3()));
             crew.legs.forEach((leg,i)=>{
               const contact=touch.contacts[i],rest=crew.root.userData.walkLegRest?.[i],side=i?1:-1;
               leg.rotation.x=leg.rotation.x*.45-contact*(sprint?.85:.55);
@@ -469,11 +469,11 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
               leg.position.z=(rest?.z??0)+(leg.position.z-(rest?.z??0))*.3+Math.max(0,Math.min(.85,localBall.z-.30))*contact;
               leg.position.y+=contact*.045;
               if(touch.sole&&i===touch.foot){
-                const w=touch.sole;leg.position.x+=(Math.max(-.3,Math.min(.3,localBall.x))-leg.position.x)*w;leg.position.z+=(Math.max(.3,Math.min(.68,localBall.z-.06))-leg.position.z)*w;leg.position.y+=w*.48;leg.rotation.x+=(-1.2-leg.rotation.x)*w;
+                const w=touch.sole;leg.position.x+=(Math.max(-.3,Math.min(.3,localBall.x))-leg.position.x)*w;leg.position.z+=(Math.max(.3,Math.min(.68,localBall.z-.06))-leg.position.z)*w;leg.position.y+=(Math.max(.62,localBall.y+.3+.19)-leg.position.y)*w;leg.rotation.x+=(-Math.PI/2-leg.rotation.x)*w;leg.rotation.z*=1-w;
               }
             });
             const weight=Math.max(...touch.contacts);
-            for(const node of [crew.body,crew.pack,crew.visor,crew.shine])if(node){node.rotation.x+=.08;node.position.y-=.02*weight;node.rotation.z+=Math.cos(touch.phase)*.025;}
+            for(const node of [crew.body,crew.pack,crew.visor,crew.shine])if(node){node.rotation.x+=.08;node.position.y-=.02*weight;node.rotation.z+=Math.cos(touch.phase)*.025+(touch.foot?1:-1)*touch.sole*.065;node.position.x-=(touch.foot?1:-1)*touch.sole*.055;}
             arms.forEach((arm,i)=>{arm.rotation.x=arm.rotation.x*.35+Math.sin(touch.phase+(i?Math.PI:0))*.12;});
           }
           if(sprint&&!motion&&!pressPose){

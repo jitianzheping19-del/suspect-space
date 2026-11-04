@@ -3,7 +3,7 @@ import {soccerKickoffBlocks,prepareSoccerKickoff,stepSoccerKickoff} from './lobb
 import {soccerRoster,soccerLive,createSoccerBots,stepSoccerBots} from './lobby-soccer-bots.js';
 import {canSoccerOverhead,beginSoccerOverhead,stepSoccerFinishes} from './lobby-soccer-finishes.js';
 import {soccerReception,beginSoccerReceive,stepSoccerReceives,stepSoccerKeepers,collideSoccerKeeper} from './lobby-soccer-air.js';
-import {SOCCER_SKILLS,sampleSoccerSkill,sampleSoccerDribble} from './lobby-soccer-skills.js';
+import {SOCCER_SKILLS,sampleSoccerSkill,sampleSoccerDribble,updateSoccerDribble} from './lobby-soccer-skills.js';
 import {SOCCER_PRESS,soccerPressTarget,soccerPressActive,soccerPressThreat,applySoccerPress,stepSoccerPress} from './lobby-soccer-press.js';
 // Shared by the host simulation and the embedded lobby. No browser globals.
 export function createLobbyGamesRules(){
@@ -233,11 +233,9 @@ export function createLobbyGamesRules(){
         if(owner){
           const p=roster[owner],skill=game.skills?.[owner],sample=skill&&!skill.cancelled&&!skill.released?sampleSoccerSkill(skill.kind,time-skill.at,skill.side):null,yaw=sample?skill.yaw:Number(p.yaw)||0;
           const control=game.dribble?.uid===owner?game.dribble:(game.dribble={uid:owner,at:time});
-          if(p.walking&&!control.walking&&!sample){control.rollAt=time;const dx=p.x-(control.x??p.x),dz=p.z-(control.z??p.z);control.rollSide=dx*Math.cos(yaw)-dz*Math.sin(yaw)<0?-1:1;}
-          control.walking=!!p.walking;control.x=p.x;control.z=p.z;
           const sprint=time<Number(game.dashes?.[owner]?.until||0);
-          control.phase=(control.phase||0)+(p.walking&&!sample?Math.min(.1,dt)*1000/(sprint?340:300):0);control.phaseAt=time;
-          const touch=sampleSoccerDribble(time-Number(control.at??time),!!p.walking,control.rollAt===undefined?-1:time-control.rollAt,control.rollSide,sprint,control.phase),threat=soccerPressThreat(game,owner,time),challenger=threat?Object.entries(game.presses).find(([,v])=>v===threat)?.[0]:null,defender=roster[challenger];
+          updateSoccerDribble(control,p,time,dt,sprint,!!sample);
+          const touch=sampleSoccerDribble(time-Number(control.at??time),control.walking,control.rollAt===undefined?-1:time-control.rollAt,control.rollSide,sprint,control.phase,control),threat=soccerPressThreat(game,owner,time),challenger=threat?Object.entries(game.presses).find(([,v])=>v===threat)?.[0]:null,defender=roster[challenger];
           // Keep the ball on the far foot while shielding; a skill keeps its authored path.
           const protect=defender?Math.max(0,1-threat.distance/2.3)*.18:0,away=defender?Math.atan2(p.x-defender.x,p.z-defender.z):yaw;
           const tx=p.x+Math.sin(yaw)*touch.z+Math.cos(yaw)*touch.x+Math.sin(away)*protect,tz=p.z+Math.cos(yaw)*touch.z-Math.sin(yaw)*touch.x+Math.cos(away)*protect;

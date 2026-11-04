@@ -1248,7 +1248,7 @@ function createLobbyAscent({THREE,scene,obstacles}){
 
       if (elapsed - lastPositionMessage >= 1/60) {
         lastPositionMessage = elapsed;
-        const moving=moveDirection.lengthSq()>0.0001; parent.postMessage({ type: "lobby-position",gameArea:window.__lobbyGames?.area||"lobby", x: player.root.position.x, z: player.root.position.z, lobbyY:player.root.position.y, yaw:player.root.rotation.y, walking:moving, circuitTrack:window.__lobbyKartCircuit?.isTrackAt(player.root.position.x,player.root.position.z)===true }, "*");
+        const moving=moveDirection.lengthSq()>1e-8; parent.postMessage({ type: "lobby-position",gameArea:window.__lobbyGames?.area||"lobby", x: player.root.position.x, z: player.root.position.z, lobbyY:player.root.position.y, yaw:player.root.rotation.y, walking:moving, circuitTrack:window.__lobbyKartCircuit?.isTrackAt(player.root.position.x,player.root.position.z)===true }, "*");
       }
     }
 
@@ -5672,16 +5672,53 @@ const SOCCER_SKILLS={
  roulette:{name:'ルーレット',duration:960,release:960,speed:4.2,lift:.3,cooldown:1350},
  heelLift:{name:'ヒールリフト',duration:1120,release:430,speed:4.8,lift:7,cooldown:1450}
 };
+const SOCCER_CLOSE_TOUCH={duration:560,repeat:620,deadDistance:.0005};
+// Track real displacement so a short nudge survives a false walking flag or a sparse pose update.
+function updateSoccerDribble(control,p,time,dt,sprinting=false,skillActive=false){
+ const yaw=Number(p.yaw)||0,dx=p.x-(control.x??p.x),dz=p.z-(control.z??p.z),distance=Math.hypot(dx,dz);
+ const traveled=distance<1.5?(control.travelRemainder||0)+distance:0;
+ const moved=traveled>=SOCCER_CLOSE_TOUCH.deadDistance&&distance>0&&distance<1.5;control.travelRemainder=moved?0:traveled;
+ const lastAt=Number(control.sampleAt??(time-Math.max(.001,dt)*1000)),elapsed=Math.max(1/120,Math.min(.25,(time-lastAt)/1000));
+ if(moved){
+  const speed=Math.min(7,traveled/elapsed),blend=1-Math.exp(-elapsed*18);control.speed=control.speed===undefined?speed:control.speed+(speed-control.speed)*blend;control.sampleAt=time;control.lastMoveAt=time;
+  const localX=dx*Math.cos(yaw)-dz*Math.sin(yaw),localZ=dx*Math.sin(yaw)+dz*Math.cos(yaw);
+  control.directionX=localX/distance;control.directionZ=localZ/distance;
+ }else if(time-Number(control.lastMoveAt??time)>150)control.speed=(control.speed||0)*Math.exp(-Math.max(0,dt)*12);
+ const walking=!!p.walking||moved||time-Number(control.lastMoveAt??-Infinity)<110;
+ const precision=!sprinting&&(control.speed??(walking?.6:0))<1.35;
+ const duration=control.rollDuration||SOCCER_CLOSE_TOUCH.duration,age=control.rollAt===undefined?Infinity:time-control.rollAt;
+ const start=walking&&!control.walking,stop=!walking&&control.walking;
+ const turning=moved&&Math.hypot((control.directionX||0)-(control.rollX||0),(control.directionZ||0)-(control.rollZ||0))>.9;
+ if(!skillActive&&!sprinting&&(start&&age>=duration||precision&&walking&&moved&&age>=SOCCER_CLOSE_TOUCH.repeat||precision&&turning&&age>=duration||stop&&age>=duration)){
+  const x=control.directionX||0,z=control.directionZ||0;
+  control.rollAt=time;control.rollDuration=SOCCER_CLOSE_TOUCH.duration;control.rollKind=stop?'stop':Math.abs(x)>.55?'lateral':z<-.4?'drag':'nudge';
+  control.rollSide=Math.abs(x)>.2?(x<0?-1:1):-(control.rollSide||-1);control.rollX=x;control.rollZ=z;
+ }
+ if(skillActive||sprinting)delete control.rollAt;
+ control.walking=walking;control.precision=precision;control.x=p.x;control.z=p.z;
+ // Sample pose updates once, then extrapolate only the bounded contact clock on the renderer.
+ control.phaseRate=walking&&!skillActive?Math.max(.35,Math.min(5,(control.speed??.6)/(sprinting?1.15:.85))):0;
+ control.phase=(control.phase||0)+Math.max(0,Math.min(.1,dt))*control.phaseRate;control.phaseAt=time;
+ return control;
+}
 // Contact, follow-through and recovery share one clock on the host and renderer.
-function sampleSoccerDribble(age,walking=true,rollAge=-1,rollSide=1,dashing=false,phaseOverride=null){
+function sampleSoccerDribble(age,walking=true,rollAge=-1,rollSide=1,dashing=false,phaseOverride=null,control=null){
  const cycle=phaseOverride??Math.max(0,age)/(dashing?340:300),step=Math.floor(cycle),u=cycle-step,foot=step%2,phase=cycle*Math.PI;
  const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
  const contact=walking?(u<.25?smooth(u/.25):1-smooth((u-.25)/.28)):0,contacts=[0,0];contacts[foot]=contact;
  const push=smooth((u-.22)/.21)*(1-smooth((u-.49)/.51)),side=foot===0?-1:1;
  let x=walking?side*.16*(1-smooth((u-.53)/.47)*2):0,z=.64+(walking?push*(dashing?.82:.27):0);
- const sole=rollAge>=0&&rollAge<320?Math.sin(rollAge/320*Math.PI):0;
- if(sole){contacts[rollSide<0?0:1]=sole;contacts[rollSide<0?1:0]=0;x=rollSide*.12*sole;z-=.1*sole;}
- return {x,z,contacts,phase,sole,foot:sole?(rollSide<0?0:1):foot,push,stride:dashing?1.2:.65};
+ const duration=control?.rollDuration||320,close=!!control?.precision;
+ if(close){x*=.45;z=.64+(z-.64)*.35;}
+ const uRoll=rollAge/duration,sole=rollAge>=0&&rollAge<duration?(control?.rollKind?smooth(uRoll/.23)*(1-smooth((uRoll-.63)/.37)):Math.sin(uRoll*Math.PI)):0;
+ if(sole){
+  contacts[rollSide<0?0:1]=sole;contacts[rollSide<0?1:0]=0;
+  const roll=smooth((uRoll-.24)/.32)*(1-smooth((uRoll-.68)/.32)),kind=control?.rollKind;
+  x=rollSide*(kind==='lateral'?.27:.10)*roll;
+  z=.64+(kind==='drag'?-.22:kind==='nudge'?.13:kind==='stop'?-.10:-.06)*roll;
+  if(!kind){x=rollSide*.12*sole;z=.64-.1*sole;}
+ }
+ return {x,z,contacts,phase,sole,foot:sole?(rollSide<0?0:1):foot,push,stride:dashing?1.2:close?.32:.65,precision:close};
 }
 function sampleSoccerSkill(kind,age,side=1){
  const skill=SOCCER_SKILLS[kind];if(!skill||age<0||age>skill.duration)return null;
@@ -6316,11 +6353,9 @@ function createLobbyGamesRules(){
         if(owner){
           const p=roster[owner],skill=game.skills?.[owner],sample=skill&&!skill.cancelled&&!skill.released?sampleSoccerSkill(skill.kind,time-skill.at,skill.side):null,yaw=sample?skill.yaw:Number(p.yaw)||0;
           const control=game.dribble?.uid===owner?game.dribble:(game.dribble={uid:owner,at:time});
-          if(p.walking&&!control.walking&&!sample){control.rollAt=time;const dx=p.x-(control.x??p.x),dz=p.z-(control.z??p.z);control.rollSide=dx*Math.cos(yaw)-dz*Math.sin(yaw)<0?-1:1;}
-          control.walking=!!p.walking;control.x=p.x;control.z=p.z;
           const sprint=time<Number(game.dashes?.[owner]?.until||0);
-          control.phase=(control.phase||0)+(p.walking&&!sample?Math.min(.1,dt)*1000/(sprint?340:300):0);control.phaseAt=time;
-          const touch=sampleSoccerDribble(time-Number(control.at??time),!!p.walking,control.rollAt===undefined?-1:time-control.rollAt,control.rollSide,sprint,control.phase),threat=soccerPressThreat(game,owner,time),challenger=threat?Object.entries(game.presses).find(([,v])=>v===threat)?.[0]:null,defender=roster[challenger];
+          updateSoccerDribble(control,p,time,dt,sprint,!!sample);
+          const touch=sampleSoccerDribble(time-Number(control.at??time),control.walking,control.rollAt===undefined?-1:time-control.rollAt,control.rollSide,sprint,control.phase,control),threat=soccerPressThreat(game,owner,time),challenger=threat?Object.entries(game.presses).find(([,v])=>v===threat)?.[0]:null,defender=roster[challenger];
           // Keep the ball on the far foot while shielding; a skill keeps its authored path.
           const protect=defender?Math.max(0,1-threat.distance/2.3)*.18:0,away=defender?Math.atan2(p.x-defender.x,p.z-defender.z):yaw;
           const tx=p.x+Math.sin(yaw)*touch.z+Math.cos(yaw)*touch.x+Math.sin(away)*protect,tz=p.z+Math.cos(yaw)*touch.z-Math.sin(yaw)*touch.x+Math.cos(away)*protect;
@@ -6911,7 +6946,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       if(enabled&&other==='soccer'&&crew.legs?.[1]){
         const skill=state?.soccer?.skills?.[id],motion=skill&&!skill.cancelled?sampleSoccerSkill(skill.kind,t-skill.at,skill.side):null;
         const control=state?.soccer?.dribble,rollAge=control?.rollAt===undefined?-1:t-control.rollAt,walking=own?player.root.userData.walking:roster[id]?.walking;
-        const sprint=t<Number(state?.soccer?.dashes?.[id]?.until||0)&&walking,shooting=age>=0&&age<(kick?.mode==='lob'?.75:.55),dribbling=b?.dribbler===id&&(walking||rollAge>=0&&rollAge<320);
+        const sprint=t<Number(state?.soccer?.dashes?.[id]?.until||0)&&walking,shooting=age>=0&&age<(kick?.mode==='lob'?.75:.55),dribbling=b?.dribbler===id&&(walking||rollAge>=0&&rollAge<(control?.rollDuration||320));
         if(motion||shooting||dribbling||pressPose||threat||reaction||sprint){
           const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
           for(const node of [...crew.legs,crew.body,crew.pack,crew.visor,crew.shine,...arms])pose(node);
@@ -6969,7 +7004,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
             for(const node of [crew.body,crew.pack,crew.visor,crew.shine])if(node){node.rotation.x+=weight*.12;node.position.y-=weight*.06;node.position.x-=weight*.04;}
             arms.forEach((arm,i)=>{arm.rotation.x=(i?-.5:.35)*weight;arm.rotation.z=(i?-.45:.45)*weight;});
           }else if(dribbling){
-            const touch=sampleSoccerDribble(t-Number(control?.at??t),!!walking,rollAge,control?.rollSide,!!sprint,control?.phase===undefined?null:control.phase+(walking?Math.max(0,Math.min(100,t-control.phaseAt))/(sprint?340:300):0)),localBall=crew.root.worldToLocal(ballMesh.getWorldPosition(new THREE.Vector3()));
+            const touch=sampleSoccerDribble(t-Number(control?.at??t),control?.walking??!!walking,rollAge,control?.rollSide,!!sprint,control?.phase===undefined?null:control.phase+Math.max(0,Math.min(100,t-control.phaseAt))/1000*(control.phaseRate||0),control),localBall=crew.root.worldToLocal(ballMesh.getWorldPosition(new THREE.Vector3()));
             crew.legs.forEach((leg,i)=>{
               const contact=touch.contacts[i],rest=crew.root.userData.walkLegRest?.[i],side=i?1:-1;
               leg.rotation.x=leg.rotation.x*.45-contact*(sprint?.85:.55);
@@ -6978,11 +7013,11 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
               leg.position.z=(rest?.z??0)+(leg.position.z-(rest?.z??0))*.3+Math.max(0,Math.min(.85,localBall.z-.30))*contact;
               leg.position.y+=contact*.045;
               if(touch.sole&&i===touch.foot){
-                const w=touch.sole;leg.position.x+=(Math.max(-.3,Math.min(.3,localBall.x))-leg.position.x)*w;leg.position.z+=(Math.max(.3,Math.min(.68,localBall.z-.06))-leg.position.z)*w;leg.position.y+=w*.48;leg.rotation.x+=(-1.2-leg.rotation.x)*w;
+                const w=touch.sole;leg.position.x+=(Math.max(-.3,Math.min(.3,localBall.x))-leg.position.x)*w;leg.position.z+=(Math.max(.3,Math.min(.68,localBall.z-.06))-leg.position.z)*w;leg.position.y+=(Math.max(.62,localBall.y+.3+.19)-leg.position.y)*w;leg.rotation.x+=(-Math.PI/2-leg.rotation.x)*w;leg.rotation.z*=1-w;
               }
             });
             const weight=Math.max(...touch.contacts);
-            for(const node of [crew.body,crew.pack,crew.visor,crew.shine])if(node){node.rotation.x+=.08;node.position.y-=.02*weight;node.rotation.z+=Math.cos(touch.phase)*.025;}
+            for(const node of [crew.body,crew.pack,crew.visor,crew.shine])if(node){node.rotation.x+=.08;node.position.y-=.02*weight;node.rotation.z+=Math.cos(touch.phase)*.025+(touch.foot?1:-1)*touch.sole*.065;node.position.x-=(touch.foot?1:-1)*touch.sole*.055;}
             arms.forEach((arm,i)=>{arm.rotation.x=arm.rotation.x*.35+Math.sin(touch.phase+(i?Math.PI:0))*.12;});
           }
           if(sprint&&!motion&&!pressPose){

@@ -38,13 +38,13 @@ const {build}=require('esbuild'),{chromium}=require('playwright');
    return {won,shieldChanged,lowestGap,maxStep,contactImage,stopped:stoppedAt.distanceTo(player.root.position)===0,locked:game.motionLocked()};
   });
   assert(press.won,'automatic pursuit reaches the holder and wins');assert(press.maxStep<=.081);assert(press.lowestGap>=.84,'does not run through holder');assert(press.shieldChanged,'holder braces during approach');assert(press.stopped&&!press.locked);
-  fs.mkdirSync('/workspace/soccer-defense-2026-11-04/verification',{recursive:true});fs.writeFileSync('/workspace/soccer-defense-2026-11-04/verification/press-contact.png',Buffer.from(press.contactImage.split(',')[1],'base64'));
+  fs.mkdirSync('/workspace/soccer-close-control-2026-11-04/verification',{recursive:true});fs.writeFileSync('/workspace/soccer-close-control-2026-11-04/verification/press-contact.png',Buffer.from(press.contactImage.split(',')[1],'base64'));
   console.log('PASS real scene auto-pursuit, collision, holder reaction, steal, exact pose restoration and immediate release',press.maxStep,press.lowestGap);
   const roll=await page.evaluate(()=>{
    const game=__lobbyGames,g=game.state.soccer,{player,scene,renderer,camera}=QA;testNow=300000;g.presses={};g.skills={};g.kicks={};g.dribble={uid:'self',at:testNow};player.root.position.set(23,0,9);player.root.rotation.y=0;player.root.userData.walking=true;Object.assign(people.self,{x:23,z:9,yaw:0,walking:true});Object.assign(g.ball,{x:23,y:.3,z:9.74,vx:0,vy:0,vz:0,dribbler:'self',at:testNow});QA.rules.step(game.state,people,testNow,1/60);
    game.ballMesh.position.set(23,.3,9.74);people.self.walking=false;player.root.userData.walking=false;testNow+=160;QA.rules.step(game.state,people,testNow,1/60);const heights=player.legs.map(n=>n.position.y);game.beforeRender(1/60);const lift=Math.max(...player.legs.map((n,i)=>n.position.y-heights[i]));camera.position.set(25.6,2.1,12);camera.lookAt(23,.9,9.5);renderer.render(scene,camera);const png=renderer.domElement.toDataURL('image/png');game.afterRender();
    g.dashes={self:{at:testNow,until:testNow+650,readyAt:testNow+950}};const speed=game.speedMultiplier();testNow+=700;const normal=game.speedMultiplier();return {lift,png,speed,normal};
-  });assert(roll.lift>.4,'a tiny start-and-stop places a sole over the ball');assert(roll.speed>roll.normal*1.5);fs.writeFileSync('/workspace/soccer-defense-2026-11-04/verification/sole-roll.png',Buffer.from(roll.png.split(',')[1],'base64'));
+  });assert(roll.lift>.4,'a tiny start-and-stop places a sole over the ball');assert(roll.speed>roll.normal*1.5);fs.writeFileSync('/workspace/soccer-close-control-2026-11-04/verification/sole-roll.png',Buffer.from(roll.png.split(',')[1],'base64'));
   console.log('PASS sole roll after short input, controlled ball, dash speed and expiry');assert.deepEqual(errors,[]);
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
