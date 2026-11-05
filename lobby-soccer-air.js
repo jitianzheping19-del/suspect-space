@@ -1,26 +1,32 @@
+import {soccerAirAction} from './lobby-soccer-finishes.js';
 import {soccerBallCrossing} from './lobby-soccer-kick.js';
 // Shared by the authoritative host and the lobby renderer.
 export function soccerReception(g,id,players,F,time){
- const p=players[id],b=g?.ball,f=g?.flight,team=g?.members?.[id];
- if(!p?.online||p.bot&&!p.soccerBot||p.observer||p.lobbyKart||p.lobbyCircuit||Math.abs(p.lobbyY||0)>.25||p.x<F.minX||p.x>F.maxX||p.z<F.minZ||p.z>F.maxZ||g?.status!=='playing'||!f||f.from===id||team===undefined||(f.team??g.members[f.from])!==team||time<f.at+250||time>f.at+3500||g.receives?.[id]&&time<g.receives[id].until)return {trap:false,header:false};
- const d=Math.hypot(p.x-b.x,p.z-b.z),goal=team===0?F.far:F.near;
- const trap=d<2&&b.y>.55&&b.y<2.5&&b.vy<2,header=d<3.1&&b.y>.85&&b.y<3.15&&b.vy<3&&Math.abs(goal-p.z)<10;
- return {trap,header,goal};
+ const p=players[id],b=g?.ball;
+ if(!p?.online||p.bot&&!p.soccerBot||p.observer||p.lobbyKart||p.lobbyCircuit||Math.abs(p.lobbyY||0)>.25||p.x<F.left||p.x>F.right||p.z<F.near||p.z>F.far||!['playing','idle'].includes(g?.status)||g.status==='playing'&&g.members?.[id]===undefined||!b||b.dribbler||b.keeperOwner!==undefined||time<Number(b.resetUntil||0)||time<Number(g.knockdowns?.[id]?.until||0)||time<Number(g.slides?.[id]?.until||0)||time<Number(g.finishes?.[id]?.until||0)||!g.receives?.[id]?.ground&&time<Number(g.receives?.[id]?.until||0))return {trap:false,header:false};
+ const d=Math.hypot(p.x-b.x,p.z-b.z),speed=Math.hypot(b.vx,b.vz),ownRelease=b.lastTouch===id&&time<Number(b.releaseUntil||0);
+ const trap=!ownRelease&&d<2&&b.y>=.3&&b.y<2.5&&b.vy<2&&speed<15&&time>=Number(b.freeUntil||0);
+ return {trap,header:soccerAirAction(g,id,players,F,time)==='header',goal:g.members[id]===1?F.near:F.far};
 }
+export function soccerTrapPart(ball){return ball.y>=1.8?'head':ball.y>=1.1?'chest':ball.y>=.65?'knee':ball.y>.38||Math.hypot(ball.vx,ball.vz)>4?'foot':'sole';}
 export function beginSoccerReceive(g,id,kind,p,time,F){
  const b=g.ball,goal=g.members[id]===0?F.far:F.near,keeper=g.keepers?.[g.members[id]===0?1:0];
  const targetX=23+(keeper?.x>=23?-1:1)*1.65;
- g.receives||={};g.receives[id]={kind,at:time,until:time+(kind==='header'?1350:650),contactAt:time+(kind==='header'?140:0),applied:false,x:b.x,y:b.y,z:b.z,yaw:Math.atan2(targetX-p.x,goal-p.z),targetX,goal};
- if(kind==='trap'){g.flight=null;b.dribbler='';b.spin=0;b.vx=b.vy=b.vz=0;}
+ g.receives||={};g.receives[id]={kind,part:kind==='trap'?soccerTrapPart(b):'head',at:time,until:time+(kind==='header'?1350:650),contactAt:time+(kind==='header'?140:0),applied:false,x:b.x,y:b.y,z:b.z,yaw:Math.atan2(targetX-p.x,goal-p.z),targetX,goal};
+ if(kind==='trap'){
+  const ground=b.y<=.55,speed=Math.hypot(b.vx,b.vz);g.flight=null;b.dribbler=ground?id:'';b.spin=0;
+  if(ground){Object.assign(g.receives[id],{ground:true,applied:true,until:time+380});g.dribble={uid:id,at:time,receiveAt:time,receiveDuration:300,receiveSide:(b.x-p.x)*Math.cos(p.yaw||0)-(b.z-p.z)*Math.sin(p.yaw||0)<0?-1:1};}else b.vx=b.vy=b.vz=0;
+ }
 }
 export function stepSoccerReceives(g,players,F,time,eligible){
  const b=g.ball;let controlled=false,changed=false;
  for(const [id,r]of Object.entries(g.receives||{})){
   const p=players[id];if(!eligible(id)||time>r.until+1500){delete g.receives[id];continue;}
-  const age=time-r.at;
+  if(r.kind==='trap'&&!r.applied&&Math.hypot(p.x-b.x,p.z-b.z)>2.3){delete g.receives[id];b.freeUntil=time+100;changed=true;continue;}
+  const age=time-r.at;if(r.ground)continue;
   if(r.kind==='header'&&!r.applied&&time>=r.contactAt){
    r.applied=true;changed=true;
-   if(g.flight&&Math.hypot(p.x-b.x,p.z-b.z)<3.5&&b.y>.6&&b.y<3.3){
+   if(!b.dribbler&&b.keeperOwner===undefined&&Math.hypot(p.x-b.x,p.z-b.z)<3.5&&b.y>.6&&b.y<3.3){
     const dx=r.targetX-b.x,dz=r.goal-b.z,d=Math.hypot(dx,dz),speed=15.5,travel=d/speed;
     b.vx=dx/d*speed;b.vz=dz/d*speed;b.vy=Math.max(-4,Math.min(2.5,(.85-b.y)/Math.max(.15,travel)+4.9*travel));b.dribbler='';b.spin=0;b.lastTouch=id;b.releaseUntil=time+900;b.freeUntil=time+350;g.flight=null;r.connected=true;
    }
@@ -30,8 +36,8 @@ export function stepSoccerReceives(g,players,F,time,eligible){
   }else if(r.kind==='trap'&&!r.applied){r.applied=true;b.dribbler=id;g.dribble={uid:id,at:time};changed=true;}
  }
  if(g.flight&&time>g.flight.at+3500){g.flight=null;changed=true;}
- if(g.flight&&b.vy<=0&&b.y<1.3&&b.y>.3){
-  const candidates=Object.keys(players).filter(id=>eligible(id)&&soccerReception(g,id,players,F,time).trap&&Math.hypot(players[id].x-b.x,players[id].z-b.z)<1.15).sort((a,c)=>Math.hypot(players[a].x-b.x,players[a].z-b.z)-Math.hypot(players[c].x-b.x,players[c].z-b.z));
+ if(!controlled&&!b.dribbler&&b.keeperOwner===undefined&&b.vy<=.3&&b.y<=2.15&&b.y>=.3&&Math.hypot(b.vx,b.vz)>.3||!controlled&&!b.dribbler&&b.keeperOwner===undefined&&b.vy<-.1&&b.y<=2.15&&b.y>.3){
+  const candidates=Object.keys(players).filter(id=>eligible(id)&&soccerReception(g,id,players,F,time).trap&&Math.hypot(players[id].x-b.x,players[id].z-b.z)<.95).sort((a,c)=>Math.hypot(players[a].x-b.x,players[a].z-b.z)-Math.hypot(players[c].x-b.x,players[c].z-b.z));
   if(candidates[0]){beginSoccerReceive(g,candidates[0],'trap',players[candidates[0]],time,F);controlled=changed=true;}
  }
  return {controlled,changed};
@@ -53,6 +59,7 @@ export function soccerKeeperOutlet(g,k,players,F){
  return {target,x:q.x,z:q.z,yaw:Math.atan2(q.x-k.x,q.z-k.z)};
 }
 export function stepSoccerKeepers(g,F,time,dt,players={}){
+ if(g.botOptions?.enabled===false){g.keepers={};delete g.ball.keeperOwner;return {controlled:false,changed:false};}
  const previous=JSON.stringify(g.keepers||{}),heldBefore=g.ball.keeperOwner!==undefined;g.keepers||={};const b=g.ball,playing=['idle','playing'].includes(g.status)&&time>=Number(b.resetUntil||0);
  for(const team of [0,1]){
   const dir=team===0?1:-1,z=(team===0?F.near:F.far)+dir*.75;

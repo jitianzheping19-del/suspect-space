@@ -1,3 +1,4 @@
+import {resolveSoccerOverlap} from './lobby-soccer-match.js';
 import {soccerKickoffBlocks} from './lobby-soccer-kickoff.js';
 import {applySoccerPress} from './lobby-soccer-press.js';
 import {soccerPassLane,soccerSupportSpot} from './lobby-soccer-tactics.js';
@@ -6,11 +7,10 @@ import {soccerKickFoot} from './lobby-soccer-kick.js';
 // Field bots belong to this match snapshot, never to the lobby's player slots.
 export function soccerRoster(g,players){return g?.bots?{...players,...g.bots}:players;}
 export function soccerLive(p){return p?.online===true&&(!p.bot||p.soccerBot===true)&&!p.observer;}
-export function createSoccerBots(g,human){
- g.bots={};
- for(const n of [1,2]){
-  const id='soccer-bot-'+n,team=n===1?g.members[human]:1-g.members[human];
-  g.members[id]=team;g.bots[id]={online:true,bot:true,soccerBot:true,name:'BOT '+n,team,x:n===1?19.5:26.5,z:team===0?7:14,lobbyY:0,yaw:team===0?0:Math.PI,walking:false,nextAction:0};
+export function createSoccerBots(g,human,options={enabled:true,blue:1,red:1}){
+ if(!options.enabled){delete g.bots;return;}g.bots={};
+ let n=0;for(const team of [0,1])for(let i=0;i<(team===0?options.blue:options.red);i++){
+  const id='soccer-bot-'+(++n);g.members[id]=team;g.bots[id]={online:true,bot:true,soccerBot:true,name:(team===0?'青':'赤')+' BOT '+(i+1),team,x:19.5+i%4*2,z:team===0?7:14,lobbyY:0,yaw:team===0?0:Math.PI,walking:false,nextAction:0};
  }
 }
 export function stepSoccerBots(g,players,F,time,dt){
@@ -19,6 +19,7 @@ export function stepSoccerBots(g,players,F,time,dt){
   if(g.status!=='playing'||time<Number(b.resetUntil||0)||soccerKickoffBlocks(g,id,time)){if(p.walking){p.walking=false;changed=true;}continue;}
   const team=g.members[id],dir=team===0?1:-1,goal=team===0?F.far:F.near,owner=b.dribbler,holder=players[owner],own=owner===id,ally=holder&&g.members[owner]===team;
   const press=g.presses?.[id],recovering=press?.phase==='recover'&&time<press.recoverUntil;
+  const down=g.knockdowns?.[id];if(down&&time<down.until){p.walking=false;const q=resolveSoccerOverlap(id,p,players,F);Object.assign(p,q);continue;}
   const receiving=g.receives?.[id],kick=g.kicks?.[id],finish=g.finishes?.[id],frozen=finish&&time<finish.until||receiving&&time<receiving.until||kick&&time<kick.at+500;
   if(frozen){p.walking=false;continue;}
   let tx=b.x,tz=b.z,speed=own?2.05:2.85,gap=.52;
@@ -39,8 +40,7 @@ export function stepSoccerBots(g,players,F,time,dt){
   tx=Math.max(F.left+.7,Math.min(F.right-.7,tx));tz=Math.max(F.near+1.25,Math.min(F.far-1.25,tz));
   const dx=tx-p.x,dz=tz-p.z,d=Math.hypot(dx,dz),step=Math.min(Math.max(0,d-gap),speed*dt);
   let nx=p.x+(d?dx/d*step:0),nz=p.z+(d?dz/d*step:0);
-  for(const [other,q]of Object.entries(players)){if(other===id||!soccerLive(q)||Math.abs(q.lobbyY||0)>.4)continue;const distance=Math.hypot(nx-q.x,nz-q.z);if(distance<.87){const angle=distance>.001?Math.atan2(nx-q.x,nz-q.z):Math.PI/2;nx=q.x+Math.sin(angle)*.87;nz=q.z+Math.cos(angle)*.87;}}
-  nx=Math.max(F.left+.6,Math.min(F.right-.6,nx));nz=Math.max(F.near+1.15,Math.min(F.far-1.15,nz));
+  ({x:nx,z:nz}=resolveSoccerOverlap(id,{x:nx,z:nz},players,F));
   p.walking=Math.hypot(nx-p.x,nz-p.z)>.001;p.x=nx;p.z=nz;
   const yaw=own?Math.atan2(tx-p.x,tz-p.z):Math.atan2(b.x-p.x,b.z-p.z),turn=Math.atan2(Math.sin(yaw-p.yaw),Math.cos(yaw-p.yaw));p.yaw+=turn*Math.min(1,dt*12);changed=true;
   if(holder&&!ally&&!own&&time>=Number(p.nextPress||0)){

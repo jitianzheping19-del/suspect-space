@@ -3,7 +3,7 @@ import {createLobbyGamesRules} from '../lobby-games-rules.js';
 import {soccerKeeperOutlet} from '../lobby-soccer-air.js';
 const R=createLobbyGamesRules(),T=100000,F=R.SOCCER;
 const person=(x,z,yaw=0)=>({online:true,x,z,lobbyY:0,yaw});
-function fixture(nearGoal=false){const people={self:person(nearGoal?20:23,9),friend:person(nearGoal?23:28,nearGoal?19:13),enemy:person(30,16)};const s=R.fresh('self',T);Object.assign(s.soccer,{status:'playing',endAt:T+180000,members:{self:0,friend:0,enemy:1}});Object.assign(s.soccer.ball,{x:people.self.x,z:9.8,dribbler:'self'});return{people,s,t:T};}
+function fixture(nearGoal=false){const people={self:person(nearGoal?20:23,9),friend:person(nearGoal?23:28,nearGoal?19:13,nearGoal?Math.PI:0),enemy:person(30,16)};const s=R.fresh('self',T);Object.assign(s.soccer,{status:'playing',endAt:T+180000,members:{self:0,friend:0,enemy:1}});Object.assign(s.soccer.ball,{x:people.self.x,z:9.8,dribbler:'self'});return{people,s,t:T};}
 function lob(f){const p=f.people.self,q=f.people.friend,result=R.command(f.s,{uid:'self',id:'lob',at:f.t,kind:'kick',mode:'lob',yaw:Math.atan2(q.x-p.x,q.z-p.z),power:.65},f.people,'self',new Set(),f.t);assert(result.ok,result.message);f.s=result.state;}
 function tick(f){f.t+=1000/60;R.step(f.s,f.people,f.t,1/60);}
 {

@@ -1,9 +1,10 @@
+import {soccerPitch} from './lobby-soccer-match.js';
 // Shared tackle timing: the scene animates travel; the host awards actual ball contact.
 export const SOCCER_SLIDE={duration:1640,launchMs:160,travelMs:840,distance:3.6,cooldown:2300,reach:1.22};
 export function soccerSlideActive(g,id,time){const s=g?.slides?.[id];return s&&time>=s.at&&time<s.until?s:null;}
 export function canSoccerSlide(g,id,players,time){
- const p=players[id],b=g?.ball,k=g?.kickoff;
- return !!(p?.online&&!p.bot&&!p.observer&&!p.lobbyKart&&!p.lobbyCircuit&&Math.abs(p.lobbyY||0)<.2&&p.x>14&&p.x<32&&p.z>-3&&p.z<23&&['idle','playing'].includes(g?.status)&&(g.status==='idle'||g.members?.[id]!==undefined)&&b&&b.keeperOwner===undefined&&b.dribbler!==id&&!(b.dribbler&&g.status==='playing'&&g.members[b.dribbler]===g.members[id])&&time>=Number(b.resetUntil||0)&&!(k&&!k.released&&time<k.until)&&time>=Number(g.slides?.[id]?.readyAt||0)&&!(g.finishes?.[id]&&time<g.finishes[id].until)&&!(g.receives?.[id]&&time<g.receives[id].until)&&!(g.skills?.[id]&&!g.skills[id].cancelled&&time<g.skills[id].at+1300));
+ const p=players[id],b=g?.ball,k=g?.kickoff,F=soccerPitch(g?.pitchCount||0);
+ return !!(p?.online&&!p.bot&&!p.observer&&!p.lobbyKart&&!p.lobbyCircuit&&Math.abs(p.lobbyY||0)<.2&&p.x>F.left&&p.x<F.right&&p.z>F.near&&p.z<F.far&&['idle','playing'].includes(g?.status)&&(g.status==='idle'||g.members?.[id]!==undefined)&&b&&b.keeperOwner===undefined&&b.dribbler!==id&&!(b.dribbler&&g.status==='playing'&&g.members[b.dribbler]===g.members[id])&&time>=Number(b.resetUntil||0)&&!(k&&!k.released&&time<k.until)&&time>=Number(g.knockdowns?.[id]?.until||0)&&time>=Number(g.slides?.[id]?.readyAt||0)&&!(g.finishes?.[id]&&time<g.finishes[id].until)&&!(g.receives?.[id]&&time<g.receives[id].until)&&!(g.skills?.[id]&&!g.skills[id].cancelled&&time<g.skills[id].at+1300));
 }
 export function beginSoccerSlide(g,id,p,yaw,time){
  g.slides||={};g.slides[id]={at:time,until:time+SOCCER_SLIDE.duration,readyAt:time+SOCCER_SLIDE.cooldown,yaw,lastX:p.x,lastZ:p.z};
@@ -48,6 +49,22 @@ export function stepSoccerSlides(g,players,time){
    s.connected=true;s.contact={x:b.x,y:b.y,z:b.z,at:time};b.dribbler='';b.spin=0;b.lastTouch=id;b.vx=Math.sin(s.yaw)*5.2;b.vz=Math.cos(s.yaw)*5.2;b.vy=.7;b.freeUntil=time+240;b.releaseUntil=time+500;b.contestUntil=time+400;b.contestOwner=id;g.flight=null;
    if(g.skills?.[owner])g.skills[owner].cancelled=true;
    changed=true;
+  }
+  if(time-s.at>=SOCCER_SLIDE.launchMs+40&&time-s.at<=SOCCER_SLIDE.travelMs&&Math.hypot(dx,dz)<4.2){
+   g.knockdowns||={};s.hitPlayers||={};
+   for(const [other,q]of Object.entries(players)){
+    if(other===id||s.hitPlayers[other]||!q?.online||q.observer||q.bot&&!q.soccerBot||Math.abs(q.lobbyY||0)>.3||g.status==='playing'&&(g.members[other]===undefined||g.members[other]===g.members[id])||time<Number(g.knockdowns[other]?.until||0)+300)continue;
+    const u=Math.max(0,Math.min(1,((q.x-s.lastX)*dx+(q.z-s.lastZ)*dz)/Math.max(.001,len))),gap=Math.hypot(q.x-s.lastX-u*dx,q.z-s.lastZ-u*dz),front=(q.x-p.x)*Math.sin(s.yaw)+(q.z-p.z)*Math.cos(s.yaw);
+    if(gap>1.05||front<-.25)continue;
+    s.hitPlayers[other]=true;g.knockdowns[other]={at:time,until:time+1450,yaw:s.yaw,from:id};
+    if(g.presses?.[other])g.presses[other].held=false;
+    if(g.dashes?.[other])g.dashes[other].until=time;
+    if(g.skills?.[other])g.skills[other].cancelled=true;
+    if(g.kicks?.[other])g.kicks[other].applied=true;
+    if(g.receives?.[other])delete g.receives[other];if(g.finishes?.[other])delete g.finishes[other];
+    if(b.dribbler===other){b.dribbler='';b.lastTouch=id;b.vx=Math.sin(s.yaw)*3;b.vz=Math.cos(s.yaw)*3;b.vy=.5;b.freeUntil=time+250;}
+    changed=true;
+   }
   }
   s.lastX=p.x;s.lastZ=p.z;
  }

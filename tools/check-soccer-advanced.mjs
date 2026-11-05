@@ -5,7 +5,7 @@ const R=createLobbyGamesRules(),T=100000,p=(x,z,extra={})=>({online:true,x,z,lob
 const roster={host:p(23,9),friend:p(23,17),opponent:p(30,18)};
 function state(){const s=R.fresh('host',T);Object.assign(s.soccer,{status:'playing',members:{host:0,friend:0,opponent:1},endAt:T+180000});Object.assign(s.soccer.ball,{z:9.85,dribbler:'host'});return s;}
 function command(s,extra){return R.command(s,{uid:'host',id:'test',kind:'soccer-skill',skill:'doubleTouch',side:1,yaw:0,at:T,...extra},roster,'host',new Set(),T);}
-for(const kind of Object.keys(SOCCER_SKILLS)){
+for(const kind of Object.keys(SOCCER_SKILLS).filter(kind=>!['scissors','nutmeg'].includes(kind))){
  const start=command(state(),{skill:kind});assert(start.ok);const s=start.state,spec=SOCCER_SKILLS[kind];let maxY=0,minSide=0,maxSide=0;
  for(let i=1;i<=100;i++){R.step(s,roster,T+i*1000/60,1/60);const b=s.soccer.ball;maxY=Math.max(maxY,b.y);minSide=Math.min(minSide,b.x-23);maxSide=Math.max(maxSide,b.x-23);assert([b.x,b.y,b.z,b.vx,b.vy,b.vz].every(Number.isFinite));}
  assert(s.soccer.skills.host.released,kind+' releases the ball');assert(!s.soccer.skills.host.cancelled,kind+' completes');

@@ -64,6 +64,7 @@ function createSoccerStadium(THREE,root,F){
  function update(g,time){
   paint(g,time);
   for(const model of keepers){
+   model.rig.visible=model.shadow.visible=g?.botOptions?.enabled!==false;if(!model.rig.visible)continue;
    const k=g?.keepers?.[model.team],dir=model.team===0?1:-1,z=(model.team===0?F.near:F.far)+dir*.75;
    const punting=k?.distribution==='punt'&&['pickup','catch','punt'].includes(k.phase),holding=['pickup','catch'].includes(k?.phase),holdingAge=holding?Math.max(0,(time-k.at)/1000):0,throwing=k?.phase==='distribute',throwAge=throwing?Math.max(0,(time-k.at)/1000):0;
    const age=k?.phase==='dive'?Math.max(0,(time-k.at)/1000):0,dive=k?.phase==='dive',recovery=k?.phase==='recover'?Math.max(0,Math.min(1,(k.until-time)/500)):0;
@@ -89,7 +90,7 @@ function createSoccerStadium(THREE,root,F){
  }
  paint(null,0);update(null,0);return {update,board,keepers};
 }
-function applySoccerReceptionPose(crew,receive,time,pose){
+function applySoccerReceptionPose(crew,receive,time,pose,ballMesh){
  const age=(time-receive.at)/1000;if(age<0||time>receive.until)return false;
  const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
  for(const n of [crew.root,crew.body,crew.pack,crew.visor,crew.shine,...(crew.legs||[]),...arms])if(n)pose(n);
@@ -100,15 +101,17 @@ function applySoccerReceptionPose(crew,receive,time,pose){
   arms.forEach((arm,i)=>{arm.rotation.x=-.7*weight;arm.rotation.z=(i?1:-1)*(.65+fall*.35)*weight;});
   crew.legs?.forEach((leg,i)=>leg.rotation.x=(i?.5:-.35)*weight);
  }else{
-  const u=Math.min(1,age/.65),cushion=Math.sin(u*Math.PI);
+  const u=Math.min(1,age/(receive.ground?.38:.65)),cushion=Math.sin(u*Math.PI),part=receive.part||'chest';
+  crew.root.rotation.x+=(part==='head'?.22:part==='chest'?-.2:.12)*cushion;crew.root.position.y-=(part==='knee'?.16:part==='sole'?.06:.03)*cushion;
   for(const n of [crew.body,crew.pack,crew.visor,crew.shine])if(n){n.rotation.x-=.22*cushion;n.position.y-=.09*cushion;}
-  if(crew.legs?.[1]){crew.legs[1].rotation.x=-.75*cushion;crew.legs[1].position.y+=.2*cushion;}
+  if(crew.legs?.[1]){crew.legs[1].rotation.x=-(part==='knee'?1.2:part==='foot'?.7:part==='sole'?.35:.15)*cushion;crew.legs[1].position.y+=(part==='knee'?.3:part==='sole'?.15:.07)*cushion;crew.legs[1].position.z+=(part==='sole'?.6:.18)*cushion;}
   arms.forEach((arm,i)=>arm.rotation.z=(i?1:-1)*.5*cushion);
  }
  return true;
 }
 
-function applySoccerOverheadPose(crew,finish,time,pose){
+function applySoccerOverheadPose(crew,finish,time,pose,ballMesh){
+ if(finish.kind==='volley')return applySoccerVolleyPose(crew,finish,time,pose,ballMesh);
  const motion=sampleSoccerOverhead(finish,time);if(!motion)return false;
  const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
  for(const n of [crew.root,...crew.legs,...arms])pose(n);
@@ -121,5 +124,28 @@ function applySoccerOverheadPose(crew,finish,time,pose){
  crew.legs[0].rotation.x=motion.left;crew.legs[1].rotation.x=motion.right;
  crew.legs.forEach((leg,i)=>{leg.rotation.z=(i?1:-1)*.1;leg.position.z+=(i?1:-1)*.09*Math.sin(motion.phase*Math.PI);});
  arms.forEach((arm,i)=>{arm.rotation.x=motion.before?-.4:.25;arm.rotation.z=(i?1:-1)*motion.spread;});
+ alignSoccerFoot(crew,1,finish.contact||ballMesh.getWorldPosition(new THREE.Vector3()),time,finish.contactAt);
  return true;
+}
+
+function applySoccerVolleyPose(crew,finish,time,pose,ballMesh){
+ const m=sampleSoccerVolley(finish,time);if(!m)return false;
+ const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
+ for(const n of [crew.root,...crew.legs,...arms])pose(n);
+ crew.root.position.y+=m.height;crew.root.rotation.set(m.pitch,finish.yaw,-.12*m.weight,'YXZ');
+ crew.legs[1].rotation.x=m.kick;crew.legs[1].position.z+=.3*m.weight;crew.legs[0].rotation.x=m.plant;
+ arms.forEach((a,i)=>{a.rotation.z=(i?1:-1)*m.arms;a.rotation.x=(i?-.6:.4)*m.weight;});alignSoccerFoot(crew,1,finish.contact||ballMesh.getWorldPosition(new THREE.Vector3()),time,finish.contactAt);return true;
+}
+function applySoccerKnockdownPose(crew,down,time,pose){
+ const age=time-down.at,ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);},fall=ease(age/230),rise=ease((age-700)/750),weight=fall*(1-rise),pitch=-1.35*weight;
+ const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
+ for(const n of [crew.root,...crew.legs,...arms])pose(n);
+ crew.root.rotation.set(pitch,down.yaw,.15*weight,'YXZ');crew.root.position.y+=.65*(1-Math.cos(pitch))-.1*weight;
+ crew.legs.forEach((n,i)=>n.rotation.x=(i?.6:.3)*weight);arms.forEach((n,i)=>{n.rotation.x=-.45*weight;n.rotation.z=(i?1:-1)*.9*weight;});
+}
+
+function alignSoccerFoot(crew,index,target,time,contactAt){
+ const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);},weight=smooth((time-contactAt+180)/180)*(1-smooth((time-contactAt)/240));if(!weight)return;
+ const leg=crew.legs[index];crew.root.updateMatrixWorld(true);const ball=new THREE.Vector3(target.x,target.y,target.z),foot=leg.localToWorld(new THREE.Vector3(0,-.25,0)),toward=foot.clone().sub(ball).normalize();
+ const desired=crew.root.worldToLocal(ball.addScaledVector(toward,.3)),current=crew.root.worldToLocal(foot);const correction=desired.sub(current);if(correction.length()>1.5)correction.setLength(1.5);leg.position.add(correction.multiplyScalar(weight));
 }

@@ -1,10 +1,12 @@
+import {soccerPitch} from './lobby-soccer-match.js';
 // Shared host rules and visual timing for a held, interruptible standing tackle.
 export const SOCCER_PRESS={hold:180,lease:850,heartbeat:240,reaction:140,windup:190,recovery:560,exhaustion:4200,rest:1100,reach:1.16,range:35};
 const pressDistance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
-const pressPlayer=p=>p?.online===true&&(!p.bot||p.soccerBot===true)&&!p.observer&&!p.lobbyKart&&!p.lobbyCircuit&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.x>12.5&&p.x<36.5&&p.z> -5&&p.z<25.5;
+const pressPlayer=p=>p?.online===true&&(!p.bot||p.soccerBot===true)&&!p.observer&&!p.lobbyKart&&!p.lobbyCircuit&&Number.isFinite(p.x)&&Number.isFinite(p.z);
 const pressGrounded=p=>pressPlayer(p)&&Math.abs(p.lobbyY||0)<.2;
 export function soccerPressTarget(g,id,roster,time){
- const target=g?.ball?.dribbler,p=roster[id],q=roster[target];
+ const target=g?.ball?.dribbler,p=roster[id],q=roster[target],F=soccerPitch(g?.pitchCount||0);
+ if(time<Number(g?.knockdowns?.[id]?.until||0)||[p,q].some(v=>v&&(v.x<F.minX||v.x>F.maxX||v.z<F.minZ||v.z>F.maxZ)))return '';
  if(g?.slides?.[id]&&time<g.slides[id].until)return '';
  if(g?.kickoff&&!g.kickoff.released&&time<g.kickoff.until)return '';
  if(!target||target===id||!pressGrounded(p)||!pressGrounded(q)||!['idle','playing'].includes(g.status)||time<Number(g.ball.resetUntil||0)||pressDistance(p,q)>SOCCER_PRESS.range)return '';
@@ -43,7 +45,8 @@ export function applySoccerPress(g,input,roster,time){
  // A completed challenge requires a fresh press, not a late heartbeat.
  if(old?.outcome&&old.held&&time<old.until)return true;
  const p=roster[id],q=roster[target],side=(p.x-q.x)*Math.cos(q.yaw||0)-(p.z-q.z)*Math.sin(q.yaw||0)>=0?1:-1;
- g.presses[id]={id:String(serial),target,held:true,mode,at:time,until:time+SOCCER_PRESS.lease,phase:'chase',phaseAt:time,distance:pressDistance(p,q),side,yaw:Math.atan2(g.ball.x-p.x,g.ball.z-p.z),energy:1};
+ g.pressAttempts||={};const attempt=g.pressAttempts[id]=(g.pressAttempts[id]||0)+1;
+ g.presses[id]={variant:(attempt-1)%4,id:String(serial),target,held:true,mode,at:time,until:time+SOCCER_PRESS.lease,phase:'chase',phaseAt:time,distance:pressDistance(p,q),side,yaw:Math.atan2(g.ball.x-p.x,g.ball.z-p.z),energy:1};
  updateSoccerPressRead(g.presses[id],p,q,g.ball,time);
  return true;
 }
@@ -65,7 +68,7 @@ export function stepSoccerPress(g,roster,time){
   if(p.mode==='matchup'){p.phase='contain';p.yaw=Math.atan2(b.x-player.x,b.z-player.z);continue;}
   if(p.phase!=='reach'){
    p.yaw=Math.atan2(b.x-player.x,b.z-player.z);
-   if(p.distance<1.9&&pressDistance(player,b)<1.45&&time-p.at>=260){p.phase='reach';p.phaseAt=time;p.contactAt=time+SOCCER_PRESS.windup;p.result='';}
+   if(p.distance<1.9&&pressDistance(player,b)<1.45&&time-p.at>=260){p.phase='reach';p.phaseAt=time;p.contactAt=time+SOCCER_PRESS.windup;p.result='';p.variant=((p.variant||0)+Number(p.challengeCount||0))%4;p.challengeCount=(p.challengeCount||0)+1;}
    else p.phase=p.distance<2.5?'jockey':'chase';
    continue;
   }

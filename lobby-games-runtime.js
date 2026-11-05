@@ -1,3 +1,5 @@
+import {createSoccerGuide} from './lobby-soccer-guide.js';
+import './lobby-soccer-match.css';
 import {createSoccerDefenseControls} from './lobby-soccer-defense-ui.js';
 import {createSoccerFeedback} from './lobby-soccer-feedback.js';
 import {createSoccerGoalPresentation} from './lobby-soccer-goal-ui.js';
@@ -10,18 +12,19 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
   let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='',feedback='',feedbackUntil=0;
   let pressSerial=0,pressWrite=Promise.resolve(),dashWrite=Promise.resolve();
+  const guide=createSoccerGuide({document,window,onOpen:open=>{if(open){requestPress(false);requestDash(false);}frame()?.postMessage({type:'lobby-studio-state',open},'*');render();}});
   const soccerFeedback=createSoccerFeedback({document,window,clock,visible:()=>context().enabled&&localArea==='soccer'&&!rules.active(state?.tag)});
   function soccerControlContext(){
     const base=context(),c={...base,players:rules.soccerRoster(state?.soccer,base.players)},g=state?.soccer,t=clock(),press=g?.presses?.[c.uid],target=rules.pressTarget(g,c.uid,c.players,t),owner=g?.ball?.dribbler;
-    const reception=rules.reception(state,c.uid,c.players,t);
+    const reception=rules.reception(state,c.uid,c.players,t),airAction=rules.airAction(state,c.uid,c.players,t);
     const recovering=!!press?.outcome&&t<press.recoverUntil;
     const duel=Object.entries(g?.presses||{}).filter(([id,p])=>(id===c.uid||p.target===c.uid)&&p.contact&&t-p.contact.at<1400).sort((a,b)=>b[1].contact.at-a[1].contact.at)[0];
     const feedback=duel?{at:duel[1].contact.at,result:duel[1].result,text:duel[0]===c.uid?({won:'ボール奪取！',evaded:'かわされた',shielded:'身体でブロックされた',miss:'届かなかった'}[duel[1].result]):({won:'ボールを奪われた',evaded:'フェイント成功',shielded:'ボールをキープ',miss:'プレスを回避'}[duel[1].result])}:null;
     const defending=!!g&&!!owner&&owner!==c.uid&&!(owner&&g.status==='playing'&&g.members?.[owner]===g.members?.[c.uid])&&['idle','playing'].includes(g.status);
-    return {defending,canSlide:!pending&&rules.canSlide(state,c.uid,c.players,t),visible:c.enabled&&localArea==='soccer'&&!rules.active(state?.tag),overheadReady:rules.canOverhead(state,c.uid,c.players,t),headerReady:reception.header,canTrap:reception.trap,enabled:(!!action.enabled||reception.header||rules.canOverhead(state,c.uid,c.players,t))&&(!pending||pending.kind==='soccer-dash'),resolveLobAim:yaw=>{const target=state?rules.passTarget(state,c.uid,c.players,yaw):'',p=c.players[c.uid],q=c.players[target];return q?{mode:'lob',target,yaw:Math.atan2(q.x-p.x,q.z-p.z),x:q.x,z:q.z}:null;},resolveAim:(yaw,forceShot)=>rules.kickAim(state,c.uid,c.players,yaw,forceShot),canSkill:!!action.canSkill,canDash:rules.canDash(state,c.uid,c.players,t)&&!pending,dashing:t<Number(g?.dashes?.[c.uid]?.until||0),hasBall:owner===c.uid,canPress:!!target&&!recovering,press:press?.held?press:null,recovering,duel:feedback,teammateBall:!!owner&&owner!==c.uid&&g?.status==='playing'&&g.members?.[owner]===g.members?.[c.uid],pending:!!pending,yaw:action.yaw||0,rightX:action.rightX??1,rightZ:action.rightZ??0,forwardX:action.forwardX??0,forwardZ:action.forwardZ??1};
+    return {defending,canSlide:!pending&&rules.canSlide(state,c.uid,c.players,t),visible:c.enabled&&!guide.open&&localArea==='soccer'&&!rules.active(state?.tag),volleyReady:airAction==='volley',overheadReady:airAction==='overhead',headerReady:airAction==='header',canTrap:reception.trap,enabled:(!!action.enabled||!!airAction)&&(!pending||pending.kind==='soccer-dash'),resolveLobAim:yaw=>{const target=state?rules.passTarget(state,c.uid,c.players,yaw):'',p=c.players[c.uid],q=c.players[target];return q?{mode:'lob',target,yaw:Math.atan2(q.x-p.x,q.z-p.z),x:q.x,z:q.z}:null;},resolveAim:(yaw,forceShot)=>rules.kickAim(state,c.uid,c.players,yaw,forceShot),canSkill:!!action.canSkill,canDash:rules.canDash(state,c.uid,c.players,t)&&!pending,dashing:t<Number(g?.dashes?.[c.uid]?.until||0),hasBall:owner===c.uid,canPress:!!target&&!recovering,press:press?.held?press:null,recovering,duel:feedback,teammateBall:!!owner&&owner!==c.uid&&g?.status==='playing'&&g.members?.[owner]===g.members?.[c.uid],pending:!!pending,yaw:action.yaw||0,rightX:action.rightX??1,rightZ:action.rightZ??0,forwardX:action.forwardX??0,forwardZ:action.forwardZ??1};
   }
   const defenseControls=createSoccerDefenseControls({document,window,context:soccerControlContext,sendPress:requestPress,sendSlide:yaw=>requestSoccerAction('soccer-slide',{yaw})});
-  const flickControls=createSoccerFlickControls({document,window,context:()=>{const c=soccerControlContext();return {...c,visible:c.visible&&!c.defending};},send:requestSoccerAction,onAim:value=>frame()?.postMessage({type:'lobby-soccer-aim',...value},'*'),sendDash:requestDash});
+  const flickControls=createSoccerFlickControls({document,window,context:()=>{const c=soccerControlContext();return c;},send:requestSoccerAction,onAim:value=>frame()?.postMessage({type:'lobby-soccer-aim',...value},'*'),sendDash:requestDash});
   const panel=document.createElement('section');panel.id='lobbyMiniGamePanel';panel.className='hidden';panel.setAttribute('aria-label','ロビーの遊び');
   const title=document.createElement('strong'),status=document.createElement('div'),buttons=document.createElement('div');buttons.className='miniGameButtons';panel.append(title,status,buttons);document.body.append(panel);
   const start=document.createElement('button'),stop=document.createElement('button'),exit=document.createElement('button');
@@ -32,7 +35,10 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   const countdownLabel=document.createElement('span'),countdownNumber=document.createElement('strong');countdown.append(countdownLabel,countdownNumber);document.body.append(countdown);
   const scoreActions=document.createElement('div');scoreActions.id='lobbySoccerActions';scoreActions.className='soccerScoreActions';scoreActions.hidden=true;document.body.append(scoreActions);
   toggle.onclick=()=>{menuOpen=!menuOpen;render();};
-  start.onclick=()=>request('start-'+(localArea==='lobby'?'tag':localArea));
+  const setup=document.createElement('fieldset');setup.id='soccerMatchSetup';setup.innerHTML='<label>フィールドのボット<input id="soccerBotsEnabled" type="checkbox" checked></label><label data-team="blue">青チームのボット<input id="soccerBlueBots" aria-label="青チームのボット数" type="number" min="0" max="10" value="1"></label><label data-team="red">赤チームのボット<input id="soccerRedBots" aria-label="赤チームのボット数" type="number" min="0" max="10" value="1"></label><small></small>';panel.insertBefore(setup,buttons);
+  const botEnabled=setup.querySelector('#soccerBotsEnabled'),blueBots=setup.querySelector('#soccerBlueBots'),redBots=setup.querySelector('#soccerRedBots');
+  for(const input of [botEnabled,blueBots,redBots])input.addEventListener('change',()=>{if(input.type==='number')input.value=String(Math.max(0,Math.min(10,Math.floor(Number(input.value)||0))));render();});
+  start.onclick=()=>request('start-'+(localArea==='lobby'?'tag':localArea),localArea==='soccer'?{bots:{enabled:botEnabled.checked,blue:Number(blueBots.value),red:Number(redBots.value)}}:{});
   stop.onclick=()=>request('stop',{game:rules.active(state?.tag)||localArea==='lobby'?'tag':localArea});
   exit.onclick=()=>frame()?.postMessage({type:'lobby-games-exit'},'*');
   touch.onclick=()=>request('tag',{target:action.target});
@@ -114,7 +120,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     const c=context();if(!c.enabled)return true;
     if(data.type==='lobby-games-action'&&['lobby','survival','soccer'].includes(data.area)){
       action={enabled:data.enabled===true,canSkill:data.canSkill===true,target:typeof data.target==='string'?data.target:'',yaw:Number.isFinite(data.yaw)?data.yaw:0,passTarget:typeof data.passTarget==='string'?data.passTarget:'',...Object.fromEntries(['rightX','rightZ','forwardX','forwardZ'].filter(k=>Number.isFinite(data[k])).map(k=>[k,data[k]]))};const changed=localArea!==data.area;localArea=data.area;if(changed)onAreaChange();decorateAction();render();
-    }else if(data.type==='lobby-games-command'&&['kick','tag'].includes(data.kind))request(data.kind,{yaw:Number(data.yaw)||0,target:String(data.target||'')});
+    }else if(data.type==='lobby-games-command'&&['kick','tag','soccer-skill'].includes(data.kind))request(data.kind,{yaw:Number(data.yaw)||0,target:String(data.target||''),...(data.kind==='soccer-skill'?{skill:data.skill,side:data.side}:{})});
     return true;
   }
   function decorateAction(){
@@ -123,16 +129,19 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   function use(){const c=context();if(!c.enabled||localArea!=='soccer')return false;if(rules.canOverhead(state,c.uid,c.players,clock()))request('soccer-overhead');else if(action.enabled)request('kick',{yaw:action.yaw});return true;}
   function render(){
-    soccerFeedback.update(state?.soccer);
+    rules.setSoccerPitch(state?.soccer);soccerFeedback.update(state?.soccer);
     flickControls.update();defenseControls.update();
     const c=context();onPhoto(c.enabled?state?.photo:null,state?.photoBackground||'aurora');const enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
     const participation=enabled&&rules.live(c.players[c.uid])&&Object.entries({tag:state?.tag,survival:state?.survival,soccer:state?.soccer}).find(([,g])=>rules.active(g)&&Object.hasOwn(g.members||{},c.uid));
     if(participation){if(document.body.dataset.lobbyMinigame!==participation[0])document.body.dataset.lobbyMinigame=participation[0];}
     else if(document.body.hasAttribute('data-lobby-minigame'))delete document.body.dataset.lobbyMinigame;
-    const soccerVisible=enabled&&localArea==='soccer'&&!tagPlaying;
+    const soccerVisible=enabled&&localArea==='soccer'&&!tagPlaying;guide.update(soccerVisible);
     document.body.classList.toggle('lobbySoccerRoom',soccerVisible);
     goalPresentation.update(state?.soccer,soccerVisible);
     const playing=rules.active(game),canStart=!!c.uid&&c.uid===c.host,inRoom=localArea!=='lobby';
+    setup.hidden=!soccerVisible||!canStart||playing;setup.disabled=!!pending;blueBots.disabled=redBots.disabled=!botEnabled.checked;
+    const humans=Object.values(c.players||{}).filter(p=>rules.live(p)&&rules.area(p)==='soccer').length,total=humans+(botEnabled.checked?Number(blueBots.value)+Number(redBots.value):0);
+    setup.querySelector('small').textContent=`人 ${humans}人 ＋ ボット ${total-humans}体 · `+(total>=16?'特大コート':total>=10?'大コート':'標準コート')+'（開始時に決定）'+(botEnabled.checked?' · キーパーは各1体':'');
     const soccerPlaying=localArea==='soccer'&&!tagPlaying&&playing;
     scoreActions.hidden=!soccerVisible||!soccerPlaying;
     const actionsParent=soccerPlaying?scoreActions:buttons;if(stop.parentNode!==actionsParent)actionsParent.append(stop,exit);
@@ -151,7 +160,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
       const team=game?.members?.[c.uid];
       const result=game?.status==='finished'?(game.cancelled?'参加者不足で終了':game.winner===-1?'引き分け':(game.winner===0?'青':'赤')+'チームの勝ち'):'';
       status.textContent=result|| (playing?(team===0?'あなたは青チーム':team===1?'あなたは赤チーム':'観戦中'):'3分間 · 得点と時間はコート横の得点板へ');
-      if(playing&&game?.bots&&Object.keys(game.bots).length)status.textContent+=' · BOT 2体参加';
+      if(playing&&game?.bots&&Object.keys(game.bots).length)status.textContent+=' · BOT '+Object.keys(game.bots).length+'体参加';
     }else if(localArea==='survival'&&!tagPlaying)status.textContent=playing?`残り ${Object.values(game.members).filter(m=>m.alive).length}人`+(game.members?.[c.uid]?.alive?'':' · 2階で観戦できます'):game?.status==='finished'?'終了 · '+(game.winners?.length?game.winners.map(id=>c.players[id]?.name||'クルー').join('・')+' の勝ち':'勝者なし'):'参加希望の枠に入って待機';
     else status.textContent=playing?`鬼：${c.players[tag.oni]?.name||'クルー'}`+(tag.oni===c.uid?(t<tag.frozenUntil?' · 1秒停止中':tag.practice?' · 自由に移動できます':' · 近づいてタッチ'):(tag.immune?.[c.uid]>t?` · 無敵 ${Math.ceil((tag.immune[c.uid]-t)/1000)}秒`:'')):'ロビー全員参加 · 1人でも練習できます';
     if(playing&&game?.practice)status.textContent='1人練習 · '+status.textContent;

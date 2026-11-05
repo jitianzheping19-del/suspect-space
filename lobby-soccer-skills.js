@@ -1,5 +1,7 @@
 // Original motion curves. The host and the renderer share the same contact clock.
 export const SOCCER_SKILLS={
+ scissors:{name:'シザース',duration:1000,release:1000,speed:3,lift:.3,cooldown:1400},
+ nutmeg:{name:'股抜き',duration:1050,release:320,speed:7.5,lift:.3,cooldown:1800},
  shotFeint:{name:'キックフェイント',duration:700,release:700,speed:3.8,lift:.3,cooldown:1100},
  doubleTouch:{name:'ダブルタッチ',duration:680,release:680,speed:4.6,lift:.25,cooldown:1050},
  roulette:{name:'ルーレット',duration:960,release:960,speed:4.2,lift:.3,cooldown:1350},
@@ -18,7 +20,7 @@ export function updateSoccerDribble(control,p,time,dt,sprinting=false,skillActiv
   control.directionX=localX/distance;control.directionZ=localZ/distance;
  }else if(time-Number(control.lastMoveAt??time)>150)control.speed=(control.speed||0)*Math.exp(-Math.max(0,dt)*12);
  const walking=!!p.walking||moved||time-Number(control.lastMoveAt??-Infinity)<110;
- const precision=!sprinting&&(control.speed??(walking?.6:0))<1.35;
+ const backwards=control.directionZ<-.4,precision=!sprinting&&(backwards||(control.speed??(walking?.6:0))<1.35);
  const duration=control.rollDuration||SOCCER_CLOSE_TOUCH.duration,age=control.rollAt===undefined?Infinity:time-control.rollAt;
  const start=walking&&!control.walking,stop=!walking&&control.walking;
  const turning=moved&&Math.hypot((control.directionX||0)-(control.rollX||0),(control.directionZ||0)-(control.rollZ||0))>.9;
@@ -62,7 +64,13 @@ export function sampleSoccerSkill(kind,age,side=1){
  const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>v+(b[j+1]-v)*u);};
  const p=age/skill.duration,w=Math.sin(Math.PI*p),s=side<0?-1:1;
  let points,turn=0,left=0,right=0,lean=0,bank=0,bounce=0,stance=0,travelX=0,travelZ=0,plant=0;
- if(kind==='shotFeint'){
+ if(kind==='scissors'){
+  points=[[0,0,.74,.3],[.25,-.08,.7,.3],[.5,.08,.7,.3],[.75,-.13,.8,.3],[1,0,.74,.3]];
+  left=-.75*Math.sin(Math.PI*Math.min(1,p*2));right=-.75*Math.sin(Math.PI*Math.max(0,(p-.45)*2));bank=.15*Math.sin(p*Math.PI*4);lean=.1*w;stance=.12*w;travelZ=.8*smooth((p-.7)/.3);
+ }else if(kind==='nutmeg'){
+  points=[[0,0,.74,.3],[.15,.1,.6,.3],[.305,0,.92,.3],[1,0,.74,.3]];
+  right=curve([[0,0],[.17,.6],[.305,-1.15],[.55,-.3],[1,0]],p)[0];left=.25*w;lean=.23*w;travelX=1.1*smooth((p-.32)/.35);travelZ=2*smooth((p-.38)/.62);
+ }else if(kind==='shotFeint'){
   points=[[0,0,.74,.3],[.18,.12,.70,.3],[.34,.18,.64,.3],[.56,-.46,.46,.3],[.82,-.28,.70,.3],[1,0,.74,.3]];
   travelX=-.78*smooth((p-.32)/.68);travelZ=1.25*smooth((p-.4)/.6);
   right=curve([[0,0],[.21,.8],[.36,-.65],[.62,.2],[1,0]],p)[0];left=-.35*w;
@@ -100,4 +108,16 @@ export function classifySoccerGesture(points){
  if(corner&&Math.abs(turn)<2.65)return{skill:'doubleTouch',side:corner.x>origin.x?1:-1};
  if(length>65&&Math.abs(turn)>2.2)return{skill:'roulette',side:turn>0?1:-1};
  return null;
+}
+
+export function createSoccerStickGesture(){
+ let previous=null,total=0,start=0,last=0,readyAt=0;
+ return (x,z,time,enabled)=>{
+  if(!enabled||Math.hypot(x,z)<.55||time<readyAt){previous=null;total=0;return 0;}
+  const angle=Math.atan2(z,x);if(previous===null||time-last>180||time-start>1500){previous=angle;total=0;start=time;last=time;return 0;}
+  const delta=Math.atan2(Math.sin(angle-previous),Math.cos(angle-previous));previous=angle;last=time;
+  if(Math.abs(delta)>1.5){total=0;start=time;return 0;}
+  if(total&&Math.sign(delta)!==Math.sign(total)&&Math.abs(delta)>.08){total=0;start=time;}total+=delta;
+  if(Math.abs(total)>=Math.PI*1.8&&time-start>=200){const side=Math.sign(total);total=0;previous=null;readyAt=time+1400;return side;}return 0;
+ };
 }

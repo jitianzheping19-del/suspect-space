@@ -54,3 +54,8 @@ export function soccerBallCrossing(ball,z,duration=.7){
  }
  return null;
 }
+
+export function soccerPassPoint(q,F,power=.55,through=false){
+ const lead=through?2.4+Math.max(.12,Math.min(1,power))*2:q.walking?.45:0;
+ return {x:Math.max(F.left+.6,Math.min(F.right-.6,q.x+Math.sin(Number(q.yaw)||0)*lead)),z:Math.max(F.near+.6,Math.min(F.far-.6,q.z+Math.cos(Number(q.yaw)||0)*lead))};
+}
