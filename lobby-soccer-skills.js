@@ -1,3 +1,4 @@
+import {soccerPoseChannel} from './lobby-soccer-kick.js';
 // Original motion curves. The host and the renderer share the same contact clock.
 export const SOCCER_SKILLS={
  scissors:{name:'シザース',duration:1000,release:1000,speed:3,lift:.3,cooldown:1400},
@@ -61,7 +62,7 @@ export function sampleSoccerDribble(age,walking=true,rollAge=-1,rollSide=1,dashi
 export function sampleSoccerSkill(kind,age,side=1){
  const skill=SOCCER_SKILLS[kind];if(!skill||age<0||age>skill.duration)return null;
  const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
- const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>v+(b[j+1]-v)*u);};
+ const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>soccerPoseChannel(frames,i,j+1,t));};
  const p=age/skill.duration,w=Math.sin(Math.PI*p),s=side<0?-1:1;
  let points,turn=0,left=0,right=0,lean=0,bank=0,bounce=0,stance=0,travelX=0,travelZ=0,plant=0;
  if(kind==='scissors'){

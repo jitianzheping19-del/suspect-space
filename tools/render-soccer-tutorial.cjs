@@ -62,6 +62,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
      const controlX=kind==='move'||kind==='backward'||kind==='scissors'?66:570,controlY=280;c.fillStyle='#123848cf';c.strokeStyle='#adf8df';c.lineWidth=2;c.beginPath();c.arc(controlX,controlY,36,0,Math.PI*2);c.fill();c.stroke();
      if(age<.75){const p=Math.min(1,age/.35);let x=controlX,y=controlY;
       if(['pass','through','shot','lob','curve'].includes(kind)){x+=Math.min(28,p*28);y-=Math.min(48,p*48);if(kind==='lob'&&age>.4){x=controlX;y=controlY;}if(kind==='curve'&&age>.4)x+=18;}
+      if(kind==='roulette')x-=p*38;if(kind==='heelLift')y+=p*38;if(kind==='doubleTouch')y-=p*38;
       if(kind==='scissors'){x+=Math.cos(age/.75*Math.PI*2)*25;y+=Math.sin(age/.75*Math.PI*2)*25;}
       if(kind==='move')y-=20;if(kind==='backward')y+=20;
       c.strokeStyle='#fff3a8';c.beginPath();c.moveTo(controlX,controlY);c.lineTo(x,y);c.stroke();c.fillStyle='#fff3a8';c.beginPath();c.arc(x,y,9,0,Math.PI*2);c.fill();

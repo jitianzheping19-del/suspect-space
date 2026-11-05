@@ -18,6 +18,7 @@ if(process.env.GAS_QA_PROBE_FILE){
 }
 const plugins=[{
   name:'standalone-gas',setup(api){
+    api.onLoad({filter:/[/\\]lobby-soccer-guide\.js$/},async args=>({contents:(await readFile(args.path,'utf8')).replace("new URL('tutorial/soccer/'+id+'.mp4',document.baseURI).href","'https://jitianzheping19-del.github.io/suspect-space/tutorial/soccer/'+id+'.mp4'"),loader:'js',resolveDir:dirname(args.path)}));
     api.onResolve({filter:/^(?:three(?:\/.*)?|https?:\/\/.*)$/},args=>({path:args.path,external:true}));
     api.onResolve({filter:/^(?:@skyway-sdk\/room|skyway-ai-noise-canceller)$/},args=>({path:args.path,namespace:'gas-no-voice'}));
     api.onLoad({filter:/.*/,namespace:'gas-no-voice'},()=>({contents:'export const SkyWayContext={},SkyWayRoom={};export class LocalAudioStream{};export class SkyWayNoiseCanceller{}',loader:'js'}));

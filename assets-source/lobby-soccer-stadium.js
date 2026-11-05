@@ -9,7 +9,7 @@ function createSoccerStadium(THREE,root,F){
  for(const x of [-F.goal/2-.08,F.goal/2+.08])block(board,'#b6c5c3',x,0,.02,.065,2.85,.5);
  for(const y of [-1.36,1.36])block(board,'#b6c5c3',0,y,.04,F.goal+.25,.06,.5);
  for(const x of [-2.1,2.1]){block(board,'#263947',x,-2.8,-.22,.18,3.5,.25);block(board,'#40515a',x,-4.48,-.22,.8,.2,1.1);}
- const canvas=document.createElement('canvas');canvas.width=1536;canvas.height=768;const ctx=canvas.getContext('2d'),texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+ const canvas=document.createElement('canvas');canvas.width=1536;canvas.height=768;const ctx=canvas.getContext('2d'),texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
  const screenMaterial=new THREE.MeshBasicMaterial({map:texture,toneMapped:false});
  for(const back of [false,true]){const face=mesh(board,new THREE.PlaneGeometry(F.goal,2.5),screenMaterial,0,0,back?-.225:.225);if(back)face.rotation.y=Math.PI;}
  const rim=new THREE.MeshBasicMaterial({color:'#81dded',toneMapped:false});
@@ -28,7 +28,7 @@ function createSoccerStadium(THREE,root,F){
   const gradient=ctx.createLinearGradient(0,0,1536,768);gradient.addColorStop(0,'#0d2539');gradient.addColorStop(.5,'#08131e');gradient.addColorStop(1,'#302132');ctx.fillStyle=gradient;ctx.fillRect(0,0,1536,768);
   ctx.strokeStyle='#537282';ctx.lineWidth=4;ctx.strokeRect(16,16,1504,736);ctx.fillStyle='#9ac7d8';ctx.font='600 34px system-ui';ctx.textAlign='center';ctx.fillText('SPACE SUSPECT  /  FUTSAL ARENA',768,68);
   ctx.fillStyle='#79c5ff';ctx.font='800 50px system-ui';ctx.fillText('BLUE',350,145);ctx.fillStyle='#ff97ad';ctx.fillText('RED',1190,145);
-  digits(String(score[0]).padStart(2,'0').slice(-2),142,180,230,'#79c5ff');digits(String(score[1]).padStart(2,'0').slice(-2),984,180,230,'#ff97ad');
+  ctx.font='900 290px system-ui';ctx.fillStyle='#f4fcff';ctx.fillText(String(score[0]),350,410);ctx.fillText(String(score[1]),1190,410);
   ctx.fillStyle='#cee4dc';ctx.fillRect(705,285,126,12);
   const clock=String(Math.floor(remaining/60)).padStart(2,'0')+':'+String(remaining%60).padStart(2,'0');digits(clock,440,475,150,remaining<30?'#ffc480':'#d9ffe9');
   ctx.font='700 30px system-ui';ctx.fillStyle='#a0bbc8';ctx.fillText(phase==='finished'?'FULL TIME':phase==='countdown'?'KICK OFF':phase==='playing'?'MATCH TIME':'READY TO PLAY',768,706);

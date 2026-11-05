@@ -91,14 +91,14 @@ export function stepSoccerKeepers(g,F,time,dt,players={}){
   if(k.phase==='dive'){k.x=k.toX;k.phase='recover';k.until=time+500;continue;}
   if(k.phase==='recover'&&time<k.until)continue;
   k.phase='ready';k.z+=(z-k.z)*Math.min(1,dt*5);
-  const target=Math.max(21.15,Math.min(24.85,23+(b.x-23)*.5)),step=Math.min(1,dt*5);k.x+=(target-k.x)*step;
+  const target=Math.max(21.15,Math.min(24.85,23+(b.x-23)*.5)),step=Math.min(1,dt*3.6);k.x+=(target-k.x)*step;
   const eta=Math.abs(b.vz)>.01?(z-b.z)/b.vz:-1,danger=b.vz*dir< -2&&eta>0&&eta<.65;
   if(!danger){k.watch=0;continue;}if(!k.watch)k.watch=time;
-  if(time-k.watch<130)continue;
+  if(time-k.watch<210)continue;
   const predicted=b.spin?soccerBallCrossing(b,z):null;
   const x=predicted?.x??b.x+b.vx*eta,y=predicted?.y??b.y+b.vy*eta-4.9*eta*eta;
   if(Math.abs(x-23)>F.goal/2+.6||y>3.2||y<-.5)continue;
-  k.phase='dive';k.at=time;k.until=time+850;k.fromX=k.x;k.toX=Math.max(k.x-1.65,Math.min(k.x+1.65,x));k.height=Math.max(.25,Math.min(2.35,y));k.side=x<k.x?-1:1;k.watch=0;
+  k.phase='dive';k.at=time;k.until=time+850;k.fromX=k.x;k.toX=Math.max(k.x-1.3,Math.min(k.x+1.3,x));k.height=Math.max(.25,Math.min(2.35,y));k.side=x<k.x?-1:1;k.watch=0;
  }
  return {controlled:b.keeperOwner!==undefined,changed:heldBefore||b.keeperOwner!==undefined||previous!==JSON.stringify(g.keepers)};
 }
@@ -111,7 +111,7 @@ export function collideSoccerKeeper(g,F,time,old){
   const dz=b.z-old.z;if(!dz||Math.abs(dz)<1e-7)continue;
   const f=(k.z-old.z)/dz;if(f<0||f>1||b.vz*dir>=0)continue;
   const bx=old.x+(b.x-old.x)*f,by=old.y+(b.y-old.y)*f;
-  const reach=k.phase==='dive'?.8:.57,top=k.phase==='dive'?k.height+.55:1.8,bottom=k.phase==='dive'?Math.max(.0,k.height-.85):0;
+  const reach=k.phase==='dive'?.66:.5,top=k.phase==='dive'?k.height+.55:1.8,bottom=k.phase==='dive'?Math.max(.0,k.height-.85):0;
   if(Math.abs(bx-x)>reach||by<bottom||by>top)continue;
   const catchable=Math.hypot(b.vx,b.vy,b.vz)<13&&by<2.2;
   if(catchable){b.x=bx;b.y=Math.max(.32,by);b.z=k.z;k.x=x;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:k.z};holdSoccerKeeperBall(g,k,time);return true;}

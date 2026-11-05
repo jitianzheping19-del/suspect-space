@@ -2,7 +2,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 const file=new URL('../assets-source/lobby-lounge.html',import.meta.url);
 let html=await readFile(file,'utf8');
 const match=(await readFile(new URL('../lobby-soccer-match.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
-const skills=(await readFile(new URL('../lobby-soccer-skills.js',import.meta.url),'utf8')).replaceAll('export const ','const ').replaceAll('export function ','function ');
+const skills=(await readFile(new URL('../lobby-soccer-skills.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'').replaceAll('export const ','const ').replaceAll('export function ','function ');
 const kick=(await readFile(new URL('../lobby-soccer-kick.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
 const tactics=(await readFile(new URL('../lobby-soccer-tactics.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
 const slide=(await readFile(new URL('../lobby-soccer-slide.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'').replaceAll('export const ','const ').replaceAll('export function ','function ');

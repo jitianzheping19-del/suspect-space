@@ -6,10 +6,13 @@ body.lobbySoccerRoom #lobbyMiniGamePanel{max-height:60dvh;overflow:auto;overscro
 #soccerTutorial{box-sizing:border-box;width:min(800px,96vw);max-height:92dvh;padding:18px;border:1px solid #91b9c8;border-radius:18px;background:#102432;color:#ecf8ff;overflow:auto;overscroll-behavior:contain;font:15px/1.7 system-ui}#soccerTutorial::backdrop{background:#020a16bd}#soccerTutorial header{display:flex;align-items:center;justify-content:space-between;gap:12px}#soccerTutorial h2{font-size:19px;margin:0}#soccerTutorial h3{margin:12px 0 4px}#soccerTutorial button{min-height:40px;border:1px solid #7899ad;background:#203c51;color:#f4faff;border-radius:8px;padding:7px 12px;touch-action:manipulation;font:600 13px system-ui}#soccerTutorial nav,.soccerGuideActions{display:flex;gap:6px;overflow-x:auto;padding:12px 0 4px}#soccerTutorial nav button{white-space:nowrap}#soccerTutorial button[aria-selected=true],#soccerTutorial button[aria-pressed=true]{background:#b4eadb;color:#102c34;border-color:#d1fff0}.soccerGuideActions{flex-wrap:wrap}#soccerTutorial video{display:block;width:100%;max-height:48dvh;background:#071018;border-radius:10px}#soccerTutorial p{margin:8px 0}.soccerGuideGesture{color:#b4eadb;font-weight:700}
 @media(max-height:500px){#soccerTutorial{max-height:98dvh;padding:10px}#soccerTutorial video{max-height:60dvh}body.lobbySoccerRoom #lobbyMiniGamePanel{max-height:72dvh}}
 
-/* Fixed positions in attack and defence: a dash touch never becomes a slide. */
-#soccerFlickZone,#soccerDefenseZone{--soccer-fixed:clamp(94px,24vw,108px);width:calc(var(--soccer-fixed)*2 + 12px);height:calc(var(--soccer-fixed)*2 + 12px);right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom))}
-#soccerFlickZone button,#soccerDefenseZone button{width:var(--soccer-fixed);height:var(--soccer-fixed)}
-#soccerFeintBtn{left:0;top:0}#soccerKickBtn{right:0;bottom:0}#soccerPressBtn{left:0;top:auto;bottom:0}#soccerSlideBtn{left:auto;right:0;top:0;bottom:auto}#soccerMatchupBtn{left:auto;right:0;top:-50px;bottom:auto;height:42px!important;padding:4px!important;font-size:11px!important}#soccerMatchupBtn svg{display:none}#soccerFlickZone small{font-size:8px}#soccerFlickZone button{font-size:13px}
+
+#soccerFlickZone,#soccerDefenseZone{--soccer-fixed:clamp(94px,24vw,108px);width:calc(var(--soccer-fixed)*1.72 + 12px)!important;height:calc(var(--soccer-fixed)*1.72 + 12px)!important;right:max(12px,env(safe-area-inset-right))!important;bottom:max(12px,env(safe-area-inset-bottom))!important}
+#soccerFlickZone button,#soccerDefenseZone button{width:var(--soccer-fixed)!important;height:var(--soccer-fixed)!important}
+#soccerFlickZone #soccerFeintBtn,#soccerDefenseZone #soccerPressBtn{left:0;top:0;right:auto;bottom:auto}
+#soccerFlickZone #soccerKickBtn,#soccerDefenseZone #soccerSlideBtn{left:auto;right:0;top:auto;bottom:0}
+#soccerFlickZone small{font-size:8px}#soccerFlickZone button{font-size:13px}
 #soccerKickBtn[data-mode=through]{background:linear-gradient(150deg,#39885b,#174331);border-color:#c6ffe0;box-shadow:0 0 20px #8cffc488}
-@media(max-height:360px){#soccerFlickZone,#soccerDefenseZone{--soccer-fixed:94px}}
-@media(max-height:300px){#soccerMatchupBtn{left:-104px;right:auto;top:0}}
+body.lobbySoccerRoom :is(#lobbyMiniGamePanel,#lobbySoccerActions){display:none!important}
+@layer play-action-layout{html body[data-phase="lobby"].lobbySoccerRoom.soccerAtStation #lobbyUseBtn{display:flex!important;pointer-events:auto!important}}
+body.lobbySoccerRoom :is([data-camera-perspective],[data-core-camera]){pointer-events:none;opacity:.4}

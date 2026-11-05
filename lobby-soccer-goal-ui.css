@@ -1,35 +1,11 @@
 #soccerGoalCelebration[hidden]{display:none!important}
-#soccerGoalCelebration{--goal-color:#7dd4ff;position:fixed;inset:0;z-index:116;display:grid;place-items:center;pointer-events:none;overflow:hidden;isolation:isolate;font-family:system-ui,sans-serif;color:#f3f9ff;background:radial-gradient(ellipse at center,#07172c44,transparent 70%)}
-#soccerGoalCelebration[data-team="1"]{--goal-color:#ff8ca4}
-#soccerGoalCelebration .goalCard{position:relative;width:min(450px,76vw);padding:24px 32px 20px;box-sizing:border-box;text-align:center;background:linear-gradient(145deg,#101f38f0,#0c1221ef 65%,#242a42ef);border:1px solid color-mix(in srgb,var(--goal-color) 70%,transparent);border-radius:24px;box-shadow:0 22px 90px #0009,inset 0 1px #fff6,0 0 44px color-mix(in srgb,var(--goal-color) 22%,transparent);transform:perspective(800px);overflow:hidden}
-#soccerGoalCelebration .goalCard:after{content:"";position:absolute;inset:-120% -80%;background:linear-gradient(110deg,transparent 42%,#fff2 48%,#fff8 50%,transparent 55%);transform:translateX(-60%);pointer-events:none}
-#soccerGoalCelebration .goalEyebrow{font-size:10px;letter-spacing:.35em;color:#9eb5d0;font-weight:800}
-#soccerGoalCelebration .goalWord{font-size:clamp(46px,10vw,88px);line-height:1;font-style:italic;font-weight:1000;letter-spacing:-.07em;margin:8px 0;color:#fff3c4;text-shadow:0 3px #8c5833,0 0 25px #ffd27666}
-#soccerGoalCelebration .goalTeam{color:var(--goal-color);font-size:14px;font-weight:850;letter-spacing:.1em}
-#soccerGoalCelebration .goalScore{display:flex;align-items:center;justify-content:center;gap:26px;margin:18px 0 12px;perspective:600px}
-#soccerGoalCelebration .goalSide{min-width:80px;color:#83d1ff}#soccerGoalCelebration .goalSide.red{color:#ff93a7}
-#soccerGoalCelebration .goalSide>span{font-size:11px;font-weight:850;letter-spacing:.2em}
-#soccerGoalCelebration .goalDigits{position:relative;height:92px;min-width:2ch;font-size:80px;line-height:92px;font-weight:900;font-variant-numeric:tabular-nums;perspective:500px}
-#soccerGoalCelebration .goalDigits>b{position:absolute;inset:0;display:block;backface-visibility:hidden;text-shadow:0 4px 0 #0005}
-#soccerGoalCelebration .goalDigits .old{opacity:0}#soccerGoalCelebration .goalSide.scored .old{opacity:1}#soccerGoalCelebration .goalSide.scored .next{opacity:0}
-#soccerGoalCelebration .goalDash{color:#677890;font-size:40px;font-weight:800;margin-top:20px}
-#soccerGoalCelebration .goalRestart{font-size:12px;color:#c8d5e5;font-weight:650}
-#soccerGoalCelebration .goalHalo{position:absolute;width:min(580px,110vw);aspect-ratio:1;border:2px solid var(--goal-color);border-radius:50%;box-shadow:0 0 50px var(--goal-color),inset 0 0 50px color-mix(in srgb,var(--goal-color) 30%,transparent);opacity:0}
-#soccerGoalCelebration .goalStreaks{position:absolute;inset:50%;overflow:visible}
-#soccerGoalCelebration .goalStreaks i{position:absolute;width:100px;height:3px;background:linear-gradient(90deg,transparent,var(--goal-color),#fff);transform:rotate(var(--angle)) translateX(160px);opacity:0;transform-origin:0 50%}
-#soccerGoalCelebration.playing .goalCard{animation:goal-card 3.4s both}
-#soccerGoalCelebration.playing .goalCard:after{animation:goal-sweep 1.3s .2s both}
-#soccerGoalCelebration.playing .goalHalo{animation:goal-halo 1.3s ease-out both}
-#soccerGoalCelebration.playing .goalStreaks i{animation:goal-ray 1.05s var(--delay) ease-out both}
-#soccerGoalCelebration.playing .scored .old{animation:goal-old .52s .48s both}
-#soccerGoalCelebration.playing .scored .next{animation:goal-new .75s .60s both}
-@keyframes goal-card{0%{opacity:0;transform:perspective(800px) translateY(35px) rotateX(16deg) scale(.72)}12%,86%{opacity:1;transform:perspective(800px) translateY(0) rotateX(0) scale(1)}100%{opacity:0;transform:perspective(800px) translateY(-16px) scale(1.06)}}
-@keyframes goal-old{0%{opacity:1;transform:translateY(0) rotateX(0)}100%{opacity:0;transform:translateY(-60%) rotateX(80deg)}}
-@keyframes goal-new{0%{opacity:0;transform:translateY(70%) rotateX(-75deg) scale(.8)}62%{opacity:1;transform:translateY(-5%) rotateX(0) scale(1.16);filter:brightness(1.7)}100%{opacity:1;transform:translateY(0) rotateX(0) scale(1);filter:brightness(1)}}
-@keyframes goal-sweep{to{transform:translateX(60%)}}
-@keyframes goal-halo{0%{opacity:.8;transform:scale(.2)}100%{opacity:0;transform:scale(1.5)}}
-@keyframes goal-ray{0%{opacity:0;transform:rotate(var(--angle)) translateX(120px) scaleX(.2)}25%{opacity:.9}100%{opacity:0;transform:rotate(var(--angle)) translateX(440px) scaleX(1.6)}}
-@media(max-height:500px){#soccerGoalCelebration .goalCard{width:min(410px,70vw);padding:14px 28px}#soccerGoalCelebration .goalWord{font-size:54px}#soccerGoalCelebration .goalScore{margin:8px 0;gap:22px}#soccerGoalCelebration .goalDigits{font-size:62px;height:70px;line-height:70px}}
-@media(prefers-reduced-motion:reduce){#soccerGoalCelebration.playing *{animation:none!important}#soccerGoalCelebration .goalSide.scored .old{opacity:0}#soccerGoalCelebration .goalSide.scored .next{opacity:1}}
-
-@media(max-width:500px){#soccerGoalCelebration .goalCard{width:86vw;padding:20px 18px}#soccerGoalCelebration .goalScore{gap:16px}#soccerGoalCelebration .goalSide{min-width:62px}#soccerGoalCelebration .goalDigits{font-size:62px;height:78px;line-height:78px}}
+#soccerGoalCelebration{position:fixed;inset:0;z-index:116;display:grid;place-items:center;pointer-events:none;overflow:hidden;background:transparent;font-family:system-ui,sans-serif}
+#soccerGoalCelebration :is(.goalHalo,.goalStreaks,.goalEyebrow,.goalWord,.goalTeam,.goalRestart,.goalSide>span){display:none}
+#soccerGoalCelebration .goalCard{background:transparent;border:0;text-align:center}
+#soccerGoalCelebration .goalScore{display:flex;align-items:center;justify-content:center;gap:30px;color:#fff;font-weight:950;font-variant-numeric:tabular-nums;filter:drop-shadow(0 3px 3px #001a36)}
+#soccerGoalCelebration .goalSide{color:#8bdbff}#soccerGoalCelebration .red{color:#ff9eb2}
+#soccerGoalCelebration .goalDigits{position:relative;min-width:2ch;height:120px;font-size:clamp(64px,15vw,110px);line-height:120px}
+#soccerGoalCelebration .goalDigits b{display:block}#soccerGoalCelebration .old{display:none!important}#soccerGoalCelebration .goalDash{font-size:58px}
+#soccerGoalCelebration.playing .goalCard{animation:score-slide 3.4s both cubic-bezier(.2,.8,.2,1)}
+@keyframes score-slide{0%{opacity:0;transform:translateX(-70vw)}12%,86%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(70vw)}}
+@media(prefers-reduced-motion:reduce){#soccerGoalCelebration.playing .goalCard{animation:none}}

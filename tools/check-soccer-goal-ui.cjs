@@ -8,8 +8,8 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    await page.addScriptTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.js')).text});await page.addStyleTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.css')).text});
    await page.evaluate(()=>{window.stamp=100000;window.goal=Goals.createSoccerGoalPresentation({document,clock:()=>stamp});window.g={id:'test',status:'playing',score:[1,0],lastGoal:{at:stamp,team:0,beforeScore:[0,0],score:[1,0]},kickoff:{readyAt:stamp+3400}};goal.update(g,true);window.seek=t=>{stamp=g.lastGoal.at+t;for(const a of goal.root.getAnimations({subtree:true})){a.pause();a.currentTime=t;}goal.update(g,true);};});
    await page.evaluate(()=>seek(300));assert.equal(await page.locator('.blue .old').innerText(),'0');assert.equal(await page.locator('.blue .next').innerText(),'1');
-   assert.equal(await page.locator('.blue .next').evaluate(e=>getComputedStyle(e).opacity),'0');
-   await page.evaluate(()=>seek(1500));assert.equal(await page.locator('.blue .old').evaluate(e=>getComputedStyle(e).opacity),'0');assert.equal(await page.locator('.blue .next').evaluate(e=>getComputedStyle(e).opacity),'1');
+   assert.equal(await page.locator('#soccerGoalCelebration').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');assert.equal(await page.locator('.goalCard').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');assert.equal(await page.locator('.goalWord').isVisible(),false);
+   await page.evaluate(()=>seek(1500));assert(await page.locator('.blue .old').isHidden());assert.equal(await page.locator('.blue .next').evaluate(e=>getComputedStyle(e).opacity),'1');
    const card=await page.locator('.goalCard').boundingBox();assert(card.x>=0&&card.y>=0&&card.x+card.width<=width+.1&&card.y+card.height<=height+.1);
    const digits=await page.locator('.goalScore').boundingBox();assert(digits.x>=card.x&&digits.x+digits.width<=card.x+card.width);
    if(process.env.VISUAL_SHOTS){fs.mkdirSync(process.env.VISUAL_SHOTS,{recursive:true});await page.screenshot({path:process.env.VISUAL_SHOTS+'/goal-'+width+'.png'});}

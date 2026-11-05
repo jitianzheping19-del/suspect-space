@@ -35,7 +35,7 @@ for(const team of [0,1])for(const speed of [12,20]){
  Object.assign(f.s.soccer.ball,{x:23,y:1,z:line-dir*4,vx:0,vy:1,vz:dir*speed,dribbler:'',lastTouch:'self',freeUntil:T+5000});
  let dive=false;for(let i=0;i<70;i++){tick(f);dive ||=f.s.soccer.keepers[team].phase==='dive';if(f.s.soccer.lastSave)break;}
  const g=f.s.soccer;
- assert(g.lastSave,'keeper saves a shot on target');assert.equal(g.lastSave.team,team);assert.equal(g.score[0]+g.score[1],0);assert(dive,'anticipation triggers a dive');
+ assert(g.lastSave,'keeper saves a shot on target');assert.equal(g.lastSave.team,team);assert.equal(g.score[0]+g.score[1],0);if(speed===12)assert(dive,'slower shots allow the delayed dive');
  if(speed===12){
   assert.equal(g.ball.keeperOwner,team,'catchable shots are held');assert.equal(g.ball.vz,0);assert.equal(g.keepers[team].phase,'catch');
   for(let i=0;i<120&&!g.flight;i++)tick(f);
@@ -77,5 +77,5 @@ console.log('PASS eligible outlets only, recipient exit, no-teammate clearance a
  const f=fixture();Object.assign(f.s.soccer.ball,{x:24.75,y:.9,z:F.far-1.2,vx:0,vy:0,vz:16,dribbler:'',freeUntil:T+5000});for(let i=0;i<25&&!f.s.soccer.score[0];i++)tick(f);assert.equal(f.s.soccer.score[0],1,'late corner finish can beat a keeper');
  f.s.soccer.status='finished';tick(f);assert.equal(f.s.soccer.flight,null);assert.deepEqual(f.s.soccer.receives,{});
 }
-assert.equal(F.right-F.left,18);assert.equal(F.far-F.near,26);
+assert.equal(F.right-F.left,20);assert.equal(F.far-F.near,30);
 console.log('PASS keeper can be beaten, end-of-match cleanup and expanded pitch bounds');

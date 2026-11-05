@@ -1,3 +1,4 @@
+import {soccerPoseChannel} from './lobby-soccer-kick.js';
 export function soccerAirAction(g,id,players,F,time){
  const p=players[id],b=g?.ball,skill=g?.skills?.[id];
  if(!p?.online||p.observer||p.bot&&!p.soccerBot||p.lobbyKart||p.lobbyCircuit||Math.abs(p.lobbyY||0)>.3||!b||b.keeperOwner!==undefined||!['idle','playing'].includes(g.status)||g.status==='playing'&&g.members?.[id]===undefined||p.x<F.left||p.x>F.right||p.z<F.near||p.z>F.far||time<Number(b.resetUntil||0)||time<Number(g.knockdowns?.[id]?.until||0)||time<Number(g.slides?.[id]?.until||0)||time<Number(g.finishes?.[id]?.until||0)||!g.receives?.[id]?.ground&&time<Number(g.receives?.[id]?.until||0))return '';
@@ -28,7 +29,7 @@ export function stepSoccerFinishes(g,players,time,eligible){
 export function sampleSoccerOverhead(f,time){
  const begin=f.windupAt??f.at;if(time<begin||time>f.until)return null;
  const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
- const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>v+(b[j+1]-v)*u);};
+ const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>soccerPoseChannel(frames,i,j+1,t));};
  const before=time<=f.contactAt,p=before?(time-begin)/(f.contactAt-begin):(time-f.contactAt)/(f.until-f.contactAt);
  const [height,pitch,left,right,spread,roll]=before?curve([[0,0,0,0,0,.2,0],[.25,-.16,-.18,.4,.3,.35,0],[.68,1.15,-.85,1.15,-.4,.9,0],[1,1.6,-1.5,.85,-1.85,.85,0]],p):curve([[0,1.6,-1.5,.85,-1.85,.85,0],[.22,.9,-1.95,-.5,.8,1,0],[.43,-.18,-1.57,.3,.6,.7,.12],[.62,-.2,-1.3,.5,.5,.5,.65],[.82,-.12,-.5,.7,.7,.3,.25],[1,0,0,0,0,.2,0]],p);
  const turn=smooth((time-begin)/Math.max(1,(f.contactAt-begin)*.75)),delta=Math.atan2(Math.sin(f.yaw+Math.PI-f.fromYaw),Math.cos(f.yaw+Math.PI-f.fromYaw));

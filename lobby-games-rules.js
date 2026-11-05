@@ -50,7 +50,7 @@ export function createLobbyGamesRules(){
     const p=roster[id],g=s?.soccer,sx=Math.sin(yaw),sz=Math.cos(yaw);
     if(!p||!Number.isFinite(yaw))return {mode:'shot',target:'',yaw:0,x:23,z:10};
     const team=g?.members?.[id],goals=team===0?[SOCCER.far]:team===1?[SOCCER.near]:[SOCCER.near,SOCCER.far];
-    for(const z of goals){
+    for(const z of forceShot?[]:goals){
       const reach=Math.abs(sz)>.001?(z-p.z)/sz:-1,x=p.x+sx*reach;
       if(reach>.5&&reach<36&&Math.abs(x-23)<=SOCCER.goal/2+.65){
         const goalX=Math.max(23-SOCCER.goal/2+.4,Math.min(23+SOCCER.goal/2-.4,x));
@@ -86,8 +86,14 @@ export function createLobbyGamesRules(){
       if(!near(p)&&!atCamera)return fail('写真のステージかカメラの近くで撮影してください。');
       if(s.photo&&time<s.photo.at+1000)return fail('撮影中です。カウントダウンをお待ちください。');
       s.photo={id:request.id,from:id,background:s.photoBackground||'aurora',at:time+5000,expiresAt:time+65000,members:Object.fromEntries(Object.entries(roster).filter(([uid,q])=>uid===id||near(q)).map(([uid])=>[uid,true]))};
+    }else if(kind==='soccer-bots'){
+      if(!allowed||room!=='soccer'||Math.hypot(p.x-34.6,p.z-10)>7)return fail('得点板のそばでホストが変更できます。');
+      if(active(s.soccer))return fail('ボット数は開始前に変更してください。');
+      if(!['blue','red'].includes(request.team)||![1,-1].includes(request.delta))return fail('ボット数の操作を確認してください。');
+      const options=soccerMatchOptions(s.soccer.botOptions)||{enabled:true,blue:1,red:1};
+      options[request.team]=Math.max(0,Math.min(10,options[request.team]+request.delta));options.enabled=true;s.soccer.botOptions=options;
     }else if(kind==='start-survival'||kind==='start-soccer'){
-      const name=kind.slice(6);
+      const name=kind.slice(6),previousBots=s.soccer?.botOptions;
       if(!allowed||room!==name)return fail('この部屋にいるホストが開始できます。');
       if(active(s.tag))return fail('鬼ごっこ中は開始できません。');
       if(active(s[name]))return fail('すでに進行中です。');
@@ -97,7 +103,7 @@ export function createLobbyGamesRules(){
       ids=ids.map(uid=>({uid,order:random()})).sort((a,b)=>a.order-b.order).map(x=>x.uid);
       const members={};ids.forEach((uid,i)=>members[uid]=name==='survival'?{slot:i,alive:true}:i%2);
       s[name]=name==='survival'?{id:request.id,status:'countdown',practice:ids.length===1,members,tiles:{},startAt:time+3000,endAt:time+93000,winners:[]}:{id:request.id,status:'countdown',practice:ids.length===1,members,ball:ball(time),score:[0,0],kicks:{},startAt:time+3000,endAt:time+183000};
-      if(name==='soccer'){const options=soccerMatchOptions(request.bots,ids.length===1);if(!options)return fail('ボットは各チーム0〜10体で設定してください。');s.soccer.botOptions=options;createSoccerBots(s.soccer,ids[0],options);s.soccer.pitchCount=Object.keys(s.soccer.members).length;setSoccerPitch(s.soccer);prepareSoccerKickoff(s.soccer,soccerRoster(s.soccer,roster),time,0,s.soccer.startAt,request.id+':kickoff');}
+      if(name==='soccer'){const options=soccerMatchOptions(request.bots??previousBots,ids.length===1);if(!options)return fail('ボットは各チーム0〜10体で設定してください。');s.soccer.botOptions=options;createSoccerBots(s.soccer,ids[0],options);s.soccer.pitchCount=Object.keys(s.soccer.members).length;setSoccerPitch(s.soccer);prepareSoccerKickoff(s.soccer,soccerRoster(s.soccer,roster),time,0,s.soccer.startAt,request.id+':kickoff');}
     }else if(kind==='start-tag'){
       if(!allowed||room!=='lobby'||p.lobbyCircuit||p.lobbyKart)return fail('ロビーにいるホストが開始できます。');
       if(active(s.tag)||active(s.survival)||active(s.soccer))return fail('進行中の遊びが終わってから開始してください。');

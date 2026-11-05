@@ -13,7 +13,7 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
  const power=()=>gesture?Math.min(1,(clock()-gesture.at)/CHARGE_MS):0;
  function resolve(c,yaw,forceShot=false,lob=false){if(lob){const aim=c.resolveLobAim?.(yaw);if(aim)return aim;}return c.resolveAim?.(yaw,forceShot)||{yaw,mode:'shot',target:''};}
  function paintAim(c){
-  const yaw=gesture?.yaw??c.yaw,forceShot=!!gesture?.forceShot,aim=resolve(c,yaw,forceShot,gesture?.lob);
+  const yaw=gesture?.yaw??c.yaw,forceShot=!!gesture?.forceShot,aim=(gesture?.flicked&&!forceShot&&!gesture?.lob?c.resolvePassAim?.(yaw):null)||resolve(c,yaw,forceShot,gesture?.lob);
   if(gesture&&aim.mode==='pass'&&gesture.flicked&&!gesture.forceShot&&!gesture.lob){if(gesture.throughTarget!==aim.target){gesture.throughTarget=aim.target;gesture.stillAt=clock();}gesture.through=clock()-gesture.stillAt>=THROUGH_HOLD_MS;if(gesture.through)aim.mode='through';}else if(gesture)gesture.through=false;
   kick.dataset.mode=c.volleyReady?'volley':c.overheadReady?'overhead':c.headerReady?'header':aim.mode;kick.querySelector('span').textContent=c.volleyReady?'ジャンピングボレー':c.overheadReady?'オーバーヘッド':c.headerReady?'ヘディング':aim.mode==='lob'?'フライパス':aim.mode==='through'?'スルーパス':aim.mode==='pass'?'パス':'シュート';
   kick.querySelector('small').textContent=c.overheadReady?'タップで空中シュート':c.headerReady?'合わせてタップ':aim.mode==='through'?'離して前方へパス':aim.mode==='pass'&&gesture?.flicked?'そのまま保持：スルー':aim.mode==='lob'?'離して浮かせる':gesture?.spin&&aim.mode==='shot'?'カーブシュート':'狙って戻す：フライ';
@@ -34,7 +34,7 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
   if(!c.visible||document.hidden||!document.hasFocus()){cancel();return;}
   if(gesture&&!c.enabled)clearKick();
   if(hold){
-   if(clock()-hold.at>=DASH_HOLD_MS){
+   if(!hold.flick&&clock()-hold.at>=DASH_HOLD_MS){
     hold.long=true;window.clearTimeout(feintTimer);feintTap=null;
     if((c.canDash||c.dashing)&&!c.pending&&clock()-hold.lastSent>=250){hold.dashing=true;hold.lastSent=clock();sendDash(true);}
    }
@@ -58,7 +58,7 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
  kick.addEventListener('pointermove',event=>{if(gesture?.id!==event.pointerId)return;event.preventDefault();event.stopPropagation();aimAt(event);paintAim(context());},{passive:false});
  function shoot(){
   if(!gesture)return;paintAim(context());const g=gesture,holdMs=Math.min(10000,Math.max(0,clock()-(gesture.stillAt??clock()))),strength=Math.max(.16,power()),quick=!g.forceShot&&!g.flicked&&clock()-g.at<250;clearKick();
-  function commit(){const c=context(),aim=resolve(c,g.yaw,g.forceShot,g.lob);if(g.lob&&!c.resolveLobAim?.(g.yaw)){notice('味方を狙い直してください');paintAim(c);return;}if(g.through&&aim.mode==='pass')aim.mode='through';if(c.visible&&c.enabled){const spin=aim.mode==='shot'?(g.spin||0):0;send('kick',{mode:aim.mode,yaw:aim.yaw,power:strength,spin,holdMs,target:aim.target||''});notice(aim.mode==='lob'?'フライパス':aim.mode==='through'?'スルーパス':aim.mode==='pass'?'パス':spin?'カーブシュート':'シュート');}paintAim(context());}
+  function commit(){const c=context(),aim=(g.flicked&&!g.forceShot&&!g.lob?c.resolvePassAim?.(g.yaw):null)||resolve(c,g.yaw,g.forceShot,g.lob);if(g.lob&&!c.resolveLobAim?.(g.yaw)){notice('味方を狙い直してください');paintAim(c);return;}if(g.through&&aim.mode==='pass')aim.mode='through';if(c.visible&&c.enabled){const spin=aim.mode==='shot'?(g.spin||0):0;send('kick',{mode:aim.mode,yaw:aim.yaw,power:g.forceShot?Math.max(.72,strength):strength,spin,holdMs,target:aim.target||''});notice(aim.mode==='lob'?'フライパス':aim.mode==='through'?'スルーパス':aim.mode==='pass'?'パス':spin?'カーブシュート':'シュート');}paintAim(context());}
   if(quick){clearTap();firstTap={at:clock()};tapTimer=window.setTimeout(()=>{clearTap();commit();},DOUBLE_TAP_MS);}else commit();paintAim(context());
  }
  kick.addEventListener('pointerup',event=>{if(gesture?.id!==event.pointerId)return;event.preventDefault();event.stopPropagation();aimAt(event);shoot();});
@@ -69,13 +69,18 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
   send('soccer-skill',{skill:'shotFeint',side:x<0?-1:1,yaw});notice('キックフェイント');paintAim(c);return true;
  }
  feint.addEventListener('pointerdown',event=>{
-  const c=context();if(event.button!==0||hold||!c.visible||feint.disabled)return;event.preventDefault();event.stopPropagation();if(kickFeint(c))return;clearTap();hold={id:event.pointerId,at:clock(),lastSent:-Infinity,long:false,dashing:false};feint.setPointerCapture?.(event.pointerId);feint.classList.add('holding');feint.setAttribute('aria-pressed','true');startAnimation();
+  const c=context();if(event.button!==0||hold||!c.visible||feint.disabled)return;event.preventDefault();event.stopPropagation();if(kickFeint(c))return;clearTap();hold={id:event.pointerId,at:clock(),lastSent:-Infinity,long:false,dashing:false,x:event.clientX,y:event.clientY,yaw:c.yaw,basis:c};feint.setPointerCapture?.(event.pointerId);feint.classList.add('holding');feint.setAttribute('aria-pressed','true');startAnimation();
  },{passive:false});
- function finishFeint(cancelled=false){
-  const old=hold;if(!old)return;const c=context(),tap=!cancelled&&!old.long&&clock()-old.at<DASH_HOLD_MS;clearFeint();
-  if(tap&&c.visible&&c.canTrap){send('soccer-trap',{});notice('トラップ');}else if(tap&&c.visible&&c.enabled&&c.canSkill){const {x=0,z=0}=readStick(),skill=Math.hypot(x,z)<.55?'doubleTouch':Math.abs(x)>Math.abs(z)?'roulette':z>0?'heelLift':'doubleTouch';if(feintTap&&clock()-feintTap.at<=DOUBLE_TAP_MS){window.clearTimeout(feintTimer);feintTap=null;send('soccer-skill',{skill:'nutmeg',side:x<0?-1:1,yaw:c.yaw});notice('股抜き');}else{feintTap={at:clock(),skill,side:x<0?-1:1,yaw:c.yaw};window.clearTimeout(feintTimer);feintTimer=window.setTimeout(()=>{const tap=feintTap;feintTap=null;const current=context();if(tap&&current.visible&&current.enabled&&current.canSkill){send('soccer-skill',{skill:tap.skill,side:tap.side,yaw:tap.yaw});notice(SOCCER_SKILLS[tap.skill].name);}},DOUBLE_TAP_MS);}}update();
+ function feintDirection(event){if(!hold||hold.x===undefined)return;const dx=event.clientX-hold.x,dy=event.clientY-hold.y;if(Math.hypot(dx,dy)<20)return;
+  const b=hold.basis,wx=dx*b.rightX-dy*b.forwardX,wz=dx*b.rightZ-dy*b.forwardZ,yaw=hold.yaw;
+  hold.flick={x:wx*Math.cos(yaw)-wz*Math.sin(yaw),z:wx*Math.sin(yaw)+wz*Math.cos(yaw)};
  }
- feint.addEventListener('pointerup',event=>{if(hold?.id!==event.pointerId)return;event.preventDefault();event.stopPropagation();finishFeint();});
+ feint.addEventListener('pointermove',e=>{if(hold?.id===e.pointerId){e.preventDefault();e.stopPropagation();feintDirection(e);}},{passive:false});
+ function finishFeint(cancelled=false){
+  const old=hold;if(!old)return;const c=context(),tap=!cancelled&&!old.long&&(!!old.flick||clock()-old.at<DASH_HOLD_MS);clearFeint();
+  if(tap&&c.visible&&c.canTrap){send('soccer-trap',{});notice('トラップ');}else if(tap&&c.visible&&c.enabled&&c.canSkill){const {x=0,z=0}=old.flick||{x:0,z:0},skill=Math.hypot(x,z)<20?'doubleTouch':Math.abs(x)>Math.abs(z)?'roulette':z<0?'heelLift':'doubleTouch';if(feintTap&&clock()-feintTap.at<=DOUBLE_TAP_MS){window.clearTimeout(feintTimer);feintTap=null;send('soccer-skill',{skill:'nutmeg',side:x<0?-1:1,yaw:c.yaw});notice('股抜き');}else{feintTap={at:clock(),skill,side:x<0?-1:1,yaw:c.yaw};window.clearTimeout(feintTimer);feintTimer=window.setTimeout(()=>{const tap=feintTap;feintTap=null;const current=context();if(tap&&current.visible&&current.enabled&&current.canSkill){send('soccer-skill',{skill:tap.skill,side:tap.side,yaw:tap.yaw});notice(SOCCER_SKILLS[tap.skill].name);}},DOUBLE_TAP_MS);}}update();
+ }
+ feint.addEventListener('pointerup',event=>{if(hold?.id!==event.pointerId)return;event.preventDefault();event.stopPropagation();feintDirection(event);finishFeint();});
  for(const type of ['pointercancel','lostpointercapture'])feint.addEventListener(type,event=>{if(hold?.id===event.pointerId)finishFeint(true);});
  for(const button of [kick,feint]){
   button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();});
@@ -94,13 +99,13 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
  window.addEventListener('touchcancel',cancel,{passive:true});
  window.addEventListener('blur',cancel);window.addEventListener('pagehide',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel();});
  function update(){
-  const c=context();zone.hidden=!c.visible;
-  if(!c.visible){cancel();return;}
+  const c=context();zone.hidden=!c.visible||!(c.hasBall||c.volleyReady||c.overheadReady||c.headerReady);
+  if(zone.hidden){cancel();return;}
   if(firstTap&&!c.enabled)clearTap();
   if(gesture&&!c.enabled)clearKick();
   kick.disabled=!c.enabled;feint.disabled=!hold&&!c.canDash&&!c.canTrap&&!(c.enabled&&c.canSkill);
   feint.dataset.mode=hold?.dashing?'dash':'feint';feint.querySelector('span').textContent=hold?.dashing?'ダッシュ':c.canTrap?'トラップ':'フェイント';
-  feint.querySelector('small').textContent=c.canTrap?'タップで受け止める':gesture?'押してキックを中止':'長押し：ダッシュ';feint.setAttribute('aria-label',c.canTrap?'タップでトラップ':'フェイント。タップでフェイント、長押し中はダッシュ。シュート準備中に押すとキックフェイント');paintAim(c);
+  feint.querySelector('small').textContent=c.canTrap?'タップで受け止める':gesture?'押してキックを中止':'フリック：技／長押し：走る';feint.setAttribute('aria-label',c.canTrap?'タップでトラップ':'フェイント。タップでフェイント、長押し中はダッシュ。シュート準備中に押すとキックフェイント');paintAim(c);
   const duel=c.duel,key=duel?duel.at+':'+duel.text:'';
   if(duel&&key!==lastDuel){lastDuel=key;feedback.textContent=duel.text;feedback.dataset.result=duel.result;feedbackUntil=clock()+1300;}
   feedback.hidden=clock()>=Math.max(feedbackUntil,noticeUntil);model.draw(clock(),hold?.dashing?'dash':'feint',!!hold);

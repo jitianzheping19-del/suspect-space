@@ -1,3 +1,4 @@
+import {ARENA_GIFT_SKINS,createArenaGiftSkin} from './premium-arena-skins.js';
 import {LEGEND_AURA_SKINS,createLegendAuraSkin} from './premium-legend-skins.js';
 import {GOLDEN_GIFT_SKINS,createGoldenGiftSkin,upgradeGoldenGiftSkin} from './premium-golden-skins.js';
 import {EXPANDED_GIFT_SKINS,createExpandedGiftSkin} from './premium-skins-expansion.js';
@@ -13,10 +14,12 @@ export const GIFT_SKINS=Object.freeze([
  {id:'boxgod',name:'ダンボール神',access:'gift',rarity:5,color:0xb48a56,accent:0xffd887,effect:'box'},
  ...EXPANDED_GIFT_SKINS,
  ...GOLDEN_GIFT_SKINS,
- ...LEGEND_AURA_SKINS
+ ...LEGEND_AURA_SKINS,
+ ...ARENA_GIFT_SKINS
 ]);
 export function createGiftSkin(T,id,{mobile=false}={}){
  const spec=GIFT_SKINS.find(s=>s.id===id);if(!spec)throw new Error('Unknown gift skin');
+ if(ARENA_GIFT_SKINS.some(s=>s.id===id))return createArenaGiftSkin(T,spec,{mobile});
  if(LEGEND_AURA_SKINS.some(s=>s.id===id))return createLegendAuraSkin(T,spec,{mobile});
  if(GOLDEN_GIFT_SKINS.some(s=>s.id===id))return createGoldenGiftSkin(T,spec,{mobile});
  if(EXPANDED_GIFT_SKINS.some(s=>s.id===id))return createExpandedGiftSkin(T,spec,{mobile});

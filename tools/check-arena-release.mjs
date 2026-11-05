@@ -1,0 +1,19 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import {execFileSync} from 'node:child_process';import * as T from 'three';
+import {ARENA_GIFT_SKINS,createArenaGiftSkin} from '../premium-arena-skins.js';import {GACHA_CATALOG} from '../gacha-catalog.js';import {createLobbyGamesRules} from '../lobby-games-rules.js';import {smoothSoccerBall} from '../lobby-soccer-kick.js';
+const baseline=JSON.parse(execFileSync('git',['show','HEAD:gacha-catalog.js'],{encoding:'utf8'}).replace('export const GACHA_CATALOG=','').trim().replace(/;$/,''));
+for(const old of baseline)assert.deepEqual(GACHA_CATALOG.find(i=>i.number===old.number),old,'existing ownership IDs remain stable');
+const rules=JSON.parse(fs.readFileSync('database.rules.json'));assert.equal(ARENA_GIFT_SKINS.filter(s=>s.rarity===4).length,10);assert.equal(ARENA_GIFT_SKINS.filter(s=>s.rarity===5).length,10);const signatures=new Set();
+for(const spec of ARENA_GIFT_SKINS){const entry=GACHA_CATALOG.find(i=>i.id===spec.id);assert.equal(entry.rarity,spec.rarity);assert(rules.rules.premiumOwnership.$uid.$skin['.validate'].includes(spec.id));assert(rules.rules.profiles.$uid['.validate'].includes('premium-'+spec.id));
+ for(const mobile of [false,true]){const skin=createArenaGiftSkin(T,spec,{mobile});let count=0;const signature=[];skin.group.traverse(n=>{if(n.isMesh){count++;signature.push([n.geometry.type,n.position.toArray(),n.scale.toArray()]);}});assert(count>25&&count<180,`${spec.id}: ${count}`);if(!mobile)signatures.add(JSON.stringify(signature));for(let i=0;i<120;i++){skin.update(i/60,{moving:i>60});skin.group.updateMatrixWorld(true);skin.group.traverse(n=>assert(n.matrixWorld.elements.every(Number.isFinite)));}skin.dispose();skin.dispose();}
+}assert.equal(signatures.size,20,'twenty distinct silhouettes');
+const R=createLobbyGamesRules(),now=100000,players={host:{online:true,x:34,z:10},guest:{online:true,x:34,z:10}},s=R.fresh('host',now);
+let result=R.command(s,{id:'guest',kind:'soccer-bots',team:'blue',delta:1,uid:'guest',at:now},players,'host',new Set(),now);assert(!result.ok);
+result=R.command(s,{id:'host',kind:'soccer-bots',team:'blue',delta:1,uid:'host',at:now},players,'host',new Set(),now);assert(result.ok);assert.equal(result.state.soccer.botOptions.blue,2);
+const denied=R.command(result.state,{id:'start-guest',kind:'start-soccer',uid:'guest',at:now},players,'host',new Set(),now);assert(!denied.ok);
+const started=R.command(result.state,{id:'start-host',kind:'start-soccer',uid:'host',at:now},players,'host',new Set(),now);assert(started.ok);assert.equal(started.state.soccer.botOptions.blue,2);assert(!R.command(started.state,{id:'late',kind:'soccer-bots',team:'blue',delta:1,uid:'host',at:now},players,'host',new Set(),now).ok);
+for(const dt of [1/30,1/60,1/120]){const view={x:0,y:.3,z:0,vx:0,vy:0,vz:0};for(let i=0;i<180;i++){const b={x:1,y:.3,z:2,vx:0,vy:0,vz:0,dribbler:'self'};const old={...view};smoothSoccerBall(view,b,0,dt);assert(Object.values(view).every(Number.isFinite));assert(view.x>=old.x-1e-8&&view.x<=1.001);assert(view.y>=.3);}assert(Math.abs(view.x-1)<.001);}
+console.log('PASS 20 distinct mobile/desktop skins, finite animations/disposal, stable catalog IDs, matching ownership rules, host-only setup/start, locked bot settings, smooth ball convergence at 30/60/120 FPS');
+
+const {stepSoccerBots}=await import('../lobby-soccer-bots.js');
+const bot={online:true,bot:true,soccerBot:true,x:23,z:10,yaw:0,lobbyY:0,ownedAt:now-1200,nextAction:0};const lineup={bot,friend:{online:true,x:23,z:20,yaw:0},enemy:{online:true,x:23,z:14,yaw:Math.PI}};
+const g={status:'playing',members:{bot:0,friend:0,enemy:1},bots:{bot},ball:{x:23,z:10.7,y:.3,dribbler:'bot',vx:0,vy:0,vz:0}};stepSoccerBots(g,lineup,R.SOCCER,now,1/60);assert.equal(g.kicks.bot.mode,'lob');console.log('PASS field bot selects an airborne pass over a blocked lane');

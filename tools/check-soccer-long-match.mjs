@@ -26,7 +26,7 @@ for(const count of [2,6,20]){
   }
   R.step(state,people,time,dt);const ball=state.soccer.ball;
   for(const key of ['x','y','z','vx','vy','vz'])assert(Number.isFinite(ball[key]),'finite '+key);
-  assert(ball.y>=.299&&ball.y<20);assert(ball.x>=13&&ball.x<=33);assert(ball.z>=-5&&ball.z<=25);assert(state.soccer.score.every(n=>Number.isInteger(n)&&n>=0));
+  assert(ball.y>=.299&&ball.y<20);assert(ball.x>=R.SOCCER.left-1&&ball.x<=R.SOCCER.right+1);assert(ball.z>=R.SOCCER.near-R.SOCCER.goalDepth-1&&ball.z<=R.SOCCER.far+R.SOCCER.goalDepth+1);assert(state.soccer.score.every(n=>Number.isInteger(n)&&n>=0));
   maxSpeed=Math.max(maxSpeed,Math.hypot(ball.vx,ball.vz));assert(maxSpeed<=34);
   if(tick%30===0){state=JSON.parse(JSON.stringify(state));snapshots++;}
  }

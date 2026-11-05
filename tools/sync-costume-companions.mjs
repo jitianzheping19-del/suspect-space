@@ -7,7 +7,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {gzipSync,gunzipSync} from 'node:zlib';
 const helper=(await readFile('assets-source/detailed-companions.js','utf8')).trim();
 const wearables=(await readFile('assets-source/detailed-wearables.js','utf8')).trim();
-const premiumSources=await Promise.all(['premium-couture.js','premium-tailored-designs.js','premium-tailored-skins.js','premium-skins-expansion.js','premium-golden-skins.js','premium-legend-skins.js','premium-skins.js'].map(file=>readFile(file,'utf8')));
+const premiumSources=await Promise.all(['premium-couture.js','premium-tailored-designs.js','premium-tailored-skins.js','premium-skins-expansion.js','premium-golden-skins.js','premium-legend-skins.js','premium-arena-skins.js','premium-skins.js'].map(file=>readFile(file,'utf8')));
 const premium='/* GIFT_SKIN_V1_BEGIN */\n'+premiumSources.map(source=>source.replace(/^import .*?;\s*/gm,'').replace(/export (const|function) /g,'$1 ')).join('\n')+'\n/* GIFT_SKIN_V1_END */';
 const premiumMarker=/\/\* GIFT_SKIN_V1_BEGIN \*\/[\s\S]*?\/\* GIFT_SKIN_V1_END \*\//;
 const marker=/\/\* DETAILED_COMPANIONS_V1_BEGIN[\s\S]*?\/\* DETAILED_COMPANIONS_V1_END \*\//;

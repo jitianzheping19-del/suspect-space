@@ -59,3 +59,21 @@ export function soccerPassPoint(q,F,power=.55,through=false){
  const lead=through?2.4+Math.max(.12,Math.min(1,power))*2:q.walking?.45:0;
  return {x:Math.max(F.left+.6,Math.min(F.right-.6,q.x+Math.sin(Number(q.yaw)||0)*lead)),z:Math.max(F.near+.6,Math.min(F.far-.6,q.z+Math.cos(Number(q.yaw)||0)*lead))};
 }
+
+export function smoothSoccerBall(view,ball,age,dt,reset=false){
+ const target={...ball},horizon=Math.max(0,Math.min(.14,age));
+ if(!ball.dribbler&&ball.keeperOwner===undefined&&!ball.resetUntil){for(let t=0;t<horizon;t+=1/180)advanceSoccerBall(target,Math.min(1/180,horizon-t));}
+ else if(!ball.dribbler&&ball.keeperOwner===undefined){for(let t=0;t<horizon;t+=1/180)advanceSoccerBall(target,Math.min(1/180,horizon-t));}
+ const distance=Math.hypot(target.x-view.x,target.y-view.y,target.z-view.z);
+ if(reset||!Number.isFinite(distance)||distance>4){Object.assign(view,{x:target.x,y:target.y,z:target.z,vx:0,vy:0,vz:0});return view;}
+ const omega=ball.dribbler?38:30,step=Math.max(0,Math.min(.05,dt)),decay=Math.exp(-omega*step);
+ for(const axis of ['x','y','z']){const v='v'+axis,error=view[axis]-target[axis],j=(view[v]||0)+omega*error;view[axis]=target[axis]+(error+j*step)*decay;view[v]=((view[v]||0)-omega*j*step)*decay;}
+ if(view.y<.3){view.y=.3;view.vy=Math.max(0,view.vy);}return view;
+}
+// Monotone cubic interpolation preserves momentum without overshooting poses.
+export function soccerPoseChannel(frames,index,channel,time){
+ const a=frames[index-1],b=frames[index],duration=b[0]-a[0],u=Math.max(0,Math.min(1,(time-a[0])/duration)),slope=(b[channel]-a[channel])/duration;
+ const tangent=(before,point,after)=>{if(!before||!after)return 0;const x=(point[channel]-before[channel])/(point[0]-before[0]),y=(after[channel]-point[channel])/(after[0]-point[0]);return x*y<=0?0:2*x*y/(x+y);};
+ const m0=tangent(frames[index-2],a,b),m1=tangent(a,b,frames[index+1]);
+ return (2*u*u*u-3*u*u+1)*a[channel]+(u*u*u-2*u*u+u)*duration*m0+(-2*u*u*u+3*u*u)*b[channel]+(u*u*u-u*u)*duration*m1;
+}

@@ -1,3 +1,4 @@
+import {soccerPoseChannel} from './lobby-soccer-kick.js';
 import {soccerPitch} from './lobby-soccer-match.js';
 // Shared tackle timing: the scene animates travel; the host awards actual ball contact.
 export const SOCCER_SLIDE={duration:1640,launchMs:160,travelMs:840,distance:3.6,cooldown:2300,reach:1.22};
@@ -31,7 +32,7 @@ export function sampleSoccerSlide(s,time){
  ];
  let i=1;while(i<frames.length-1&&age>frames[i][0])i++;
  const a=frames[i-1],b=frames[i],u=smooth((age-a[0])/(b[0]-a[0]));
- const [height,pitch,roll,lead,trail,offset,leadZ,trailZ,frontArm,backArm,weight]=a.slice(1).map((v,j)=>v+(b[j+1]-v)*u);
+ const [height,pitch,roll,lead,trail,offset,leadZ,trailZ,frontArm,backArm,weight]=a.slice(1).map((v,j)=>soccerPoseChannel(frames,i,j+1,age));
  const progress=Math.max(0,Math.min(1,(age-SOCCER_SLIDE.launchMs)/(SOCCER_SLIDE.travelMs-SOCCER_SLIDE.launchMs))),travel=SOCCER_SLIDE.distance*smooth(progress);
  const handPlant=smooth((age-800)/140)*(1-smooth((age-1030)/200));
  const entry=smooth(age/160)*(1-smooth((age-160)/150)),kneel=smooth((age-880)/180)*(1-smooth((age-1150)/290));

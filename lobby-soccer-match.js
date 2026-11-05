@@ -4,8 +4,8 @@ export function soccerMatchOptions(value,solo=false){
  return {enabled:value.enabled,blue:value.blue,red:value.red};
 }
 export function soccerPitch(count=0){
- const size=count>=16?2:count>=10?1:0,width=[18,19.8,20.7][size],length=[26,35.1,41.6][size];
- return {size,width,length,minX:12,maxX:37,minZ:10-length/2-2.5,maxZ:10+length/2+3,left:23-width/2,right:23+width/2,near:10-length/2,far:10+length/2,goal:5,goalHeight:2.2,goalDepth:1.2,postRadius:.075,radius:.3};
+ const size=count>=16?2:count>=10?1:0,width=[20,21.4,22][size],length=[30,38,44][size];
+ return {size,width,length,minX:12,maxX:37,minZ:10-length/2-2.5,maxZ:10+length/2+3,left:23-width/2,right:23+width/2,near:10-length/2,far:10+length/2,goal:6.4,goalHeight:2.5,goalDepth:1.2,postRadius:.075,radius:.3};
 }
 // Resolve even identical spawn coordinates. A radial free-space search handles
 // crowded walls/corners where repeated pairwise projections can cycle.
