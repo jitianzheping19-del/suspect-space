@@ -1,6 +1,6 @@
-# サッカー品質改善（2026-11-05、作業中）
+# サッカー品質改善（2026-11-05）
 
-基準コード: d8a64f0。専用コピー `/workspace/soccer-quality-2026-11-05` 内のみで作業。未デプロイ。
+基準コード: d8a64f0。専用コピー `/workspace/soccer-quality-2026-11-05` 内で実装・検証。
 
 eFootballの完全再現を裏付ける公開試合エンジンは今回の検索では確認できなかった。eFootball名義の管理ツール、紹介サイト、単純なデモは試合エンジンと区別した。固有のコード・モデル・モーションのコピーは行わず、このゲームのクルーとフットサルコート向けに実装している。
 
@@ -61,3 +61,16 @@ eFootballの完全再現を裏付ける公開試合エンジンは今回の検�
 - 同じイベントの再受信、古い状態の再表示で二重再生しない。未来の接触時刻は待つ。
 
 確認済みの記録: 2026-11-05。公開ビルドを再実行して成功。追加のWeb Audio実機APIテストも、ミュート、操作による有効化、重複・古いイベント抑止、終了時の解放まで成功。上記は自動ブラウザ・シミュレーションでの確認で、実端末を使った人間による対戦調整は未実施。
+
+
+追加調査: [Unity Football Animation Demo](https://github.com/hyunjuc/unity-football-motion-demo)。README、PlayerMovement.cs、NPCFollower.csを確認。入力の大きさ・移動速度をアニメーションの歩行／走行に反映し、NPCにも同じモーションを使う構成を参照候補とした。Unity素材やアニメーションクリップの取り込みはない。[football-match-viewer](https://github.com/immament/football-match-viewer) はThree.jsによる試合データ再生、[football-game-animation-clips](https://github.com/elshereif/football-game-animation-clips) は選択式のアニメーション作品で、対戦エンジンとは区別して調査した。
+
+実装の保存点: `d3e7617`。動画の元データ: `verification/soccer-quality/soccer-quality-preview.mp4`。
+
+## 継続検証と公開用動画
+
+- `node tools/check-soccer-long-match.mjs`: 2人・6人・20人で各2分間、10/30/60Hzを混在させて完走。ボールの座標・速度・得点の整合性と、状態をシリアライズした後の継続を確認。
+- `SOCCER_NETWORK_JITTER=1 node tools/check-soccer-quality-network.cjs`: 2つのブラウザで実ランタイムを実行し、テスト用の通信経路に30〜180msの遅延・順序逆転・欠落・重複を注入。データベース代替経路にも90msの遅延を追加。
+- 通信テストのWebRTC/Firebaseはテスト用トランスポートで再現。実サービスへの接続や実端末同士の対戦は未実施。
+- 公開動画: [動作確認ページ](https://jitianzheping19-del.github.io/suspect-space/preview/soccer-quality-2026-11-05.html) / [MP4](https://jitianzheping19-del.github.io/suspect-space/preview/soccer-quality-2026-11-05.mp4)。キックフェイント、ダブルタッチ、ルーレット、ヒールリフト、カーブシュートを順に収録。
+- 継続検証は成功。キック・守備の実タッチ、3D接触・姿勢復元、効果音、既存の空中操作・スライディング・キックオフも再確認し、公開用ビルドが成功。ビルド済み動画ページで10秒のMP4再生、途中への移動、スマホ幅の表示を確認。
