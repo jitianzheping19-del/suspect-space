@@ -14,13 +14,18 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    window.refresh=()=>runtime.handleFrame({type:'lobby-games-action',area:'soccer',enabled:false,yaw:0,rightX:1,rightZ:0,forwardX:0,forwardZ:1});
   });await page.clock.runFor(100);await page.evaluate(()=>refresh());
   const press=page.locator('#soccerPressBtn'),slide=page.locator('#soccerSlideBtn');assert(await press.isVisible());assert(await slide.isVisible());assert(await page.locator('#soccerFlickZone').isHidden());assert(await press.isEnabled());
-  for(const b of [press,slide]){const r=await b.boundingBox();assert(r.x>=0&&r.y>=0&&r.x+r.width<=width&&r.y+r.height<=height);}
+  for(const b of [press,slide,page.locator('#soccerMatchupBtn')]){const r=await b.boundingBox();assert(r.x>=0&&r.y>=0&&r.x+r.width<=width&&r.y+r.height<=height);}
   await page.evaluate(()=>{window.events=[];for(const type of ['pointerdown','pointerup','pointercancel','lostpointercapture'])document.addEventListener(type,e=>events.push({type,id:e.pointerId,target:e.target.id}),true);});
   const cdp=await page.context().newCDPSession(page),r=await press.boundingBox(),finger={id:1,x:r.x+r.width/2,y:r.y+r.height/2},stick={id:2,x:55,y:height-65};
   async function touch(type,points){await cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points});await page.clock.runFor(20);}
   await touch('touchStart',[finger]);await touch('touchEnd',[]);assert.equal(await page.evaluate(()=>presses.length),0,'quick tap does not tackle');
   await touch('touchStart',[finger]);await touch('touchStart',[finger,stick]);await page.clock.runFor(230);assert.equal(await page.evaluate(()=>presses.at(-1).held),true);const count=await page.evaluate(()=>presses.length);await page.clock.runFor(520);assert((await page.evaluate(()=>presses.length))>count);await touch('touchEnd',[finger]);assert.equal(await page.evaluate(()=>presses.at(-1).held),false,JSON.stringify(await page.evaluate(()=>({events,presses}))));await touch('touchEnd',[]);
   await touch('touchStart',[finger]);await page.clock.runFor(210);await page.evaluate(()=>window.dispatchEvent(new Event('blur')));assert.equal(await page.evaluate(()=>presses.at(-1).held),false);await touch('touchEnd',[]);
+  const matchup=await page.locator('#soccerMatchupBtn').boundingBox(),matchFinger={id:5,x:matchup.x+matchup.width/2,y:matchup.y+matchup.height/2};
+  assert(matchup.y>=r.y+r.height,'matchup does not overlap press');
+  const sr=await slide.boundingBox();assert(matchup.x+matchup.width<=sr.x,'matchup does not overlap slide');
+  await touch('touchStart',[matchFinger]);await page.clock.runFor(240);assert.equal(await page.evaluate(()=>presses.at(-1).mode),'matchup');assert.equal(await page.evaluate(()=>presses.at(-1).held),true);
+  await touch('touchEnd',[]);assert.equal(await page.evaluate(()=>presses.at(-1).held),false);
   // Flicks use screen-to-world camera basis and send exactly one host command.
   for(const [dx,dy,yaw]of [[0,-55,0],[55,0,Math.PI/2],[-55,0,-Math.PI/2],[0,55,Math.PI]]){
    const b=await slide.boundingBox(),f={id:3,x:b.x+b.width/2,y:b.y+b.height/2};await touch('touchStart',[f]);await touch('touchMove',[{...f,x:f.x+dx,y:f.y+dy}]);await touch('touchEnd',[]);

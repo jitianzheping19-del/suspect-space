@@ -1,3 +1,4 @@
+import {soccerBallCrossing} from './lobby-soccer-kick.js';
 // Shared by the authoritative host and the lobby renderer.
 export function soccerReception(g,id,players,F,time){
  const p=players[id],b=g?.ball,f=g?.flight,team=g?.members?.[id];
@@ -10,7 +11,7 @@ export function beginSoccerReceive(g,id,kind,p,time,F){
  const b=g.ball,goal=g.members[id]===0?F.far:F.near,keeper=g.keepers?.[g.members[id]===0?1:0];
  const targetX=23+(keeper?.x>=23?-1:1)*1.65;
  g.receives||={};g.receives[id]={kind,at:time,until:time+(kind==='header'?1350:650),contactAt:time+(kind==='header'?140:0),applied:false,x:b.x,y:b.y,z:b.z,yaw:Math.atan2(targetX-p.x,goal-p.z),targetX,goal};
- if(kind==='trap'){g.flight=null;b.dribbler='';b.vx=b.vy=b.vz=0;}
+ if(kind==='trap'){g.flight=null;b.dribbler='';b.spin=0;b.vx=b.vy=b.vz=0;}
 }
 export function stepSoccerReceives(g,players,F,time,eligible){
  const b=g.ball;let controlled=false,changed=false;
@@ -21,7 +22,7 @@ export function stepSoccerReceives(g,players,F,time,eligible){
    r.applied=true;changed=true;
    if(g.flight&&Math.hypot(p.x-b.x,p.z-b.z)<3.5&&b.y>.6&&b.y<3.3){
     const dx=r.targetX-b.x,dz=r.goal-b.z,d=Math.hypot(dx,dz),speed=15.5,travel=d/speed;
-    b.vx=dx/d*speed;b.vz=dz/d*speed;b.vy=Math.max(-4,Math.min(2.5,(.85-b.y)/Math.max(.15,travel)+4.9*travel));b.dribbler='';b.lastTouch=id;b.releaseUntil=time+900;b.freeUntil=time+350;g.flight=null;r.connected=true;
+    b.vx=dx/d*speed;b.vz=dz/d*speed;b.vy=Math.max(-4,Math.min(2.5,(.85-b.y)/Math.max(.15,travel)+4.9*travel));b.dribbler='';b.spin=0;b.lastTouch=id;b.releaseUntil=time+900;b.freeUntil=time+350;g.flight=null;r.connected=true;
    }
   }else if(r.kind==='trap'&&age<550){
    const u=Math.max(0,Math.min(1,age/550)),ease=u*u*(3-2*u),yaw=Number(p.yaw)||0;
@@ -41,7 +42,7 @@ export function holdSoccerKeeperBall(g,k,time,pickup=false){
  k.grabLift=k.phase==='dive'?Math.sin(Math.min(1,age/.65)*Math.PI)*Math.max(.25,(k.height||1)-.6):0;
  delete k.distribution;delete k.puntStartedAt;
  k.phase=pickup?'pickup':'catch';k.at=time;k.until=time+1200;k.grabFrom={x:b.x,y:b.y,z:b.z};k.holdYaw=dir===1?0:Math.PI;
- b.keeperOwner=k.team;b.dribbler='';b.lastTouch='keeper-'+k.team;b.vx=b.vy=b.vz=0;g.flight=null;
+ b.keeperOwner=k.team;b.dribbler='';b.spin=0;b.lastTouch='keeper-'+k.team;b.vx=b.vy=b.vz=0;g.flight=null;
  for(const kick of Object.values(g.kicks||{}))kick.applied=true;
  for(const skill of Object.values(g.skills||{}))skill.cancelled=true;
  g.presses={};
@@ -87,7 +88,8 @@ export function stepSoccerKeepers(g,F,time,dt,players={}){
   const eta=Math.abs(b.vz)>.01?(z-b.z)/b.vz:-1,danger=b.vz*dir< -2&&eta>0&&eta<.65;
   if(!danger){k.watch=0;continue;}if(!k.watch)k.watch=time;
   if(time-k.watch<130)continue;
-  const x=b.x+b.vx*eta,y=b.y+b.vy*eta-4.9*eta*eta;
+  const predicted=b.spin?soccerBallCrossing(b,z):null;
+  const x=predicted?.x??b.x+b.vx*eta,y=predicted?.y??b.y+b.vy*eta-4.9*eta*eta;
   if(Math.abs(x-23)>F.goal/2+.6||y>3.2||y<-.5)continue;
   k.phase='dive';k.at=time;k.until=time+850;k.fromX=k.x;k.toX=Math.max(k.x-1.65,Math.min(k.x+1.65,x));k.height=Math.max(.25,Math.min(2.35,y));k.side=x<k.x?-1:1;k.watch=0;
  }
@@ -106,7 +108,7 @@ export function collideSoccerKeeper(g,F,time,old){
   if(Math.abs(bx-x)>reach||by<bottom||by>top)continue;
   const catchable=Math.hypot(b.vx,b.vy,b.vz)<13&&by<2.2;
   if(catchable){b.x=bx;b.y=Math.max(.32,by);b.z=k.z;k.x=x;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:k.z};holdSoccerKeeperBall(g,k,time);return true;}
-  b.x=bx;b.y=Math.max(.32,by);b.z=k.z+dir*.34;b.vx=(bx>=x?1:-1)*(3+Math.abs(b.vx)*.3);b.vz=dir*(5+Math.abs(b.vz)*.3);b.vy=2.6;b.dribbler='';b.lastTouch='keeper-'+k.team;b.keeperReleaseUntil=time+650;b.freeUntil=time+250;g.flight=null;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:k.z};return true;
+  b.x=bx;b.y=Math.max(.32,by);b.z=k.z+dir*.34;b.vx=(bx>=x?1:-1)*(3+Math.abs(b.vx)*.3);b.vz=dir*(5+Math.abs(b.vz)*.3);b.vy=2.6;b.dribbler='';b.spin=0;b.lastTouch='keeper-'+k.team;b.keeperReleaseUntil=time+650;b.freeUntil=time+250;g.flight=null;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:k.z};return true;
  }
  return false;
 }

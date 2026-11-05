@@ -1,5 +1,6 @@
 // Original motion curves. The host and the renderer share the same contact clock.
 export const SOCCER_SKILLS={
+ shotFeint:{name:'キックフェイント',duration:700,release:700,speed:3.8,lift:.3,cooldown:1100},
  doubleTouch:{name:'ダブルタッチ',duration:680,release:680,speed:4.6,lift:.25,cooldown:1050},
  roulette:{name:'ルーレット',duration:960,release:960,speed:4.2,lift:.3,cooldown:1350},
  heelLift:{name:'ヒールリフト',duration:1120,release:430,speed:4.8,lift:7,cooldown:1450}
@@ -50,7 +51,10 @@ export function sampleSoccerDribble(age,walking=true,rollAge=-1,rollSide=1,dashi
   z=.64+(kind==='drag'?-.22:kind==='nudge'?.13:kind==='stop'?-.10:-.06)*roll;
   if(!kind){x=rollSide*.12*sole;z=.64-.1*sole;}
  }
- return {x,z,contacts,phase,sole,foot:sole?(rollSide<0?0:1):foot,push,stride:dashing?1.2:close?.32:.65,precision:close};
+ const receiveAge=control?.receiveAt===undefined?-1:age+Number(control.at??0)-control.receiveAt,receiveDuration=control?.receiveDuration||1;
+ const receive=receiveAge>=0&&receiveAge<receiveDuration?smooth(receiveAge/45)*(1-smooth((receiveAge-70)/(receiveDuration-70))):0,receiveFoot=control?.receiveSide<0?0:1;
+ if(receive&&!sole){contacts[receiveFoot]=Math.max(contacts[receiveFoot],receive);contacts[1-receiveFoot]*=1-receive;x+=(control.receiveSide*.1-x)*receive;z+=.14*receive;}
+ return {x,z,contacts,phase,sole,receive,foot:sole?(rollSide<0?0:1):receive?receiveFoot:foot,push,stride:dashing?1.2:close?.32:.65,precision:close};
 }
 export function sampleSoccerSkill(kind,age,side=1){
  const skill=SOCCER_SKILLS[kind];if(!skill||age<0||age>skill.duration)return null;
@@ -58,7 +62,12 @@ export function sampleSoccerSkill(kind,age,side=1){
  const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>v+(b[j+1]-v)*u);};
  const p=age/skill.duration,w=Math.sin(Math.PI*p),s=side<0?-1:1;
  let points,turn=0,left=0,right=0,lean=0,bank=0,bounce=0,stance=0,travelX=0,travelZ=0,plant=0;
- if(kind==='doubleTouch'){
+ if(kind==='shotFeint'){
+  points=[[0,0,.74,.3],[.18,.12,.70,.3],[.34,.18,.64,.3],[.56,-.46,.46,.3],[.82,-.28,.70,.3],[1,0,.74,.3]];
+  travelX=-.78*smooth((p-.32)/.68);travelZ=1.25*smooth((p-.4)/.6);
+  right=curve([[0,0],[.21,.8],[.36,-.65],[.62,.2],[1,0]],p)[0];left=-.35*w;
+  lean=.15*w;bank=-s*.18*Math.sin(Math.PI*p);stance=.08*w;
+ }else if(kind==='doubleTouch'){
   points=[[0,0,.74,.3],[.18,-.34,.55,.3],[.43,.45,.58,.3],[.77,.24,.72,.3],[1,0,.74,.3]];
   travelX=.62*smooth(p/.5);travelZ=1.8*smooth((p-.28)/.72);
   left=-.65*Math.sin(Math.PI*Math.min(1,p/.44));right=-.85*Math.sin(Math.PI*Math.max(0,(p-.28)/.72));bank=s*.2*Math.sin(p*Math.PI*2);lean=.12*w;stance=.1*w;

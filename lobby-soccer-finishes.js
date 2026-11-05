@@ -14,7 +14,7 @@ export function stepSoccerFinishes(g,players,time,eligible){
   if(f.applied||time<f.contactAt)continue;f.applied=true;changed=true;const p=players[id];
   if(b.keeperOwner!==undefined||b.lastTouch!==id||b.y<.85||b.y>3.8||Math.hypot(p.x-b.x,p.z-b.z)>3.7)continue;
   const dx=f.targetX-b.x,dz=f.goal-b.z,d=Math.hypot(dx,dz),speed=21,travel=Math.max(.18,d/speed);
-  b.vx=dx/Math.max(.01,d)*speed;b.vz=dz/Math.max(.01,d)*speed;b.vy=Math.max(-8,Math.min(5,(.9-b.y)/travel+4.9*travel));b.dribbler='';b.releaseUntil=time+1000;b.freeUntil=time+350;g.flight=null;f.connected=true;f.contact={x:b.x,y:b.y,z:b.z};
+  b.vx=dx/Math.max(.01,d)*speed;b.vz=dz/Math.max(.01,d)*speed;b.vy=Math.max(-8,Math.min(5,(.9-b.y)/travel+4.9*travel));b.dribbler='';b.spin=0;b.releaseUntil=time+1000;b.freeUntil=time+350;g.flight=null;f.connected=true;f.contact={x:b.x,y:b.y,z:b.z};
   if(g.skills[id])g.skills[id].cancelled=true;
  }
  return changed;

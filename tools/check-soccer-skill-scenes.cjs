@@ -14,7 +14,7 @@ const {build}=require('esbuild'),{chromium}=require('playwright');
    window.postMessage({type:'lobby-games-state',enabled:true,state:QA.rules.fresh('self',testNow),uid:'self',host:'self',serverNow:testNow,players:people},'*');
   });await page.waitForFunction(()=>__lobbyGames.state);
   await page.evaluate(()=>{QA.player.root.position.set(11.9,0,2.1);__lobbyGames.update(.016);QA.player.root.position.x=13;__lobbyGames.update(.016);QA.player.root.position.set(23,0,9);QA.player.root.rotation.y=0;QA.player.root.visible=true;QA.renderer.setPixelRatio(1);QA.renderer.setSize(960,600,false);QA.camera.position.set(27,3.2,13.6);QA.camera.lookAt(23,1.1,9.4);QA.camera.aspect=1.6;QA.camera.updateProjectionMatrix();for(const id of ['info','infoRight','topbar','customizePanel']){const e=document.getElementById(id);if(e)e.style.display='none';}});
-  for(const kind of ['doubleTouch','roulette','heelLift']){
+  for(const kind of ['shotFeint','doubleTouch','roulette','heelLift']){
    await page.evaluate(kind=>{testNow=100000;QA.player.root.position.set(23,0,9);Object.assign(people.self,{x:23,z:9});__lobbyGames.update(0);const s=QA.rules.fresh('self',testNow);Object.assign(s.soccer.ball,{z:9.85,dribbler:'self'});const result=QA.rules.command(s,{uid:'self',id:kind,kind:'soccer-skill',skill:kind,side:1,yaw:0,at:testNow},people,'self',new Set(),testNow);if(!result.ok)throw Error(result.message);window.postMessage({type:'lobby-games-state',enabled:true,state:result.state,uid:'self',host:'self',serverNow:testNow,players:people},'*');},kind);
    await page.waitForFunction(kind=>__lobbyGames.state.soccer.skills?.self?.kind===kind,kind);
    const result=await page.evaluate(kind=>{
@@ -29,7 +29,7 @@ if(JSON.stringify(signature())!==JSON.stringify(base))changed++;
     }
     return{changed,maxY,png,maxPlantDrift,forward:player.root.position.z-9,skill:__lobbyGames.state.soccer.skills.self};
    },kind);
-   assert(result.changed>25);assert(result.forward>1.5,kind+' advances without movement input');assert(result.skill.released&&!result.skill.cancelled,kind+' completes during movement');if(kind==='heelLift')assert(result.maxY>2.2);if(kind==='roulette')assert(result.maxPlantDrift<.02,'right foot stays planted: '+result.maxPlantDrift);
+   assert(result.changed>25);assert(result.forward>(kind==='shotFeint'?1:1.5),kind+' advances without movement input');assert(result.skill.released&&!result.skill.cancelled,kind+' completes during movement');if(kind==='heelLift')assert(result.maxY>2.2);if(kind==='roulette')assert(result.maxPlantDrift<.02,'right foot stays planted: '+result.maxPlantDrift);
    if(process.env.VISUAL_SHOTS){fs.mkdirSync(process.env.VISUAL_SHOTS,{recursive:true});fs.writeFileSync(path.join(process.env.VISUAL_SHOTS,kind+'.png'),Buffer.from(result.png.split(',')[1],'base64'));}
    console.log('PASS real minified scene motion, ball trajectory and pose restoration:',kind);
   }

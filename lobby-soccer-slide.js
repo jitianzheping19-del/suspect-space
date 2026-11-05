@@ -45,7 +45,7 @@ export function stepSoccerSlides(g,players,time){
   const distance=Math.hypot(b.x-(s.lastX+u*dx),b.z-(s.lastZ+u*dz)),owner=b.dribbler;
   const facing=(b.x-p.x)*Math.sin(s.yaw)+(b.z-p.z)*Math.cos(s.yaw);
   if(!s.connected&&time-s.at>=SOCCER_SLIDE.launchMs+40&&time-s.at<=SOCCER_SLIDE.travelMs&&Math.hypot(dx,dz)<4.2&&distance<SOCCER_SLIDE.reach&&facing>-.65&&b.y<.6&&Math.abs(p.lobbyY||0)<.2&&time>=Number(b.resetUntil||0)&&b.keeperOwner===undefined&&time>=Number(b.contestUntil||0)&&(!owner||owner!==id&&(g.status==='idle'||g.members[owner]!==g.members[id]))){
-   s.connected=true;s.contact={x:b.x,y:b.y,z:b.z,at:time};b.dribbler='';b.lastTouch=id;b.vx=Math.sin(s.yaw)*5.2;b.vz=Math.cos(s.yaw)*5.2;b.vy=.7;b.freeUntil=time+240;b.releaseUntil=time+500;b.contestUntil=time+400;b.contestOwner=id;g.flight=null;
+   s.connected=true;s.contact={x:b.x,y:b.y,z:b.z,at:time};b.dribbler='';b.spin=0;b.lastTouch=id;b.vx=Math.sin(s.yaw)*5.2;b.vz=Math.cos(s.yaw)*5.2;b.vy=.7;b.freeUntil=time+240;b.releaseUntil=time+500;b.contestUntil=time+400;b.contestOwner=id;g.flight=null;
    if(g.skills?.[owner])g.skills[owner].cancelled=true;
    changed=true;
   }

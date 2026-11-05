@@ -1,4 +1,5 @@
 import {createSoccerDefenseControls} from './lobby-soccer-defense-ui.js';
+import {createSoccerFeedback} from './lobby-soccer-feedback.js';
 import {createSoccerGoalPresentation} from './lobby-soccer-goal-ui.js';
 import {createLobbyGamesRules} from './lobby-games-rules.js';
 import {createSoccerFlickControls} from './lobby-soccer-flick.js';
@@ -9,6 +10,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   let roomKey='',state=null,ownHost=false,lastWrite=0,lastSend=0,lastStep=0,busy=false,dirty=false,action={},localArea='lobby',lastError=0;
   let pending=null,sequence=0,lastFrame='',menuOpen=false,lastRequestId='',reportedResult='',feedback='',feedbackUntil=0;
   let pressSerial=0,pressWrite=Promise.resolve(),dashWrite=Promise.resolve();
+  const soccerFeedback=createSoccerFeedback({document,window,clock,visible:()=>context().enabled&&localArea==='soccer'&&!rules.active(state?.tag)});
   function soccerControlContext(){
     const base=context(),c={...base,players:rules.soccerRoster(state?.soccer,base.players)},g=state?.soccer,t=clock(),press=g?.presses?.[c.uid],target=rules.pressTarget(g,c.uid,c.players,t),owner=g?.ball?.dribbler;
     const reception=rules.reception(state,c.uid,c.players,t);
@@ -63,10 +65,10 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     const c=context();if(!ownHost||!state||!c.enabled||command.owner!==c.host||!rules.live(c.players[command.uid]))return;
     if(rules.pressInput(state.soccer,command,worldRoster(c),clock())){state.at=clock();state.revision++;dirty=true;}
   }
-  function requestPress(held){
+  function requestPress(held,mode='press'){
     const c=context();frame()?.postMessage({type:'lobby-soccer-press-intent',held},'*');
     if(!c.enabled||!c.uid||!c.room)return;
-    const command={uid:c.uid,owner:c.host,held,serial:pressSerial=Math.max(pressSerial+1,Math.floor(clock())),at:clock()};
+    const command={uid:c.uid,owner:c.host,held,mode,serial:pressSerial=Math.max(pressSerial+1,Math.floor(clock())),at:clock()};
     if(ownHost){acceptPress(command);return;}
     try{transport()?.publishEphemeral({kind:'lobby-games-press',command},[c.host],{latest:true});}catch{}
     // Ordered fallback writes ensure release cannot be overwritten by an older heartbeat.
@@ -121,6 +123,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   function use(){const c=context();if(!c.enabled||localArea!=='soccer')return false;if(rules.canOverhead(state,c.uid,c.players,clock()))request('soccer-overhead');else if(action.enabled)request('kick',{yaw:action.yaw});return true;}
   function render(){
+    soccerFeedback.update(state?.soccer);
     flickControls.update();defenseControls.update();
     const c=context();onPhoto(c.enabled?state?.photo:null,state?.photoBackground||'aurora');const enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
     const participation=enabled&&rules.live(c.players[c.uid])&&Object.entries({tag:state?.tag,survival:state?.survival,soccer:state?.soccer}).find(([,g])=>rules.active(g)&&Object.hasOwn(g.members||{},c.uid));
