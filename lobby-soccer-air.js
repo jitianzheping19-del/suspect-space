@@ -14,6 +14,7 @@ export function beginSoccerReceive(g,id,kind,p,time,F){
  const targetX=23+(keeper?.x>=23?-1:1)*1.65;
  g.receives||={};g.receives[id]={kind,part:kind==='trap'?soccerTrapPart(b):'head',at:time,until:time+(kind==='header'?1350:650),contactAt:time+(kind==='header'?140:0),applied:false,x:b.x,y:b.y,z:b.z,yaw:Math.atan2(targetX-p.x,goal-p.z),targetX,goal};
  if(kind==='trap'){
+  Object.assign(g.receives[id],{trapYaw:Number(p.yaw)||0,steerAt:time});
   const ground=b.y<=.55,speed=Math.hypot(b.vx,b.vz);g.flight=null;b.dribbler=ground?id:'';b.spin=0;
   if(ground){Object.assign(g.receives[id],{ground:true,applied:true,until:time+380});g.dribble={uid:id,at:time,receiveAt:time,receiveDuration:300,receiveSide:(b.x-p.x)*Math.cos(p.yaw||0)-(b.z-p.z)*Math.sin(p.yaw||0)<0?-1:1};}else b.vx=b.vy=b.vz=0;
  }
@@ -23,7 +24,13 @@ export function stepSoccerReceives(g,players,F,time,eligible){
  for(const [id,r]of Object.entries(g.receives||{})){
   const p=players[id];if(!eligible(id)||time>r.until+1500){delete g.receives[id];continue;}
   if(r.kind==='trap'&&!r.applied&&Math.hypot(p.x-b.x,p.z-b.z)>2.3){delete g.receives[id];b.freeUntil=time+100;changed=true;continue;}
-  const age=time-r.at;if(r.ground)continue;
+  const age=time-r.at;
+  if(r.kind==='trap'&&time<=r.until){
+   const dt=Math.max(0,Math.min(.1,(time-(r.steerAt??r.at))/1000)),yaw=Number(p.yaw)||0;
+   r.trapYaw??=yaw;const turn=Math.atan2(Math.sin(yaw-r.trapYaw),Math.cos(yaw-r.trapYaw));
+   const rate=r.ground?12:8;r.trapYaw+=Math.max(-rate*dt,Math.min(rate*dt,turn));r.steerAt=time;
+  }
+  if(r.ground)continue;
   if(r.kind==='header'&&!r.applied&&time>=r.contactAt){
    r.applied=true;changed=true;
    if(!b.dribbler&&b.keeperOwner===undefined&&Math.hypot(p.x-b.x,p.z-b.z)<3.5&&b.y>.6&&b.y<3.3){
@@ -31,7 +38,7 @@ export function stepSoccerReceives(g,players,F,time,eligible){
     b.vx=dx/d*speed;b.vz=dz/d*speed;b.vy=Math.max(-4,Math.min(2.5,(.85-b.y)/Math.max(.15,travel)+4.9*travel));b.dribbler='';b.spin=0;b.lastTouch=id;b.releaseUntil=time+900;b.freeUntil=time+350;g.flight=null;r.connected=true;
    }
   }else if(r.kind==='trap'&&age<550){
-   const u=Math.max(0,Math.min(1,age/550)),ease=u*u*(3-2*u),yaw=Number(p.yaw)||0;
+   const u=Math.max(0,Math.min(1,age/550)),ease=u*u*(3-2*u),yaw=r.trapYaw??(Number(p.yaw)||0);
    b.x=r.x+(p.x+Math.sin(yaw)*.72-r.x)*ease;b.z=r.z+(p.z+Math.cos(yaw)*.72-r.z)*ease;b.y=r.y+(.3-r.y)*ease;b.vx=b.vy=b.vz=0;b.lastTouch=id;b.freeUntil=time+30;controlled=changed=true;
   }else if(r.kind==='trap'&&!r.applied){r.applied=true;b.dribbler=id;g.dribble={uid:id,at:time};changed=true;}
  }
@@ -46,7 +53,7 @@ export function holdSoccerKeeperBall(g,k,time,pickup=false){
  const b=g.ball,age=k.phase==='dive'?(time-k.at)/1000:0,dir=k.team===0?1:-1;
  k.grabRoll=k.phase==='dive'?-k.side*dir*1.25*Math.sin(Math.min(1,age/.95)*Math.PI):0;
  k.grabLift=k.phase==='dive'?Math.sin(Math.min(1,age/.65)*Math.PI)*Math.max(.25,(k.height||1)-.6):0;
- delete k.distribution;delete k.puntStartedAt;
+ delete k.distribution;delete k.distributionAt;delete k.puntStartedAt;delete k.contact;
  k.phase=pickup?'pickup':'catch';k.at=time;k.until=time+1200;k.grabFrom={x:b.x,y:b.y,z:b.z};k.holdYaw=dir===1?0:Math.PI;
  b.keeperOwner=k.team;b.dribbler='';b.spin=0;b.lastTouch='keeper-'+k.team;b.vx=b.vy=b.vz=0;g.flight=null;
  for(const kick of Object.values(g.kicks||{}))kick.applied=true;
@@ -59,7 +66,7 @@ export function soccerKeeperOutlet(g,k,players,F){
  return {target,x:q.x,z:q.z,yaw:Math.atan2(q.x-k.x,q.z-k.z)};
 }
 export function stepSoccerKeepers(g,F,time,dt,players={}){
- if(g.botOptions?.enabled===false){g.keepers={};delete g.ball.keeperOwner;return {controlled:false,changed:false};}
+ // Goalkeepers stay active independently of the optional field-player bots.
  const previous=JSON.stringify(g.keepers||{}),heldBefore=g.ball.keeperOwner!==undefined;g.keepers||={};const b=g.ball,playing=['idle','playing'].includes(g.status)&&time>=Number(b.resetUntil||0);
  for(const team of [0,1]){
   const dir=team===0?1:-1,z=(team===0?F.near:F.far)+dir*.75;
@@ -67,13 +74,13 @@ export function stepSoccerKeepers(g,F,time,dt,players={}){
   if(!playing){Object.assign(k,{x:23,y:0,z,phase:'ready',until:0,watch:0});delete b.keeperOwner;continue;}
   if(b.keeperOwner===team){
    const target=soccerKeeperOutlet(g,k,players,F);
-   if(!k.distribution){k.distribution=!target.target||Math.hypot(target.x-k.x,target.z-k.z)>=10?'punt':'throw';if(k.distribution==='punt'){k.until=k.at+1550;k.puntStartedAt=k.at;}}
-   const lift=Math.max(0,Math.min(1,(time-k.at)/360)),ease=lift*lift*(3-2*lift),windup=Math.max(0,Math.min(1,(time-k.at-700)/500)),raise=windup*windup*(3-2*windup),outlet=soccerKeeperOutlet(g,k,players,F);
+   if(!k.distribution){k.distribution=!target.target||Math.hypot(target.x-k.x,target.z-k.z)>=10?'punt':'throw';k.distributionAt=k.at;k.until=k.at+(k.distribution==='punt'?1550:1200);if(k.distribution==='punt')k.puntStartedAt=k.at;}
+   const lift=Math.max(0,Math.min(1,(time-k.at)/360)),ease=lift*lift*(3-2*lift),outlet=soccerKeeperOutlet(g,k,players,F);
    const turn=Math.atan2(Math.sin(outlet.yaw-k.holdYaw),Math.cos(outlet.yaw-k.holdYaw));k.holdYaw+=turn*Math.min(1,dt*8);k.target=outlet.target;
-   const reach=.5-raise*.2,hx=k.x+Math.sin(k.holdYaw)*reach,hz=k.z+Math.cos(k.holdYaw)*reach;
-   b.x=k.grabFrom.x+(hx-k.grabFrom.x)*ease;b.y=k.grabFrom.y+(1.15-k.grabFrom.y)*ease+raise*.65;b.z=k.grabFrom.z+(hz-k.grabFrom.z)*ease;b.at=time;
-   if(k.distribution==='punt'){const pose=sampleSoccerPunt(time-k.puntStartedAt);b.x=k.grabFrom.x+(k.x+Math.sin(k.holdYaw)*pose.reach-k.grabFrom.x)*ease;b.z=k.grabFrom.z+(k.z+Math.cos(k.holdYaw)*pose.reach-k.grabFrom.z)*ease;b.y=k.grabFrom.y+(pose.ballY-k.grabFrom.y)*ease;}
+   const pose=k.distribution==='punt'?sampleSoccerPunt(time-k.distributionAt):sampleSoccerKeeperThrow(time-k.distributionAt);
+   b.x=k.grabFrom.x+(k.x+Math.sin(k.holdYaw)*pose.reach-k.grabFrom.x)*ease;b.z=k.grabFrom.z+(k.z+Math.cos(k.holdYaw)*pose.reach-k.grabFrom.z)*ease;b.y=k.grabFrom.y+(pose.ballY-k.grabFrom.y)*ease;b.at=time;
    if(time>=k.until){
+    k.contact={x:b.x,y:b.y,z:b.z,at:time};
     const target=outlet.target,q=outlet,punt=k.distribution==='punt',travel=Math.max(punt?1.15:.85,Math.min(punt?2:1.8,Math.hypot(q.x-b.x,q.z-b.z)/(punt?13:11))),factor=.18/(1-Math.exp(-.18*travel));
     b.vx=(q.x-b.x)*factor;b.vz=(q.z-b.z)*factor;b.vy=(1.45-b.y)/travel+4.9*travel;b.lastTouch='keeper-'+team;b.keeperReleaseUntil=time+900;b.freeUntil=time+200;delete b.keeperOwner;
     g.flight={from:'keeper-'+team,team,target,at:time,arrivalAt:time+travel*1000,x:q.x,z:q.z};k.phase=punt?'punt':'distribute';k.at=time;k.until=time+(punt?750:550);k.target=target;k.throwYaw=Math.atan2(q.x-k.x,q.z-k.z);
@@ -125,4 +132,13 @@ export function sampleSoccerPunt(age){
  const frames=[[0,1.15,.5,-.15,.1,-1.25,0],[.32,1.15,.5,-.1,.1,-1.25,0],[.46,1.34,.64,.35,.15,-1.05,-.08],[.57,1.12,.72,.95,.1,-.65,-.12],[1550/2300,.62,.85,-1.25,.22,-.3,.2],[.79,.3,1,-1.05,.18,-.45,.28],[1,.3,.65,.15,.15,-.48,.12]];
  let i=1;while(i<frames.length-1&&p>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=(p-a[0])/(b[0]-a[0]),w=u*u*(3-2*u),[ballY,reach,kick,plant,arm,pitch]=a.slice(1).map((v,j)=>v+(b[j+1]-v)*w);
  return {ballY,reach,kick,plant,arm,pitch};
+}
+
+// Hand preparation and follow-through use the same 1200 ms release as the ball.
+export function sampleSoccerKeeperThrow(age){
+ const t=Math.max(0,Math.min(1750,age));
+ const frames=[[0,1.15,.5,-1.25,.12,.15],[650,1.15,.5,-1.25,.12,.15],[950,1.65,.38,-2.3,-.12,.25],[1100,1.9,.28,-2.65,-.18,.35],[1200,1.75,.62,-1.85,.18,-.35],[1380,1.3,.75,-.7,.3,-.6],[1750,1.15,.5,-.48,.12,.15]];
+ let i=1;while(i<frames.length-1&&t>frames[i][0])i++;
+ const a=frames[i-1],b=frames[i],u=(t-a[0])/(b[0]-a[0]),ease=u*u*(3-2*u),[ballY,reach,arm,pitch,plant]=a.slice(1).map((v,j)=>v+(b[j+1]-v)*ease);
+ return {ballY,reach,arm,pitch,plant};
 }

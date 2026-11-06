@@ -153,7 +153,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const blueLabel=station('blue-count','青 BOT 1',6.2,2.2,3),redLabel=station('red-count','赤 BOT 1',13.8,2.2,3);
   station('blue-minus','−',5.4,1.1,1.2);station('blue-plus','＋',7,1.1,1.2);
   station('red-minus','−',13,1.1,1.2);station('red-plus','＋',14.6,1.1,1.2);
-  station('exit','ロビーへ',2.1,1.2,2,14);
+  const exitSign=sign(soccer,'← ロビーへ戻る',12.35,3.6,2.1,3.8);exitSign.rotation.y=Math.PI/2;exitSign.name='soccer-exit-sign';stations.push({id:'exit',root:exitSign,label:exitSign,x:12.35,z:2.1});
   function stationInfo(item){const playing=rules.active(state?.soccer),isHost=uid===host,id=item.id==='start'&&playing?'stop':item.id;
     return {station:id,stationLabel:id==='exit'?'ロビーへ':id==='start'?(isHost?'スタート':'ホストのみ開始'):id==='stop'?(isHost?'試合終了':'ホストのみ終了'):(id.startsWith('blue')?'青 BOT':'赤 BOT')+(id.endsWith('plus')?' ＋':' −'),stationEnabled:id==='exit'||isHost&&(!playing||id==='stop')};}
   function nearStation(){if(!enabled||area()!=='soccer')return null;return stations.filter(s=>!s.id.endsWith('count')&&s.root.visible).map(s=>({s,d:Math.hypot(player.root.position.x-s.x,player.root.position.z-s.z)})).filter(q=>q.d<2).sort((a,b)=>a.d-b.d)[0]?.s||null;}
@@ -168,8 +168,9 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     event.preventDefault();event.stopPropagation();parent.postMessage({type:'lobby-games-station',station:info.station},'*');
   },{passive:false});
   function updateStations(){const playing=rules.active(state?.soccer),options=state?.soccer?.botOptions||{blue:1,red:1};
-    blueLabel.userData.setText('青 BOT '+options.blue);redLabel.userData.setText('赤 BOT '+options.red);startLabel.userData.setText(playing?'試合終了':'スタート');
-    for(const s of stations){s.root.visible=!playing||['start','exit'].includes(s.id);s.label.material.opacity=uid===host||s.id==='exit'?1:.65;s.label.material.transparent=true;}
+    const bots=Object.values(state?.soccer?.bots||{}),counts=playing?[0,1].map(team=>bots.filter(p=>p.online!==false&&p.team===team).length):[options.enabled===false?0:options.blue,options.enabled===false?0:options.red];
+    blueLabel.userData.setText('青 BOT '+counts[0]);redLabel.userData.setText('赤 BOT '+counts[1]);startLabel.userData.setText(playing?'試合終了':'スタート');
+    for(const s of stations){s.root.visible=!playing||['start','exit','blue-count','red-count'].includes(s.id);s.label.material.opacity=uid===host||s.id==='exit'?1:.65;s.label.material.transparent=true;}
   }
 
   sign(soccer,'観戦・待機',13.5,.05,9,6).rotation.x=-Math.PI/2;
@@ -180,9 +181,11 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const area=()=>localArea;
   function teleport(x,y,z){player.root.position.set(x,y,z);player.root.userData.lobbyHeightInitialized=true;clearMotion();parent.postMessage({type:'lobby-position',gameArea:localArea,x,z,lobbyY:y,yaw:player.root.rotation.y,walking:false,lobbyKart:false,circuitTrack:false},'*');}
   function exit(){const a=area();localArea='lobby';if(a==='survival')teleport(-9.5,0,-2.3);else if(a==='soccer')teleport(9.5,0,2.1);previousX=player.root.position.x;}
-  let pressIntent=false,dashIntent=null,aimIntent={active:false};
+  let pressIntent=false,dashIntent=null,aimIntent={active:false},soccerCamera='length',cameraChanged=false;
+  function setSoccerCamera(mode){if(['length','side','third'].includes(mode)&&soccerCamera!==mode){soccerCamera=mode;cameraChanged=true;}}
   window.addEventListener('message',event=>{
     if(event.source!==parent)return;const data=event.data;
+    if(data?.type==='lobby-soccer-camera'){setSoccerCamera(data.mode);return;}
     if(data?.type==='lobby-soccer-press-intent'){pressIntent=data.held===true;return;}
     if(data?.type==='lobby-soccer-dash-intent'){dashIntent=data.held===true;return;}
     if(data?.type==='lobby-soccer-aim'){
@@ -192,7 +195,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     if(data?.type!=='lobby-games-state')return;
     enabled=data.enabled===true;
     if(!enabled){pressIntent=false;dashIntent=null;aimIntent={active:false};exit();state=null;roots.survival.visible=roots.soccer.visible=false;return;}
-    state=data.state;rules.setSoccerPitch(state?.soccer);resizePitch();uid=data.uid||uid;host=data.host||'';roster=soccerRoster(state?.soccer,data.players||{});offset=Number(data.serverNow)-Date.now();
+    setSoccerCamera(data.soccerCamera);state=data.state;rules.setSoccerPitch(state?.soccer);resizePitch();uid=data.uid||uid;host=data.host||'';roster=soccerRoster(state?.soccer,data.players||{});offset=Number(data.serverNow)-Date.now();
     const a=area(),g=state?.[a];
     if(g?.id&&rules.active(g)&&g.members?.[uid]!==undefined&&roundSeen!==g.id){
       roundSeen=g.id;eliminatedSeen=finishedSeen='';
@@ -248,9 +251,26 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   }
   function separateLocal(){
     if(!enabled||area()!=='soccer')return;
+    // The separation clamp must leave the doorway corridor open to the lobby.
+    if(player.root.position.x<13.5&&Math.abs(player.root.position.z-2.1)<1.25)return;
     const p=player.root.position,others={...roster};for(const [id,crew]of soccerCrews())if(others[id])others[id]={...others[id],x:crew.root.position.x,z:crew.root.position.z};
     const q=resolveSoccerOverlap(uid,p,others,F,(x,z)=>!!rules.goalContact(x,p.y+.6,z,.48));
     if(Math.hypot(q.x-p.x,q.z-p.z)>.0001){p.x=q.x;p.z=q.z;clearMotion();parent.postMessage({type:'lobby-position',gameArea:'soccer',x:p.x,z:p.z,lobbyY:p.y,yaw:player.root.rotation.y,walking:false},'*');}
+  }
+  function activeLocalTrap(){
+    const g=state?.soccer,r=g?.receives?.[uid],b=g?.ball;
+    return enabled&&area()==='soccer'&&['idle','playing'].includes(g?.status)&&r?.kind==='trap'&&now()>=r.at&&now()<r.until&&b?.keeperOwner===undefined&&(!b.dribbler||b.dribbler===uid)&&(!r.applied||b.dribbler===uid)?r:null;
+  }
+  function steerLocalTrap(){
+    if(!activeLocalTrap()||window.__lobbyStudioOpen)return;
+    const horizontal=Number(pressed('KeyD','ArrowRight'))-Number(pressed('KeyA','ArrowLeft'))+lobbyStick.x,vertical=Number(pressed('KeyW','ArrowUp'))-Number(pressed('KeyS','ArrowDown'))-lobbyStick.z;
+    if(Math.hypot(horizontal,vertical)<.18)return;
+    const forward=new THREE.Vector3();camera.getWorldDirection(forward);forward.y=0;forward.normalize();
+    const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize(),direction=right.multiplyScalar(horizontal).addScaledVector(forward,vertical);
+    const yaw=Math.atan2(direction.x,direction.z),turn=Math.atan2(Math.sin(yaw-player.root.rotation.y),Math.cos(yaw-player.root.rotation.y));
+    if(Math.abs(turn)<.005)return;player.root.rotation.y=yaw;
+    // Facing uses the existing ordered player-pose transport, even while feet are locked.
+    const p=player.root.position;parent.postMessage({type:'lobby-position',gameArea:'soccer',x:p.x,z:p.z,lobbyY:p.y,yaw,walking:false},'*');
   }
   function activeLocalSkill(){const skill=state?.soccer?.skills?.[uid];return enabled&&area()==='soccer'&&skill&&!skill.cancelled&&state.soccer.status!=='finished'&&now()>=skill.at&&now()<=skill.at+SOCCER_SKILLS[skill.kind]?.duration?skill:null;}
   function activeLocalPress(){
@@ -316,7 +336,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   function speedMultiplier(){
     if(enabled&&area()==='soccer'){
       const g=state?.soccer,p=g?.presses?.[uid];if(p?.outcome&&p.outcome!=='won'&&now()<p.recoverUntil)return .55;
-      const sprint=dashIntent!==false&&now()<Number(g?.dashes?.[uid]?.until||0)?1.6:1;
+      const sprint=dashIntent!==false&&rules.dashStatus(state,uid,now()).running?1.6:1;
       if(g?.ball?.dribbler===uid)return (rules.pressThreat(g,uid,now())?.distance<1.7?.79:.85)*sprint;
       return sprint;
     }
@@ -339,13 +359,13 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       else if(localArea==='survival'&&position.x> -12||localArea==='soccer'&&position.x<12)localArea='lobby';
     }
     previousX=position.x;
-    const a=area(),t=now();separateLocal();advanceSlide();advanceSkill();advancePress(dt);separateLocal();updateSlideDust(t);
+    const a=area(),t=now();separateLocal();steerLocalTrap();advanceSlide();advanceSkill();advancePress(dt);separateLocal();updateSlideDust(t);
     for(const door of doors){const near=Math.hypot(player.root.position.x-door.x,player.root.position.z-door.z)<3.5;for(const leaf of door.leaves)leaf.position.x+=((near?2.25:.74)*leaf.userData.side-leaf.position.x)*(1-Math.exp(-12*dt));}
     const g=state?.survival;
     if(a==='survival'&&g?.status==='finished'&&g.members?.[uid]?.alive&&t>g.endedAt+4500&&finishedSeen!==g.id){finishedSeen=g.id;teleport(-15.2,0,0);}
     const rows={...roster,[uid]:{...(roster[uid]||{}),online:true,x:player.root.position.x,z:player.root.position.z,lobbyY:player.root.position.y,lobbyCircuit:window.__lobbyKartCircuit?.active===true}};
-    const circle=stickGesture(lobbyStick.x,lobbyStick.z,t,enabled&&a==='soccer'&&!!state&&state.soccer.ball.dribbler===uid&&rules.canSkill(state,uid,rows,t));if(circle)parent.postMessage({type:'lobby-games-command',kind:'soccer-skill',skill:'scissors',side:circle,yaw:player.root.rotation.y},'*');
-    const target=state?rules.tagTarget(state,uid,rows,t):'',kick=state&&rules.canKick(state,uid,rows,t);
+    const circle=stickGesture(lobbyStick.x,lobbyStick.z,t,enabled&&a==='soccer'&&!!state&&state.soccer.ball.dribbler===uid&&!activeLocalTrap()&&rules.canSkill(state,uid,rows,t));if(circle)parent.postMessage({type:'lobby-games-command',kind:'soccer-skill',skill:'scissors',side:circle,yaw:player.root.rotation.y},'*');
+    const target=state?rules.tagTarget(state,uid,rows,t):'',kick=state&&(rules.canKick(state,uid,rows,t)||rules.canQueueKick(state,uid,rows,t));
     camera.updateMatrixWorld();const matrix=camera.matrixWorld.elements,rightLength=Math.hypot(matrix[0],matrix[2])||1,forwardLength=Math.hypot(matrix[8],matrix[10])||1;
     const nearby=nearStation();const action={type:'lobby-games-action',area:a,...(nearby?stationInfo(nearby):{station:'',stationLabel:'',stationEnabled:false}),enabled:enabled&&(a==='soccer'?!!kick:!!target),canSkill:a==='soccer'&&!!state&&rules.canSkill(state,uid,rows,t),target,passTarget:a==='soccer'&&state?rules.kickAim(state,uid,rows,player.root.rotation.y).target:'',yaw:player.root.rotation.y,rightX:matrix[0]/rightLength,rightZ:matrix[2]/rightLength,forwardX:-matrix[8]/forwardLength,forwardZ:-matrix[10]/forwardLength};
     const key=JSON.stringify({...action,yaw:Math.round(action.yaw*20)/20});if(key!==lastAction){lastAction=key;parent.postMessage(action,'*');}
@@ -370,10 +390,15 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const chargeGauge=new THREE.Sprite(new THREE.SpriteMaterial({map:chargeTexture,transparent:true,depthTest:false,depthWrite:false}));
   chargeGauge.name='soccer-charge-gauge';chargeGauge.scale.set(1.65,.31,1);chargeGauge.visible=false;chargeGauge.renderOrder=410;roots.soccer.add(chargeGauge);
   const throughMaterial=new THREE.MeshBasicMaterial({color:'#b2ffe1',transparent:true,opacity:1,depthWrite:false}),throughLine=new THREE.Mesh(new THREE.BoxGeometry(.13,.02,1),throughMaterial);throughLine.name='soccer-through-guide';throughLine.visible=false;roots.soccer.add(throughLine);
+  const trapDirection=new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(),1.25,0x93ffe1,.3,.2);trapDirection.name='soccer-trap-direction';trapDirection.visible=false;roots.soccer.add(trapDirection);
+  function drawTrapDirection(){
+    trapDirection.visible=!!activeLocalTrap();if(!trapDirection.visible)return;
+    const p=player.root.position,yaw=player.root.rotation.y;trapDirection.position.set(p.x,.12,p.z);trapDirection.setDirection(new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)));
+  }
   let lastCharge=-1;
   function drawGuidance(t){
     const p=player.root.position,rows={...roster,[uid]:{...roster[uid],online:true,x:p.x,z:p.z,lobbyY:p.y}};
-    aimGuide.visible=enabled&&area()==='soccer'&&aimIntent.active&&aimIntent.charging&&!!state&&!rules.active(state.tag)&&rules.canKick(state,uid,rows,t);
+    aimGuide.visible=enabled&&area()==='soccer'&&aimIntent.active&&aimIntent.charging&&!!state&&!rules.active(state.tag)&&(rules.canKick(state,uid,rows,t)||rules.canQueueKick(state,uid,rows,t));
     chargeGauge.visible=aimGuide.visible&&aimIntent.charging;
     throughLine.visible=lobLine.visible=curveLine.visible=false;const flight=state?.soccer?.flight;landing.visible=enabled&&area()==='soccer'&&!!flight;if(flight){landing.position.set(flight.x,.065,flight.z);landing.scale.setScalar(1+.08*Math.sin(t*.012));}
     if(!aimGuide.visible)return;
@@ -418,7 +443,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       for(let i=0;i<56;i++){const p=rules.tilePoint(i),until=state?.survival?.tiles?.[i],drop=rules.active(state?.survival)&&until&&until<=t;dummy.position.set(p.x,drop?-10:2.85,p.z);dummy.scale.setScalar(drop?.001:1);dummy.updateMatrix();tiles.setMatrixAt(i,dummy.matrix);tileColor.set(until&&rules.active(state?.survival)?'#e99745':(i+Math.floor(i/8))%2?'#3b9399':'#64b7ac');tiles.setColorAt(i,tileColor);}tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;tiles.computeBoundingSphere();
     }
     animateGoalNets(t);stadium.update(state?.soccer,t);updateStations();
-    drawGuidance(t);
+    drawTrapDirection();drawGuidance(t);
     const duel=Object.values(state?.soccer?.presses||{}).filter(p=>p.contact&&t-p.contact.at>=0&&t-p.contact.at<430).sort((a,b)=>b.contact.at-a.contact.at)[0];
     contactRing.visible=!!duel;
     if(duel){const progress=(t-duel.contact.at)/430;contactRing.position.set(duel.contact.x,.065,duel.contact.z);contactRing.scale.setScalar(1+progress*2);contactRing.material.opacity=(1-progress)*.7;contactRing.material.color.set(duel.result==='won'?'#9affdd':duel.result==='evaded'?'#b6c3ff':'#ffdb9b');}
@@ -470,7 +495,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
         const skill=state?.soccer?.skills?.[id],motion=skill&&!skill.cancelled?sampleSoccerSkill(skill.kind,t-skill.at,skill.side):null;
         const control=state?.soccer?.dribble,rollAge=control?.rollAt===undefined?-1:t-control.rollAt,walking=own?player.root.userData.walking:roster[id]?.walking;
         const receiving=control?.uid===id&&control.receiveAt!==undefined&&t>=control.receiveAt&&t<control.receiveAt+control.receiveDuration;
-        const sprint=t<Number(state?.soccer?.dashes?.[id]?.until||0)&&walking,shooting=!!kickMotion,dribbling=b?.dribbler===id&&(walking||receiving||rollAge>=0&&rollAge<(control?.rollDuration||320));
+        const sprint=rules.dashStatus(state,id,t).running&&walking,shooting=!!kickMotion,dribbling=b?.dribbler===id&&(walking||receiving||rollAge>=0&&rollAge<(control?.rollDuration||320));
         if(motion||shooting||dribbling||pressPose||threat||reaction||sprint){
           const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
           const gear=crew.root.userData.walkCostumeRoot||crew.root.getObjectByName('lobbyCostume')||crew.root.getObjectByName('remoteCostume');
@@ -570,7 +595,12 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     const focus=p.clone().add(delta);focus.y=p.y+.7;
     const aspect=Math.max(.4,camera.aspect),zoom=Math.max(1,Math.min(1.45,1/aspect)),height=(15+Math.min(distance,12)*.25)*zoom;
     const destination=new THREE.Vector3(focus.x,focus.y+height,focus.z+height*.72);
-    camera.position.lerp(destination,window.__lastLobbyCameraMode==='soccer'?1-Math.exp(-6*dt):1);camera.lookAt(focus);
+    if(soccerCamera==='side')destination.set(focus.x+height*.85,focus.y+height,focus.z);
+    else if(soccerCamera==='third'){
+      const yaw=player.root.rotation.y;focus.copy(p).add(new THREE.Vector3(Math.sin(yaw)*2,1.2,Math.cos(yaw)*2));
+      destination.set(p.x-Math.sin(yaw)*7*zoom,p.y+4.8*zoom,p.z-Math.cos(yaw)*7*zoom);
+    }
+    camera.position.lerp(destination,!cameraChanged&&window.__lastLobbyCameraMode==='soccer'?1-Math.exp(-6*dt):1);cameraChanged=false;camera.lookAt(focus);
     // Keep the local player inside safe margins even when the ball is out of reach.
     camera.updateMatrixWorld();const projected=p.clone().add(new THREE.Vector3(0,1,0)).project(camera);
     if(Math.abs(projected.x)>.7||Math.abs(projected.y)>.65){camera.position.copy(destination);camera.lookAt(focus);}

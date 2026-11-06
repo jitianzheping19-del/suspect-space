@@ -4,6 +4,7 @@
 body.lobbySoccerRoom #lobbyMiniGamePanel{max-height:60dvh;overflow:auto;overscroll-behavior:contain}
 #soccerTutorialBtn{position:fixed;right:max(10px,env(safe-area-inset-right));top:max(10px,env(safe-area-inset-top));z-index:1000;min-height:42px;border:1px solid #9bcbdf;border-radius:10px;background:#123447;color:#fff;padding:8px 12px;font:700 13px system-ui;touch-action:manipulation}
 #soccerTutorial{box-sizing:border-box;width:min(800px,96vw);max-height:92dvh;padding:18px;border:1px solid #91b9c8;border-radius:18px;background:#102432;color:#ecf8ff;overflow:auto;overscroll-behavior:contain;font:15px/1.7 system-ui}#soccerTutorial::backdrop{background:#020a16bd}#soccerTutorial header{display:flex;align-items:center;justify-content:space-between;gap:12px}#soccerTutorial h2{font-size:19px;margin:0}#soccerTutorial h3{margin:12px 0 4px}#soccerTutorial button{min-height:40px;border:1px solid #7899ad;background:#203c51;color:#f4faff;border-radius:8px;padding:7px 12px;touch-action:manipulation;font:600 13px system-ui}#soccerTutorial nav,.soccerGuideActions{display:flex;gap:6px;overflow-x:auto;padding:12px 0 4px}#soccerTutorial nav button{white-space:nowrap}#soccerTutorial button[aria-selected=true],#soccerTutorial button[aria-pressed=true]{background:#b4eadb;color:#102c34;border-color:#d1fff0}.soccerGuideActions{flex-wrap:wrap}#soccerTutorial video{display:block;width:100%;max-height:48dvh;background:#071018;border-radius:10px}#soccerTutorial p{margin:8px 0}.soccerGuideGesture{color:#b4eadb;font-weight:700}
+#soccerTutorial [hidden]{display:none!important}.soccerGuidePhotos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.soccerGuidePhotos figure{margin:0;min-width:0;background:#091b28;border:1px solid #486779;border-radius:10px;overflow:hidden}.soccerGuidePhotos img{display:block;width:100%;height:auto;aspect-ratio:8/5;background:#071018}.soccerGuidePhotos figcaption{padding:7px 10px;font-size:13px;color:#d5f4ec}.soccerGuideMediaButtons{display:flex;gap:8px;margin-top:10px}#soccerTutorial button:focus-visible{outline:2px solid #c9ffec;outline-offset:3px}@media(max-width:600px){.soccerGuidePhotos{grid-template-columns:1fr}}
 @media(max-height:500px){#soccerTutorial{max-height:98dvh;padding:10px}#soccerTutorial video{max-height:60dvh}body.lobbySoccerRoom #lobbyMiniGamePanel{max-height:72dvh}}
 
 
@@ -16,3 +17,17 @@ body.lobbySoccerRoom #lobbyMiniGamePanel{max-height:60dvh;overflow:auto;overscro
 body.lobbySoccerRoom :is(#lobbyMiniGamePanel,#lobbySoccerActions){display:none!important}
 @layer play-action-layout{html body[data-phase="lobby"].lobbySoccerRoom.soccerAtStation #lobbyUseBtn{display:flex!important;pointer-events:auto!important}}
 body.lobbySoccerRoom :is([data-camera-perspective],[data-core-camera]){pointer-events:none;opacity:.4}
+
+#soccerViewTools[hidden]{display:none!important}
+#soccerViewTools{position:fixed;left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));z-index:1000;display:grid;gap:5px;color:#edfaff;font:700 11px/1.3 system-ui;pointer-events:none}
+#soccerCameraBtn{min-width:116px;min-height:40px;padding:7px 10px;border:1px solid #9bcbdf;border-radius:10px;background:#123447ed;color:#fff;font:700 12px system-ui;touch-action:manipulation;pointer-events:auto}
+#soccerCameraBtn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#soccerBotCount{padding:5px 8px;border-radius:7px;background:#102635de;white-space:nowrap}
+
+#soccerStamina[hidden]{display:none!important}
+#soccerStamina{position:fixed;z-index:116;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(128px,30vw);box-sizing:border-box;padding:7px 9px;border:1px solid #a6eddd66;border-radius:9px;background:#102635e8;color:#eafff8;font:700 11px/1.3 system-ui;text-align:center;pointer-events:none}
+.soccerStaminaTrack{height:7px;margin-top:5px;border-radius:4px;overflow:hidden;background:#05131ecc}
+.soccerStaminaTrack i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#39bcac,#b8ffe3);transform-origin:left center}
+#soccerStamina[data-mode=empty]{color:#ffd6a0;border-color:#ffb67a88}
+#soccerStamina[data-mode=empty] i{background:#ffb56b}
+#soccerStamina[data-mode=recovering] i{background:#94caff}

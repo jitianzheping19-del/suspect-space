@@ -6,6 +6,7 @@ const pressPlayer=p=>p?.online===true&&(!p.bot||p.soccerBot===true)&&!p.observer
 const pressGrounded=p=>pressPlayer(p)&&Math.abs(p.lobbyY||0)<.2;
 export function soccerPressTarget(g,id,roster,time){
  const target=g?.ball?.dribbler,p=roster[id],q=roster[target],F=soccerPitch(g?.pitchCount||0);
+ if(time<Number(g?.nutmegs?.[id]?.until||0))return '';
  if(time<Number(g?.knockdowns?.[id]?.until||0)||[p,q].some(v=>v&&(v.x<F.minX||v.x>F.maxX||v.z<F.minZ||v.z>F.maxZ)))return '';
  if(g?.slides?.[id]&&time<g.slides[id].until)return '';
  if(g?.kickoff&&!g.kickoff.released&&time<g.kickoff.until)return '';
@@ -79,7 +80,7 @@ export function stepSoccerPress(g,roster,time){
   const blocked=along>0&&along<.95&&Math.hypot(player.x+dx*along-holder.x,player.z+dz*along-holder.z)<.46;
   const skill=g.skills?.[p.target],skillAge=time-Number(skill?.at||0);
   // Only the change of direction beats a committed tackle; setup and recovery remain exposed.
-  const window={doubleTouch:[90,410],roulette:[180,650],heelLift:[180,440],shotFeint:[140,390]}[skill?.kind];
+  const window={nutmeg:[70,320],doubleTouch:[90,410],roulette:[180,650],heelLift:[180,440],shotFeint:[140,390]}[skill?.kind];
   const evaded=skill&&!skill.cancelled&&window&&skillAge>=window[0]&&skillAge<window[1];
   const won=ballDistance<=SOCCER_PRESS.reach&&facing>.65&&exposure>-.2&&!blocked&&!evaded&&b.y<.55&&Math.abs(b.vy)<1.5&&time>=Number(b.contestUntil||0);
   p.phase='recover';p.phaseAt=time;p.recoverUntil=time+SOCCER_PRESS.recovery;p.contact={x:b.x,y:b.y,z:b.z,at:time};

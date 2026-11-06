@@ -2,7 +2,7 @@ import {soccerPoseChannel} from './lobby-soccer-kick.js';
 // Original motion curves. The host and the renderer share the same contact clock.
 export const SOCCER_SKILLS={
  scissors:{name:'シザース',duration:1000,release:1000,speed:3,lift:.3,cooldown:1400},
- nutmeg:{name:'股抜き',duration:1050,release:320,speed:7.5,lift:.3,cooldown:1800},
+ nutmeg:{name:'股抜き',duration:1050,release:160,speed:7.5,lift:.3,cooldown:1800},
  shotFeint:{name:'キックフェイント',duration:700,release:700,speed:3.8,lift:.3,cooldown:1100},
  doubleTouch:{name:'ダブルタッチ',duration:680,release:680,speed:4.6,lift:.25,cooldown:1050},
  roulette:{name:'ルーレット',duration:960,release:960,speed:4.2,lift:.3,cooldown:1350},
@@ -69,8 +69,8 @@ export function sampleSoccerSkill(kind,age,side=1){
   points=[[0,0,.74,.3],[.25,-.08,.7,.3],[.5,.08,.7,.3],[.75,-.13,.8,.3],[1,0,.74,.3]];
   left=-.75*Math.sin(Math.PI*Math.min(1,p*2));right=-.75*Math.sin(Math.PI*Math.max(0,(p-.45)*2));bank=.15*Math.sin(p*Math.PI*4);lean=.1*w;stance=.12*w;travelZ=.8*smooth((p-.7)/.3);
  }else if(kind==='nutmeg'){
-  points=[[0,0,.74,.3],[.15,.1,.6,.3],[.305,0,.92,.3],[1,0,.74,.3]];
-  right=curve([[0,0],[.17,.6],[.305,-1.15],[.55,-.3],[1,0]],p)[0];left=.25*w;lean=.23*w;travelX=1.1*smooth((p-.32)/.35);travelZ=2*smooth((p-.38)/.62);
+  points=[[0,0,.74,.3],[.07,.1,.6,.3],[.152,0,.76,.3],[1,0,.74,.3]];
+  right=curve([[0,0],[.07,.6],[.152,-1.15],[.4,-.3],[1,0]],p)[0];left=.25*w;lean=.23*w;travelX=1.1*smooth((p-.32)/.35);travelZ=2*smooth((p-.38)/.62);
  }else if(kind==='shotFeint'){
   points=[[0,0,.74,.3],[.18,.12,.70,.3],[.34,.18,.64,.3],[.56,-.46,.46,.3],[.82,-.28,.70,.3],[1,0,.74,.3]];
   travelX=-.78*smooth((p-.32)/.68);travelZ=1.25*smooth((p-.4)/.6);

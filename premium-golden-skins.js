@@ -19,7 +19,17 @@ export const GOLDEN_GIFT_SKINS=Object.freeze([
  {id:'deusawakening',name:'機神覚醒・デウスゼロ',color:0x172836,accent:0x63ebff,trim:0xd8b96b,glyph:'ϟ',theme:'digital'},
  {id:'roserequiem',name:'黒薔薇葬・レクイエム',color:0x37172b,accent:0xff5da9,trim:0xdcb883,glyph:'❀',theme:'moon'},
  {id:'starouroboros',name:'星喰い蛇・ウロボロス',color:0x18362e,accent:0xb2ff70,trim:0xd9bf67,glyph:'∞',theme:'tide'},
- {id:'eternalnox',name:'永夜支配・ノクス',color:0x201e3b,accent:0xbda5ff,trim:0xdfc482,glyph:'☾',theme:'void'}
+ {id:'eternalnox',name:'永夜支配・ノクス',color:0x201e3b,accent:0xbda5ff,trim:0xdfc482,glyph:'☾',theme:'void'},
+ {id:'auroraphoenix',name:'黄金鳳凰・オーレリア',color:0x6b3429,accent:0xffd27c,trim:0xf2c66c,glyph:'🔥',theme:'flame'},
+ {id:'celestialkirin',name:'金雷麒麟・キンライ',color:0x28544c,accent:0x8affdc,trim:0xe5bf66,glyph:'ϟ',theme:'storm'},
+ {id:'imperialpeacock',name:'金孔雀王・マユラ',color:0x183e55,accent:0x7de6ff,trim:0xe8c675,glyph:'❦',theme:'tide'},
+ {id:'oathpaladin',name:'黄金聖盾・アイギス',color:0xe3dcc5,accent:0xb8eaff,trim:0xcda64d,glyph:'⚜',theme:'sun'},
+ {id:'starwhalesovereign',name:'星海金鯨・ケートス',color:0x243a67,accent:0xa8cdff,trim:0xe7c982,glyph:'🐋',theme:'stars'},
+ {id:'ninetailtenko',name:'金狐天舞・コハク',color:0x845126,accent:0xffbd92,trim:0xf3d28b,glyph:'🦊',theme:'moon'},
+ {id:'auricalchemist',name:'黄金錬成・アルケミア',color:0x304644,accent:0xb7ffbe,trim:0xddbd6d,glyph:'⚗',theme:'clock'},
+ {id:'saturnregent',name:'金環星王・サトゥルノ',color:0x342e58,accent:0xc1b7ff,trim:0xedcc80,glyph:'🪐',theme:'stars'},
+ {id:'leonidasregalia',name:'金獅子王・レオニス',color:0x593127,accent:0xffe4a3,trim:0xe8b956,glyph:'🦁',theme:'sun'},
+ {id:'prismmorpho',name:'金晶蝶姫・モルフォ',color:0x42366c,accent:0xe0aaff,trim:0xefcd87,glyph:'🦋',theme:'frost'}
 ].map(s=>Object.freeze({...s,access:'gift',rarity:5,effect:'golden'})));
 
 export function createGoldenGiftSkin(T,spec,{mobile=false}={}){
@@ -214,6 +224,91 @@ export function createGoldenGiftSkin(T,spec,{mobile=false}={}){
   mantle(1.45);crown(.39);const eclipse=rig(0,1.51,-.69);ring(glow,0,0,0,.79,eclipse,Math.PI*1.62);ring(trim,0,0,-.035,.86,eclipse,Math.PI*1.62);eclipse.rotation.z=.62;
   for(const s of[-1,1]){const wing=rig(s*.35,1.23,-.44);plate([[0,0],[s*.36,.60],[s*.91,.42],[s*.68,.12],[s*.41,.23],[s*.27,-.16]],dark,0,0,0,wing);rod([0,0,.045],[s*.79,.39,.045],.022,trim,wing);motions.push(t=>wing.rotation.y=s*(.18+Math.sin(t)*.06));}
   for(let j=0;j<3;j++){const star=rig((j-1)*.63,1.96+Math.abs(j-1)*.16,-.18);mesh(gem,glow,0,0,0,.055,.13,.035,star);motions.push(t=>star.position.y=1.96+Math.abs(j-1)*.16+Math.sin(t*1.2+j)*.07);}
+ }
+ if(id==='auroraphoenix'){
+  for(const s of[-1,1]){
+   const wing=rig(s*.29,1.28,-.43);
+   for(let j=0;j<5;j++){const a=-s*(.25+j*.25);blade(s*(.08+j*.13),-.05+j*.035,0,1.10-j*.08,a,wing,trim);blade(s*(.08+j*.13),-.02+j*.035,.045,.91-j*.07,a,wing,shell);}
+   motions.push(t=>wing.rotation.y=s*(.18+Math.sin(t*1.6)*.12));
+  }
+  const tail=rig(0,.64,-.51);for(let j=-1;j<=1;j++){blade(j*.15,.12,0,.75-Math.abs(j)*.08,Math.PI+j*.3,tail,trim);blade(j*.15,.1,.04,.58,Math.PI+j*.3,tail,glow);}motions.push(t=>tail.rotation.y=Math.sin(t*1.4)*.12);
+  for(let j=-1;j<=1;j++)blade(j*.13,1.68,0,.48-Math.abs(j)*.1,-j*.35,group,trim);
+ }
+ if(id==='celestialkirin'){
+  rod([0,1.62,.02],[0,2.05,.08],.08,trim);rod([0,2.05,.08],[.13,2.35,.12],.045,trim,group,0);
+  for(const s of[-1,1]){
+   plate([[-.12,0],[.14,.04],[s*.12,.40]],trim,s*.31,1.60,-.04,group,.12,-s*.4);
+   const mane=rig(s*.39,1.34,-.29);for(let j=0;j<4;j++)blade(s*j*.13,-j*.11,0,.48,-s*(.6+j*.25),mane,j%2?glow:trim);motions.push(t=>mane.rotation.y=s*Math.sin(t*1.3)*.07);
+   for(let j=0;j<3;j++)plate([[-.15,0],[0,.18],[.15,0],[0,-.14]],trim,s*.51,1.40-j*.15,.08,group,.08,-s*.18);
+  }
+  const cloud=rig(0,1.25,-.65);for(let j=-1;j<=1;j++){const r=ring(glow,j*.36,Math.abs(j)*.17,0,.25,cloud,Math.PI*1.55);r.rotation.z=j*.4;}motions.push(t=>cloud.position.y=1.25+Math.sin(t)*.06);
+ }
+ if(id==='imperialpeacock'){
+  const fan=rig(0,.92,-.67);
+  for(let j=-4;j<=4;j++){
+   const a=j*.27,x=Math.sin(a)*1.03,y=Math.cos(a)*1.03;
+   rod([0,0,0],[x,y,0],.018,trim,fan);const feather=mesh(ball,shell,x,y,0,.17,.31,.045,fan,-a);
+   const eye=ring(trim,x,y,.05,.11,fan);eye.scale.y=.17;mesh(gem,glow,x,y,.07,.055,.09,.025,fan,-a);
+  }
+  motions.push(t=>fan.rotation.y=Math.sin(t*.8)*.10);
+  for(let j=-1;j<=1;j++){rod([j*.12,1.65,0],[j*.2,2.02,0],.014,trim);mesh(gem,glow,j*.2,2.04,0,.045,.07,.03);}
+ }
+ if(id==='oathpaladin'){
+  mantle(1.06);crown(.24);
+  const shield=rig(-.77,.88,.16),outline=[[-.36,.5],[.36,.5],[.38,-.10],[0,-.56],[-.38,-.10]];
+  plate(outline,trim,0,0,0,shield,.12);plate(outline,shell,0,.015,.09,shield,.035).scale.setScalar(.82);
+  block(glow,0,.02,.14,.06,.65,.025,shield);block(glow,0,.16,.14,.39,.06,.025,shield);mesh(gem,trim,0,.16,.17,.085,.11,.035,shield);
+  const sword=rig(.82,.18,.10);blade(0,1.34,0,1.31,Math.PI,sword,trim);block(trim,0,1.36,0,.43,.065,.13,sword);rod([0,1.4,0],[0,1.73,0],.042,dark,sword);mesh(gem,glow,0,1.78,0,.06,.08,.045,sword);
+  motions.push(t=>shield.rotation.y=Math.sin(t*.9)*.06);
+ }
+ if(id==='starwhalesovereign'){
+  const whale=rig(0,1.88,-.68);
+  mesh(ball,shell,0,0,0,.64,.25,.21,whale);mesh(ball,trim,0,-.09,.04,.56,.13,.18,whale);
+  for(const s of[-1,1]){plate([[0,0],[s*.24,-.11],[s*.48,.10],[s*.21,.15]],trim,s*.36,-.03,0,whale);mesh(gem,glow,s*.22,.025,.20,.028,.035,.018,whale);}
+  const tail=plate([[0,0],[-.29,.23],[-.09,.26],[0,.11],[.09,.26],[.29,.23]],trim,0,0,-.26,whale);tail.rotation.x=-1.1;
+  motions.push(t=>{whale.position.y=1.88+Math.sin(t*1.1)*.10;whale.rotation.z=Math.sin(t*.7)*.06;});
+  for(const s of[-1,1])plate([[0,0],[s*.30,.47],[s*.48,.42],[s*.34,-.19]],trim,s*.42,1.06,-.31,group,.09);
+  const wake=rig(0,1.40,-.73);ring(glow,0,0,0,.77,wake,Math.PI*1.7);motions.push(t=>wake.rotation.z=-t*.10);
+ }
+ if(id==='ninetailtenko'){
+  for(const s of[-1,1]){plate([[-.15,0],[.16,0],[s*.05,.51]],trim,s*.26,1.62,-.06,group,.16,-s*.12);plate([[-.07,0],[.07,0],[s*.03,.31]],shell,s*.26,1.72,.04,group,.03,-s*.12);}
+  for(let side=-1;side<=1;side++){
+   const tails=rig(side*.21,.70,-.52);
+   for(let k=-1;k<=1;k++){const j=side*3+k,a=-j*.27,x=k*.07;
+    plate([[-.08,0],[-.22,.35],[-.16,.83],[0,1.13],[.16,.83],[.22,.35],[.08,0]],trim,x,0,0,tails,.09,a);
+    blade(x,.33,.06,.67,a,tails,j%2?shell:glow);
+   }
+   motions.push(t=>tails.rotation.y=Math.sin(t*1.2+side*1.35)*.12);
+  }
+  const bell=rig(0,.77,.56);mesh(ball,trim,0,0,0,.10,.10,.075,bell);block(dark,0,-.04,.075,.11,.012,.012,bell);motions.push(t=>bell.rotation.z=Math.sin(t*1.7)*.10);
+ }
+ if(id==='auricalchemist'){
+  mantle(1.04);const hat=mesh(cone,shell,0,1.99,-.06,.32,.60,.30);hat.rotation.z=.14;ring(trim,0,1.71,-.06,.41).rotation.x=Math.PI/2;
+  const seal=rig(0,1.40,-.65);ring(trim,0,0,0,.76,seal);ring(glow,0,0,.025,.64,seal);
+  for(let j=0;j<3;j++){const a=j*Math.PI*2/3,b=(j+1)*Math.PI*2/3;rod([Math.sin(a)*.61,Math.cos(a)*.61,.04],[Math.sin(b)*.61,Math.cos(b)*.61,.04],.02,trim,seal);}motions.push(t=>seal.rotation.z=t*.13);
+  for(const s of[-1,1]){const flask=rig(s*.83,.97,.12);mesh(ball,trim,0,0,0,.18,.22,.15,flask);mesh(ball,glow,0,-.015,.10,.12,.13,.065,flask);block(trim,0,.23,0,.12,.20,.12,flask);block(dark,0,.35,0,.15,.07,.15,flask);motions.push(t=>flask.position.y=.97+Math.sin(t*1.4+s)*.08);}
+ }
+ if(id==='saturnregent'){
+  mantle(1.2);crown(.34);
+  const planet=rig(0,1.94,-.65);mesh(ball,shell,0,0,0,.34,.34,.34,planet);const rings=rig(0,1.94,-.65);rings.rotation.x=.95;rings.rotation.y=.25;
+  ring(trim,0,0,0,.66,rings);ring(glow,0,0,.025,.55,rings);motions.push(t=>{planet.rotation.y=t*.16;rings.rotation.z=t*.12;});
+  for(const s of[-1,1]){const moon=rig(s*.90,1.24,-.20);mesh(ball,trim,0,0,0,.13,.13,.13,moon);ring(glow,0,0,.025,.17,moon);motions.push(t=>moon.position.y=1.24+Math.sin(t+s)*.10);}
+ }
+ if(id==='leonidasregalia'){
+  mantle(.95);crown(.32);
+  const mane=rig(0,1.43,-.23);for(let j=0;j<11;j++){const a=(j-5)*.43;blade(Math.sin(a)*.56,Math.cos(a)*.53,0,.42,-a,mane,j%2?shell:trim);}motions.push(t=>mane.rotation.y=Math.sin(t*.8)*.035);
+  for(const s of[-1,1]){mesh(ball,trim,s*.32,1.70,-.05,.12,.13,.085);mesh(ball,shell,s*.32,1.70,.025,.065,.07,.015);for(let j=0;j<3;j++)blade(s*(.49+j*.065),.80,.20,.27,s*.1,group,trim);}
+  const staff=rig(.89,.18,.05);rod([0,0,0],[0,1.58,0],.035,trim,staff);mesh(gem,trim,0,1.72,0,.17,.20,.11,staff);mesh(gem,glow,0,1.72,.12,.065,.09,.025,staff);
+ }
+ if(id==='prismmorpho'){
+  for(const s of[-1,1]){
+   const wing=rig(s*.33,1.23,-.46);
+   const top=[[0,0],[s*.32,.70],[s*.88,.78],[s*1.02,.40],[s*.78,.04],[s*.24,-.09]],bottom=[[0,0],[s*.66,-.04],[s*.74,-.38],[s*.35,-.57],[s*.10,-.23]];
+   plate(top,trim,0,0,0,wing,.055);plate(top,shell,0,0,.045,wing,.025).scale.setScalar(.88);plate(bottom,trim,0,0,0,wing,.055);plate(bottom,shell,0,0,.045,wing,.025).scale.setScalar(.84);
+   for(const [x,y]of [[.46,.38],[.76,.39],[.36,-.25]])mesh(gem,glow,s*x,y,.085,.09,.15,.025,wing,-s*.3);
+   rod([0,0,.09],[s*.83,.59,.09],.014,glow,wing);motions.push(t=>wing.rotation.y=s*(.13+Math.sin(t*1.8)*.15));
+   rod([s*.16,1.66,0],[s*.30,2.01,0],.018,trim);mesh(gem,glow,s*.30,2.03,0,.035,.055,.025);
+  }
  }
  // Merge each rigid assembly by material. Animation only moves these assemblies.
  for(const parent of assemblies){

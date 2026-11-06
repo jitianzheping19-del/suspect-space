@@ -44,15 +44,15 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    testNow=300000;state=QA.rules.fresh('self',testNow);Object.assign(state.soccer,{status:'playing',members:{self:0},practice:true,endAt:testNow+180000});Object.assign(people.self,{x:23,z:17});Object.assign(state.soccer.ball,{x:23,z:QA.rules.SOCCER.near+1,y:.3});
    let k,holdAt;
    for(let i=0;i<140;i++){testNow+=10;QA.rules.step(state,people,testNow,.01);k=state.soccer.keepers[0];if(state.soccer.ball.keeperOwner===0){holdAt=k.at;break;}}
-   let high=0,low=10,shot='',kicked=false;
+   let high=0,low=10,shot='',kicked=false,contactDistance=Infinity;
    while(testNow<holdAt+1650){testNow+=10;QA.rules.step(state,people,testNow,.01);sync();__lobbyGames.beforeRender(.01);
     if(testNow>=holdAt+1100&&testNow<holdAt+1550){high=Math.max(high,state.soccer.ball.y);low=Math.min(low,state.soccer.ball.y);}
-    if(testNow>=holdAt+1550&&!shot){QA.camera.position.set(28,2.5,1.5);QA.camera.lookAt(23,1,-1);QA.renderer.render(QA.scene,QA.camera);shot=QA.renderer.domElement.toDataURL('image/png');kicked=k.phase==='punt'&&state.soccer.ball.vz>5;}
+    if(testNow>=holdAt+1550&&!shot){QA.camera.position.set(28,2.5,1.5);QA.camera.lookAt(23,1,-1);QA.renderer.render(QA.scene,QA.camera);shot=QA.renderer.domElement.toDataURL('image/png');kicked=k.phase==='punt'&&state.soccer.ball.vz>5;const target=new QA.THREE.Vector3(k.contact.x,k.contact.y,k.contact.z);QA.scene.getObjectByName('soccer-goalkeeper-0').traverse(n=>{if(n.name==='goalkeeper-boot')contactDistance=Math.min(contactDistance,n.getWorldPosition(new QA.THREE.Vector3()).distanceTo(target));});}
     __lobbyGames.afterRender();
    }
-   return{high,low,kicked,shot};
+   return{high,low,kicked,shot,contactDistance};
   });
-  assert(punt.high-punt.low>.4&&punt.kicked);save('keeper-punt',punt.shot);assert.deepEqual(errors,[]);
+  assert(punt.high-punt.low>.4&&punt.kicked);assert(punt.contactDistance<.4,'punt boot contacts ball: '+punt.contactDistance);save('keeper-punt',punt.shot);assert.deepEqual(errors,[]);
   const restart=await page.evaluate(()=>{
    testNow=400000;people={self:{online:true,x:23,z:10,lobbyY:0,yaw:0},enemy:{online:true,x:28,z:14,lobbyY:0,yaw:Math.PI}};state=QA.rules.fresh('self',testNow);
    Object.assign(state.soccer,{id:'restart-test',status:'playing',endAt:testNow+180000,members:{self:0,enemy:1}});

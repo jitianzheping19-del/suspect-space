@@ -12,7 +12,7 @@ export function canSoccerOverhead(g,id,players,F,time){return soccerAirAction(g,
 export function beginSoccerOverhead(g,id,p,F,time){
  const skill=g.skills?.[id],team=g.members[id],goal=team===1?F.near:team===0?F.far:Math.cos(p.yaw||0)>=0?F.far:F.near,keeper=g.keepers?.[team===1?0:1],x=23+(keeper?.x>=23?-1:1)*1.65;
  const heel=skill?.kind==='heelLift'&&!skill.cancelled,contactAt=heel?Math.max(time+360,skill.at+790):time+320;g.finishes||={};g.finishes[id]={kind:'overhead',heel,windupAt:heel?Math.max(time,skill.at+480):time,at:time,contactAt,until:contactAt+1250,yaw:Math.atan2(x-p.x,goal-p.z),fromYaw:skill?.yaw??p.yaw??0,x:p.x,z:p.z,targetX:x,goal,applied:false};
- if(g.dashes?.[id]){g.dashes[id].held=false;g.dashes[id].until=time;}if(g.presses?.[id])g.presses[id].held=false;
+ if(g.dashes?.[id]){g.dashes[id].held=false;g.dashes[id].until=Math.min(g.dashes[id].until,time);}if(g.presses?.[id])g.presses[id].held=false;
 }
 export function stepSoccerFinishes(g,players,time,eligible){
  let changed=false;const b=g.ball;
@@ -39,7 +39,7 @@ export function sampleSoccerOverhead(f,time){
 export function beginSoccerVolley(g,id,p,F,time){
  const team=g.members[id],goal=team===1?F.near:F.far,targetX=23+(g.keepers?.[1-team]?.x>=23?-1:1)*1.5;
  g.finishes||={};g.finishes[id]={kind:'volley',at:time,contactAt:time+180,until:time+1150,yaw:Math.atan2(targetX-p.x,goal-p.z),fromYaw:p.yaw||0,targetX,goal,applied:false};
- if(g.presses?.[id])g.presses[id].held=false;if(g.dashes?.[id])g.dashes[id].until=time;
+ if(g.presses?.[id])g.presses[id].held=false;if(g.dashes?.[id])g.dashes[id].until=Math.min(g.dashes[id].until,time);
 }
 export function sampleSoccerVolley(f,time){
  const age=time-f.at;if(age<0||time>f.until)return null;

@@ -10,7 +10,7 @@ export function canSoccerSlide(g,id,players,time){
 export function beginSoccerSlide(g,id,p,yaw,time){
  g.slides||={};g.slides[id]={at:time,until:time+SOCCER_SLIDE.duration,readyAt:time+SOCCER_SLIDE.cooldown,yaw,lastX:p.x,lastZ:p.z};
  if(g.presses?.[id])g.presses[id].held=false;
- if(g.dashes?.[id]){g.dashes[id].held=false;g.dashes[id].until=time;}
+ if(g.dashes?.[id]){g.dashes[id].held=false;g.dashes[id].until=Math.min(g.dashes[id].until,time);}
 }
 export function sampleSoccerSlide(s,time){
  if(!s||time<s.at||time>=s.until)return null;
@@ -59,7 +59,7 @@ export function stepSoccerSlides(g,players,time){
     if(gap>1.05||front<-.25)continue;
     s.hitPlayers[other]=true;g.knockdowns[other]={at:time,until:time+1450,yaw:s.yaw,from:id};
     if(g.presses?.[other])g.presses[other].held=false;
-    if(g.dashes?.[other])g.dashes[other].until=time;
+    if(g.dashes?.[other])g.dashes[other].until=Math.min(g.dashes[other].until,time);
     if(g.skills?.[other])g.skills[other].cancelled=true;
     if(g.kicks?.[other])g.kicks[other].applied=true;
     if(g.receives?.[other])delete g.receives[other];if(g.finishes?.[other])delete g.finishes[other];

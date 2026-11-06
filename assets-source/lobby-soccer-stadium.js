@@ -54,7 +54,7 @@ function createSoccerStadium(THREE,root,F){
    const leg=new THREE.Group();leg.position.set(side*.24,-.5,0);body.add(leg);legs.push(leg);
    mesh(leg,new THREE.CapsuleGeometry(.16,.26,4,10),trim,0,-.02,0);
    mesh(leg,new THREE.SphereGeometry(.13,12,8),mat('#e2dcc8'),0,-.04,.15);
-   const boot=mesh(leg,new THREE.CapsuleGeometry(.12,.23,3,10),mat('#162536'),0,-.3,.08);boot.rotation.x=Math.PI/2;
+   const boot=mesh(leg,new THREE.CapsuleGeometry(.12,.23,3,10),mat('#162536'),0,-.3,.08);boot.rotation.x=Math.PI/2;boot.name='goalkeeper-boot';
   }
   const shadow=mesh(root,new THREE.CircleGeometry(.7,24),new THREE.MeshBasicMaterial({color:'#000000',transparent:true,opacity:.22,depthWrite:false}));shadow.rotation.x=-Math.PI/2;
   return {rig,body,arms,legs,shadow,team};
@@ -64,7 +64,7 @@ function createSoccerStadium(THREE,root,F){
  function update(g,time){
   paint(g,time);
   for(const model of keepers){
-   model.rig.visible=model.shadow.visible=g?.botOptions?.enabled!==false;if(!model.rig.visible)continue;
+   model.rig.visible=model.shadow.visible=true;
    const k=g?.keepers?.[model.team],dir=model.team===0?1:-1,z=(model.team===0?F.near:F.far)+dir*.75;
    const punting=k?.distribution==='punt'&&['pickup','catch','punt'].includes(k.phase),holding=['pickup','catch'].includes(k?.phase),holdingAge=holding?Math.max(0,(time-k.at)/1000):0,throwing=k?.phase==='distribute',throwAge=throwing?Math.max(0,(time-k.at)/1000):0;
    const age=k?.phase==='dive'?Math.max(0,(time-k.at)/1000):0,dive=k?.phase==='dive',recovery=k?.phase==='recover'?Math.max(0,Math.min(1,(k.until-time)/500)):0;
@@ -73,17 +73,27 @@ function createSoccerStadium(THREE,root,F){
    model.rig.rotation.set(0,dir===1?0:Math.PI,dive?-k.side*dir*1.25*Math.sin(Math.min(1,age/.95)*Math.PI):recovery*-dir*(k?.side||1)*.5);
    model.body.position.y=.88-(dive?land*.42:recovery*.22);model.body.rotation.x=dive?.2:recovery?.35:.12;
    model.arms.forEach((arm,i)=>{arm.rotation.x=dive?-1.35:-.48;arm.rotation.z=(i?1:-1)*(dive?.85:.28);});
-   model.legs.forEach((leg,i)=>{leg.rotation.x=dive?(i?.7:-.25):recovery?.6:.15;leg.rotation.z=(i?1:-1)*.12;});
+   model.legs.forEach((leg,i)=>{leg.position.set((i?1:-1)*.24,-.5,0);leg.rotation.x=dive?(i?.7:-.25):recovery?.6:.15;leg.rotation.z=(i?1:-1)*.12;});
    if(holding){
     const settle=Math.max(0,1-holdingAge/.45),scoop=k.phase==='pickup'?Math.sin(Math.min(1,holdingAge/.6)*Math.PI):0,windup=punting?0:Math.max(0,Math.min(1,(holdingAge-.7)/.5)),raise=windup*windup*(3-2*windup);
     model.rig.position.y=(k.grabLift||0)*settle;model.rig.rotation.y=k.holdYaw??(dir===1?0:Math.PI);model.rig.rotation.z=(k.grabRoll||0)*settle;model.body.position.y=.88-scoop*.3;model.body.rotation.x=scoop*.6-raise*.12;
     model.arms.forEach((arm,i)=>{arm.rotation.x=-1.25-raise*1.25;arm.rotation.z=(i?-1:1)*.9;});
     model.legs.forEach(leg=>leg.rotation.x=scoop*.65);
-   }else if(throwing){
-    const finish=Math.max(0,1-throwAge/.55);model.rig.rotation.y=k.throwYaw;model.body.rotation.x=.25*finish;
-    model.arms.forEach((arm,i)=>{arm.rotation.x=-2.5*finish;arm.rotation.z=(i?-1:1)*(.28+.62*finish);});model.legs[1].rotation.x=-.4*Math.sin(finish*Math.PI);
+   }
+   if(k?.distribution==='throw'&&(holding||throwing)){
+    const age=time-(k.distributionAt??(holding?k.at:k.at-1200)),p=sampleSoccerKeeperThrow(age),follow=Math.max(0,Math.min(1,(age-1200)/550));
+    model.rig.rotation.y=holding?k.holdYaw:k.throwYaw;if(age>650)model.body.rotation.x=p.pitch;
+    model.arms.forEach((arm,i)=>{arm.rotation.x=p.arm;arm.rotation.z=(i?-1:1)*(.9-.62*follow);});if(age>650)model.legs[1].rotation.x=p.plant;
    }
    if(punting){const p=sampleSoccerPunt(time-k.puntStartedAt);model.rig.rotation.y=k.holdYaw??k.throwYaw;model.body.rotation.x+=p.pitch;model.arms.forEach((arm,i)=>{arm.rotation.x=p.arm;arm.rotation.z=(i?-1:1)*(time-k.puntStartedAt<1100?.9:.45);});model.legs[1].rotation.x=p.kick;model.legs[1].position.z=.15*Math.max(0,-p.kick);model.legs[0].rotation.x=p.plant;}else model.legs[1].position.z=0;
+   if(punting){
+    const age=time-k.puntStartedAt,weight=Math.max(0,1-Math.abs(age-1550)/180),point=k.contact||g.ball;
+    if(weight){
+      const leg=model.legs[1],boot=leg.getObjectByName('goalkeeper-boot');model.rig.updateMatrixWorld(true);
+      const target=model.body.worldToLocal(new THREE.Vector3(point.x-Math.sin(model.rig.rotation.y)*.3,point.y,point.z-Math.cos(model.rig.rotation.y)*.3));
+      const current=model.body.worldToLocal(boot.getWorldPosition(new THREE.Vector3())),delta=target.sub(current);if(delta.length()>.7)delta.setLength(.7);leg.position.addScaledVector(delta,weight);
+    }
+   }
    model.shadow.position.set(model.rig.position.x,.06,model.rig.position.z);model.shadow.scale.setScalar(1+model.rig.position.y*.25);
   }
   const save=g?.lastSave,age=save?(time-save.at)/550:2;saveRing.visible=age>=0&&age<1;if(saveRing.visible){saveRing.position.set(save.x,save.y,save.z);saveRing.scale.setScalar(1+age*2);saveRing.material.opacity=1-age;}
@@ -101,6 +111,7 @@ function applySoccerReceptionPose(crew,receive,time,pose,ballMesh){
   arms.forEach((arm,i)=>{arm.rotation.x=-.7*weight;arm.rotation.z=(i?1:-1)*(.65+fall*.35)*weight;});
   crew.legs?.forEach((leg,i)=>leg.rotation.x=(i?.5:-.35)*weight);
  }else{
+  if(Number.isFinite(receive.trapYaw))crew.root.rotation.y=receive.trapYaw;
   const u=Math.min(1,age/(receive.ground?.38:.65)),cushion=Math.sin(u*Math.PI),part=receive.part||'chest';
   crew.root.rotation.x+=(part==='head'?.22:part==='chest'?-.2:.12)*cushion;crew.root.position.y-=(part==='knee'?.16:part==='sole'?.06:.03)*cushion;
   for(const n of [crew.body,crew.pack,crew.visor,crew.shine])if(n){n.rotation.x-=.22*cushion;n.position.y-=.09*cushion;}
