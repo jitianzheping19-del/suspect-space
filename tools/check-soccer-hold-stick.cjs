@@ -13,10 +13,10 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
   await p.addScriptTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.js')).text});
   await p.addScriptTag({content:`const joystick={x:0,z:0},keys=new Set();let pointerId=null,joystickTouchId=null,joystickTouchFallback=false;const code='TEST',game={phase:'lobby'};const $=id=>id==='lobbyAttachedFrame'?{contentWindow:{postMessage(){}}}:document.getElementById(id);const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),modalVisible=()=>false,isLobbyInteractionActive=()=>true,self=()=>({alive:true});${reset}${stick}const touchActionButtons=${filter}`});
   await p.evaluate(()=>{
-   document.body.dataset.phase='lobby';window.ctx={visible:true,enabled:true,hasBall:true,canDash:true,canSkill:true,canSlide:true,canPress:true,yaw:0,rightX:1,rightZ:0,forwardX:0,forwardZ:1};window.dashes=[];
+   document.body.dataset.phase='lobby';window.ctx={visible:true,enabled:true,hasBall:true,canDash:true,canSkill:true,canSlide:true,canPress:true,yaw:0,rightX:1,rightZ:0,forwardX:0,forwardZ:1};window.dashes=[];window.actions=[];
    const context=()=>({...ctx,attackDashHeld:window.attack?.dashHeld,defenseDashHeld:window.defense?.dashHeld}),sendDash=held=>dashes.push(held);
    window.defense=Controls.createSoccerDefenseControls({document,window,context,sendDash,sendPress(){},sendSlide(){}});
-   window.attack=Controls.createSoccerFlickControls({document,window,context,sendDash,send(){}});window.refresh=()=>{attack.update();defense.update();};refresh();
+   window.attack=Controls.createSoccerFlickControls({document,window,context,sendDash,send:(kind,data)=>actions.push({kind,...data})});window.refresh=()=>{attack.update();defense.update();};refresh();
   });
   const cdp=await p.context().newCDPSession(p),touch=async(type,points)=>{await cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points});await p.clock.runFor(25);};
   const center=async(id)=>{const r=await p.locator('#'+id).boundingBox();assert(r);return {id:1,x:r.x+r.width/2,y:r.y+r.height/2};};
@@ -32,6 +32,14 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    const count=await p.evaluate(()=>dashes.length);await p.evaluate(()=>{ctx.canDash=true;refresh();});await p.clock.runFor(300);assert((await p.evaluate(()=>dashes.length))>count);
    await touch('touchEnd',[]);assert.equal(await p.evaluate(()=>dashes.at(-1)),false);await p.evaluate(()=>refresh());
   }
+  await p.evaluate(()=>{ctx.hasBall=true;ctx.teammateBall=false;ctx.defending=false;ctx.enabled=true;ctx.canSkill=true;ctx.yaw=0;refresh();});
+  await p.evaluate(()=>{window.events=[];for(const type of ['pointerdown','pointerup','pointercancel','lostpointercapture','touchcancel'])document.addEventListener(type,e=>events.push({type,id:e.pointerId,target:e.target.id,button:e.button}),true);});
+  const left={...await center('stick'),id:2},right=await center('soccerFeintBtn');
+  await touch('touchStart',[left]);const movingLeft={...left,x:left.x+25};await touch('touchMove',[movingLeft]);
+  await touch('touchStart',[movingLeft,right]);await touch('touchEnd',[right]);
+  await p.evaluate(()=>ctx.yaw=.8);await p.clock.runFor(350);
+  const skill=await p.evaluate(()=>actions.at(-1));assert(skill,JSON.stringify(await p.evaluate(()=>({events,ctx,actions,dashes,held:attack.dashHeld,feintHidden:document.getElementById('soccerFeintBtn').hidden}))));assert.equal(skill.skill,'doubleTouch');assert.equal(skill.yaw,.8,'delayed skill follows the heading at execution');
+  assert(await p.evaluate(()=>__spaceInputVector.x>.1),'feint does not release movement finger');await touch('touchEnd',[]);
   const stickCenter=await center('stick');await touch('touchStart',[stickCenter]);await touch('touchMove',[{...stickCenter,x:stickCenter.x+30,y:stickCenter.y-15}]);assert(await p.evaluate(()=>Math.abs(__spaceInputVector.x)>.1));await touch('touchEnd',[]);
   for(const size of [110,150,190]){
    await p.evaluate(size=>{document.documentElement.style.setProperty('--stick-size',size+'px');document.documentElement.style.setProperty('--knob-size',size*64/150+'px');},size);

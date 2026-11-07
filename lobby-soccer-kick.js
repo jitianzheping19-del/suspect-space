@@ -41,9 +41,26 @@ export function predictSoccerBall(origin,duration=.85,count=26){
  }
  return points;
 }
-export function sampleSoccerShotPath(origin,yaw,power,spin=0,duration=.85,count=26){
- const speed=10+kickClamp(power,.12,1)*7;
- return predictSoccerBall({x:origin.x,y:origin.y??.3,z:origin.z,vx:Math.sin(yaw)*speed,vz:Math.cos(yaw)*speed,vy:1.5+kickClamp(power,.12,1)*3.5,spin},duration,count);
+// Match the airborne drag and gravity used by the host's small physics steps.
+export function soccerTargetLift(originY,targetY,distance,speed){
+ const travel=Math.max(.12,-Math.log(Math.max(.08,1-.18*distance/speed))/.18);
+ return kickClamp((targetY-originY)/travel+4.9*travel+9.8/360,-12,16);
+}
+export function soccerShotVelocity(origin,yaw,power,F){
+ const charge=kickClamp(power??.55,.12,1),speed=10+charge*7,sx=Math.sin(yaw),sz=Math.cos(yaw);
+ let vy=1.5+charge*3.5;
+ if(F&&Math.abs(sz)>.001){
+  const line=sz>0?F.far:F.near,distance=(line-origin.z)/sz,x=origin.x+sx*distance;
+  if(distance>.5&&distance<55&&Math.abs(x-23)<F.goal/2+1.6){
+   const ceiling=F.goalHeight-F.postRadius-F.radius-.1,targetY=.45+(ceiling-.45)*charge**1.3;
+   const loft=kickEase((charge-.18)/.82);
+   vy+=(soccerTargetLift(origin.y??.3,targetY,distance,speed)-vy)*loft;
+  }
+ }
+ return {vx:sx*speed,vy,vz:sz*speed};
+}
+export function sampleSoccerShotPath(origin,yaw,power,spin=0,duration=.85,count=26,F){
+ return predictSoccerBall({...origin,y:origin.y??.3,...soccerShotVelocity(origin,yaw,power,F),spin,dribbler:'',keeperOwner:undefined},duration,count);
 }
 export function soccerBallCrossing(ball,z,duration=.7){
  const points=predictSoccerBall(ball,duration,29);

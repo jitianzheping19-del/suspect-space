@@ -1,13 +1,17 @@
 import {soccerPoseChannel} from './lobby-soccer-kick.js';
 // Original motion curves. The host and the renderer share the same contact clock.
 export const SOCCER_SKILLS={
- scissors:{name:'シザース',duration:1000,release:1000,speed:3,lift:.3,cooldown:1400},
- nutmeg:{name:'股抜き',duration:1050,release:160,speed:7.5,lift:.3,cooldown:1800},
- shotFeint:{name:'キックフェイント',duration:700,release:700,speed:3.8,lift:.3,cooldown:1100},
- doubleTouch:{name:'ダブルタッチ',duration:680,release:680,speed:4.6,lift:.25,cooldown:1050},
- roulette:{name:'ルーレット',duration:960,release:960,speed:4.2,lift:.3,cooldown:1350},
- heelLift:{name:'ヒールリフト',duration:1120,release:430,speed:4.8,lift:7,cooldown:1450}
+ scissors:{name:'シザース',duration:1000,kickAt:500,release:1000,speed:3,lift:.3,cooldown:1400},
+ nutmeg:{name:'股抜き',duration:1050,kickAt:200,release:160,speed:7.5,lift:.3,cooldown:1800},
+ shotFeint:{name:'キックフェイント',duration:700,kickAt:300,release:700,speed:3.8,lift:.3,cooldown:1100},
+ doubleTouch:{name:'ダブルタッチ',duration:680,kickAt:300,release:680,speed:4.6,lift:.25,cooldown:1050},
+ roulette:{name:'ルーレット',duration:960,kickAt:650,release:960,speed:4.2,lift:.3,cooldown:1350},
+ heelLift:{name:'ヒールリフト',duration:1120,kickAt:430,release:430,speed:4.8,lift:7,cooldown:1450}
 };
+// The touch has priority; once it connects, a kick can replace the recovery pose.
+export function soccerSkillBlocksKick(skill,time){
+ const spec=SOCCER_SKILLS[skill?.kind];return !!(spec&&!skill.cancelled&&time<skill.at+spec.kickAt);
+}
 export const SOCCER_CLOSE_TOUCH={duration:560,repeat:620,deadDistance:.0005};
 // Track real displacement so a short nudge survives a false walking flag or a sparse pose update.
 export function updateSoccerDribble(control,p,time,dt,sprinting=false,skillActive=false){

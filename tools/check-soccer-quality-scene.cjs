@@ -34,12 +34,18 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    }
    fixture(0);Object.assign(state.soccer.ball,{x:23,z:8.74,dribbler:'self'});sync();
    window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'lobby-soccer-aim',active:true,charging:true,power:.8,spin:1,yaw:0}}));
-   __lobbyGames.beforeRender(.016);const curve=QA.scene.getObjectByName('soccer-curve-preview'),visible=curve.visible,positions=curve.geometry.attributes.position.array,bends=positions[75]>positions[0]+.5;
+   __lobbyGames.beforeRender(.016);const curve=QA.scene.getObjectByName('soccer-curve-preview'),visible=curve.visible,positions=curve.geometry.attributes.position.array,bends=positions[(curve.geometry.drawRange.count-1)*3]>positions[0]+.5;
    __lobbyGames.afterRender();
+   const levels=[];for(const power of [.12,1]){
+    window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'lobby-soccer-aim',active:true,charging:true,power,spin:0,yaw:0}}));
+    __lobbyGames.beforeRender(.016);const points=curve.geometry.attributes.position;let maxY=0;for(let i=0;i<curve.geometry.drawRange.count;i++)maxY=Math.max(maxY,points.getY(i));levels.push({visible:curve.visible,maxY});__lobbyGames.afterRender();
+   }
+   let waitingLabel=false;QA.scene.getObjectByName('lobby-game-soccer').traverse(n=>{if(n.userData.text==='観戦・待機')waitingLabel=true;});
    window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'lobby-soccer-aim',active:false}}));__lobbyGames.beforeRender(.016);const cleared=!curve.visible;__lobbyGames.afterRender();
-   return {rows,visible,bends,cleared};
+   return {rows,visible,bends,cleared,levels,waitingLabel};
   });
   for(const r of result.rows){assert(r.restored,'exact pose restoration');assert(r.maxJump<.25,'no pose snapping: '+JSON.stringify(r));assert(r.contactGap>.42&&r.contactGap<.6,'foot touches the ball surface: '+JSON.stringify(r));}
+  assert(!result.waitingLabel,'removed pitch waiting label');assert(result.levels.every(l=>l.visible)&&result.levels[1].maxY>2.2&&result.levels[0].maxY<1,'charge raises the rendered shot guide');
   assert(result.visible&&result.bends&&result.cleared);console.log('PASS scene kick poses, left/right foot contacts, smooth recovery, curved aim and release cleanup',result);
   const receive=await page.evaluate(()=>{
    fixture(0);Object.assign(state.soccer.ball,{x:23.3,z:8.8,dribbler:'',vx:-2,vz:-8,vy:0});QA.rules.step(state,people,testNow,1/60);testNow+=60;QA.rules.step(state,people,testNow,1/60);sync();

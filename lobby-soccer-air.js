@@ -1,5 +1,5 @@
 import {soccerAirAction} from './lobby-soccer-finishes.js';
-import {soccerBallCrossing} from './lobby-soccer-kick.js';
+import {soccerBallCrossing,soccerTargetLift} from './lobby-soccer-kick.js';
 // Shared by the authoritative host and the lobby renderer.
 export function soccerReception(g,id,players,F,time){
  const p=players[id],b=g?.ball;
@@ -34,8 +34,8 @@ export function stepSoccerReceives(g,players,F,time,eligible){
   if(r.kind==='header'&&!r.applied&&time>=r.contactAt){
    r.applied=true;changed=true;
    if(!b.dribbler&&b.keeperOwner===undefined&&Math.hypot(p.x-b.x,p.z-b.z)<3.5&&b.y>.6&&b.y<3.3){
-    const dx=r.targetX-b.x,dz=r.goal-b.z,d=Math.hypot(dx,dz),speed=15.5,travel=d/speed;
-    b.vx=dx/d*speed;b.vz=dz/d*speed;b.vy=Math.max(-4,Math.min(2.5,(.85-b.y)/Math.max(.15,travel)+4.9*travel));b.dribbler='';b.spin=0;b.lastTouch=id;b.releaseUntil=time+900;b.freeUntil=time+350;g.flight=null;r.connected=true;
+    const dx=r.targetX-b.x,dz=r.goal-b.z,d=Math.hypot(dx,dz),speed=15.5;
+    b.vx=dx/d*speed;b.vz=dz/d*speed;b.vy=soccerTargetLift(b.y,F.goalHeight-F.radius-F.postRadius-.2,d,speed);b.dribbler='';b.spin=0;b.lastTouch=id;b.releaseUntil=time+900;b.freeUntil=time+350;g.flight=null;r.connected=true;
    }
   }else if(r.kind==='trap'&&age<550){
    const u=Math.max(0,Math.min(1,age/550)),ease=u*u*(3-2*u),yaw=r.trapYaw??(Number(p.yaw)||0);
@@ -168,7 +168,7 @@ export function collideSoccerKeeper(g,F,time,old){
  const catchable=Math.hypot(b.vx,b.vy,b.vz)<13&&by<2.2;
  b.x=bx;b.y=Math.max(.3,by);b.z=bz;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:bz,part:hit.part};
  if(catchable){if(k.phase==='dive')k.x=pose.x;holdSoccerKeeperBall(g,k,time);return true;}
- b.z=bz+dir*.05;b.vx=(bx>=pose.x?1:-1)*(3+Math.abs(b.vx)*.3);b.vz=dir*(5+Math.abs(b.vz)*.3);b.vy=2.6;b.dribbler='';b.spin=0;b.lastTouch='keeper-'+k.team;b.keeperReleaseUntil=time+650;b.freeUntil=time+250;g.flight=null;return true;
+ b.z=bz+dir*.05;b.vx=(bx>=pose.x?1:-1)*(1.8+Math.abs(b.vx)*.2);b.vz=dir*(3.2+Math.abs(b.vz)*.22);b.vy=1.65;b.dribbler='';b.spin=0;b.lastTouch='keeper-'+k.team;b.keeperReleaseUntil=time+650;b.freeUntil=time+250;g.flight=null;return true;
 }
 
 export function sampleSoccerPunt(age){
