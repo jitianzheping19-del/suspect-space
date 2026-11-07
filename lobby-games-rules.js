@@ -1,3 +1,8 @@
+import {stepSoccerCombinations} from './lobby-soccer-combinations.js';
+import {collideSoccerIceWalls,markSoccerMeteorImpact} from './lobby-soccer-ultimate.js';
+import {canSoccerSecretPower,beginSoccerSecretPower,stepSoccerSecretPowers,launchSoccerSecretRelay} from './lobby-soccer-powers.js';
+import {collideSoccerNet,soccerStrandedGoal} from './lobby-soccer-goal.js';
+import {soccerSecretActive,soccerSecretMember,soccerSecretBotTap,clearSoccerSecret,soccerSecretHandPoint,soccerLobTravel,soccerGoalX,stepSoccerSecretGoals} from './lobby-soccer-secret.js';
 import {soccerDashStatus,beginSoccerDash,stopSoccerDash} from './lobby-soccer-stamina.js';
 import {soccerMatchOptions,soccerPitch} from './lobby-soccer-match.js';
 import {soccerPassPoint,soccerKickContact,soccerKickFoot,advanceSoccerBall,soccerShotVelocity} from './lobby-soccer-kick.js';
@@ -13,7 +18,7 @@ import {SOCCER_PRESS,soccerPressTarget,soccerPressActive,soccerPressThreat,apply
 export function createLobbyGamesRules(){
   const SURVIVAL={minX:-36,maxX:-12,minZ:-5,maxZ:14,cols:8,rows:7,tile:2,x:-34,z:-3,top:3,delay:700};
   const SOCCER=soccerPitch();
-  const setSoccerPitch=g=>Object.assign(SOCCER,soccerPitch(g?.pitchCount||0));
+  const setSoccerPitch=g=>Object.assign(SOCCER,soccerPitch(g?.pitchCount||0),{nearGoalX:23+(soccerSecretActive(g)?g.secretGoalOffsets?.[0]||0:0),farGoalX:23+(soccerSecretActive(g)?g.secretGoalOffsets?.[1]||0:0)});
   const QUEUE={minX:-17.2,maxX:-13,minZ:-3,maxZ:1.6};
   const inside=(p,b,pad=0)=>!!p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&p.x>=b.minX+pad&&p.x<=b.maxX-pad&&p.z>=b.minZ+pad&&p.z<=b.maxZ-pad;
   const area=p=>p?.lobbyCircuit||p?.lobbyKart?'lobby':inside(p,SURVIVAL)?'survival':inside(p,SOCCER)&&p.z>SOCCER.minZ?'soccer':'lobby';
@@ -63,8 +68,8 @@ export function createLobbyGamesRules(){
     const team=g?.members?.[id],goals=team===0?[SOCCER.far]:team===1?[SOCCER.near]:[SOCCER.near,SOCCER.far];
     for(const z of goals){
       const reach=Math.abs(sz)>.001?(z-p.z)/sz:-1,x=p.x+sx*reach;
-      if(reach>.5&&reach<55&&Math.abs(x-23)<=SOCCER.goal/2+1.6){
-        const goalX=Math.max(23-SOCCER.goal/2+.65,Math.min(23+SOCCER.goal/2-.65,x));
+      if(reach>.5&&reach<55&&Math.abs(x-soccerGoalX(SOCCER,z))<=SOCCER.goal/2+1.6){
+        const goalX=Math.max(soccerGoalX(SOCCER,z)-SOCCER.goal/2+.65,Math.min(soccerGoalX(SOCCER,z)+SOCCER.goal/2-.65,x));
         return {mode:'shot',target:'',yaw:Math.atan2(goalX-p.x,z-p.z),x:goalX,z,goal:true};
       }
     }
@@ -102,9 +107,10 @@ export function createLobbyGamesRules(){
       if(active(s.soccer))return fail('ボット数は開始前に変更してください。');
       if(!['blue','red'].includes(request.team)||![1,-1].includes(request.delta))return fail('ボット数の操作を確認してください。');
       const options=soccerMatchOptions(s.soccer.botOptions)||{enabled:true,blue:1,red:1};
+      soccerSecretBotTap(s.soccer,options,request);
       options[request.team]=Math.max(0,Math.min(10,options[request.team]+request.delta));options.enabled=true;s.soccer.botOptions=options;
     }else if(kind==='start-survival'||kind==='start-soccer'){
-      const name=kind.slice(6),previousBots=s.soccer?.botOptions;
+      const name=kind.slice(6),previousBots=s.soccer?.botOptions,secretPending=s.soccer?.secretPending===true;
       if(!allowed||room!==name)return fail('この部屋にいるホストが開始できます。');
       if(active(s.tag))return fail('鬼ごっこ中は開始できません。');
       if(active(s[name]))return fail('すでに進行中です。');
@@ -113,8 +119,9 @@ export function createLobbyGamesRules(){
       // Randomize once on the host; clients consume the committed assignments.
       ids=ids.map(uid=>({uid,order:random()})).sort((a,b)=>a.order-b.order).map(x=>x.uid);
       const members={};ids.forEach((uid,i)=>members[uid]=name==='survival'?{slot:i,alive:true}:i%2);
+      if(name==='soccer'&&!soccerMatchOptions(request.bots??previousBots,ids.length===1))return fail('ボットは各チーム0〜10体で設定してください。');
       s[name]=name==='survival'?{id:request.id,status:'countdown',practice:ids.length===1,members,tiles:{},startAt:time+3000,endAt:time+93000,winners:[]}:{id:request.id,status:'countdown',practice:ids.length===1,members,ball:ball(time),score:[0,0],kicks:{},startAt:time+3000,endAt:time+183000};
-      if(name==='soccer'){const options=soccerMatchOptions(request.bots??previousBots,ids.length===1);if(!options)return fail('ボットは各チーム0〜10体で設定してください。');s.soccer.botOptions=options;createSoccerBots(s.soccer,ids[0],options);s.soccer.pitchCount=Object.keys(s.soccer.members).length;setSoccerPitch(s.soccer);prepareSoccerKickoff(s.soccer,soccerRoster(s.soccer,roster),time,0,s.soccer.startAt,request.id+':kickoff');}
+      if(name==='soccer'){s.soccer.secretMode=secretPending;const options=soccerMatchOptions(request.bots??previousBots,ids.length===1);if(!options)return fail('ボットは各チーム0〜10体で設定してください。');s.soccer.botOptions=options;createSoccerBots(s.soccer,ids[0],options);s.soccer.pitchCount=Object.keys(s.soccer.members).length;setSoccerPitch(s.soccer);prepareSoccerKickoff(s.soccer,soccerRoster(s.soccer,roster),time,0,s.soccer.startAt,request.id+':kickoff');}
     }else if(kind==='start-tag'){
       if(!allowed||room!=='lobby'||p.lobbyCircuit||p.lobbyKart)return fail('ロビーにいるホストが開始できます。');
       if(active(s.tag)||active(s.survival)||active(s.soccer))return fail('進行中の遊びが終わってから開始してください。');
@@ -123,7 +130,7 @@ export function createLobbyGamesRules(){
       s.tag={id:request.id,status:'countdown',practice:ids.length===1,members:Object.fromEntries(ids.map(uid=>[uid,true])),oni:ids[Math.min(ids.length-1,Math.floor(random()*ids.length))],startAt:time+3000,frozenUntil:time+4000,immune:{},transfers:0};
     }else if(kind==='stop'){
       if(!allowed)return fail('ホストが終了できます。');
-      const g=s[request.game];if(!g||!active(g))return fail('進行中ではありません。');g.status='finished';g.endedAt=time;
+      const g=s[request.game];if(!g||!active(g))return fail('進行中ではありません。');g.status='finished';g.endedAt=time;if(request.game==='soccer')clearSoccerSecret(g);
     }else if(kind==='tag'){
       const target=tagTarget(s,id,roster,time);
       if(!target||request.target!==target)return fail('タッチできる相手が近くにいません。');
@@ -144,6 +151,14 @@ export function createLobbyGamesRules(){
           beginSoccerDash(s.soccer,id,time,request.held===true);
         }
       }
+    }else if(kind==='soccer-secret-power'){
+      if(!canSoccerSecretPower(s.soccer,id,request.power,roster,SOCCER,time))return fail('必殺技の条件がそろっていません。ボールと味方の位置を確認してください。');
+      beginSoccerSecretPower(s.soccer,id,request.power,roster,SOCCER,time);
+    }else if(kind==='soccer-hand'){
+      const g=s.soccer,b=g.ball;
+      if(!soccerSecretMember(g,id)||!canKick(s,id,roster,time)||b.dribbler!==id)return fail('隠しモード中にボールを持ってフェイントを3回タップしてください。');
+      if(b.handOwner===id){delete b.handOwner;b.y=.3;}else{b.handOwner=id;Object.assign(b,soccerSecretHandPoint(p));}
+      b.vx=b.vy=b.vz=b.spin=0;if(g.skills?.[id])g.skills[id].cancelled=true;
     }else if(kind==='soccer-skill'){
       const skill=Object.hasOwn(SOCCER_SKILLS,request.skill)?SOCCER_SKILLS[request.skill]:null;
       if(!skill||!Number.isFinite(request.yaw)||![1,-1].includes(request.side))return fail('フェイントの入力を確認してください。');
@@ -175,7 +190,7 @@ export function createLobbyGamesRules(){
     s.revision++;s.at=time;return {state:s,ok:true};
   }
   const goalSegments=()=>[SOCCER.near,SOCCER.far].flatMap(z=>{
-    const l=23-SOCCER.goal/2,r=23+SOCCER.goal/2,h=SOCCER.goalHeight;
+    const center=soccerGoalX(SOCCER,z),l=center-SOCCER.goal/2,r=center+SOCCER.goal/2,h=SOCCER.goalHeight;
     const back=z+(z===SOCCER.near?-1:1)*SOCCER.goalDepth;
     return [[l,0,z,l,h,z],[r,0,z,r,h,z],[l,h,z,r,h,z],[l,0,back,l,h,back],[r,0,back,r,h,back],[l,h,back,r,h,back],[l,0,back,r,0,back],...[l,r].flatMap(x=>[[x,h,z,x,h,back],[x,0,z,x,0,back]])];
   });
@@ -185,6 +200,10 @@ export function createLobbyGamesRules(){
       const nx=x-ax-dx*t,ny=y-ay-dy*t,nz=z-az-dz*t,d=Math.hypot(nx,ny,nz),limit=radius+SOCCER.postRadius;
       if(d<limit)return d<1e-8?{nx:0,ny:0,nz:az===SOCCER.near?1:-1,depth:limit}:{nx:nx/d,ny:ny/d,nz:nz/d,depth:limit-d};
     }return null;
+  }
+  function recordSoccerGoal(game,roster,time,team,point){
+    const beforeScore=[...game.score];game.score[team]++;game.lastGoal={team,at:time,beforeScore,score:[...game.score],scorer:game.ball.lastTouch||'',...point,speed:Math.hypot(game.ball.vx,game.ball.vy,game.ball.vz)};
+    game.goalRecovery=null;prepareSoccerKickoff(game,roster,time,1-team,time+3400,(game.id||'practice')+':goal:'+time);
   }
   function step(s,roster,time,dt){
     let changed=false;
@@ -210,7 +229,8 @@ export function createLobbyGamesRules(){
     }
     const game=s.soccer;
     if(game){
-      setSoccerPitch(game);
+      changed=stepSoccerSecretGoals(game,time)||changed;setSoccerPitch(game);
+      if(game.status==='finished'&&game.secretMode)clearSoccerSecret(game);
       if(game.status==='finished'&&time>game.endedAt+5000){game.status='idle';game.members={};game.kicks={};game.bots={};game.finishes={};game.slides={};game.knockdowns={};game.kickoff=null;game.ball=ball(time);changed=true;}
       if(game.status==='countdown'&&time>=game.startAt){game.status='playing';changed=true;}
       if(game.status==='playing'&&time>=game.endAt){game.status='finished';game.endedAt=time;game.winner=game.score[0]===game.score[1]?-1:game.score[0]>game.score[1]?0:1;changed=true;}
@@ -219,9 +239,15 @@ export function createLobbyGamesRules(){
         for(const id of Object.keys(game.members))if(!soccerLive(roster[id])||area(roster[id])!=='soccer'){delete game.members[id];changed=true;}
         if(game.status==='playing'&&(game.practice?!Object.keys(game.members).some(id=>live(roster[id])):new Set(Object.values(game.members)).size<2)){game.status='finished';game.endedAt=time;game.cancelled=true;changed=true;}
       }
+      if(game.status==='finished')clearSoccerSecret(game);
       changed=stepSoccerKickoff(game,roster,time)||changed;
       changed=stepSoccerBots(game,roster,SOCCER,time,dt)||changed;
-      const b=game.ball;
+      let b=game.ball;
+      if(['idle','playing'].includes(game.status)){
+        const stranded=soccerStrandedGoal(game,SOCCER,time);
+        if(stranded){if(stranded.score)recordSoccerGoal(game,roster,time,stranded.team,{x:b.x,y:b.y,z:b.z});else prepareSoccerKickoff(game,roster,time,1-stranded.team,time+1000,(game.id||'practice')+':recover:'+time);changed=true;}
+      }
+      b=game.ball;
       const keeperControl=stepSoccerKeepers(game,SOCCER,time,dt,roster);changed=keeperControl.changed||changed;
       if(game.status==='countdown'||game.status==='finished'){b.vx=b.vy=b.vz=0;b.dribbler='';game.skills={};game.presses={};game.dashes={};game.queuedKicks={};game.flight=null;game.receives={};game.finishes={};game.slides={};game.knockdowns={};}
       else if(time>=b.resetUntil&&!keeperControl.controlled){
@@ -239,23 +265,28 @@ export function createLobbyGamesRules(){
             const destination=q?soccerPassPoint(q,SOCCER,power,k.mode==='through'):null,tx=destination?.x||0,tz=destination?.z||0;
             const yaw=q?Math.atan2(tx-b.x,tz-b.z):k.yaw,speed=k.mode==='shot'?10+power*7:q?Math.min(22,(5+Math.hypot(tx-b.x,tz-b.z)*.65)*(.75+power*.65)):6+power*9;
             k.yaw=yaw;k.contact={x:b.x,y:b.y,z:b.z,at:time};k.connected=true;
+            delete b.handOwner;delete b.bellyOwner;delete b.secretShot;b.fire=soccerSecretActive(game)&&k.mode==='shot'&&power>=.95;b.secretCurve=soccerSecretActive(game);
             b.spin=k.mode==='shot'?(k.spin||0):0;b.vx=Math.sin(yaw)*speed;b.vz=Math.cos(yaw)*speed;b.vy=.45;if(k.mode==='shot')Object.assign(b,soccerShotVelocity(b,yaw,power,SOCCER));
             if(k.mode==='lob'&&q){
-              const travel=Math.max(.85,Math.min(1.8,Math.hypot(tx-b.x,tz-b.z)/(8+power*6))),factor=.18/(1-Math.exp(-.18*travel));
+              const travel=soccerLobTravel(Math.hypot(tx-b.x,tz-b.z),power,soccerSecretActive(game)),factor=.18/(1-Math.exp(-.18*travel));
               b.vx=(tx-b.x)*factor;b.vz=(tz-b.z)*factor;b.vy=(1.45-b.y)/travel+4.9*travel;
               game.flight={from:id,target:k.target,at:time,arrivalAt:time+travel*1000,x:tx,z:tz};
             }else game.flight=null;
+            if(k.relay)launchSoccerSecretRelay(game,id,k.target,roster,time);
             if(game.kickoff?.kicker===id)game.kickoff.released=true;
             b.dribbler='';b.lastTouch=id;b.releaseUntil=time+300;b.freeUntil=time+140;
           }else k.cancelled=true;
         }
+        changed=stepSoccerSecretPowers(game,roster,SOCCER,time)||changed;
+        changed=stepSoccerCombinations(game,roster,SOCCER,time,eligible)||changed;
         const reception=stepSoccerReceives(game,roster,SOCCER,time,eligible);changed=reception.changed||changed;
         let owner=b.dribbler,ownerPlayer=roster[owner];
-        if(!eligible(owner)||Math.abs(ownerPlayer?.lobbyY||0)>.2||distance(ownerPlayer,b)>2||b.y>.65){owner='';b.dribbler='';}
+        if(!eligible(owner)||Math.abs(ownerPlayer?.lobbyY||0)>.2||distance(ownerPlayer,b)>(soccerSecretActive(game)?4:2)||b.y>.65&&b.handOwner!==owner){owner='';b.dribbler='';}
+        if(b.handOwner&&(!soccerSecretMember(game,b.handOwner)||owner!==b.handOwner)){delete b.handOwner;delete b.bellyOwner;}
         for(const [id,k]of Object.entries(game.skills||{}))if(!k.released&&!k.cancelled){
           const spec=SOCCER_SKILLS[k.kind],p=roster[id];
           if(Number.isFinite(p?.yaw))k.yaw=p.yaw;
-          if(!spec||!eligible(id)||b.dribbler!==id||distance(p,b)>2||Math.abs(p.lobbyY||0)>.2){k.cancelled=true;changed=true;continue;}
+          if(!spec||!eligible(id)||b.dribbler!==id||distance(p,b)>(soccerSecretActive(game)?4:2)||Math.abs(p.lobbyY||0)>.2){k.cancelled=true;changed=true;continue;}
           if(time>=k.at+spec.release){
             k.released=true;changed=true;
             if(k.kind==='nutmeg'){
@@ -280,8 +311,8 @@ export function createLobbyGamesRules(){
           }
         }
         if(owner){
-          b.spin=0;
-          const p=roster[owner],receive=game.receives?.[owner],trapYaw=receive?.kind==='trap'&&time<receive.until?receive.trapYaw:undefined,skill=game.skills?.[owner],sample=skill&&!skill.cancelled&&!skill.released?sampleSoccerSkill(skill.kind,time-skill.at,skill.side):null,yaw=sample?skill.yaw:trapYaw??(Number(p.yaw)||0);
+          b.spin=0;b.fire=false;delete b.secretShot;
+          const p=roster[owner],receive=game.receives?.[owner],trapYaw=receive?.kind==='trap'&&time<receive.until?receive.trapYaw:undefined,skill=game.skills?.[owner],sample=skill&&!skill.cancelled&&!skill.released?sampleSoccerSkill(skill.kind,time-skill.at,skill.side,soccerSecretActive(game)):null,yaw=sample?skill.yaw:trapYaw??(Number(p.yaw)||0);
           const control=game.dribble?.uid===owner?game.dribble:(game.dribble={uid:owner,at:time});
           const sprint=soccerDashStatus(game,owner,time).running;
           updateSoccerDribble(control,p,time,dt,sprint,!!sample);
@@ -293,14 +324,16 @@ export function createLobbyGamesRules(){
           const sx=sample?p.x+Math.sin(yaw)*sample.z+Math.cos(yaw)*sample.x:tx,sz=sample?p.z+Math.cos(yaw)*sample.z-Math.sin(yaw)*sample.x:tz;
           const step=Math.max(.001,Math.min(.1,dt)),follow=(1-Math.exp(-(sample?28:18)*step))/step;
           b.vx=(sx-b.x)*follow;b.vz=(sz-b.z)*follow;b.vy=sample?(sample.y-b.y)*22:0;
-          const speed=Math.hypot(b.vx,b.vz);if(speed>15){b.vx*=15/speed;b.vz*=15/speed;}
+          const speed=Math.hypot(b.vx,b.vz);const limit=soccerSecretActive(game)?60:15;if(speed>limit){b.vx*=limit/speed;b.vz*=limit/speed;}
         }
-        const moving=!reception.controlled&&(Math.abs(b.vx)+Math.abs(b.vy)+Math.abs(b.vz)>.015||b.y>.301);
+        if(b.handOwner&&owner===b.handOwner){Object.assign(b,soccerSecretHandPoint(roster[owner],b.bellyOwner===owner));b.vx=b.vy=b.vz=0;changed=true;}
+        const moving=!b.handOwner&&!reception.controlled&&(Math.abs(b.vx)+Math.abs(b.vy)+Math.abs(b.vz)>.015||b.y>.301);
         if(moving){
           // Small physics steps also cover a late network tick and fast diagonal post impacts.
           const steps=Math.max(1,Math.ceil(Math.min(.1,dt)*180)),h=Math.min(.1,dt)/steps;
           for(let j=0;j<steps;j++){
             const old={x:b.x,y:b.y,z:b.z};advanceSoccerBall(b,h);
+            collideSoccerIceWalls(game,SOCCER,time,old);markSoccerMeteorImpact(game,old,time);
             if(b.y<1.5)for(const [id,p]of Object.entries(roster)){
               if(game.receives?.[id]?.kind==='header'&&time<game.receives[id].until&&b.y>.7||b.dribbler||game.flight&&game.flight.target===id||!eligible(id)||soccerKickoffBlocks(game,id,time)||Math.abs((p.lobbyY||0)+.4-b.y)>1.1||b.lastTouch===id&&time<Number(b.releaseUntil||0)||time<Number(b.contestUntil||0)&&id!==b.contestOwner)continue;
               const d=distance(p,b);if(d>=.72)continue;
@@ -323,16 +356,16 @@ export function createLobbyGamesRules(){
               const boundary=line+dir*SOCCER.radius;
               if((old.z-boundary)*dir<=0&&(b.z-boundary)*dir>0){
                 const f=(boundary-old.z)/(b.z-old.z),x=old.x+(b.x-old.x)*f,y=old.y+(b.y-old.y)*f;
-                if(Math.abs(x-23)<SOCCER.goal/2-SOCCER.postRadius-SOCCER.radius&&y+SOCCER.radius<SOCCER.goalHeight-SOCCER.postRadius){
-                  const beforeScore=[...game.score];game.score[team]++;game.lastGoal={team,at:time,beforeScore,score:[...game.score],scorer:b.lastTouch||'',x,y,z:boundary,speed:Math.hypot(b.vx,b.vy,b.vz)};prepareSoccerKickoff(game,roster,time,1-team,time+3400,(game.id||'practice')+':goal:'+time);scored=true;break;
+                if(Math.abs(x-soccerGoalX(SOCCER,line))<SOCCER.goal/2-SOCCER.postRadius-SOCCER.radius&&y+SOCCER.radius<SOCCER.goalHeight-SOCCER.postRadius){
+                  recordSoccerGoal(game,roster,time,team,{x,y,z:boundary});scored=true;break;
                 }
               }
             }
-            if(scored)break;
+            if(scored)break;collideSoccerNet(b,old,SOCCER);
             if(b.x<SOCCER.left+.3||b.x>SOCCER.right-.3){b.x=Math.max(SOCCER.left+.3,Math.min(SOCCER.right-.3,b.x));b.vx*=-.7;b.dribbler='';}
             // The goal frame handles its own impacts. Do not bounce off an
             // invisible pitch-end wall before a ball can reach the crossbar.
-            const aperture=Math.abs(b.x-23)<SOCCER.goal/2+SOCCER.postRadius+SOCCER.radius&&b.y<SOCCER.goalHeight+SOCCER.postRadius+SOCCER.radius;
+            const aperture=Math.abs(b.x-soccerGoalX(SOCCER,b.z<10?SOCCER.near:SOCCER.far))<SOCCER.goal/2+SOCCER.postRadius+SOCCER.radius&&b.y<SOCCER.goalHeight+SOCCER.postRadius+SOCCER.radius;
             if(aperture){
               const nearBack=SOCCER.near-SOCCER.goalDepth+SOCCER.radius,farBack=SOCCER.far+SOCCER.goalDepth-SOCCER.radius;
               if(b.z<nearBack||b.z>farBack){b.z=Math.max(nearBack,Math.min(farBack,b.z));b.vz*=-.35;}
@@ -342,7 +375,7 @@ export function createLobbyGamesRules(){
           changed=true;
         }
 
-        b.vx=Math.max(-24,Math.min(24,b.vx));b.vz=Math.max(-24,Math.min(24,b.vz));b.at=time;
+        const ballLimit=soccerSecretActive(game)?36:24;b.vx=Math.max(-ballLimit,Math.min(ballLimit,b.vx));b.vz=Math.max(-ballLimit,Math.min(ballLimit,b.vz));b.at=time;
       }
     }
     if(changed){s.at=time;s.revision++;}return changed;

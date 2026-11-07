@@ -70,7 +70,8 @@ function createSoccerStadium(THREE,root,F){
    const age=k?.phase==='dive'?Math.max(0,(time-k.at)/1000):0,dive=k?.phase==='dive',recovery=k?.phase==='recover'?Math.max(0,Math.min(1,(k.until-time)/500)):0;
    const progress=Math.min(1,age/.28),land=Math.max(0,Math.min(1,(age-.42)/.35));
    const pose=sampleSoccerKeeperPose(k||{team:model.team,x:23,z,phase:'ready'},time);
-   model.rig.position.set(pose.x,pose.y,pose.z);model.rig.rotation.set(0,pose.yaw,pose.roll);
+   model.rig.position.set(pose.x,pose.y,pose.z);
+   model.arms.forEach((arm,i)=>{const glove=arm.getObjectByName('goalkeeper-glove');if(glove)glove.scale.setScalar(soccerSecretActive(g)&&time<Number(k?.giantUntil||0)&&(i?1:-1)===(k.giantSide||1)?3.4:1);});model.rig.rotation.set(0,pose.yaw,pose.roll);
    model.body.position.y=pose.bodyY;model.body.rotation.x=pose.pitch;
    model.arms.forEach((arm,i)=>{arm.rotation.x=pose.armX;arm.rotation.z=(i?1:-1)*pose.armZ;});
    model.legs.forEach((leg,i)=>{leg.position.set((i?1:-1)*.24,-.5,0);leg.rotation.x=pose.legX[i];leg.rotation.z=(i?1:-1)*.12;});
@@ -144,14 +145,15 @@ function applySoccerVolleyPose(crew,finish,time,pose,ballMesh){
  const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
  for(const n of [crew.root,...crew.legs,...arms])pose(n);
  // Keep the horizontal pivot on the left leg while the hips and right foot rotate.
+ if(finish.sky){const u=Math.max(0,Math.min(1,time<=finish.contactAt?(time-finish.at)/550:1-(time-finish.contactAt)/1000)),w=u*u*(3-2*u);crew.root.position.x+=(finish.airX-finish.x)*w;crew.root.position.z+=(finish.airZ-finish.z)*w;}
  const left=crew.legs[0],baseYaw=finish.yaw,yaw=baseYaw+m.turn;
  crew.root.position.x+=left.position.x*(Math.cos(baseYaw)-Math.cos(yaw));
  crew.root.position.z+=left.position.x*(Math.sin(yaw)-Math.sin(baseYaw));
- crew.root.position.y+=m.height;crew.root.rotation.set(m.pitch,yaw,-.18*m.weight,'YXZ');
- crew.legs[1].rotation.set(m.kick,m.sweep,-.25*m.weight);
+ crew.root.position.y+=m.height;crew.root.rotation.set(finish.iron?.35*m.weight:m.pitch,yaw,-.18*m.weight,'YXZ');
+ crew.legs[1].rotation.set(finish.iron?.4:m.kick,finish.iron?0:m.sweep,-.25*m.weight);
  crew.legs[1].position.x+=m.rightX;crew.legs[1].position.z+=m.rightZ;
  left.rotation.set(m.plant,-m.turn,.08*m.weight);
- arms.forEach((a,i)=>{a.rotation.z=(i?1:-1)*m.arms;a.rotation.x=(i?-.6:.4)*m.weight;});alignSoccerFoot(crew,1,finish.contact||ballMesh.getWorldPosition(new THREE.Vector3()),time,finish.contactAt);return true;
+ arms.forEach((a,i)=>{a.rotation.z=(i?1:-1)*m.arms;a.rotation.x=(i?-.6:.4)*m.weight;});if(!finish.iron)alignSoccerFoot(crew,1,finish.contact||ballMesh.getWorldPosition(new THREE.Vector3()),time,finish.contactAt);return true;
 }
 function applySoccerKnockdownPose(crew,down,time,pose){
  const age=time-down.at,ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);},fall=ease(age/230),rise=ease((age-700)/750),weight=fall*(1-rise),pitch=-1.35*weight;

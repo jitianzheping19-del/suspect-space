@@ -22,7 +22,7 @@ export function prepareSoccerKickoff(g,players,time,team,readyAt,id){
  for(const s of Object.values(g.skills||{}))s.cancelled=true;
  for(const r of Object.values(g.receives||{}))r.until=time;
  for(const f of Object.values(g.finishes||{}))f.until=time;
- g.botTactics=null;g.queuedKicks={};g.slides={};g.knockdowns={};g.presses={};g.dashes={};g.flight=null;g.dribble=null;
+ g.secretCombo=null;g.botTactics=null;g.queuedKicks={};g.slides={};g.knockdowns={};g.presses={};g.dashes={};g.flight=null;g.dribble=null;
  return g.kickoff;
 }
 export function stepSoccerKickoff(g,players,time){

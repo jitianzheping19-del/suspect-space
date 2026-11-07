@@ -22,12 +22,12 @@ export function sampleSoccerKick(k,time){
 // Turning velocity preserves speed: spin bends the path without adding energy.
 export function stepSoccerSpin(ball,dt){
  if(!ball.spin||ball.dribbler||ball.keeperOwner!==undefined)return;
- const spin=kickClamp(ball.spin,-1,1),angle=spin*.78*Math.max(0,Math.min(.1,dt))*(ball.y>.31?1:.45),c=Math.cos(angle),s=Math.sin(angle),x=ball.vx;
- ball.vx=x*c+ball.vz*s;ball.vz=ball.vz*c-x*s;ball.spin=spin*Math.exp(-dt*(ball.y>.31?.55:2.4));
+ const spin=kickClamp(ball.spin,-1,1),angle=spin*.78*(ball.secretCurve?5:1)*Math.max(0,Math.min(.1,dt))*(ball.y>.31?1:.45),c=Math.cos(angle),s=Math.sin(angle),x=ball.vx;
+ ball.vx=x*c+ball.vz*s;ball.vz=ball.vz*c-x*s;ball.spin=spin*Math.exp(-dt*(ball.secretCurve?.16:ball.y>.31?.55:2.4));
  if(Math.abs(ball.spin)<.005)ball.spin=0;
 }
 export function advanceSoccerBall(ball,dt){
- stepSoccerSpin(ball,dt);ball.vy-=9.8*dt;ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;ball.z+=ball.vz*dt;
+ stepSoccerSpin(ball,dt);ball.vy-=9.8*dt;if(ball.secretShot?.kind==='drive'&&ball.secretShot.from===ball.lastTouch&&!ball.dribbler){ball.driveAge=(ball.driveAge||0)+dt;if(ball.driveAge>ball.driveDelay)ball.vy-=(ball.drivePull||14)*dt;}ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;ball.z+=ball.vz*dt;
  if(ball.y<.3){ball.y=.3;ball.vy=Math.abs(ball.vy)>.8?-ball.vy*.48:0;}
  const drag=Math.exp(-(ball.y<=.301?.45:.18)*dt);ball.vx*=drag;ball.vz*=drag;
 }
@@ -51,7 +51,7 @@ export function soccerShotVelocity(origin,yaw,power,F){
  let vy=1.5+charge*3.5;
  if(F&&Math.abs(sz)>.001){
   const line=sz>0?F.far:F.near,distance=(line-origin.z)/sz,x=origin.x+sx*distance;
-  if(distance>.5&&distance<55&&Math.abs(x-23)<F.goal/2+1.6){
+  if(distance>.5&&distance<55&&Math.abs(x-((line===F.near?F.nearGoalX:F.farGoalX)??23))<F.goal/2+1.6){
    const ceiling=F.goalHeight-F.postRadius-F.radius-.1,targetY=.45+(ceiling-.45)*charge**1.3;
    const loft=kickEase((charge-.18)/.82);
    vy+=(soccerTargetLift(origin.y??.3,targetY,distance,speed)-vy)*loft;

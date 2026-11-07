@@ -1,3 +1,4 @@
+import {soccerGoalX,soccerSecretActive} from './lobby-soccer-secret.js';
 import {soccerAirAction} from './lobby-soccer-finishes.js';
 import {soccerBallCrossing,soccerTargetLift} from './lobby-soccer-kick.js';
 // Shared by the authoritative host and the lobby renderer.
@@ -11,7 +12,7 @@ export function soccerReception(g,id,players,F,time){
 export function soccerTrapPart(ball){return ball.y>=1.8?'head':ball.y>=1.1?'chest':ball.y>=.65?'knee':ball.y>.38||Math.hypot(ball.vx,ball.vz)>4?'foot':'sole';}
 export function beginSoccerReceive(g,id,kind,p,time,F){
  const b=g.ball,goal=g.members[id]===0?F.far:F.near,keeper=g.keepers?.[g.members[id]===0?1:0];
- const targetX=23+(keeper?.x>=23?-1:1)*1.65;
+ const center=soccerGoalX(F,goal),targetX=center+(keeper?.x>=center?-1:1)*1.65;
  g.receives||={};g.receives[id]={kind,part:kind==='trap'?soccerTrapPart(b):'head',at:time,until:time+(kind==='header'?1350:650),contactAt:time+(kind==='header'?140:0),applied:false,x:b.x,y:b.y,z:b.z,yaw:Math.atan2(targetX-p.x,goal-p.z),targetX,goal};
  if(kind==='trap'){
   Object.assign(g.receives[id],{trapYaw:Number(p.yaw)||0,steerAt:time});
@@ -69,9 +70,12 @@ export function stepSoccerKeepers(g,F,time,dt,players={}){
  // Goalkeepers stay active independently of the optional field-player bots.
  const previous=JSON.stringify(g.keepers||{}),heldBefore=g.ball.keeperOwner!==undefined;g.keepers||={};const b=g.ball,playing=['idle','playing'].includes(g.status)&&time>=Number(b.resetUntil||0);
  for(const team of [0,1]){
-  const dir=team===0?1:-1,z=(team===0?F.near:F.far)+dir*.75;
+  const dir=team===0?1:-1,z=(team===0?F.near:F.far)+dir*.75,center=soccerGoalX(F,team===0?F.near:F.far);
   const k=g.keepers[team]||(g.keepers[team]={team,x:23,z,y:0,phase:'ready',until:0,saves:0});if(k.phase==='ready'&&b.keeperOwner!==team&&Math.abs(b.z-z)>3.5)k.z+=(z-k.z)*Math.min(1,dt*5);
-  if(!playing){Object.assign(k,{x:23,y:0,z,phase:'ready',until:0,watch:0});delete b.keeperOwner;continue;}
+  const offset=center-23,shift=offset-(k.goalOffset||0);k.goalOffset=offset;k.x+=shift;if(Number.isFinite(k.fromX))k.fromX+=shift;if(Number.isFinite(k.toX))k.toX+=shift;
+  k.goalMoving=soccerSecretActive(g)&&g.secretGoalMove?.team===team&&time<g.secretGoalMove.until;
+  if(!playing){Object.assign(k,{x:center,y:0,z,phase:'ready',until:0,watch:0});delete b.keeperOwner;continue;}
+  if(k.secretKnockback&&time<k.secretKnockback.until)continue;
   if(b.keeperOwner===team){
    const target=soccerKeeperOutlet(g,k,players,F);
    if(!k.distribution){k.distribution=!target.target||Math.hypot(target.x-k.x,target.z-k.z)>=10?'punt':'throw';k.distributionAt=k.at;k.until=k.at+(k.distribution==='punt'?1550:1200);if(k.distribution==='punt')k.puntStartedAt=k.at;}
@@ -89,7 +93,7 @@ export function stepSoccerKeepers(g,F,time,dt,players={}){
   }
   if(b.keeperOwner!==undefined)continue;
   if(['distribute','punt'].includes(k.phase)&&time<k.until)continue;
-  const loose=!b.dribbler&&b.y<.8&&Math.hypot(b.vx,b.vz)<5&&Math.abs(b.z-z)<3.5&&Math.abs(b.x-23)<F.goal/2+.4&&time>=Number(b.keeperReleaseUntil||0);
+  const loose=!b.dribbler&&b.y<.8&&Math.hypot(b.vx,b.vz)<5&&Math.abs(b.z-z)<3.5&&Math.abs(b.x-center)<F.goal/2+.4&&time>=Number(b.keeperReleaseUntil||0);
   if(loose&&k.phase!=='dive'&&k.phase!=='recover'){
    const dx=b.x-k.x,dz=b.z-k.z,d=Math.hypot(dx,dz),step=Math.min(d,dt*3.6);if(d>.65){k.x+=dx/d*step;k.z+=dz/d*step;}else holdSoccerKeeperBall(g,k,time,true);
    continue;
@@ -98,19 +102,24 @@ export function stepSoccerKeepers(g,F,time,dt,players={}){
   if(k.phase==='dive'){k.x=k.toX;k.phase='recover';k.until=time+500;continue;}
   if(k.phase==='recover'&&time<k.until)continue;
   k.phase='ready';k.z+=(z-k.z)*Math.min(1,dt*5);
-  const target=Math.max(21.15,Math.min(24.85,23+(b.x-23)*.5)),step=Math.min(1,dt*3.6);k.x+=(target-k.x)*step;
+  const target=time<Number(k.giantUntil||0)?center+(k.giantSide||1)*1.65:Math.max(center-1.85,Math.min(center+1.85,center+(b.x-center)*.5)),step=Math.min(1,dt*3.6);k.x+=(target-k.x)*step;
   const eta=Math.abs(b.vz)>.01?(z-b.z)/b.vz:-1,danger=b.vz*dir< -2&&eta>0&&eta<.65;
   if(!danger){k.watch=0;continue;}if(!k.watch)k.watch=time;
   if(time-k.watch<210)continue;
   const predicted=b.spin?soccerBallCrossing(b,z):null;
   const x=predicted?.x??b.x+b.vx*eta,y=predicted?.y??b.y+b.vy*eta-4.9*eta*eta;
-  if(Math.abs(x-23)>F.goal/2+.6||y>3.2||y<-.5)continue;
+  if(Math.abs(x-center)>F.goal/2+.6||y>3.2||y<-.5)continue;
   k.phase='dive';k.at=time;k.until=time+850;k.fromX=k.x;k.toX=Math.max(k.x-1.3,Math.min(k.x+1.3,x));k.height=Math.max(.25,Math.min(2.35,y));k.side=x<k.x?-1:1;k.watch=0;
+ }
+ if(soccerSecretActive(g)){
+  g.secretNextGiantAt??=(g.startAt||time)+11000;
+  if(time>=g.secretNextGiantAt){const team=(g.secretGiantCount||0)%2;g.secretGiantCount=(g.secretGiantCount||0)+1;g.secretNextGiantAt=time+27000;if(g.keepers[team]){g.keepers[team].giantUntil=time+1800;g.keepers[team].giantSide=team===0?1:-1;}}
  }
  return {controlled:b.keeperOwner!==undefined,changed:heldBefore||b.keeperOwner!==undefined||previous!==JSON.stringify(g.keepers)};
 }
 // This pose is shared by the renderer and the authoritative collision shapes.
 export function sampleSoccerKeeperPose(k,time){
+ const recoil=k.secretKnockback;if(recoil&&time<recoil.until){const u=Math.max(0,Math.min(1,(time-recoil.at)/600));return {x:recoil.x,z:recoil.z+(k.team===0?-1:1)*1.8*u,y:Math.sin(u*Math.PI)*.6,yaw:k.team===0?0:Math.PI,roll:1.2*u,bodyY:.88,pitch:-.6*u,armX:-1.8,armZ:1.2,legX:[.6,.8]};}
  const dir=k.team===0?1:-1,dive=k.phase==='dive',age=dive?Math.max(0,(time-k.at)/1000):0;
  const recovery=k.phase==='recover'?Math.max(0,Math.min(1,(k.until-time)/500)):0;
  const land=Math.max(0,Math.min(1,(age-.42)/.35));
@@ -118,7 +127,7 @@ export function sampleSoccerKeeperPose(k,time){
   y:dive?Math.sin(Math.min(1,age/.65)*Math.PI)*Math.max(.25,(k.height||1)-.6):0,
   yaw:dir===1?0:Math.PI,roll:dive?-k.side*dir*1.25*Math.sin(Math.min(1,age/.95)*Math.PI):recovery*-dir*(k.side||1)*.5,
   bodyY:.88-(dive?land*.42:recovery*.22),pitch:dive?.2:recovery?.35:.12,
-  armX:dive?-1.35:-.48,armZ:dive?.85:.28,legX:[dive?-.25:recovery?.6:.15,dive?.7:recovery?.6:.15]};
+  armX:dive?-1.35:k.goalMoving?-.9:-.48,armZ:dive?.85:k.goalMoving?1.25:.28,legX:[dive?-.25:recovery?.6:.15,dive?.7:recovery?.6:.15]};
 }
 export function soccerKeeperColliders(k,time){
  const pose=sampleSoccerKeeperPose(k,time),shapes=[];
@@ -133,7 +142,7 @@ export function soccerKeeperColliders(k,time){
  for(const [i,side]of [-1,1].entries()){
   const arm=v=>{const p=rotate(v,pose.armX,0,side*pose.armZ);return {x:p.x+side*.48,y:p.y+.43,z:p.z};};
   add('arm',arm({x:side*.12,y:-.29,z:.02}),arm({x:side*.12,y:.01,z:.02}),.13);
-  const glove=arm({x:side*.16,y:-.4,z:.12});add('glove',glove,glove,.21);
+  const glove=arm({x:side*.16,y:-.4,z:.12});add('glove',glove,glove,.21*(time<Number(k.giantUntil||0)&&side===(k.giantSide||1)?3.4:1));
   const leg=v=>{const p=rotate(v,pose.legX[i],0,side*.12);return {x:p.x+side*.24,y:p.y-.5,z:p.z};};
   add('leg',leg({x:0,y:-.15,z:0}),leg({x:0,y:.11,z:0}),.16);
   add('boot',leg({x:0,y:-.3,z:-.035}),leg({x:0,y:-.3,z:.195}),.12);
@@ -165,6 +174,7 @@ export function collideSoccerKeeper(g,F,time,old){
  }
  if(!hit)return false;
  const k=hit.k,dir=k.team===0?1:-1,{x:bx,y:by,z:bz}=hit.point,pose=sampleSoccerKeeperPose(k,time);
+ if(b.fire&&soccerSecretActive(g)){k.secretKnockback={at:time,until:time+1200,x:pose.x,z:pose.z};b.vx*=.9;b.vz*=.9;b.keeperReleaseUntil=time+1000;g.lastSave={team:k.team,at:time,x:bx,y:by,z:bz,part:'fire-break'};return true;}
  const catchable=Math.hypot(b.vx,b.vy,b.vz)<13&&by<2.2;
  b.x=bx;b.y=Math.max(.3,by);b.z=bz;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:bz,part:hit.part};
  if(catchable){if(k.phase==='dive')k.x=pose.x;holdSoccerKeeperBall(g,k,time);return true;}

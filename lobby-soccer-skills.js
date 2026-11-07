@@ -63,7 +63,7 @@ export function sampleSoccerDribble(age,walking=true,rollAge=-1,rollSide=1,dashi
  if(receive&&!sole){contacts[receiveFoot]=Math.max(contacts[receiveFoot],receive);contacts[1-receiveFoot]*=1-receive;x+=(control.receiveSide*.1-x)*receive;z+=.14*receive;}
  return {x,z,contacts,phase,sole,receive,foot:sole?(rollSide<0?0:1):receive?receiveFoot:foot,push,stride:dashing?1.2:close?.32:.65,precision:close};
 }
-export function sampleSoccerSkill(kind,age,side=1){
+export function sampleSoccerSkill(kind,age,side=1,secret=false){
  const skill=SOCCER_SKILLS[kind];if(!skill||age<0||age>skill.duration)return null;
  const smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
  const curve=(frames,t)=>{let i=1;while(i<frames.length-1&&t>frames[i][0])i++;const a=frames[i-1],b=frames[i],u=smooth((t-a[0])/(b[0]-a[0]));return a.slice(1).map((v,j)=>soccerPoseChannel(frames,i,j+1,t));};
@@ -97,7 +97,7 @@ export function sampleSoccerSkill(kind,age,side=1){
   left=curve([[0,0],[.22,.35],[.38,1.3],[.56,-.55],[1,0]],p)[0];right=curve([[0,0],[.22,-.4],[.38,1.05],[.56,-.35],[1,0]],p)[0];lean=curve([[0,0],[.25,.28],[.4,-.24],[.65,.16],[1,0]],p)[0];bounce=.12*Math.sin(Math.PI*Math.max(0,Math.min(1,(p-.27)/.4)));stance=-.10*w;
  }
  const [x,z,y]=curve(points,p);
- return{side:s,x:x*s,z,y,turn,left:s<0?right:left,right:s<0?left:right,lean,bank,bounce,stance,weight:w,travelX:travelX*s,travelZ,plant};
+ return{side:s,x:x*s*(secret?1.8:1),z,y,turn,left:s<0?right:left,right:s<0?left:right,lean,bank,bounce,stance,weight:w,travelX:travelX*s*(secret?6:1),travelZ,plant};
 }
 
 // Compound strokes select skills; straight strokes remain passes and shots.

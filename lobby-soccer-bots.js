@@ -1,3 +1,4 @@
+import {soccerSecretActive,soccerSecretSpeed,soccerGoalX} from './lobby-soccer-secret.js';
 import {resolveSoccerOverlap} from './lobby-soccer-match.js';
 import {soccerKickoffBlocks} from './lobby-soccer-kickoff.js';
 import {applySoccerPress} from './lobby-soccer-press.js';
@@ -39,7 +40,7 @@ export function stepSoccerBots(g,players,F,time,dt){
   if(frozen){p.walking=false;continue;}
   const skill=g.skills?.[id],spec=SOCCER_SKILLS[skill?.kind];
   if(own&&skill&&!skill.cancelled&&spec&&time<=skill.at+spec.duration){
-   const motion=sampleSoccerSkill(skill.kind,time-skill.at,skill.side);
+   const motion=sampleSoccerSkill(skill.kind,time-skill.at,skill.side,soccerSecretActive(g));
    if(motion){
     const previous=p.skillMotion?.id===skill.id?p.skillMotion:{x:0,z:0},dx=motion.travelX-previous.x,dz=motion.travelZ-previous.z,c=Math.cos(skill.yaw),s=Math.sin(skill.yaw);
     moveSoccerBot(id,p,p.x+c*dx+s*dz,p.z-s*dx+c*dz,players,F);p.yaw=skill.yaw;p.skillMotion={id:skill.id,x:motion.travelX,z:motion.travelZ};changed=true;
@@ -55,6 +56,7 @@ export function stepSoccerBots(g,players,F,time,dt){
    if(press?.held&&time<press.until&&Number.isFinite(press.aimX)){tx=press.aimX;tz=press.aimZ;gap=press.flanking?.12:.72;}
    if(recovering){speed=press.outcome==='beaten'?.4:.9;gap=.9;}
   }else if(role?.role==='chase'||role?.role==='receive'){gap=.1;}
+  speed*=soccerSecretSpeed(g,id);
   const dx=tx-p.x,dz=tz-p.z,d=Math.hypot(dx,dz),step=Math.min(Math.max(0,d-gap),speed*dt);
   moveSoccerBot(id,p,p.x+(d?dx/d*step:0),p.z+(d?dz/d*step:0),players,F);
   const yaw=own?Math.atan2(tx-p.x,tz-p.z):Math.atan2(b.x-p.x,b.z-p.z),turn=Math.atan2(Math.sin(yaw-p.yaw),Math.cos(yaw-p.yaw));p.yaw+=turn*Math.min(1,dt*12);changed=true;
@@ -77,7 +79,7 @@ export function stepSoccerBots(g,players,F,time,dt){
   if(!p.feintPass&&time-p.ownedAt<1050)continue;
   const defender=opponents.some(other=>Math.hypot(players[other].x-p.x,players[other].z-p.z)<3.5),nearGoal=Math.abs(goal-p.z)<10;
   const pass=q&&(!!p.feintPass||!nearGoal||defender||Math.abs(goal-q.z)<=6&&(q.z-p.z)*dir>1),shoot=nearGoal&&!pass;if(!pass&&!shoot){p.feintPass=null;continue;}
-  const keeper=g.keepers?.[1-team],x=pass?q.x:23+(keeper?.x>=23?-1:1)*1.7,z=pass?q.z:goal;
+  const keeper=g.keepers?.[1-team],x=pass?q.x:soccerGoalX(F,goal)+(keeper?.x>=soccerGoalX(F,goal)?-1:1)*1.7,z=pass?q.z:goal;
   if(pass&&!soccerBotPassSafe(b,q,g,players,team,F)){p.feintPass=null;p.nextAction=time+180;continue;}
   const mode=pass?soccerBotPassMode(p,q,g,players,team,F):'shot',kickYaw=Math.atan2(x-b.x,z-b.z);
   g.kicks||={};g.kicks[id]={id:id+':'+time,at:time,yaw:kickYaw,foot:soccerKickFoot(p,b,kickYaw),mode,power:shoot?.82:.62,target:pass?target:'',applied:false};p.yaw=kickYaw;p.nextAction=time+1900;p.ownedAt=0;p.feintPass=null;
