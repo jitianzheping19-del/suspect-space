@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createLobbyGamesRules} from '../lobby-games-rules.js';
 import {soccerRoster,stepSoccerBots} from '../lobby-soccer-bots.js';
-import {soccerBotPassTarget} from '../lobby-soccer-tactics.js';
+import {soccerBotPassTarget,soccerBotPassSafe,soccerBotPassMode} from '../lobby-soccer-tactics.js';
 const R=createLobbyGamesRules(),T=100000,F=R.SOCCER;
 const person=(x,z,extra={})=>({online:true,x,z,yaw:0,lobbyY:0,...extra});
 function fixture(){
@@ -70,3 +70,16 @@ console.log('PASS double-touch and shot-feint animations move the bot, complete 
  const rows=soccerRoster(g,people);rows.marked.observer=true;assert.equal(soccerBotPassTarget(g,'bot',rows,F),'','unavailable teammates are ignored');
 }
 console.log('PASS reselect departed receivers, cancel after possession loss and avoid unnecessary feints');
+
+{
+ const g={members:{bot:0,mate:0,enemy:1}},p={bot:person(23,5),mate:person(23,15),enemy:person(23,6.2)};
+ assert.equal(soccerBotPassTarget(g,'bot',p,F),'','cannot lob through a defender immediately ahead');
+ p.enemy.z=10;assert.equal(soccerBotPassMode(p.bot,p.mate,g,p,0,F),'lob');assert.equal(soccerBotPassTarget(g,'bot',p,F),'mate','lob can clear a distant defender');
+ p.enemy.z=14.3;assert.equal(soccerBotPassTarget(g,'bot',p,F,'mate'),'','reject a now-marked preferred receiver');
+ p.mate=person(27,6);p.enemy=person(25,5.5);assert(!soccerBotPassSafe(p.bot,p.mate,g,p,0,F),'blocked short pass');
+ p.enemy=person(25,9);assert.equal(soccerBotPassTarget(g,'bot',p,F),'mate','open short pass remains available');
+ const {s,g:match,people}=feintFixture();match.bots.bot.ownedAt=T-2000;match.skills={bot:{kind:'doubleTouch',at:T-1000,cooldownUntil:T+5000}};
+ people.host=person(23,20);people.enemy=person(23,11.8);people.marked.online=false;
+ R.step(s,people,T,1/60);assert(!match.kicks.bot||match.kicks.bot.mode==='shot','bot never schedules blocked pass during skill cooldown');
+}
+console.log('PASS close blockers and marked receivers rejected; safe long lob and open short pass preserved');

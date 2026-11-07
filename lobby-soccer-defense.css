@@ -5,3 +5,4 @@
 #soccerMatchupBtn{bottom:0;left:0;background:linear-gradient(145deg,#396a67,#203b45)!important;border-color:#b1f3dc!important;font-size:12px!important}
 #soccerDefenseZone svg{width:42px;height:36px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}#soccerDefenseZone button>*{pointer-events:none}#soccerDefenseZone small{font:650 9px/1.2 system-ui;white-space:nowrap}#soccerDefenseZone button:disabled{opacity:.4}#soccerDefenseZone button.holding{transform:translateY(3px);box-shadow:0 2px 0 #1d181d,0 0 22px #ffcf7355}#soccerDefenseZone button:focus-visible{outline:3px solid white;outline-offset:3px}
 @media(max-height:400px){#soccerDefenseZone{--defense-size:94px;right:max(12px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom))}}
+#soccerDefenseZone button[hidden]{display:none!important}

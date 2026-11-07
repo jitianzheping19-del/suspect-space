@@ -143,8 +143,14 @@ function applySoccerVolleyPose(crew,finish,time,pose,ballMesh){
  const m=sampleSoccerVolley(finish,time);if(!m)return false;
  const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
  for(const n of [crew.root,...crew.legs,...arms])pose(n);
- crew.root.position.y+=m.height;crew.root.rotation.set(m.pitch,finish.yaw,-.12*m.weight,'YXZ');
- crew.legs[1].rotation.x=m.kick;crew.legs[1].position.z+=.3*m.weight;crew.legs[0].rotation.x=m.plant;
+ // Keep the horizontal pivot on the left leg while the hips and right foot rotate.
+ const left=crew.legs[0],baseYaw=finish.yaw,yaw=baseYaw+m.turn;
+ crew.root.position.x+=left.position.x*(Math.cos(baseYaw)-Math.cos(yaw));
+ crew.root.position.z+=left.position.x*(Math.sin(yaw)-Math.sin(baseYaw));
+ crew.root.position.y+=m.height;crew.root.rotation.set(m.pitch,yaw,-.18*m.weight,'YXZ');
+ crew.legs[1].rotation.set(m.kick,m.sweep,-.25*m.weight);
+ crew.legs[1].position.x+=m.rightX;crew.legs[1].position.z+=m.rightZ;
+ left.rotation.set(m.plant,-m.turn,.08*m.weight);
  arms.forEach((a,i)=>{a.rotation.z=(i?1:-1)*m.arms;a.rotation.x=(i?-.6:.4)*m.weight;});alignSoccerFoot(crew,1,finish.contact||ballMesh.getWorldPosition(new THREE.Vector3()),time,finish.contactAt);return true;
 }
 function applySoccerKnockdownPose(crew,down,time,pose){

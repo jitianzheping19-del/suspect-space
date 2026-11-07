@@ -6181,15 +6181,34 @@ function soccerBotAssignments(g,players,F,time){
  g.botTactics={key,at:time,x:b.x,z:b.z,roles};return roles;
 }
 
+// A lob clears distant defenders, but still needs room to rise and to land.
+function soccerBotPassMode(from,to,g,players,team,F){
+ const goal=team===0?F.far:F.near,d=Math.hypot(to.x-from.x,to.z-from.z);
+ return d>=8||Math.abs(goal-to.z)<=6||soccerPassLane(from,to,g,players,team)>.35&&d>5?'lob':'pass';
+}
+function soccerBotPassSafe(from,to,g,players,team,F){
+ const dx=to.x-from.x,dz=to.z-from.z,d=Math.hypot(dx,dz);if(d<.01)return false;
+ const lob=soccerBotPassMode(from,to,g,players,team,F)==='lob';
+ for(const [id,p]of Object.entries(players)){
+  if(!tacticsLive(p)||g.members[id]===undefined||g.members[id]===team)continue;
+  const along=((p.x-from.x)*dx+(p.z-from.z)*dz)/d;
+  const gap=Math.abs((p.x-from.x)*dz-(p.z-from.z)*dx)/d;
+  if(Math.hypot(p.x-to.x,p.z-to.z)<1.5)return false;
+  if(along>0&&along<d&&gap<1.2&&(!lob||along<2.8||d-along<2))return false;
+ }
+ return true;
+}
+
 function soccerBotPassTarget(g,id,players,F,preferred=''){
  const p=players[id],team=g.members[id],dir=team===0?1:-1;
  const choices=Object.keys(g.members).filter(other=>other!==id&&g.members[other]===team&&tacticsLive(players[other])&&players[other].x>F.left+.5&&players[other].x<F.right-.5&&players[other].z>F.near+.5&&players[other].z<F.far-.5&&Math.hypot(players[other].x-p.x,players[other].z-p.z)>2&&Math.hypot(players[other].x-p.x,players[other].z-p.z)<25);
+ const safe=choices.filter(other=>soccerBotPassSafe(p,players[other],g,players,team,F));
  const score=other=>{
   const q=players[other];let space=4;
   for(const [enemy,r]of Object.entries(players))if(tacticsLive(r)&&g.members[enemy]!==undefined&&g.members[enemy]!==team)space=Math.min(space,Math.hypot(q.x-r.x,q.z-r.z));
   return soccerPassLane(p,q,g,players,team)*4+(4-space)*.55+Math.hypot(q.x-p.x,q.z-p.z)*.025-Math.max(-10,Math.min(10,(q.z-p.z)*dir))*.06-(other===preferred?.25:0);
  };
- return choices.sort((a,b)=>score(a)-score(b)||a.localeCompare(b))[0]||'';
+ return safe.sort((a,b)=>score(a)-score(b)||a.localeCompare(b))[0]||'';
 }
 
 // Shared tackle timing: the scene animates travel; the host awards actual ball contact.
@@ -6619,7 +6638,8 @@ function stepSoccerBots(g,players,F,time,dt){
   const defender=opponents.some(other=>Math.hypot(players[other].x-p.x,players[other].z-p.z)<3.5),nearGoal=Math.abs(goal-p.z)<10;
   const pass=q&&(!!p.feintPass||!nearGoal||defender||Math.abs(goal-q.z)<=6&&(q.z-p.z)*dir>1),shoot=nearGoal&&!pass;if(!pass&&!shoot){p.feintPass=null;continue;}
   const keeper=g.keepers?.[1-team],x=pass?q.x:23+(keeper?.x>=23?-1:1)*1.7,z=pass?q.z:goal;
-  const mode=pass?(Math.hypot(x-p.x,z-p.z)>=8||Math.abs(goal-q.z)<=6||soccerPassLane(p,q,g,players,team)>.35&&Math.hypot(x-p.x,z-p.z)>5?'lob':'pass'):'shot',kickYaw=Math.atan2(x-b.x,z-b.z);
+  if(pass&&!soccerBotPassSafe(b,q,g,players,team,F)){p.feintPass=null;p.nextAction=time+180;continue;}
+  const mode=pass?soccerBotPassMode(p,q,g,players,team,F):'shot',kickYaw=Math.atan2(x-b.x,z-b.z);
   g.kicks||={};g.kicks[id]={id:id+':'+time,at:time,yaw:kickYaw,foot:soccerKickFoot(p,b,kickYaw),mode,power:shoot?.82:.62,target:pass?target:'',applied:false};p.yaw=kickYaw;p.nextAction=time+1900;p.ownedAt=0;p.feintPass=null;
  }
  return changed;
@@ -6670,8 +6690,23 @@ function beginSoccerVolley(g,id,p,F,time){
 function sampleSoccerVolley(f,time){
  const age=time-f.at;if(age<0||time>f.until)return null;
  const ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
- const launch=ease(age/180),land=ease((age-300)/400),settle=1-ease((age-650)/500),impact=ease((age-80)/100)*(1-ease((age-230)/320));
- return {height:(.65*launch-.65*land)-.14*Math.sin(land*Math.PI)*settle,pitch:(-.25*launch+.5*land)*settle,kick:-1.65*impact,plant:.9*Math.sin(launch*Math.PI/2)*(1-land),arms:.8*launch*settle,weight:Math.sin(Math.min(1,age/1150)*Math.PI)};
+ // Coil over the left foot, sweep the right leg through contact, then land.
+ const sample=(frames)=>{
+  let i=1;while(i<frames.length-1&&age>frames[i][0])i++;
+  const a=frames[i-1],b=frames[i],u=ease((age-a[0])/(b[0]-a[0]));return a[1]+(b[1]-a[1])*u;
+ };
+ return {
+  height:sample([[0,0],[65,-.1],[180,.62],[340,.7],[620,-.12],[900,0],[1150,0]]),
+  pitch:sample([[0,0],[100,-.22],[180,-.12],[400,.3],[700,.18],[1150,0]]),
+  turn:sample([[0,0],[100,-.72],[180,0],[410,1.05],[700,.4],[1150,0]]),
+  kick:sample([[0,0],[90,.65],[180,-1.65],[360,-.85],[630,.4],[1150,0]]),
+  sweep:sample([[0,0],[100,.85],[180,.12],[380,-1.1],[700,-.3],[1150,0]]),
+  rightX:sample([[0,0],[100,.22],[180,.25],[400,-.3],[700,0],[1150,0]]),
+  rightZ:sample([[0,0],[100,-.3],[180,.35],[400,.35],[700,0],[1150,0]]),
+  plant:sample([[0,0],[80,.12],[250,.75],[440,.45],[620,-.12],[1150,0]]),
+  arms:sample([[0,0],[100,.95],[300,1.1],[650,.45],[1150,0]]),
+  weight:Math.sin(Math.min(1,age/1150)*Math.PI)
+ };
 }
 
 function soccerKickoffBlocks(g,id,time){
@@ -7188,8 +7223,14 @@ function applySoccerVolleyPose(crew,finish,time,pose,ballMesh){
  const m=sampleSoccerVolley(finish,time);if(!m)return false;
  const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];
  for(const n of [crew.root,...crew.legs,...arms])pose(n);
- crew.root.position.y+=m.height;crew.root.rotation.set(m.pitch,finish.yaw,-.12*m.weight,'YXZ');
- crew.legs[1].rotation.x=m.kick;crew.legs[1].position.z+=.3*m.weight;crew.legs[0].rotation.x=m.plant;
+ // Keep the horizontal pivot on the left leg while the hips and right foot rotate.
+ const left=crew.legs[0],baseYaw=finish.yaw,yaw=baseYaw+m.turn;
+ crew.root.position.x+=left.position.x*(Math.cos(baseYaw)-Math.cos(yaw));
+ crew.root.position.z+=left.position.x*(Math.sin(yaw)-Math.sin(baseYaw));
+ crew.root.position.y+=m.height;crew.root.rotation.set(m.pitch,yaw,-.18*m.weight,'YXZ');
+ crew.legs[1].rotation.set(m.kick,m.sweep,-.25*m.weight);
+ crew.legs[1].position.x+=m.rightX;crew.legs[1].position.z+=m.rightZ;
+ left.rotation.set(m.plant,-m.turn,.08*m.weight);
  arms.forEach((a,i)=>{a.rotation.z=(i?1:-1)*m.arms;a.rotation.x=(i?-.6:.4)*m.weight;});alignSoccerFoot(crew,1,finish.contact||ballMesh.getWorldPosition(new THREE.Vector3()),time,finish.contactAt);return true;
 }
 function applySoccerKnockdownPose(crew,down,time,pose){
@@ -7260,7 +7301,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   for(const [name,root]of Object.entries(roots)){root.name='lobby-game-'+name;root.visible=false;scene.add(root);}
   // Screen-space bar anchored to the local player's feet, inside the game iframe.
   const staminaGauge=document.createElement('div');staminaGauge.id='soccerStamina';staminaGauge.hidden=true;
-  staminaGauge.style.cssText='position:fixed;z-index:30;width:66px;height:6px;padding:2px;background:#071b2bd9;border:1px solid #b7f6df99;border-radius:6px;transform:translateX(-50%);pointer-events:none;box-shadow:0 2px 5px #0006';
+  staminaGauge.style.cssText='position:fixed;z-index:30;box-sizing:content-box;width:66px;height:6px;padding:2px;background:#071b2bd9;border:1px solid #b7f6df99;border-radius:6px;transform:translateX(-50%);pointer-events:none;box-shadow:0 2px 5px #0006';
   staminaGauge.setAttribute('role','progressbar');staminaGauge.setAttribute('aria-label','ダッシュのスタミナ');staminaGauge.setAttribute('aria-valuemin','0');staminaGauge.setAttribute('aria-valuemax','100');
   const staminaFill=document.createElement('div');staminaFill.style.cssText='height:100%;border-radius:4px;transform-origin:left;background:linear-gradient(90deg,#39bcac,#b8ffe3)';staminaGauge.append(staminaFill);document.body.append(staminaGauge);
   const staminaPoint=new THREE.Vector3();
@@ -7277,10 +7318,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const mats=new Map(),unitBox=new THREE.BoxGeometry(1,1,1);
   function material(color){if(!mats.has(color))mats.set(color,new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.12}));return mats.get(color);}
   function box(root,x,y,z,w,h,d,color){const m=new THREE.Mesh(unitBox,material(color));m.position.set(x,y,z);m.scale.set(w,h,d);root.add(m);return m;}
-  function sign(root,text,x,y,z,width=4){
-    const c=document.createElement('canvas');c.width=1024;c.height=192;const g=c.getContext('2d');
-    const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*192/1024),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);root.add(m);
-    m.userData.setText=value=>{if(m.userData.text===value)return;m.userData.text=value;g.fillStyle='#102635';g.fillRect(0,0,1024,192);g.strokeStyle='#d6bb87';g.lineWidth=8;g.strokeRect(6,6,1012,180);g.fillStyle='#fff3d7';g.font='700 74px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(value,512,96,960);map.needsUpdate=true;};m.userData.setText(text);return m;
+  function sign(root,text,x,y,z,width=4,numeric=false){
+    const c=document.createElement('canvas');c.width=numeric?256:1024;c.height=192;const g=c.getContext('2d');
+    const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*192/c.width),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);root.add(m);
+    m.userData.setText=value=>{if(m.userData.text===value)return;m.userData.text=value;g.fillStyle='#102635';g.fillRect(0,0,c.width,192);g.strokeStyle='#d6bb87';g.lineWidth=8;g.strokeRect(6,6,c.width-12,180);g.fillStyle='#fff3d7';g.font=numeric?'900 148px system-ui':'700 74px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(value,c.width/2,96,c.width-32);map.needsUpdate=true;};m.userData.setText(text);return m;
   }
   function door(x,z,text,side){
     const root=new THREE.Group();root.name='lobby-'+side+'-game-door';root.position.set(x,0,z);root.rotation.y=side==='survival'?Math.PI/2:-Math.PI/2;scene.add(root);
@@ -7376,8 +7417,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const botDisplay=new THREE.Group();botDisplay.name='soccer-bot-display';botDisplay.position.set(34.35,0,10);botDisplay.rotation.y=-Math.PI/2;soccer.add(botDisplay);
   box(botDisplay,0,3.6,0,5.3,1.8,.35,'#0c1d30');box(botDisplay,0,4.53,0,5.4,.08,.4,'#78e9dd');box(botDisplay,0,2.67,0,5.4,.08,.4,'#78e9dd');
   sign(botDisplay,'BOT PLAYERS',0,4.12,.2,3.2);
-  const botDisplayCount=sign(botDisplay,'青 1人   |   赤 1人',0,3.48,.2,4.7);botDisplayCount.name='soccer-bot-display-count';
-  const botDisplayTotal=sign(botDisplay,'合計 2人 · GK 2人',0,2.96,.2,3.8);
+  const botDisplayCounts=[-1,1].map((side,i)=>{
+    sign(botDisplay,i?'赤':'青',side*1.35,3.92,.21,1.2);
+    const count=sign(botDisplay,'1',side*1.35,3.3,.21,1.5,true);count.name='soccer-bot-display-'+(i?'red':'blue');return count;
+  });
   const startLabel=station('start','スタート',10,1.35,2.8);
   const blueLabel=station('blue-count','青 BOT 1',6.2,2.2,3),redLabel=station('red-count','赤 BOT 1',13.8,2.2,3);
   station('blue-minus','−',5.4,1.1,1.2);station('blue-plus','＋',7,1.1,1.2);
@@ -7398,7 +7441,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   },{passive:false});
   function updateStations(){const playing=rules.active(state?.soccer),options=state?.soccer?.botOptions||{blue:1,red:1};
     const bots=Object.values(state?.soccer?.bots||{}),counts=playing?[0,1].map(team=>bots.filter(p=>p.online!==false&&p.team===team).length):[options.enabled===false?0:options.blue,options.enabled===false?0:options.red];
-    botDisplayCount.userData.setText(`青 ${counts[0]}人   |   赤 ${counts[1]}人`);botDisplayTotal.userData.setText(`合計 ${counts[0]+counts[1]}人 · GK 2人`);
+    botDisplayCounts.forEach((label,i)=>label.userData.setText(String(counts[i])));
     blueLabel.userData.setText('青 BOT '+counts[0]);redLabel.userData.setText('赤 BOT '+counts[1]);startLabel.userData.setText(playing?'試合終了':'スタート');
     for(const s of stations){s.root.visible=!playing||['start','exit','blue-count','red-count'].includes(s.id);s.label.material.opacity=uid===host||s.id==='exit'?1:.65;s.label.material.transparent=true;}
   }

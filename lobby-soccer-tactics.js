@@ -75,13 +75,32 @@ export function soccerBotAssignments(g,players,F,time){
  g.botTactics={key,at:time,x:b.x,z:b.z,roles};return roles;
 }
 
+// A lob clears distant defenders, but still needs room to rise and to land.
+export function soccerBotPassMode(from,to,g,players,team,F){
+ const goal=team===0?F.far:F.near,d=Math.hypot(to.x-from.x,to.z-from.z);
+ return d>=8||Math.abs(goal-to.z)<=6||soccerPassLane(from,to,g,players,team)>.35&&d>5?'lob':'pass';
+}
+export function soccerBotPassSafe(from,to,g,players,team,F){
+ const dx=to.x-from.x,dz=to.z-from.z,d=Math.hypot(dx,dz);if(d<.01)return false;
+ const lob=soccerBotPassMode(from,to,g,players,team,F)==='lob';
+ for(const [id,p]of Object.entries(players)){
+  if(!tacticsLive(p)||g.members[id]===undefined||g.members[id]===team)continue;
+  const along=((p.x-from.x)*dx+(p.z-from.z)*dz)/d;
+  const gap=Math.abs((p.x-from.x)*dz-(p.z-from.z)*dx)/d;
+  if(Math.hypot(p.x-to.x,p.z-to.z)<1.5)return false;
+  if(along>0&&along<d&&gap<1.2&&(!lob||along<2.8||d-along<2))return false;
+ }
+ return true;
+}
+
 export function soccerBotPassTarget(g,id,players,F,preferred=''){
  const p=players[id],team=g.members[id],dir=team===0?1:-1;
  const choices=Object.keys(g.members).filter(other=>other!==id&&g.members[other]===team&&tacticsLive(players[other])&&players[other].x>F.left+.5&&players[other].x<F.right-.5&&players[other].z>F.near+.5&&players[other].z<F.far-.5&&Math.hypot(players[other].x-p.x,players[other].z-p.z)>2&&Math.hypot(players[other].x-p.x,players[other].z-p.z)<25);
+ const safe=choices.filter(other=>soccerBotPassSafe(p,players[other],g,players,team,F));
  const score=other=>{
   const q=players[other];let space=4;
   for(const [enemy,r]of Object.entries(players))if(tacticsLive(r)&&g.members[enemy]!==undefined&&g.members[enemy]!==team)space=Math.min(space,Math.hypot(q.x-r.x,q.z-r.z));
   return soccerPassLane(p,q,g,players,team)*4+(4-space)*.55+Math.hypot(q.x-p.x,q.z-p.z)*.025-Math.max(-10,Math.min(10,(q.z-p.z)*dir))*.06-(other===preferred?.25:0);
  };
- return choices.sort((a,b)=>score(a)-score(b)||a.localeCompare(b))[0]||'';
+ return safe.sort((a,b)=>score(a)-score(b)||a.localeCompare(b))[0]||'';
 }

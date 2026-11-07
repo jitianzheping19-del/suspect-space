@@ -52,7 +52,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   for(const [name,root]of Object.entries(roots)){root.name='lobby-game-'+name;root.visible=false;scene.add(root);}
   // Screen-space bar anchored to the local player's feet, inside the game iframe.
   const staminaGauge=document.createElement('div');staminaGauge.id='soccerStamina';staminaGauge.hidden=true;
-  staminaGauge.style.cssText='position:fixed;z-index:30;width:66px;height:6px;padding:2px;background:#071b2bd9;border:1px solid #b7f6df99;border-radius:6px;transform:translateX(-50%);pointer-events:none;box-shadow:0 2px 5px #0006';
+  staminaGauge.style.cssText='position:fixed;z-index:30;box-sizing:content-box;width:66px;height:6px;padding:2px;background:#071b2bd9;border:1px solid #b7f6df99;border-radius:6px;transform:translateX(-50%);pointer-events:none;box-shadow:0 2px 5px #0006';
   staminaGauge.setAttribute('role','progressbar');staminaGauge.setAttribute('aria-label','ダッシュのスタミナ');staminaGauge.setAttribute('aria-valuemin','0');staminaGauge.setAttribute('aria-valuemax','100');
   const staminaFill=document.createElement('div');staminaFill.style.cssText='height:100%;border-radius:4px;transform-origin:left;background:linear-gradient(90deg,#39bcac,#b8ffe3)';staminaGauge.append(staminaFill);document.body.append(staminaGauge);
   const staminaPoint=new THREE.Vector3();
@@ -69,10 +69,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const mats=new Map(),unitBox=new THREE.BoxGeometry(1,1,1);
   function material(color){if(!mats.has(color))mats.set(color,new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.12}));return mats.get(color);}
   function box(root,x,y,z,w,h,d,color){const m=new THREE.Mesh(unitBox,material(color));m.position.set(x,y,z);m.scale.set(w,h,d);root.add(m);return m;}
-  function sign(root,text,x,y,z,width=4){
-    const c=document.createElement('canvas');c.width=1024;c.height=192;const g=c.getContext('2d');
-    const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*192/1024),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);root.add(m);
-    m.userData.setText=value=>{if(m.userData.text===value)return;m.userData.text=value;g.fillStyle='#102635';g.fillRect(0,0,1024,192);g.strokeStyle='#d6bb87';g.lineWidth=8;g.strokeRect(6,6,1012,180);g.fillStyle='#fff3d7';g.font='700 74px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(value,512,96,960);map.needsUpdate=true;};m.userData.setText(text);return m;
+  function sign(root,text,x,y,z,width=4,numeric=false){
+    const c=document.createElement('canvas');c.width=numeric?256:1024;c.height=192;const g=c.getContext('2d');
+    const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*192/c.width),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);root.add(m);
+    m.userData.setText=value=>{if(m.userData.text===value)return;m.userData.text=value;g.fillStyle='#102635';g.fillRect(0,0,c.width,192);g.strokeStyle='#d6bb87';g.lineWidth=8;g.strokeRect(6,6,c.width-12,180);g.fillStyle='#fff3d7';g.font=numeric?'900 148px system-ui':'700 74px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(value,c.width/2,96,c.width-32);map.needsUpdate=true;};m.userData.setText(text);return m;
   }
   function door(x,z,text,side){
     const root=new THREE.Group();root.name='lobby-'+side+'-game-door';root.position.set(x,0,z);root.rotation.y=side==='survival'?Math.PI/2:-Math.PI/2;scene.add(root);
@@ -168,8 +168,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const botDisplay=new THREE.Group();botDisplay.name='soccer-bot-display';botDisplay.position.set(34.35,0,10);botDisplay.rotation.y=-Math.PI/2;soccer.add(botDisplay);
   box(botDisplay,0,3.6,0,5.3,1.8,.35,'#0c1d30');box(botDisplay,0,4.53,0,5.4,.08,.4,'#78e9dd');box(botDisplay,0,2.67,0,5.4,.08,.4,'#78e9dd');
   sign(botDisplay,'BOT PLAYERS',0,4.12,.2,3.2);
-  const botDisplayCount=sign(botDisplay,'青 1人   |   赤 1人',0,3.48,.2,4.7);botDisplayCount.name='soccer-bot-display-count';
-  const botDisplayTotal=sign(botDisplay,'合計 2人 · GK 2人',0,2.96,.2,3.8);
+  const botDisplayCounts=[-1,1].map((side,i)=>{
+    sign(botDisplay,i?'赤':'青',side*1.35,3.92,.21,1.2);
+    const count=sign(botDisplay,'1',side*1.35,3.3,.21,1.5,true);count.name='soccer-bot-display-'+(i?'red':'blue');return count;
+  });
   const startLabel=station('start','スタート',10,1.35,2.8);
   const blueLabel=station('blue-count','青 BOT 1',6.2,2.2,3),redLabel=station('red-count','赤 BOT 1',13.8,2.2,3);
   station('blue-minus','−',5.4,1.1,1.2);station('blue-plus','＋',7,1.1,1.2);
@@ -190,7 +192,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   },{passive:false});
   function updateStations(){const playing=rules.active(state?.soccer),options=state?.soccer?.botOptions||{blue:1,red:1};
     const bots=Object.values(state?.soccer?.bots||{}),counts=playing?[0,1].map(team=>bots.filter(p=>p.online!==false&&p.team===team).length):[options.enabled===false?0:options.blue,options.enabled===false?0:options.red];
-    botDisplayCount.userData.setText(`青 ${counts[0]}人   |   赤 ${counts[1]}人`);botDisplayTotal.userData.setText(`合計 ${counts[0]+counts[1]}人 · GK 2人`);
+    botDisplayCounts.forEach((label,i)=>label.userData.setText(String(counts[i])));
     blueLabel.userData.setText('青 BOT '+counts[0]);redLabel.userData.setText('赤 BOT '+counts[1]);startLabel.userData.setText(playing?'試合終了':'スタート');
     for(const s of stations){s.root.visible=!playing||['start','exit','blue-count','red-count'].includes(s.id);s.label.material.opacity=uid===host||s.id==='exit'?1:.65;s.label.material.transparent=true;}
   }

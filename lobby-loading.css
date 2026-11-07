@@ -11,3 +11,7 @@
 .lobbyLoadingCard progress{height:5px;box-shadow:0 0 18px #74e6ff44}.lobbyLoadingCard progress::-webkit-progress-value{background:linear-gradient(90deg,#649bff,#86ffe4);border-radius:8px;transition:width .25s}
 @keyframes lobby-orbit{to{transform:rotate(360deg)}}@keyframes lobby-core{50%{box-shadow:0 0 80px #38a6f750,inset 0 0 32px #7df1e533}}@keyframes lobby-star-drift{to{transform:translate3d(90px,-120px,0)}}
 @media(prefers-reduced-motion:reduce){#lobbyLoadingScreen:before,.lobbyLoadingOrbit,.lobbyLoadingOrbit:before,.lobbyLoadingOrbit:after{animation:none}}
+
+.lobbyLoadingTrack{width:100%;height:7px;overflow:hidden;border-radius:8px;background:#203b4c;box-shadow:0 0 18px #74e6ff44}
+.lobbyLoadingFill{display:block;width:100%;height:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#649bff,#86ffe4);border-radius:inherit}
+@layer play-action-layout{html body[data-lobby-loading="true"] :is(#lobbyUseBtn,.lobbyActionCanvas){display:none!important;visibility:hidden!important;pointer-events:none!important}}

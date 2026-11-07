@@ -35,7 +35,6 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
   raf=0;const c=context();
   if(!c.visible||document.hidden||!document.hasFocus()){cancel();return;}
   if(gesture&&!c.enabled)clearKick();
-  if(hold?.dashing&&!c.pending&&!c.canDash&&!c.dashing)clearFeint();
   if(hold){
    if(!hold.flick&&clock()-hold.at>=DASH_HOLD_MS){
     hold.long=true;window.clearTimeout(feintTimer);feintTap=null;
@@ -74,7 +73,7 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
  feint.addEventListener('pointerdown',event=>{
   const c=context();if(event.button!==0||hold||!c.visible||feint.disabled)return;event.preventDefault();event.stopPropagation();if(kickFeint(c))return;clearTap();hold={doubleTap:consumeFeintTap(),id:event.pointerId,at:clock(),lastSent:-Infinity,long:false,dashing:false,x:event.clientX,y:event.clientY,yaw:c.yaw,basis:c};feint.setPointerCapture?.(event.pointerId);feint.classList.add('holding');feint.setAttribute('aria-pressed','true');startAnimation();
  },{passive:false});
- function feintDirection(event){if(!hold||hold.x===undefined)return;const dx=event.clientX-hold.x,dy=event.clientY-hold.y;if(Math.hypot(dx,dy)<20)return;
+ function feintDirection(event){if(!hold||hold.long||hold.x===undefined)return;const dx=event.clientX-hold.x,dy=event.clientY-hold.y;if(Math.hypot(dx,dy)<20)return;
   const b=hold.basis,wx=dx*b.rightX-dy*b.forwardX,wz=dx*b.rightZ-dy*b.forwardZ,yaw=hold.yaw;
   hold.flick={x:wx*Math.cos(yaw)-wz*Math.sin(yaw),z:wx*Math.sin(yaw)+wz*Math.cos(yaw)};
  }
@@ -102,7 +101,8 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
  window.addEventListener('touchcancel',cancel,{passive:true});
  window.addEventListener('blur',cancel);window.addEventListener('pagehide',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel();});
  function update(){
-  const c=context();zone.hidden=!c.visible||!(c.hasBall||c.teammateBall||c.shotBuffered||c.volleyReady||c.overheadReady||c.headerReady);
+  const c=context(),attacking=c.hasBall||c.teammateBall||c.shotBuffered||c.volleyReady||c.overheadReady||c.headerReady;zone.hidden=!c.visible||!attacking&&!hold;
+  kick.hidden=!attacking;feint.hidden=!!c.defenseDashHeld;
   if(zone.hidden){cancel();return;}
   if(firstTap&&!c.enabled)clearTap();
   if(gesture&&!c.enabled)clearKick();
@@ -113,5 +113,5 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
   if(duel&&key!==lastDuel){lastDuel=key;feedback.textContent=duel.text;feedback.dataset.result=duel.result;feedbackUntil=clock()+1300;}
   feedback.hidden=clock()>=Math.max(feedbackUntil,noticeUntil);model.draw(clock(),hold?.dashing?'dash':'feint',!!hold);
  }
- return{update,cancel};
+ return{update,cancel,get dashHeld(){return !!hold;}};
 }

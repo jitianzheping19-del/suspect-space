@@ -44,6 +44,21 @@ export function beginSoccerVolley(g,id,p,F,time){
 export function sampleSoccerVolley(f,time){
  const age=time-f.at;if(age<0||time>f.until)return null;
  const ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
- const launch=ease(age/180),land=ease((age-300)/400),settle=1-ease((age-650)/500),impact=ease((age-80)/100)*(1-ease((age-230)/320));
- return {height:(.65*launch-.65*land)-.14*Math.sin(land*Math.PI)*settle,pitch:(-.25*launch+.5*land)*settle,kick:-1.65*impact,plant:.9*Math.sin(launch*Math.PI/2)*(1-land),arms:.8*launch*settle,weight:Math.sin(Math.min(1,age/1150)*Math.PI)};
+ // Coil over the left foot, sweep the right leg through contact, then land.
+ const sample=(frames)=>{
+  let i=1;while(i<frames.length-1&&age>frames[i][0])i++;
+  const a=frames[i-1],b=frames[i],u=ease((age-a[0])/(b[0]-a[0]));return a[1]+(b[1]-a[1])*u;
+ };
+ return {
+  height:sample([[0,0],[65,-.1],[180,.62],[340,.7],[620,-.12],[900,0],[1150,0]]),
+  pitch:sample([[0,0],[100,-.22],[180,-.12],[400,.3],[700,.18],[1150,0]]),
+  turn:sample([[0,0],[100,-.72],[180,0],[410,1.05],[700,.4],[1150,0]]),
+  kick:sample([[0,0],[90,.65],[180,-1.65],[360,-.85],[630,.4],[1150,0]]),
+  sweep:sample([[0,0],[100,.85],[180,.12],[380,-1.1],[700,-.3],[1150,0]]),
+  rightX:sample([[0,0],[100,.22],[180,.25],[400,-.3],[700,0],[1150,0]]),
+  rightZ:sample([[0,0],[100,-.3],[180,.35],[400,.35],[700,0],[1150,0]]),
+  plant:sample([[0,0],[80,.12],[250,.75],[440,.45],[620,-.12],[1150,0]]),
+  arms:sample([[0,0],[100,.95],[300,1.1],[650,.45],[1150,0]]),
+  weight:Math.sin(Math.min(1,age/1150)*Math.PI)
+ };
 }

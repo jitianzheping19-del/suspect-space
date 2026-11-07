@@ -25,3 +25,4 @@
 
 #soccerKickBtn[data-mode="overhead"]{background:linear-gradient(150deg,#7959a8,#43305f);border-color:#f5dc9d;color:#fff6dd}
 #soccerKickBtn[data-mode="overhead"]>span{font-size:13px;white-space:nowrap}
+#soccerFlickZone button[hidden]{display:none!important}

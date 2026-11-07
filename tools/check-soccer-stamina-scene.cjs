@@ -26,20 +26,41 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
      window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'lobby-soccer-camera',mode}}));
      __lobbyGames.updateCamera(.016,{target:new QA.THREE.Vector3()});
      __lobbyGames.beforeRender(.016);
-     const p=QA.player.root.position.clone().project(QA.camera),g=document.getElementById('soccerStamina'),rect=g.getBoundingClientRect();
-     readings.push({mode,hidden:g.hidden,text:g.textContent,level:g.getAttribute('aria-valuenow'),x:parseFloat(g.style.left),y:parseFloat(g.style.top),expectedX:(p.x+1)*width/2,expectedY:(1-p.y)*height/2+10,cameraX:QA.camera.position.x,playerX:QA.player.root.position.x});__lobbyGames.afterRender();
+     const p=QA.player.root.position.clone().project(QA.camera),g=document.getElementById('soccerStamina'),rect=g.getBoundingClientRect(),fill=g.firstElementChild.getBoundingClientRect();
+     readings.push({fillHeight:fill.height,fillWidth:fill.width,mode,hidden:g.hidden,text:g.textContent,level:g.getAttribute('aria-valuenow'),x:parseFloat(g.style.left),y:parseFloat(g.style.top),expectedX:(p.x+1)*width/2,expectedY:(1-p.y)*height/2+10,cameraX:QA.camera.position.x,playerX:QA.player.root.position.x});__lobbyGames.afterRender();
     }
     state.soccer.bots={a:{online:true,team:0},b:{online:true,team:1},c:{online:true,team:1}};sync();__lobbyGames.update(.016);__lobbyGames.beforeRender(.016);__lobbyGames.afterRender();
-    const board=QA.scene.getObjectByName('soccer-bot-display-count').userData.text;
-    state.soccer.bots={};sync();__lobbyGames.update(.016);__lobbyGames.beforeRender(.016);__lobbyGames.afterRender();const emptyBoard=QA.scene.getObjectByName('soccer-bot-display-count').userData.text;
+    const board=['blue','red'].map(team=>QA.scene.getObjectByName('soccer-bot-display-'+team).userData.text);
+    state.soccer.bots={};sync();__lobbyGames.update(.016);__lobbyGames.beforeRender(.016);__lobbyGames.afterRender();const emptyBoard=['blue','red'].map(team=>QA.scene.getObjectByName('soccer-bot-display-'+team).userData.text);
     testNow+=5000;__lobbyGames.updateCamera(.016,{target:new QA.THREE.Vector3()});__lobbyGames.beforeRender(.016);__lobbyGames.afterRender();const recovered=document.getElementById('soccerStamina').hidden;
     __lobbyGames.exit();return {readings,board,emptyBoard,recovered,exitHidden:document.getElementById('soccerStamina').hidden};
    },{width,height});
-   for(const r of result.readings){assert(!r.hidden);assert.equal(r.text,'');assert.equal(r.level,'90');assert(Math.abs(r.x-r.expectedX)<.01&&Math.abs(r.y-r.expectedY)<.01);if(r.mode==='side')assert(r.cameraX<r.playerX,'camera uses opposite touchline');}
-   assert.equal(result.board,'青 1人   |   赤 2人');assert.equal(result.emptyBoard,'青 0人   |   赤 0人');assert(result.recovered&&result.exitHidden);
+   for(const r of result.readings){assert(!r.hidden);assert.equal(r.text,'');assert.equal(r.level,'90');assert(r.fillHeight>=4&&r.fillWidth>50,'stamina fill must have visible pixels');assert(Math.abs(r.x-r.expectedX)<.01&&Math.abs(r.y-r.expectedY)<.01);if(r.mode==='side')assert(r.cameraX<r.playerX,'camera uses opposite touchline');}
+   assert.deepEqual(result.board,['1','2']);assert.deepEqual(result.emptyBoard,['0','0']);assert(result.recovered&&result.exitHidden);
    console.log('PASS player-anchored number-free stamina in all cameras, opposite side view and live 3D bot counts',width,height);
    await page.evaluate(()=>{QA.player.root.position.set(11.9,0,2.1);__lobbyGames.update(.016);QA.player.root.position.x=13;__lobbyGames.update(.016);});
   }
+  const volley=await page.evaluate(()=>{
+   fixture();state.soccer.finishes={self:{kind:'volley',at:200000,contactAt:200180,until:201150,yaw:0,fromYaw:0,contact:{x:23.3,y:1,z:8.65}}};
+   Object.assign(state.soccer.ball,{x:23.3,y:1,z:8.65,dribbler:'',lastTouch:'enemy'});
+   const readings=[],shots=[];QA.camera.position.set(26,2.7,12);QA.camera.lookAt(23,1,8);
+   for(const age of [0,65,100,180,380,620,1150]){
+    testNow=200000+age;sync();const before=JSON.stringify(signature());__lobbyGames.beforeRender(.016);QA.scene.updateMatrixWorld(true);
+    const left=QA.player.legs[0].getWorldPosition(new QA.THREE.Vector3()),right=QA.player.legs[1].localToWorld(new QA.THREE.Vector3(0,-.25,0));
+    readings.push({age,yaw:QA.player.root.rotation.y,left:left.toArray(),right:right.toArray(),restored:false});
+    if([100,180,380].includes(age)){QA.renderer.render(QA.scene,QA.camera);shots.push({age,png:QA.renderer.domElement.toDataURL('image/png')});}
+    __lobbyGames.afterRender();readings.at(-1).restored=before===JSON.stringify(signature());
+   }
+   return {readings,shots};
+  });
+  assert(volley.readings.every(r=>r.restored),'all volley poses restore the movement rig');
+  const at=age=>volley.readings.find(r=>r.age===age);
+  assert(at(100).yaw<-.5&&at(380).yaw>.8,'hips wind up and follow through around the left leg');
+  assert(Math.hypot(at(65).left[0]-at(0).left[0],at(65).left[2]-at(0).left[2])<.15,'left leg anchors takeoff');
+  assert(Math.hypot(at(180).right[0]-23.3,at(180).right[1]-1,at(180).right[2]-8.65)<.5,'right boot reaches the ball at contact');
+  if(process.env.VISUAL_SHOTS){fs.mkdirSync(process.env.VISUAL_SHOTS,{recursive:true});for(const s of volley.shots)fs.writeFileSync(process.env.VISUAL_SHOTS+'/volley-'+s.age+'.png',Buffer.from(s.png.split(',')[1],'base64'));}
+  console.log('PASS volley left pivot, right-foot contact, rotating follow-through and restored movement pose');
+
   const mismatch=await page.evaluate(()=>{
    let max=0;fixture();
    for(const team of [0,1])for(const phase of ['ready','dive','recover'])for(const age of [40,180,380,640]){
