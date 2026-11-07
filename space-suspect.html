@@ -11171,7 +11171,8 @@ async function unpackEmbeddedAssets(base64){
 }
 const EMBEDDED_ASSETS=await unpackEmbeddedAssets(EMBEDDED_ASSET_PAYLOAD);
 /* SS_EMBEDDED_ASSETS_V1_END */
-const RULES=await fetch(new URL("./database.rules.json",import.meta.url),{signal:AbortSignal.timeout(5000)}).then(r=>r.ok?r.json():EMBEDDED_ASSETS.RULES).catch(()=>EMBEDDED_ASSETS.RULES);
+// The build already embeds the same rules; avoid a duplicate startup request.
+const RULES=EMBEDDED_ASSETS.RULES;
 
 Object.assign(RULES.rules.rooms["$room"],{
   voicePresence:{

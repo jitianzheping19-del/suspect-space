@@ -2,10 +2,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { createHash } from "node:crypto";
+import { legacyGameEntries, canonicalGameEntryPlugin } from './tools/game-entrypoints.mjs';
 
 const input = Object.fromEntries(
   readdirSync(process.cwd())
-    .filter((file) => file.endsWith(".html"))
+    .filter((file) => file.endsWith(".html") && !legacyGameEntries.includes(file))
     .map((file) => [file.slice(0, -5), resolve(process.cwd(), file)]),
 );
 
@@ -31,6 +32,7 @@ const aliases = existsSync(noiseCancellerPackage)
 export default defineConfig({
   base: "/suspect-space/",
   plugins: [
+    canonicalGameEntryPlugin(),
     {name:'persistent-game-assets',generateBundle(_options,bundle){
       const version=createHash('sha256').update(Object.keys(bundle).sort().join('\n')).digest('hex').slice(0,16);
       const source=readFileSync(resolve(process.cwd(),'game-cache-worker.js'),'utf8').replace('__ASSET_VERSION__',version);
@@ -54,7 +56,7 @@ export default defineConfig({
             icon.src = "/suspect-space/" + this.getFileName(reference);
           }
           manifest.id = "/suspect-space/space-suspect-complete.html";
-          manifest.start_url = "/suspect-space/space-suspect-complete.html";
+          manifest.start_url = "/suspect-space/";
           manifest.scope = "/suspect-space/";
           asset.source = JSON.stringify(manifest, null, 2) + "\n";
         }
