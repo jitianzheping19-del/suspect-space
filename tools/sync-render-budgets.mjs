@@ -4,8 +4,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {renderBudgetSource} from '../render-performance.js';
 
 const targets=[
-  ...['index.html','space-suspect-complete.html','space-suspect.html','space-suspect-final.html']
-    .map(file=>({file,marker:'TASK_MACHINE_RENDER_BUDGET',name:'machineBudget'})),
+  {file:'index.html',marker:'TASK_MACHINE_RENDER_BUDGET',name:'machineBudget'},
   {file:'assets-source/lobby-lounge.html',marker:'LOBBY_RENDER_BUDGET',name:'lobbyBudget'},
 ];
 for(const {file,marker,name} of targets){

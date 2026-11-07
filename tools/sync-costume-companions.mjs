@@ -12,7 +12,7 @@ const premiumMarker=/\/\* GIFT_SKIN_V1_BEGIN \*\/[\s\S]*?\/\* GIFT_SKIN_V1_END \
 const marker=/\/\* DETAILED_COMPANIONS_V1_BEGIN[\s\S]*?\/\* DETAILED_COMPANIONS_V1_END \*\//;
 const wearableMarker=/\/\* DETAILED_WEARABLES_V1_BEGIN[\s\S]*?\/\* DETAILED_WEARABLES_V1_END \*\//;
 const builderMarker=/function buildLightCostume\(THREE,code\)\{[\s\S]*?\n  return root;\n\}/;
-const entries=['index.html','space-suspect-complete.html','space-suspect.html','space-suspect-final.html'];
+const entries=['index.html'];
 const authoritative=await readFile('index.html','utf8');
 const builder=authoritative.match(builderMarker)?.[0];
 if(!builder?.includes('buildDetailedCompanion')||!builder.includes('buildDetailedWearable'))throw new Error('Costume builder missing sculpt hooks');

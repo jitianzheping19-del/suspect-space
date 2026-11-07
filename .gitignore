@@ -8,3 +8,7 @@ tmp/
 !.env.example
 public/ejection-meeting-preview.html
 public/pet-models-preview.js
+# Compatibility editions are generated from index.html; never edit separately.
+/space-suspect-complete.html
+/space-suspect.html
+/space-suspect-final.html

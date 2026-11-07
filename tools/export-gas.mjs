@@ -7,9 +7,7 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd(),out=resolve(process.argv[2]||'/workspace/artifacts/gas-oct22');
 await mkdir(out,{recursive:true});
-let html=await readFile('space-suspect-complete.html','utf8');
-html=html.replace(/^const RULES=await fetch\(new URL\("\.\/database\.rules\.json",import\.meta\.url\)[^\n]*$/m,
-  'const RULES='+JSON.stringify(JSON.parse(await readFile('database.rules.json','utf8')))+';');
+let html=await readFile('index.html','utf8');
 // Optional, isolated browser fixtures are never included in delivered documents.
 if(process.env.GAS_QA_PROBE_FILE){
   const probe=await readFile(process.env.GAS_QA_PROBE_FILE,'utf8');

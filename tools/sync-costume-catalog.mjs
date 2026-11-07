@@ -5,7 +5,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 const catalog=JSON.parse(await readFile('assets-source/costume-expansion-catalog.json','utf8'));
 const categories={'帽子':'hat','リュック':'bag','ペット':'pet','下の服':'bottom','アクセサリー（大）':'accessory'};
 const newIds=Object.values(catalog).flat().map(row=>row[0]);
-for(const file of ['index.html','space-suspect-complete.html','space-suspect.html','space-suspect-final.html']){
+for(const file of ['index.html']){
   let source=await readFile(file,'utf8');
   source=source.replace(/(\{title:"([^"]+)",icon:"[^"]+",items:)(\[\[.*?\]\])(\})/g,(match,prefix,title,items,suffix)=>{
     const additions=catalog[categories[title]];if(!additions)return match;

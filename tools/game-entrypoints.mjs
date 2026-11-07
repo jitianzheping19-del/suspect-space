@@ -1,5 +1,5 @@
-// Standalone source editions remain available to the GAS exporter. Pages ships
-// one game bundle; existing bookmarks and installed app URLs resolve to it.
+// Legacy source copies are generated locally; only index.html is maintained.
+// Pages ships one game bundle; existing bookmarks and installed apps resolve to it.
 export const legacyGameEntries=['space-suspect-complete.html','space-suspect.html','space-suspect-final.html'];
 
 export function gameEntryRedirect(){

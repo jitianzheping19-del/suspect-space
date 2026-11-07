@@ -1,7 +1,7 @@
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {gunzipSync} from 'node:zlib';
 import {patchMeetingRuntime} from '../meeting-scene-ejections.js';
-const source=await readFile('space-suspect-complete.html','utf8'),m=source.match(/const EMBEDDED_ASSET_PAYLOAD=(\[[\s\S]*?\])\.join\(""\);/);
+const source=await readFile('index.html','utf8'),m=source.match(/const EMBEDDED_ASSET_PAYLOAD=(\[[\s\S]*?\])\.join\(""\);/);
 const assets=JSON.parse(gunzipSync(Buffer.from(JSON.parse(m[1]).join(''),'base64')));
 let html=patchMeetingRuntime(assets.MEETING_3D_SRCDOC);
 const bridge=`

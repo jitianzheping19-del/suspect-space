@@ -1,11 +1,11 @@
-// Keep the editable meeting scene identical in every published game entry.
+// Embed the editable meeting scene in the canonical game source.
 import { readFile, writeFile } from 'node:fs/promises';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { bundleMeetingLibraries } from './bundle-meeting-libraries.mjs';
 
 const scene = await bundleMeetingLibraries(await readFile('assets-source/meeting-scene.html', 'utf8'));
 const pattern = /const EMBEDDED_ASSET_PAYLOAD=(\[[\s\S]*?\])\.join\(""\);/;
-for (const name of ['index.html', 'space-suspect-complete.html', 'space-suspect.html', 'space-suspect-final.html']) {
+for (const name of ['index.html']) {
   const html = await readFile(name, 'utf8');
   const match = html.match(pattern);
   if (!match) throw new Error('Missing embedded scenes: ' + name);

@@ -1,11 +1,11 @@
-// Keep the editable lobby source and the four shipped embedded versions aligned.
+// Keep the editable lobby source and the canonical embedded version aligned.
 // Other embedded assets are preserved verbatim after JSON decoding.
 import { readFile, writeFile } from 'node:fs/promises';
 import { gzipSync, gunzipSync } from 'node:zlib';
 
 const source = await readFile(new URL('../assets-source/lobby-lounge.html', import.meta.url), 'utf8');
 const pattern = /const EMBEDDED_ASSET_PAYLOAD=(\[[\s\S]*?\])\.join\(""\);/;
-for (const name of ['index.html', 'space-suspect-complete.html', 'space-suspect.html', 'space-suspect-final.html']) {
+for (const name of ['index.html']) {
   const file = new URL('../' + name, import.meta.url);
   const html = await readFile(file, 'utf8');
   const match = html.match(pattern);

@@ -1,6 +1,6 @@
 // Reuse the game's exact task art and picking implementation, with one source.
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-const html = await readFile('space-suspect-complete.html', 'utf8');
+const html = await readFile('index.html', 'utf8');
 const marker = 'function createInteractiveTaskMachine(THREE,host,getState,onAction,onValue,onUnavailable){';
 const start = html.indexOf(marker);
 const end = html.indexOf('/* INTERACTIVE_TASK_MACHINES_V1_END */', start);
@@ -23,4 +23,4 @@ for (const call of [
   source = source.replace(call, call.slice(0, -1) + ',"#cae6ee",g)');
 }
 await mkdir('public', { recursive: true });
-await writeFile('public/task-machines.js', '// Generated from space-suspect-complete.html. Do not edit.\nexport ' + source);
+await writeFile('public/task-machines.js', '// Generated from index.html. Do not edit.\nexport ' + source);
