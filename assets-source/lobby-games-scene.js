@@ -500,6 +500,8 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       badge.material.transparent=true;badge.material.opacity=oni||immune?1:.42+.16*Math.sin(t/110);badge.scale.setScalar(oni||immune?1:threat?1.12:1);
       if(own&&enabled&&other==='soccer'&&!state?.soccer?.slides?.[id]){const lean=player.root.userData.soccerTurnLean||0;if(lean){pose(crew.root);crew.root.rotation.z+=lean;}}
       const nutmeg=state?.soccer?.nutmegs?.[id];if(enabled&&other==='soccer'&&nutmeg&&t>=nutmeg.at&&t<nutmeg.until){const w=Math.sin(Math.PI*(t-nutmeg.at)/(nutmeg.until-nutmeg.at));for(const [i,leg]of (crew.legs||[]).entries()){pose(leg);leg.position.x+=(i?1:-1)*.42*w;leg.rotation.z+=(i?-1:1)*.45*w;}pose(crew.body);crew.body.position.y-=.13*w;continue;}
+      const celebration=state?.soccer?.lastGoal,celebrationAge=t-Number(celebration?.at||0);
+      if(enabled&&other==='soccer'&&celebration&&team===celebration.team&&celebrationAge>=0&&celebrationAge<2200){const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];for(const [i,arm]of arms.entries()){pose(arm);arm.rotation.x=-2.3;arm.rotation.z=(i?-1:1)*.45;}if(!window.__spaceMotionPreference?.matches){pose(crew.root);crew.root.position.y+=Math.abs(Math.sin(celebrationAge/230))*.16;}continue;}
       const down=state?.soccer?.knockdowns?.[id];if(enabled&&other==='soccer'&&down&&t>=down.at&&t<down.until){applySoccerKnockdownPose(crew,down,t,pose);continue;}
       const slide=state?.soccer?.slides?.[id],slideMotion=enabled&&other==='soccer'?sampleSoccerSlide(slide,t):null;
       if(slideMotion&&crew.legs?.length){

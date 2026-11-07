@@ -1,3 +1,4 @@
+import {createMotionPreference} from './motion-preference.js';
 import {createRenderBudget} from './render-performance.js';
 import './meeting-memorial.css';
 import {memorialCameraPose} from './meeting-memorial-layout.js';
@@ -8,7 +9,7 @@ export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
  return{play({deaths=[],duration=1500,elapsed=0}){
   stop();
   const started=performance.now()-Math.max(0,Number(elapsed)||0);
-  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced=createMotionPreference();
   const budget=createRenderBudget(),gate=budget.gate();
   const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*x*(x*(x*6-15)+10);};
   const panel=document.createElement('section');

@@ -15,8 +15,8 @@ const existing=fs.readFileSync(path.join(__dirname,'check-room-rejoin.cjs'),'utf
   fs.mkdirSync(out,{recursive:true});const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log('BROWSER',m.text().slice(0,400));});
   await page.route('**/build/three.module.js',r=>r.fulfill({path:'/workspace/emergency-3d-revision/three.module.js',contentType:'application/javascript'}));
   await page.route('**/firebase-database.js',r=>r.fulfill({body:fakeDB,contentType:'application/javascript'}));
-  await page.route('**/firebase-app.js',r=>r.fulfill({body:'export const initializeApp=()=>({});',contentType:'application/javascript'}));
-  await page.route('**/firebase-auth.js',r=>r.fulfill({body:'export const getAuth=()=>({}),setPersistence=async()=>{},indexedDBLocalPersistence={},browserLocalPersistence={},signInAnonymously=async()=>({}),updateProfile=async()=>{},signOut=async()=>{},signInWithEmailAndPassword=async()=>({}),createUserWithEmailAndPassword=async()=>({});',contentType:'application/javascript'}));
+  await page.route('**/firebase-app.js',r=>r.fulfill({body:'export const initializeApp=()=>({}),getApps=()=>[];',contentType:'application/javascript'}));
+  await page.route('**/firebase-auth.js',r=>r.fulfill({body:'export const getAuth=()=>({}),onAuthStateChanged=()=>()=>{},setPersistence=async()=>{},indexedDBLocalPersistence={},browserLocalPersistence={},signInAnonymously=async()=>({}),updateProfile=async()=>{},signOut=async()=>{},signInWithEmailAndPassword=async()=>({}),createUserWithEmailAndPassword=async()=>({});',contentType:'application/javascript'}));
   await page.route(/(?:firebasedatabase\.app|identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com)/,r=>r.abort());
   await page.goto('http://127.0.0.1:'+server.address().port+'/index.html',{waitUntil:'domcontentloaded',timeout:60000});await page.waitForFunction(()=>window.__allRolesQA,{timeout:60000});
   const report=await page.evaluate(()=>window.__allRolesQA.all());report.errors=errors;fs.writeFileSync(path.join(out,'all-roles-report.json'),JSON.stringify(report,null,2));

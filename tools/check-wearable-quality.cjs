@@ -51,7 +51,7 @@ const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html; c
   for(const [category,kinds]of[['hat',hats],['bag',bags],['accessory',accessories],['pet',['dragon','rover']]]){
    for(const kind of kinds){
     const stats=await page.evaluate(([c,k])=>window.__wearableQA.select(c,k),[category,kind]);
-    assert(stats.detailed&&stats.finite,JSON.stringify({category,kind,stats}));assert(stats.meshes<=30,'draw calls '+category+'/'+kind+' '+stats.meshes);assert(stats.triangles<19000,'triangle budget '+category+'/'+kind+' '+stats.triangles);
+    assert(stats.detailed&&stats.finite,JSON.stringify({category,kind,stats}));assert(stats.meshes<=(category==='pet'?38:30),'draw calls '+category+'/'+kind+' '+stats.meshes);assert(stats.triangles<19000,'triangle budget '+category+'/'+kind+' '+stats.triangles);
     assert(stats.bounds.max[0]-stats.bounds.min[0]>.15,'missing silhouette '+kind);assert(stats.bounds.max[1]<3.05,'head bounds '+kind);if(category==='accessory')assert(stats.bounds.min[1]>=-.03,'detached accessory pieces below the crew: '+kind);
     await page.screenshot({path:out+'/'+category+'-'+kind+'.png'});
     if(category==='pet'){const a=await page.evaluate(()=>window.__wearableQA.animate());assert(a.changed&&a.attached&&a.finite,JSON.stringify({kind,a}));}

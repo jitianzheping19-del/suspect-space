@@ -1,6 +1,6 @@
 import {createLobbyPhotoLibrary} from './lobby-photo-library.js';
 export const PHOTO_BACKGROUNDS=[{id:'aurora',name:'オーロラ',colors:['#103749','#88eed6']},{id:'sunset',name:'夕焼け',colors:['#522f62','#ffb978']},{id:'moon',name:'月夜',colors:['#112343','#b4d9ff']},{id:'rose',name:'桜色',colors:['#422844','#ffb4d5']}];
-export function createLobbyPhotoUI({document,window,frame,isActive,isNear,isAtCamera,request,getUid,isHost=()=>false,changeBackground=()=>{},clock=Date.now}){
+export function createLobbyPhotoUI({document,window,frame,isActive,isNear,isAtCamera,request,getUid,isHost=()=>false,changeBackground=()=>{},clock=Date.now,changePose=()=>{},getRoomName=()=>''}){
  const library=createLobbyPhotoLibrary({clock});
  const overlay=document.createElement('div');overlay.id='lobbyPhotoViewfinder';overlay.hidden=true;overlay.setAttribute('role','status');
  overlay.innerHTML='<div class="photoChrome"><span>◉ STARLIGHT CAMERA</span><span>CREW PORTRAIT · 16:9</span></div><div class="photoFocus"><small>撮影まで</small><strong aria-live="polite">5</strong></div><div class="photoChrome photoBottom"><span>5秒以内にステージへ · ポーズを決めよう</span><span>撮影後はカメラのライブラリへ</span></div>';
@@ -8,6 +8,8 @@ export function createLobbyPhotoUI({document,window,frame,isActive,isNear,isAtCa
  const panel=document.createElement('section');panel.id='lobbyPhotoDialog';panel.hidden=true;panel.inert=true;panel.dataset.spaceUiVisible='false';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','集合写真カメラ');
  panel.innerHTML='<div class="lobbyPhotoResult"><header><div><small>STARLIGHT STUDIO</small><strong>集合写真カメラ</strong></div><button type="button" data-photo-close>閉じる</button></header><nav aria-label="カメラメニュー"><button type="button" data-photo-tab="camera">撮影</button><button type="button" data-photo-tab="library">ライブラリ</button><button type="button" data-photo-tab="background">背景</button></nav><section data-photo-view="camera" class="photoCameraHome"><div class="photoCameraIllustration" aria-hidden="true"><i></i><b>✦</b></div><h3>みんなの今を、1枚に。</h3><p>5秒のカウントダウンで撮影します。<br>ステージに並んでポーズを決めよう。</p><button type="button" data-photo-shutter>5秒で撮影</button><small>写真は撮影から1分間、ライブラリで確認・保存できます</small></section><section data-photo-view="library" hidden><div class="photoLibraryHeading"><h3>最近の写真</h3><span>この端末 · 撮影後1分間</span></div><div class="photoLibraryGrid"></div><p data-photo-empty>まだ写真がありません。最初の1枚を撮ってみよう。</p><img class="photoSelected" alt="選択した集合写真" hidden><button type="button" data-photo-save hidden>写真を保存</button></section><section data-photo-view="background" hidden><h3>背景を選ぶ</h3><p data-photo-host-note></p><div class="photoBackgroundGrid"></div></section><footer><span role="status" aria-live="polite"></span></footer></div>';
  document.body.append(overlay,flash,panel);
+ const options=document.createElement('div');options.className='photoPersonalOptions';options.innerHTML='<label>自分のポーズ <select data-photo-pose><option value="stand">立つ</option><option value="wave">手を振る</option><option value="cheer">ばんざい</option><option value="hero">ヒーロー</option></select></label><label><input type="checkbox" data-photo-frame checked>日付・部屋名のフレームを付ける</label><label>部屋名 <input data-photo-room maxlength="24" placeholder="みんなのロビー"></label>';
+ panel.querySelector('[data-photo-shutter]').before(options);options.querySelector('[data-photo-pose]').onchange=event=>changePose(event.target.value);
  const image=panel.querySelector('img'),status=panel.querySelector('[role="status"]'),save=panel.querySelector('[data-photo-save]'),number=overlay.querySelector('strong'),grid=panel.querySelector('.photoLibraryGrid');
  let shot=null,pending=null,selected=null,album=[],seen='',timer=0,opener=null,flashUntil=0,view='camera',background='aurora',albumOwner='',generation=0,saving=false,storageNotice='';
  const post=data=>frame()?.contentWindow?.postMessage(data,'*');
@@ -38,10 +40,10 @@ export function createLobbyPhotoUI({document,window,frame,isActive,isNear,isAtCa
   if(!isActive()){reset();return;}if(!next)return;if(next.id===seen)return;
   if(typeof next.id!=='string'||!Number.isFinite(next.at)||next.expiresAt!==next.at+60000||next.at-clock()>6000||clock()>=next.at)return;
   if(pending)post({type:'lobby-photo-cancel',id:pending.id});close();seen=next.id;shot=next;pending={id:next.id,at:next.at,owner:String(getUid()||'')};
-  post({type:'lobby-photo-start',id:next.id,at:Date.now()+next.at-clock(),background:next.background||background,preview:!!next.members?.[getUid()]});ensureTimer();update();
+  post({type:'lobby-photo-start',id:next.id,at:Date.now()+next.at-clock(),background:next.background||background,poses:next.poses||{},framed:next.framed===true,roomName:String(next.roomName||''),dateLabel:new Date(next.at).toLocaleDateString('ja-JP'),preview:!!next.members?.[getUid()]});ensureTimer();update();
  }
- function start(){if(!canUse()||pending)return;close();request();}
- function openAtCamera(){if(!canUse())return;opener=document.activeElement;panel.hidden=false;panel.inert=false;panel.dataset.spaceUiVisible='true';panel.setAttribute('aria-hidden','false');document.body.dataset.lobbyPhoto='result';setView('camera');ensureTimer();update();panel.querySelector('[data-photo-close]').focus();}
+ function start(){if(!canUse()||pending)return;const roomName=options.querySelector('[data-photo-room]').value.trim()||getRoomName();const framed=options.querySelector('[data-photo-frame]').checked;close();request({framed,roomName});}
+ function openAtCamera(){if(!canUse())return;opener=document.activeElement;panel.hidden=false;panel.inert=false;panel.dataset.spaceUiVisible='true';panel.setAttribute('aria-hidden','false');document.body.dataset.lobbyPhoto='result';if(!options.querySelector('[data-photo-room]').value)options.querySelector('[data-photo-room]').value=getRoomName();setView('camera');ensureTimer();update();panel.querySelector('[data-photo-close]').focus();}
  window.addEventListener('message',async event=>{
   const data=event.data;if(event.source!==frame()?.contentWindow||!pending||data?.id!==pending.id)return;
   if(data.type==='lobby-photo-error'){pending=null;storageNotice='撮影できませんでした。もう一度お試しください。';return;}

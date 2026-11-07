@@ -2,17 +2,19 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 (async()=>{
  const {createPoseSavePolicy}=await import('../room-traffic-policy.js');
+ const {createPoseReconnectState}=await import('../pose-reconnect-state.js');
  for(const file of ['index.html','space-suspect-complete.html']){
   const html=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
-  const start=html.indexOf('const POSE_HEARTBEAT_MS='),end=html.indexOf('const reviewUI=',start);
+  const start=html.indexOf('const POSE_HEARTBEAT_MS='),end=html.indexOf('window.__spaceDiagnostics=',start);
   let callback,t=100000,writes=[],pending=false,release,direct=true,samples=0;
   class Network{
    constructor(options){this.options=options;this.context=null;this.links=new Map();this.stats={};}
    configure(context){this.context=context.enabled?context:null;}canUseDirect(){return !!this.context&&direct;}
+   localConnectionHealthy(){return this.canUseDirect();}reconnect(){return true;}
    publishLocal(){if(this.context)samples++;}publishBots(){}tick(){}poseFor(){return null;}stop(){this.context=null;}
   }
   const row={name:'test',online:true,x:1,z:2};
-  const c={createPoseSavePolicy,performance:{now:()=>t},code:'1234',connected:true,uid:'u',session:1,hostId:'u',roomCreatedAt:99,leaving:false,
+  const c={rolePracticeMode:false,createPoseSavePolicy,poseReconnectState:createPoseReconnectState(),document:{hidden:false},performance:{now:()=>t},code:'1234',connected:true,uid:'u',session:1,hostId:'u',roomCreatedAt:99,leaving:false,
    peerPoseNetwork:null,peerPoseJoined:true,peerPoseUiTimer:0,peerPoseLastRows:new Map(),peerPoseFirebaseAt:new Map(),PeerPoseNetwork:Network,
    game:{phase:'play',round:1,settings:{positionUpdateMode:'light'},players:{}},players:{u:{...row}},roomRosterRaw:{u:{...row}},roomPositionsRaw:{u:{...row}},roomPositionKnown:new Set(['u']),
    botPositions:{},position:{x:1,z:2},lastSent:{x:999,z:999,at:0},lobbyFacingYaw:0,lobbyWalking:false,lobbyElevation:0,
@@ -33,7 +35,8 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
   c.peerPoseFirebaseAt.set('other',t+1);assert.equal(vm.runInContext('roomPeerPose("other")',c),null);
   writes=[];direct=false;for(let i=0;i<1200;i++){t+=50;c.position.x+=.005;await callback();}assert.equal(writes.length,12,'RTC recovery uses at most one moving snapshot per five seconds');
   direct=true;c.game.phase='lobby';t+=50;await callback();writes=[];
-  for(let i=0;i<1200;i++){t+=50;await callback();}assert.equal(writes.length,0,'idle lobby must not publish periodic positions');
+  for(let i=0;i<1200;i++){t+=50;await callback();}assert.equal(writes.length,1,'idle lobby writes only its final stop checkpoint after a moving phase transition');
+  writes=[];for(let i=0;i<1200;i++){t+=50;await callback();}assert.equal(writes.length,0,'settled idle lobby must not publish periodic positions');
   pending=true;c.game.round++;t+=50;c.position.x+=1;const captured=c.position.x,slow=callback();await Promise.resolve();t+=50;c.position.x+=2;vm.runInContext('publishDirectRoomPose()',c);assert.equal(c.players.u.x,c.position.x,'slow durable writes must not block live poses');release();await slow;pending=false;assert.equal(c.lastSent.x,captured,'async checkpoint commits its captured position');
   c.game.lobbySettings={positionUpdateMode:'standard'};t+=50;await callback();assert(c.peerPoseNetwork.context,'every mode must retain the low-traffic direct lane');
   console.log('PASS',file,'60 Hz samples, no periodic RTC position writes, one stop snapshot, bounded recovery, local facing, idle lobby and delayed writes');

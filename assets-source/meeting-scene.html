@@ -944,6 +944,14 @@ chatPanel.innerHTML='<div style="padding:12px;font-weight:900;border-bottom:1px 
 document.body.appendChild(chatPanel);
 const chatLog=chatPanel.querySelector("#chatLog"),chatTyping=chatPanel.querySelector("#chatTyping");
 chatPanel.querySelector("#chatSend").addEventListener("submit",e=>{e.preventDefault();const input=chatPanel.querySelector("#chatText");const t=input.value.trim();if(t){parent.postMessage({type:"ss3d-chat",text:t},"*");input.value="";}});
+const testimony=document.createElement("details");testimony.style.cssText="padding:4px 8px;font:12px system-ui";testimony.innerHTML='<summary>定型証言</summary><select data-place aria-label="場所"></select><select data-person aria-label="人物"></select><select data-time aria-label="時刻"><option>今</option><option>通報の直前</option><option>約10秒前</option><option>約30秒前</option></select><button type="button">証言を入力</button>';chatLog.before(testimony);let testimonyKey='',lastChatKey='',quoteTimer=0,quotePoint=null,quoteUntil=0;
+const appendQuote=text=>{const input=chatPanel.querySelector('#chatText');if(input.disabled)return;input.value=(input.value+(input.value?' ':'')+text).slice(0,120);input.focus();};
+testimony.querySelector('button').onclick=()=>appendQuote(testimony.querySelector('[data-time]').value+'、'+testimony.querySelector('[data-place]').value+'で'+testimony.querySelector('[data-person]').value+'を見ました。');
+chatLog.addEventListener('click',e=>{if(performance.now()<quoteUntil)return;const who=e.target.closest('[data-chat-name]');if(who)appendQuote(who.textContent+'：');});
+chatLog.addEventListener('pointerdown',e=>{const row=e.target.closest('[data-quote-text]');if(!row)return;quotePoint={x:e.clientX,y:e.clientY};clearTimeout(quoteTimer);quoteTimer=setTimeout(()=>{appendQuote(row.dataset.quoteName+'「'+row.dataset.quoteText.slice(0,65)+'」への返信：');quoteUntil=performance.now()+600;},500);});
+for(const name of ['pointerup','pointercancel'])chatLog.addEventListener(name,()=>clearTimeout(quoteTimer));chatLog.addEventListener('pointermove',e=>{if(quotePoint&&Math.hypot(e.clientX-quotePoint.x,e.clientY-quotePoint.y)>8)clearTimeout(quoteTimer);});
+chatLog.addEventListener('contextmenu',e=>{const row=e.target.closest('[data-quote-text]');if(!row)return;e.preventDefault();clearTimeout(quoteTimer);appendQuote(row.dataset.quoteName+'「'+row.dataset.quoteText.slice(0,65)+'」への返信：');});
+const statement=document.createElement('p');statement.style.cssText='margin:4px 8px;padding:5px;background:#234952;font:12px system-ui';statement.hidden=true;testimony.before(statement);
 const voteWarning=document.createElement("div");voteWarning.style.cssText="position:fixed;inset:0;z-index:4;pointer-events:none;background:#c9002355;display:none";document.body.append(voteWarning);
 const timerBar=document.createElement("div");timerBar.id="meetingTimerBar";timerBar.style.cssText="position:fixed;top:0;left:190px;right:174px;padding:8px 10px;box-sizing:border-box;background:#050b16e6;color:#eef6ff;font:800 14px sans-serif;z-index:5;pointer-events:none";
 timerBar.innerHTML='<div style="display:flex;justify-content:space-between;align-items:baseline"><span id="tPhase">会議</span><span id="tSec" style="font-size:22px;font-variant-numeric:tabular-nums">--</span></div><div style="height:8px;background:#ffffff22;border-radius:4px;margin-top:6px;overflow:hidden"><div id="tFill" style="height:100%;width:100%;background:linear-gradient(90deg,#43dfff,#d9fbff)"></div></div>';
@@ -991,16 +999,18 @@ function renderUi(d){
   lastPhotoUi=d;
   parentTargetSelection=!!d.targetSelection;refreshTargetHint();
   window.__ui?.();
+  const nextTestimony=JSON.stringify([d.meetingId,d.places,d.names]);if(nextTestimony!==testimonyKey){testimonyKey=nextTestimony;for(const [selector,values]of [['[data-place]',d.places||[]],['[data-person]',d.names||[]]])testimony.querySelector(selector).replaceChildren(...values.map(value=>{const option=document.createElement('option');option.textContent=value;return option;}));}statement.hidden=!d.statement;statement.textContent=d.statement?'通報者の説明：'+d.statement:'';
   const atBottom=chatLog.scrollTop+chatLog.clientHeight>=chatLog.scrollHeight-40;
   const reporter=chatPanel.querySelector("#chatReporter");
   if(reporter){const name=String(d.reporterName||"").trim();reporter.hidden=!name;reporter.textContent=name?(d.reason==="遺体を発見"?`📣 ${name} が死体を通報しました`:`🚨 ${name} が緊急会議を開きました`):"";}
-  chatLog.replaceChildren(...(d.chat||[]).map(m=>{
+  const nextChatKey=JSON.stringify([d.chat,[...meetingPhotos].map(([id,p])=>[id,p.url])]);if(nextChatKey!==lastChatKey){lastChatKey=nextChatKey;chatLog.replaceChildren(...(d.chat||[]).map(m=>{
     const row=document.createElement("div");
     if(m.system){row.style.cssText="align-self:center;max-width:94%;padding:4px 9px;border-radius:999px;background:#ffffff16;color:#d4e3f2;font-size:11px;text-align:center;line-height:1.35";row.textContent=String(m.text||"");return row;}
+    row.dataset.quoteName=String(m.name||"クルー");row.dataset.quoteText=String(m.text||"");
     const mine=!!m.mine,color=String(m.color||"#8edcff");row.style.cssText=`display:flex;align-items:flex-end;gap:6px;max-width:96%;align-self:${mine?"flex-end":"flex-start"};flex-direction:${mine?"row-reverse":"row"}`;
     const avatar=document.createElement("span");avatar.setAttribute("aria-hidden","true");avatar.style.cssText=`flex:0 0 21px;width:21px;height:24px;border:2px solid #08131f;border-radius:42% 42% 30% 30%;background:${color};box-shadow:inset -4px -3px #0005`;
     const stack=document.createElement("div");stack.style.cssText=`display:flex;flex-direction:column;align-items:${mine?"flex-end":"flex-start"};min-width:0;max-width:calc(100% - 27px)`;
-    const who=document.createElement("div");who.textContent=String(m.name||"クルー");who.style.cssText=`max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 5px 2px;color:${color};font:900 11px/1.2 system-ui,sans-serif;text-shadow:0 1px 3px #000`;
+    const who=document.createElement("button");who.type="button";who.dataset.chatName="true";who.textContent=String(m.name||"クルー");who.style.cssText=`max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 5px 2px;color:${color};font:900 11px/1.2 system-ui,sans-serif;text-shadow:0 1px 3px #000`;
     const bubble=document.createElement("div");bubble.textContent=String(m.text||"");bubble.style.cssText=`max-width:100%;padding:7px 10px;border:1px solid ${mine?"#65d8ae66":"#b4d7ef44"};border-radius:${mine?"13px 13px 4px 13px":"13px 13px 13px 4px"};background:${mine?"#184d43":"#1a2d42"};color:#f3f8ff;font:500 13px/1.45 system-ui,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 2px 8px #0005`;
     if(/^[a-f0-9]{24}$/.test(m.photoId||"")){
       const photo=meetingPhotos.get(m.photoId),open=document.createElement("button");open.type="button";open.textContent="写真を表示";open.style.cssText="display:block;max-width:100%;min-height:42px;padding:3px;border:1px solid #83b9c4;border-radius:9px;background:#123947;color:white;cursor:zoom-in";
@@ -1008,7 +1018,7 @@ function renderUi(d){
       open.onclick=()=>parent.postMessage({type:"ss3d-photo-open",id:m.photoId,from:m.uid},"*");bubble.replaceChildren(open);
     }
     stack.append(who,bubble);row.append(avatar,stack);return row;
-  }));
+  }));}
   if(atBottom)chatLog.scrollTop=chatLog.scrollHeight;
   chatTyping.textContent=d.typing||"";
   chatPanel.querySelector("#chatText").disabled=!d.canChat;

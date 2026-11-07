@@ -9,7 +9,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
   await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>@layer portrait-guidance,play-action-layout;@layer play-action-layout{#gameUI{visibility:visible!important}}#gameUI{position:fixed;inset:0}</style><button id="gameUI">ゲーム操作</button><dialog id="settings">設定</dialog>');
   await page.addStyleTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.css')).text});
   await page.addScriptTag({content:bundle.outputFiles.find(f=>f.path.endsWith('.js')).text});
-  await page.addScriptTag({content:'let code="1234",leaving=false;const {showRoomExitScreen}=ExitScreen;async function leaveRoomSession(){return new Promise((resolve,reject)=>window.finishExit=failed=>failed?reject(new Error("fixture")):resolve(true));}'+wrapper});
+  await page.addScriptTag({content:'const rolePracticeMode=false;let code="1234",leaving=false;const {showRoomExitScreen}=ExitScreen;async function leaveRoomSession(){return new Promise((resolve,reject)=>window.finishExit=failed=>failed?reject(new Error("fixture")):resolve(true));}'+wrapper});
   for(const [width,height]of [[320,568],[390,844],[568,320],[844,390]]){
    await page.setViewportSize({width,height});
    await page.evaluate(()=>{document.getElementById('settings').showModal();window.finishExit=null;window.exitPromise=leaveRoom();});

@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';
+const source=readFileSync(new URL('../index.html',import.meta.url),'utf8'),begin=source.indexOf('/* PUBLIC_MEETING_EVIDENCE_V1 */'),end=source.indexOf('/* PUBLIC_MEETING_EVIDENCE_V1_END */',begin);
+assert(begin>=0&&end>begin);let random=.25;const math=Object.create(Math);math.random=()=>random;
+const {analyzeBotMeetingEvidence:analyze,chooseBotMeetingVote:choose}=vm.runInNewContext(source.slice(begin,end)+';({analyzeBotMeetingEvidence,chooseBotMeetingVote})',{Math:math,botPersonalityFor:()=>({accusationTrust:1})});
+const g={players:Object.fromEntries(['bot','red','blue','green'].map(id=>[id,{name:id,alive:true,role:'crew',subrole:'crewmate'}])),meeting:{chat:[]}},choices=['red','blue','green'];
+const sample=()=>Array.from({length:100},(_,i)=>{random=(i+.5)/100;return choose(g,'bot',choices);});const baseline=sample();
+g.players.red.role='impostor';g.players.red.subrole='assassin';g.players.blue.subrole='sheriff';assert.deepEqual(sample(),baseline,'hidden roles must not change bot votes');
+g.meeting.chat=[{uid:'green',text:'redがキルした'}];const one=analyze(g,'bot',choices);assert(one.scores.get('red')>0);
+g.meeting.chat=Array.from({length:80},()=>({uid:'green',text:'redがキルした'}));assert.equal(analyze(g,'bot',choices).scores.get('red'),one.scores.get('red'),'one speaker cannot manufacture 80 witnesses');
+g.meeting.chat.push({uid:'green',text:'redは人狼ではない'});assert(analyze(g,'bot',choices).scores.get('red')<0,'latest public correction replaces accusation');
+g.meeting.chat=[{uid:'green',text:'redがキルした',channel:'ghost'},{uid:'green',text:'redがキルした',system:true},{uid:'green',text:'redがキルした',alive:false},{uid:'bot',text:'redがキルした'},{uid:'blue',text:'「redがキルした」'}];assert.equal(analyze(g,'bot',choices).scores.get('red'),0);
+g.players.red.disconnected=true;g.players.blue.observer=true;assert(sample().every(id=>id==='green'));
+console.log('PASS public evidence only, role blindness, repeated testimony cap, corrections, ghost/system/quoted/self statements and eligible targets');

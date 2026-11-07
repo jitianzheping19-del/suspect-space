@@ -1,0 +1,54 @@
+name: Restore a verified Space Suspect release
+on:
+  workflow_dispatch:
+    inputs:
+      successful_run_id:
+        description: Successful pages.yml run to restore (within 90 days)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Require a successful deployment from this repository
+        uses: actions/github-script@v7
+        env:
+          RESTORE_RUN_ID: ${{ inputs.successful_run_id }}
+        with:
+          script: |
+            const id = process.env.RESTORE_RUN_ID;
+            if (!/^[1-9][0-9]*$/.test(id)) throw new Error('Enter a numeric workflow run ID.');
+            const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: id});
+            if (run.conclusion !== 'success' || run.path !== '.github/workflows/pages.yml' || run.repository.full_name !== `${context.repo.owner}/${context.repo.repo}` || run.head_branch !== 'main') {
+              throw new Error('Only a successful main-branch pages.yml run from this repository can be restored.');
+            }
+      - name: Download the original verified files
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-game-release
+          path: tmp/restore-release
+          run-id: ${{ inputs.successful_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify every restored file
+        run: node tools/release-artifact.mjs verify tmp/restore-release
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: tmp/restore-release/site
+      - name: Restore GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

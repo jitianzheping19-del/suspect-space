@@ -113,7 +113,7 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
 }
 function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[player]}){
  const photoCamera=new THREE.PerspectiveCamera(43,16/9,.1,80);photoCamera.position.set(0,4.9,1.4);photoCamera.lookAt(0,2.35,11.4);
- let timer=0,pending=null,preview=false,capturing=false,lastLabelLayout=[];const size=new THREE.Vector2();
+ let timer=0,pending=null,preview=false,capturing=false,lastLabelLayout=[],posesById={},selfId='',shotMeta=null;const size=new THREE.Vector2();
  const inPhoto=p=>Math.abs(p.x)<4.15&&p.z>9.1&&p.z<13&&p.y<2.8;
  const near=()=>inPhoto(player.root.position)||Math.hypot(player.root.position.x+4.1,player.root.position.z-8.0)<1.2;
  function prepareView(){
@@ -121,7 +121,12 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
   const saved=[],set=(node,visible)=>{if(node&&node.visible!==visible){saved.push([node,node.visible]);node.visible=visible;}};
   set(scene.getObjectByName('lobby-photo-camera-station'),true);
   if(preview||capturing)set(scene.getObjectByName('lobby-overhead-sculpture'),false);
+  const rotations=[];
   for(const crew of crews()){
+   if(inPhoto(crew.root.position)){
+    const pose=posesById[crew===player?selfId:crew.root.userData.photoUid]||'stand',arms=crew.arms||crew.root.userData.walkArms||[];
+    for(const [i,arm]of arms.entries()){if(!arm)continue;rotations.push([arm,arm.rotation.clone()]);if(pose==='wave'&&i===1){arm.rotation.z=-2.5;arm.rotation.x=-.35;}if(pose==='cheer'){arm.rotation.z=(i?-1:1)*2.5;arm.rotation.x=-.15;}if(pose==='hero'){arm.rotation.x=i?-1.5:.3;arm.rotation.z=i?-.8:.5;}}
+   }
    const data=crew.root?.userData||{};
    if(capturing)set(crew.root,inPhoto(crew.root.position));else if(preview&&crew===player)set(crew.root,true);
    for(const node of [crew.label,data.lobbyNameTag,data.lobbyMicTag,data.lobbyMicCross,data.readyTag,data.connectionIndicator?.root])set(node,false);
@@ -131,7 +136,7 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
     set(data.photoNameSprite,true);
    }else set(data.photoNameSprite,false);
   }
-  return()=>{for(const [node,visible]of saved)node.visible=visible;};
+  return()=>{for(const [node,rotation]of rotations)node.rotation.copy(rotation);for(const [node,visible]of saved)node.visible=visible;};
  }
  // Place small nameplates in image coordinates, avoiding other crew faces and
  // previously placed names. Microphone glyphs never enter this texture.
@@ -156,13 +161,14 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
  function cancel(){clearTimeout(timer);timer=0;pending=null;preview=false;capturing=false;window.__lobbyPhotoCamera=null;}
  window.addEventListener('message',event=>{
   if(event.source!==parent)return;const data=event.data||{};
+  if(data.type==='lobby-games-state'){selfId=String(data.uid||'');posesById=data.state?.photoPoses||{};return;}
   if(data.type==='lobby-photo-cancel'||data.type==='lobby-render-state'&&data.active!==true){cancel();return;}
   if(data.type!=='lobby-photo-start'||pending||typeof data.id!=='string'||data.id.length>100||!Number.isFinite(data.at)||data.at<Date.now()-100||data.at>Date.now()+6000)return;
-  pending=data.id;preview=data.preview===true&&near();if(preview)window.__lobbyPhotoCamera=photoCamera;
+  shotMeta=data;posesById=data.poses||posesById;pending=data.id;preview=data.preview===true&&near();if(preview)window.__lobbyPhotoCamera=photoCamera;
   timer=setTimeout(()=>{const id=pending;if(!id)return;
    if(document.hidden||window.SpaceSuspectLobby?.__lobbyRenderActive===false){cancel();parent.postMessage({type:'lobby-photo-error',id},'*');return;}
    const ratio=renderer.getPixelRatio();renderer.getSize(size);const width=size.x,height=size.y;
-   try{capturing=true;renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const output=document.createElement('canvas');output.width=1280;output.height=720;output.getContext('2d').drawImage(renderer.domElement,0,0);drawNames(output);const image=output.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
+   try{capturing=true;renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const output=document.createElement('canvas');output.width=1280;output.height=720;output.getContext('2d').drawImage(renderer.domElement,0,0);drawNames(output);if(shotMeta?.framed){const ctx=output.getContext('2d');ctx.strokeStyle='#cce8ed';ctx.lineWidth=12;ctx.strokeRect(6,6,1268,708);ctx.fillStyle='#0b2036e8';ctx.fillRect(12,664,1256,44);ctx.fillStyle='#f4fcff';ctx.font='24px sans-serif';ctx.textAlign='left';ctx.fillText(String(shotMeta.roomName||'みんなのロビー').slice(0,24),32,694,850);ctx.textAlign='right';ctx.fillText(String(shotMeta.dateLabel||''),1240,694,280);}const image=output.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
    catch(error){console.warn('集合写真の撮影に失敗しました',error);parent.postMessage({type:'lobby-photo-error',id},'*');}
    finally{renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();render(camera);}
   },Math.max(0,data.at-Date.now()));

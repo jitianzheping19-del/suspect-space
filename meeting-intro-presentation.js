@@ -6,7 +6,7 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
  let stop=()=>{},renderer=null;const warmed=[],preparations=new Map();
  function play({reporter,body,report,duration=3000,elapsed=0,preparing=false}){
   if(!preparing)stop();
-  const budget=createRenderBudget(),gate=budget.gate(),reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
+  const budget=createRenderBudget(),gate=budget.gate(),reduced=(globalThis.__spaceMotionPreference?.matches??globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,1,.1,60);
   renderer ||= new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:'low-power'});
   if(budget.syncRenderer)budget.syncRenderer(renderer,1);else renderer.setPixelRatio(budget.pixelRatio(1));

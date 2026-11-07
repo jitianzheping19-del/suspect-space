@@ -134,3 +134,5 @@ body .ssGacha[data-planet-mode=complete] .gachaToolbar,body .ssGacha[data-planet
  .ssGacha .gachaBatchGrid small{font-size:10px}
  .ssGacha .gachaBatchResult>h3{align-self:flex-start;font-size:15px}
 }
+
+.gachaItemDetail{width:min(560px,90vw);max-height:90dvh;border:1px solid #cfbb89;border-radius:18px;background:#101e2b;color:#f8f2df;overflow:auto}.gachaItemDetail::backdrop{background:#020912ce}.gachaItemDetail header{display:flex;justify-content:space-between;align-items:center;gap:12px}.gachaItemDetail button{min-height:44px}.gachaItemDetail .gachaPrizeModel{height:45dvh;min-height:180px}.gachaNew{color:#083b31;background:#a1f7d2;border-radius:6px;padding:3px 6px;font:700 11px sans-serif}.gachaDuplicateNote{position:absolute;bottom:6px;left:16px;right:16px;margin:0;font-size:10px;color:#d9e4e9;pointer-events:none;text-align:center}.ssGacha .gachaRates[open]{max-height:65dvh;overflow:auto}.ssGacha[data-stage=drawing] .gachaDuplicateNote,.ssGacha[data-stage=reveal] .gachaDuplicateNote{display:none}

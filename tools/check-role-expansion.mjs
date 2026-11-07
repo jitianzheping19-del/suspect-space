@@ -84,7 +84,7 @@ const source=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const section=(from,to)=>{const a=source.indexOf(from),b=source.indexOf(to,a+from.length);assert(a>=0&&b>a);return source.slice(a,b);};
 const tasks=new Function('game',section('function roleCanDoTasks(','function aliveLoverPairs(')+';return {roleCanDoTasks,taskCounts};')({settings:{}});
 test('actual victory check includes sidekicks in jackal faction parity',()=>{
- const win=new Function('now','runModRoleHooks','taskCounts','aliveLoverPairs','const players={},botPositions={};'+section('function checkWin(g)','function applyEndgameRoleWins(')+';return checkWin;')(()=>stamp,()=>false,tasks.taskCounts,()=>[]);
+ const win=new Function('now','runModRoleHooks','taskCounts','aliveLoverPairs','const players={},botPositions={};'+section('function checkWin(g)','// Cached navigation lattice;')+';return checkWin;')(()=>stamp,()=>false,tasks.taskCounts,()=>[]);
  const g={phase:'play',settings:{},players:{a:player('jackal','jackal'),b:player('jackalSidekick','jackal'),c:player(),d:player()}};assert(win(g));assert.equal(g.winner,'jackal');g.phase='play';g.players.d.role='impostor';assert(!win(g),'another killer faction blocks jackal victory');
 });
 test('actual task counter removes disconnected assignments and restores them',()=>{

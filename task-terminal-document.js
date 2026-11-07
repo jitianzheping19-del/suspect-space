@@ -2,6 +2,7 @@
 // Prepare modules once in the lobby and share them with the same-origin frame.
 import * as THREE from 'three';
 import {renderBudgetSource} from './render-performance.js';
+export const classicTaskIndex=s=>Number.isInteger(s.terminalIndex)?s.terminalIndex:(()=>{const id=String(s?.id||"").toLowerCase(),kind=String(s?.kind||"").toLowerCase(),key=id+" "+String(s?.name||"").toLowerCase();if(kind==="card"||/\bcard\b|カード/.test(key))return 5;if(/storage|fuel|燃料|格納/.test(key))return 6;if(kind==="wires"||/wire|配線/.test(key))return 0;if(kind==="upload"||/upload|data|データ|転送/.test(key))return 1;if(kind==="numbers"||/number|code|番号|認証/.test(key))return 2;if(/med|medical|scan|医療|スキャン/.test(key))return 4;return /security|camera|sample|研究|サンプル|検査/.test(key)?4:3;})();
 let runtimePromise;
 function loadTaskRuntime() {
   if (!runtimePromise) runtimePromise = Promise.all([
@@ -287,7 +288,8 @@ const TASK_TERMINAL_DOCUMENT = [
   " if(active&&focus>=0){const screen=terms[focus].scr;screen.updateWorldMatrix(true,false);const normal=new THREE.Vector3(0,0,1).transformDirection(screen.matrixWorld),plane=new THREE.Plane().setFromNormalAndCoplanarPoint(normal,screen.getWorldPosition(new THREE.Vector3())),point=ray.ray.intersectPlane(plane,new THREE.Vector3());if(point){screen.worldToLocal(point);return{i:focus,x:(point.x/2.4+.5)*W,y:(.5-point.y/1.8)*H};}}",
   " const h=ray.intersectObjects(screens.filter(screen=>screen.visible&&screen.parent.visible))[0];return h?{i:h.object.userData.i,x:h.uv.x*W,y:(1-h.uv.y)*H}:null;}",
   "const cv=renderer.domElement;",
-  "cv.addEventListener(\"pointerdown\",e=>{AC().resume&&AC().resume();const h=pick(e);if(!h){return;}if(focus!==h.i){setFocus(h.i);return;}drag=true;cv.setPointerCapture(e.pointerId);terms[h.i].tk.down(h.x,h.y);});",
+  "function taskPressGlow(e){if(window.__spaceMotionPreference?.matches||matchMedia(\"(prefers-reduced-motion: reduce)\").matches)return;const dot=document.createElement(\"i\");dot.style.cssText=\"position:fixed;width:20px;height:20px;border:2px solid #aeffef;border-radius:50%;pointer-events:none;z-index:999;left:\"+(e.clientX-10)+\"px;top:\"+(e.clientY-10)+\"px\";document.body.append(dot);dot.animate([{transform:\"scale(1)\",opacity:1},{transform:\"scale(2.2)\",opacity:0}],{duration:250});setTimeout(()=>dot.remove(),260);}",
+  "cv.addEventListener(\"pointerdown\",e=>{AC().resume&&AC().resume();const h=pick(e);if(!h){return;}taskPressGlow(e);if(focus!==h.i){setFocus(h.i);return;}drag=true;cv.setPointerCapture(e.pointerId);terms[h.i].tk.down(h.x,h.y);});",
   "cv.addEventListener(\"pointermove\",e=>{if(!drag||focus<0)return;const h=pick(e,true);if(h&&h.i===focus)terms[focus].tk.move(h.x,h.y);});",
   "const endDrag=()=>{if(drag&&focus>=0)terms[focus].tk.up();drag=false;};cv.addEventListener(\"pointerup\",endDrag);cv.addEventListener(\"pointercancel\",endDrag);cv.addEventListener(\"lostpointercapture\",endDrag);addEventListener(\"blur\",endDrag);document.addEventListener(\"visibilitychange\",endDrag);",
   "function setFocus(i){focus=i;$(\"hint\").textContent=i<0?\"端末を操作してください\":terms[i].tk.sub;}",

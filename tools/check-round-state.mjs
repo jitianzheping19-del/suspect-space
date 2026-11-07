@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {latestRotation} from '../impostor-rotation.js';
 import {hueFromSuitColor} from '../suit-colors.js';
 import {matchResumePose,repairableOwnPresence,isHostConnectionNotice} from '../room-resume-state.js';
 
@@ -19,7 +20,7 @@ for(const file of ['index.html','space-suspect-complete.html']){
  const c={$:id=>controls.get(id),document:{querySelectorAll:()=>[...controls.values()]},localStorage:{getItem:()=>null},
   clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),roleCooldownSettingsFromInputs:()=>({}),selectedRoleCounts:()=>({samurai:1}),
   readLastMatchSettings:()=>null,game:{phase:'lobby',settings:{},lobbySettings:{}},now:()=>stamp,token:()=>String(stamp),
-  impostorStreak:{},expansionKillCooldown:(_p,_s,base)=>base,isMiniPlayer:p=>p?.mini||p?.subrole==='mini',roleCounts:{samurai:1},impostorCount:1,botCount:2,waveModeSelected:'normal',selectedTaskCount:6,nextRound:2,
+  rotation:{history:{}},impostorStreak:{},expansionKillCooldown:(_p,_s,base)=>base,isMiniPlayer:p=>p?.mini||p?.subrole==='mini',roleCounts:{samurai:1},impostorCount:1,botCount:2,waveModeSelected:'normal',selectedTaskCount:6,nextRound:2,
   waveSetup:{countdownEndsAt:50000,playStartsAt:50000},roster:{a:{role:'impostor',subrole:'samurai'}},
   lobbySettingsPayload:s=>({matchSettings:s}),code:'1234',roomCode:'1234',db:{},ref:(_,path)=>path,set:async(_,body)=>{stored=body;},
   upgradedRoleCooldownMs:()=>0,roleBehaviorValue:()=>0,
@@ -67,7 +68,7 @@ for(const file of ['index.html','space-suspect-complete.html']){
  vm.runInContext('pendingBotPose={b:{x:1.23456,z:2}};flushBotPose("1234");',c);await settle();assert.equal(writes.length,1,'unchanged bots must not add traffic');
  vm.runInContext('pendingBotPose={b:{x:2,z:2,updatedAt:120000}};flushBotPose("1234");',c);await settle();assert.equal(writes[1].patch['b/updatedAt'],120000);
  assert(!source.includes('<div id="meetingStatusBar"'),'removed count HUD must not be created');
- c.uid='a';c.CENTER={x:0,z:0};c.matchResumePose=matchResumePose;c.readStored=()=>'';c.accountCostume='new-account-costume';
+ c.latestRotation=latestRotation;c.ownRoleRotation=()=>({});c.uid='a';c.CENTER={x:0,z:0};c.matchResumePose=matchResumePose;c.readStored=()=>'';c.accountCostume='new-account-costume';
  c.serverTimestamp=()=>({'.sv':'timestamp'});c.hueFromSuitColor=hueFromSuitColor;c.THREE={Color:class{getHexString(){return "42c8f5";}getHSL(){return {h:.8,s:1,l:.5};}}};
  let lobbyPlacements=0;c.placeLobbyEntry=p=>{lobbyPlacements++;return {...p,x:99,z:99};};
  vm.runInContext(between('function applyAccountCostume(','let roomOperationBusy='),c);

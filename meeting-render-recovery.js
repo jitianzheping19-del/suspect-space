@@ -37,8 +37,8 @@ export function patchMeetingRendering(html){
 function startLoop(update){const clock=new THREE.Clock(),gate=meetingBudget.gate();let time=0,raf=0;
  function resume(){if(raf||document.hidden||!meetingRenderActive)return;clock.getDelta();gate.reset();raf=requestAnimationFrame(frame);}
  function frame(stamp){raf=0;if(document.hidden||!meetingRenderActive)return;raf=requestAnimationFrame(frame);if(!gate.due(stamp))return;
-  const rdt=Math.min(clock.getDelta(),.15),dt=rdt*ts;time+=dt;update(dt,rdt,time);stepFx(dt);stepParticles(dt);
-  shake=Math.max(0,shake-rdt*2.4);flashV=Math.max(0,flashV-rdt*2.2);if(flashEl)flashEl.style.opacity=flashV;if(!window.__meetingEjectionOverlayActive)composer.render();
+  const rdt=Math.min(clock.getDelta(),.15),dt=rdt*ts;time+=dt;if(globalThis.__spaceMotionPreference?.matches){shake=0;flashV=0;}update(dt,rdt,time);stepFx(dt);stepParticles(dt);
+  shake=globalThis.__spaceMotionPreference?.matches?0:Math.max(0,shake-rdt*2.4);flashV=globalThis.__spaceMotionPreference?.matches?0:Math.max(0,flashV-rdt*2.2);if(flashEl)flashEl.style.opacity=flashV;if(!window.__meetingEjectionOverlayActive)composer.render();
  }
  resumeMeetingRender=resume;document.addEventListener('visibilitychange',resume);
  addEventListener('pagehide',()=>{cancelAnimationFrame(raf);raf=0;});addEventListener('pageshow',resume);resume();

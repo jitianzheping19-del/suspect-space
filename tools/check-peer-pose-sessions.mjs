@@ -45,7 +45,8 @@ class PeerConnection {
   }
 }
 
-const ids = Array.from({length: 20}, (_, i) => `user-${String(i).padStart(2, '0')}`);
+const participantCount=Number(process.env.POSE_QA_PARTICIPANTS||20);assert([5,10,20].includes(participantCount));
+const ids = Array.from({length: participantCount}, (_, i) => `user-${String(i).padStart(2, '0')}`);
 const roster = Object.fromEntries(ids.map(id => [id, {online: true}]));
 roster['bot-a'] = {online: true, bot: true}; roster['bot-b'] = {online: true, bot: true};
 let hostId = ids[0], scope = '1:play', enabled = true, moving = true;
@@ -91,16 +92,18 @@ async function converge(max = 500) {
 }
 
 await converge();
-assert.equal(nodes.get(hostId).links.size, 19);
+assert.equal(nodes.get(hostId).links.size, participantCount-1);
 assert(ids.filter(id => id !== hostId).every(id => nodes.get(id).links.size === 1));
-assert.equal([...nodes.values()].reduce((n, node) => n + node.links.size, 0), 38);
+assert.equal([...nodes.values()].reduce((n, node) => n + node.links.size, 0), (participantCount-1)*2);
 for (const count of Object.values(counts)) {count.writes = 0; count.received = 0;}
 loss = .12;
+const trafficStart=new Map([...nodes].map(([id,node])=>[id,{...node.stats}]));
 await step(1200); // 60 seconds of 20-person continuous movement, 12% packet loss.
 for (const [id, count] of Object.entries(counts)) {
   assert(count.writes <= 12, `${id} sent ${count.writes} checkpoints`);
   assert(count.received > 500, `${id} did not receive continuous movement`);
 }
+const steadyTraffic=Object.fromEntries([...nodes].map(([id,node])=>[id,{sentBytesPerSecond:Math.round((node.stats.sentBytes-trafficStart.get(id).sentBytes)/60),receivedBytesPerSecond:Math.round((node.stats.receivedBytes-trafficStart.get(id).receivedBytes)/60)}]));
 const steadyWrites = Object.fromEntries(Object.entries(counts).map(([id, count]) => [id, count.writes]));
 assert(allDirect());
 assert(nodes.get(ids[1]).poseFor('bot-a'));
@@ -119,11 +122,11 @@ assert(ids.filter(id => id !== hostId).every(id => !nodes.get(id).canUseDirect()
 await converge();
 
 scope = '2:meeting'; await step();
-assert(![...nodes.values()].some(node => node.poseFor(ids[5])), 'phase boundaries must invalidate old direct poses immediately');
+assert(![...nodes.values()].some(node => node.poseFor(ids[Math.min(5,ids.length-1)])), 'phase boundaries must invalidate old direct poses immediately');
 await converge();
 scope = '2:play:teleport-abc'; await converge();
 hostId = ids[1]; await converge();
-assert.equal(nodes.get(hostId).links.size, 19);
+assert.equal(nodes.get(hostId).links.size, participantCount-1);
 assert(ids.filter(id => id !== hostId).every(id => nodes.get(id).links.size === 1));
 enabled = false; await step(5);
 assert([...nodes.values()].every(node => node.links.size === 0 && !node.canUseDirect()));
@@ -139,8 +142,8 @@ for (let i = 0; i < 1200; i++) {
 }
 assert(denied <= 3, 'permission failure must not create a write storm');
 restricted.stop(); await settle();
-console.log(JSON.stringify({passed:true,participants:20,hostConnections:19,guestConnections:1,
-  simulatedSeconds:60,packetLoss:'12%',steadyStateCheckpointsPerPlayer:steadyWrites,
+console.log(JSON.stringify({passed:true,participants:participantCount,hostConnections:participantCount-1,guestConnections:1,
+  simulatedSeconds:60,inputHz:20,packetLoss:'12%',steadyPayloadTraffic:steadyTraffic,trafficExcludes:'WebRTC/UDP/TLS/TURN overhead, voice, durable game state and assets',steadyStateCheckpointsPerPlayer:steadyWrites,
   durablePolicy:'movement over WebRTC; event snapshots and bounded connection recovery',
   checks:['continuous poses and bot relay','loss and out-of-order recovery','final stop delivery','event snapshots and bounded recovery',
     'legacy client fallback','link failure and 30-second reconnect','suspended host','phase/teleport invalidation',

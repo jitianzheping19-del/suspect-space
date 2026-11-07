@@ -1,3 +1,4 @@
+import {createMotionPreference} from './motion-preference.js';
 // Self-contained so srcdoc scenes can receive this factory without bundler
 // aliases or dependencies on the parent window's JavaScript realm.
 export function createRenderBudget() {
@@ -70,5 +71,5 @@ export function createRenderBudget() {
 
 // Inject into the existing module (not a second renderer or animation loop).
 export function renderBudgetSource(name = 'sceneBudget') {
-  return `const ${name}=(${createRenderBudget.toString()})();`;
+  return `(${createMotionPreference.toString()})();const ${name}=(${createRenderBudget.toString()})();`;
 }

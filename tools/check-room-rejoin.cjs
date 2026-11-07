@@ -59,7 +59,7 @@ window.__rejoinQA={
   assert(Math.abs(s.center.x-422)<5,'own avatar centered horizontally');
   if(process.env.ROOM_QA_SHOTS){fs.mkdirSync(process.env.ROOM_QA_SHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.ROOM_QA_SHOTS,'rejoin-'+mode+'.png')});}
   await page.evaluate(()=>window.__rejoinQA.lateDisconnect());await page.waitForTimeout(100);s=await page.evaluate(()=>window.__rejoinQA.state());assert(s.profile.online&&s.avatar.visible);assert.deepEqual(s.position,loaded.expected);
-  await page.evaluate(()=>window.__rejoinQA.hostWarning());s=await page.evaluate(()=>window.__rejoinQA.state());assert(s.toastHidden,'host connection errors must not open a popup');
+  await page.evaluate(()=>window.__rejoinQA.hostWarning());s=await page.evaluate(()=>window.__rejoinQA.state());assert(!s.toastHidden,'explicit command failure must be visible');assert.match(s.toast,/ホストがコマンドを取得できません/);
  }
- console.log('ERRORS',errors);assert.deepEqual(errors,[]);console.log('PASS actual entry/reconciliation, current position/identity, centered avatar, old disconnect race, hidden host warnings');
+ console.log('ERRORS',errors);assert.deepEqual(errors,[]);console.log('PASS actual entry/reconciliation, current position/identity, centered avatar, old disconnect race, visible explicit command failures');
 }finally{await browser.close();server.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -91,7 +91,13 @@ export function createLobbyGamesRules(){
     if(!live(p)||typeof request.id!=='string'||request.id.length>100||!Number.isFinite(request.at)||Math.abs(time-request.at)>10000||state.seen[id]===request.id)return {state,ok:false};
     const s=JSON.parse(JSON.stringify(state));setSoccerPitch(s.soccer);s.seen[id]=request.id;roster=soccerRoster(s.soccer,roster);
     const allowed=id===host,room=area(p),fail=message=>({state:s,ok:false,message});
-    if(kind==='photo-background'){
+    if(kind==='lobby-status'){
+      if(!['ready','preparing','away'].includes(request.value))return fail('状態を選び直してください。');
+      (s.statuses||={})[id]={value:request.value,at:time,until:time+60000};
+    }else if(kind==='photo-pose'){
+      if(!['stand','wave','cheer','hero'].includes(request.pose))return fail('ポーズを選び直してください。');
+      (s.photoPoses||={})[id]=request.pose;
+    }else if(kind==='photo-background'){
       if(!allowed)return fail('背景はホストだけが変更できます。');
       if(!['aurora','sunset','moon','rose'].includes(request.background))return fail('この背景は選べません。');
       if(s.photo&&time<s.photo.at+1000)return fail('撮影が終わってから背景を変更してください。');
@@ -101,7 +107,7 @@ export function createLobbyGamesRules(){
       const atCamera=!p.lobbyCircuit&&!p.lobbyKart&&Math.hypot(p.x+4.1,p.z-8.0)<1.2&&Number(p.lobbyY||0)<1;
       if(!near(p)&&!atCamera)return fail('写真のステージかカメラの近くで撮影してください。');
       if(s.photo&&time<s.photo.at+1000)return fail('撮影中です。カウントダウンをお待ちください。');
-      s.photo={id:request.id,from:id,background:s.photoBackground||'aurora',at:time+5000,expiresAt:time+65000,members:Object.fromEntries(Object.entries(roster).filter(([uid,q])=>uid===id||near(q)).map(([uid])=>[uid,true]))};
+      s.photo={id:request.id,from:id,background:s.photoBackground||'aurora',framed:request.framed===true,roomName:String(request.roomName||'').slice(0,24),poses:{...(s.photoPoses||{})},at:time+5000,expiresAt:time+65000,members:Object.fromEntries(Object.entries(roster).filter(([uid,q])=>uid===id||near(q)).map(([uid])=>[uid,true]))};
     }else if(kind==='soccer-bots'){
       if(!allowed||room!=='soccer'||Math.hypot(p.x-34.6,p.z-10)>7)return fail('得点板のそばでホストが変更できます。');
       if(active(s.soccer))return fail('ボット数は開始前に変更してください。');
@@ -207,6 +213,7 @@ export function createLobbyGamesRules(){
   }
   function step(s,roster,time,dt){
     let changed=false;
+    for(const [id,status]of Object.entries(s.statuses||{}))if(time>=status.until||!live(roster[id])){delete s.statuses[id];changed=true;}
     if(s.photo&&time>=s.photo.expiresAt){s.photo=null;changed=true;}
     const g=s.survival;
     if(active(g)){

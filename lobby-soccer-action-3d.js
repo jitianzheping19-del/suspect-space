@@ -42,7 +42,7 @@ export function createSoccerAction3D(button){
  return {draw(stamp,mode,held=false){
   if(failed||button.hidden||document.hidden||stamp-last<45)return;last=stamp;
   try{if(!renderer)init();const palette={feint:['#17586b','#9aefd4'],press:['#654633','#ffd39d'],dash:['#214d81','#a3d7ff']}[mode]||['#17586b','#9aefd4'];face.material.color.set(palette[0]);rim.material.color.set(palette[1]);root.position.z=held?-.06:0;
-   const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,w=reduced?0:Math.sin(stamp/360)*.05;
+   const reduced=(globalThis.__spaceMotionPreference?.matches??globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true),w=reduced?0:Math.sin(stamp/360)*.05;
    for(const [name,model]of Object.entries(models))model.visible=name===mode;
    models.feint.userData.foot.rotation.z=-.2+w;models.press.userData.left.position.x=-.43+w;models.press.userData.right.position.x=.43-w;models.dash.userData.foot.rotation.z=.25+w;
    renderer.render(scene,camera);

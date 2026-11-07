@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {createPlaytestRecorder} from '../playtest-recorder.js';
+let stamp=1000;const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+const r=createPlaytestRecorder({clock:()=>stamp,storage});
+r.sample({});assert.equal(values.size,0,'recording is opt-in');r.start('before');
+stamp+=5000;r.sample({phase:'lobby',humans:5,diagnostics:{fps:null,pose:{sentBytes:100}}});assert.equal(r.current().activePlayMs,0);assert.equal(r.current().samples[0].fps,null);
+stamp+=5000;r.sample({phase:'play',humans:5,diagnostics:{fps:30,pose:{sentBytes:300,receivedBytes:100}}});assert.equal(r.current().activePlayMs,5000);assert.equal(r.current().samples.at(-1).posePayloadBytesPerSecond,60);
+stamp+=5000;r.sample({phase:'play',visible:false});assert.equal(r.current().activePlayMs,5000);
+stamp+=600000;r.sample({phase:'meeting'});assert.equal(r.current().activePlayMs,20000,'a suspended tab is not counted as ten minutes of play');
+const match={phase:'ended',id:'private-room:secret-user:1',winner:'crew',mapMode:'classic',startedAt:1000,endedAt:61000,actors:{secretUser:{name:'PRIVATE NAME',subrole:'engineer',role:'crew'}}};r.match(match);r.match(match);assert.equal(r.current().matches.length,1);
+assert(!JSON.stringify(r.current()).includes('secret'));assert(!JSON.stringify(r.current()).includes('PRIVATE'));r.observe('task close was unclear');r.stop();stamp+=5000;r.sample({phase:'play'});assert.equal(r.current().activePlayMs,20000);
+r.start('after');r.match(match);assert.equal(r.current().matches.length,1);for(let i=0;i<1500;i++){stamp+=5000;r.sample({phase:'play'});}assert.equal(r.current().samples.length,1440);
+assert(createPlaytestRecorder({storage}).saved());r.clear();assert.equal(values.size,0);
+const failing=createPlaytestRecorder({storage:{getItem(){throw Error();},setItem(){throw Error();}}});failing.start();failing.sample();assert(failing.stop());
+console.log('PASS opt-in recording, active time, transport deltas, match deduplication, privacy, bounded storage, reload and storage failure');

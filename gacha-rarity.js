@@ -2,6 +2,15 @@ export const GOLDEN_LEGEND_RARITY=5;
 export const GACHA_RARITY_NAMES=Object.freeze(['RARE','SUPER RARE','HYPER RARE','ULTRA RARE','LEGEND RARE','ゴールデンレジェンドレア']);
 export const GACHA_RARITY_COLORS=Object.freeze(['#64bed8','#8d99ff','#da84ff','#ffc369','#fff0ab','#ffd45e']);
 export const GOLDEN_LEGEND_CHANCE=.20;
+export function gachaItemRates(pool,owned={},premium=false){
+ if(!pool.length)return [];
+ if(premium)return pool.map(item=>{
+  const golden=item.rarity===GOLDEN_LEGEND_RARITY,tier=pool.filter(x=>(x.rarity===GOLDEN_LEGEND_RARITY)===golden),remaining=tier.filter(x=>!owned[x.number]),choices=remaining.length?remaining:tier;
+  return {item,chance:choices.includes(item)?(golden?GOLDEN_LEGEND_CHANCE:1-GOLDEN_LEGEND_CHANCE)/choices.length:0};
+ });
+ const remaining=pool.filter(x=>!owned[x.number]),choices=remaining.length?remaining:pool,weights=[55,27,12,5,1],total=choices.reduce((n,x)=>n+weights[x.rarity],0);
+ return pool.map(item=>({item,chance:choices.includes(item)?weights[item.rarity]/total:0}));
+}
 // Premium rates are per tier, not per item. Ownership never changes the 20%.
 // Prefer an unowned item within the winning tier; a completed tier can repeat.
 export function chooseGachaItem(pool,owned,premium,random){

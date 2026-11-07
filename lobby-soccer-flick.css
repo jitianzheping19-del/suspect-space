@@ -26,3 +26,5 @@
 #soccerKickBtn[data-mode="overhead"]{background:linear-gradient(150deg,#7959a8,#43305f);border-color:#f5dc9d;color:#fff6dd}
 #soccerKickBtn[data-mode="overhead"]>span{font-size:13px;white-space:nowrap}
 #soccerFlickZone button[hidden]{display:none!important}
+
+.soccerCurveChoices{position:absolute;bottom:100%;right:0;display:flex;gap:4px;width:max-content;max-width:82vw;padding-bottom:8px}.soccerCurveChoices[hidden]{display:none}.soccerCurveChoices button{position:static!important;width:auto!important;min-width:44px!important;min-height:44px!important;height:auto!important;border-radius:10px!important;padding:6px 9px!important;font-size:11px!important;transform:none!important}.soccerCurveChoices button[aria-pressed=true]{background:#21514c!important;border:2px solid #9affdf!important}

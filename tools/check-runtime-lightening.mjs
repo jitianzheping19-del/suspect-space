@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 import vm from 'node:vm';
 import {performance} from 'node:perf_hooks';
+import {configureSkeldTasks} from '../skeld-tasks.js';
 import {SightPolygonSolver} from '../sight-polygon.js';
 
 const source = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -9,7 +10,7 @@ const between = (text, start, end) => {
   const a = text.indexOf(start), b = text.indexOf(end, a + start.length);
   assert(a >= 0 && b > a, start); return text.slice(a, b);
 };
-const map = {Math, Number, Map, Set}; vm.createContext(map);
+const map = {Math, Number, Map, Set, configureSkeldTasks}; vm.createContext(map);
 vm.runInContext(between(source, 'const MAP_WORLD_SCALE=', '    const ROLE_LABELS =') +
   between(source, '    const SPEED =', 'let WALLS=buildSkeldWalls();') +
   'globalThis.skeld={walls:buildSkeldWalls(),regions:WALKABLE_REGIONS};', map);
@@ -100,7 +101,7 @@ for(const file of ['index.html','space-suspect-complete.html','space-suspect.htm
     for(let j=0;j<12;j++) {const a=j/12*Math.PI*2;expected&&=map.rawWalkable(x+Math.cos(a)*radius,z+Math.sin(a)*radius);}
     assert.equal(c.footprintWalkable(x,z,radius),expected,file+' walking boundary changed');footprintChecks++;
   }
-  assert(html.includes('solver:new SightPolygonSolver()')&&html.includes('pass.solver.solve(nearby,position.x,position.z,range)'));
+  assert(html.includes('solver:new SightPolygonSolver()')&&html.includes('pass.solver.solve(nearby,origin.x,origin.z,range)'));
 }
 const result={sightCases:861,sightVerticesChecked:checkedPoints,maxCoordinateError:maxError,footprintChecks,benchmarks:stats};
 mkdirSync(new URL('../tmp/',import.meta.url),{recursive:true});

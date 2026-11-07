@@ -18,7 +18,7 @@
     flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px;
     box-sizing: border-box; height: 50px; min-height: 50px; margin: 0; padding: 2px 12px; border-bottom: 1px solid #c2cedb1f; background: #151e28;
   }
-  #inputSettingsDialog #inputSettingsTitle { display: block!important; margin: 0!important; font-size: 16px!important; font-weight: 650; letter-spacing: .06em; color: #f0ece3!important; }
+  #inputSettingsDialog #inputSettingsTitle { display: block!important; margin: 0!important; font-size: calc(16px * var(--ui-text-scale,1))!important; font-weight: 650; letter-spacing: .06em; color: #f0ece3!important; }
   #inputSettingsDialog .inputSettingsShell { grid-template-columns: 148px minmax(0, 1fr)!important; gap: 0!important; min-height: 0!important; flex: 1 1 0!important; }
   #inputSettingsDialog #inputSettingsNav {
     padding: 10px 8px!important; gap: 6px!important; border-right: 1px solid #c2cedb1a; background: #111a24!important;
@@ -27,7 +27,7 @@
   #inputSettingsDialog #inputSettingsNav button {
     display: flex!important; align-items: center; gap: 12px; min-height: 44px!important;
     padding: 9px 10px!important; border: 1px solid transparent!important; border-radius: 10px!important;
-    background: transparent!important; color: #aeb8c6!important; font-size: 14px!important;
+    background: transparent!important; color: #aeb8c6!important; font-size: calc(14px * var(--ui-text-scale,1))!important;
     font-weight: 550!important; line-height: 1.4!important; text-align: left!important; white-space: nowrap!important;
     box-shadow: none!important;
   }
@@ -48,24 +48,24 @@
   #inputSettingsDialog button:not(.suitSwatch) {
     min-height: 44px!important; border: 1px solid #c0cedb29!important; border-radius: 10px!important;
     background: #1c2733!important; color: #dddfe4!important; box-shadow: none!important;
-    font-size: 13px!important; font-weight: 550!important; line-height: 1.4!important;
+    font-size: calc(13px * var(--ui-text-scale,1))!important; font-weight: 550!important; line-height: 1.4!important;
   }
   #inputSettingsDialog :is(button.primary, #profileSaveBtn) { background: #e8ddc7!important; border-color: #e8ddc7!important; color: #20252b!important; font-weight: 650!important; padding-inline: 24px!important; }
   #inputSettingsDialog :is(#logoutBtn, #settingsLeaveBtn, button.danger) { border-color: #d590892e!important; background: #b66c6910!important; color: #e0a49c!important; }
   #inputSettingsDialog :is(button[aria-checked="true"], button[aria-pressed="true"], .cameraPerspectiveButtons button.active, .cameraPerspectiveButtons button.selected) {
     border-color: #cbb68c99!important; background: #cbb68c16!important; color: #eadbbe!important; box-shadow: inset 0 0 0 1px #cbb68c30!important; outline: none!important;
   }
-  #inputSettingsDialog .suitSwatch { box-sizing: border-box; width: 100%!important; min-width: 0!important; min-height: 28px!important; height: 32px!important; padding: 0!important; aspect-ratio: auto!important; border-radius: 7px!important; font-size: 16px!important; }
+  #inputSettingsDialog .suitSwatch { box-sizing: border-box; width: 100%!important; min-width: 0!important; min-height: 28px!important; height: 32px!important; padding: 0!important; aspect-ratio: auto!important; border-radius: 7px!important; font-size: calc(16px * var(--ui-text-scale,1))!important; }
   #inputSettingsDialog .suitSwatch.selected { outline: 2px solid #e8ddc7!important; outline-offset: 3px!important; }
   #inputSettingsDialog .suitPalette { grid-template-columns: repeat(9, minmax(0, 1fr))!important; box-sizing: border-box; width: 100%!important; min-width: 0!important; max-width: 338px; gap: 6px!important; margin: 0!important; padding: 4px 3px!important; }
   #inputSettingsDialog :is(input[type="text"], input:not([type]), select) {
     box-sizing: border-box; min-width: 0!important; min-height: 48px!important; padding: 10px 13px!important; border: 1px solid #bccbdb30!important;
-    border-radius: 10px!important; background: #0a111a!important; color: #eeece6!important; font-size: 16px!important; box-shadow: none!important;
+    border-radius: 10px!important; background: #0a111a!important; color: #eeece6!important; font-size: calc(16px * var(--ui-text-scale,1))!important; box-shadow: none!important;
   }
   #inputSettingsDialog input::placeholder { color: #8996a7!important; }
-  #inputSettingsDialog label { color: #bec7d3!important; font-size: 14px!important; font-weight: 500!important; line-height: 1.6; }
+  #inputSettingsDialog label { color: #bec7d3!important; font-size: calc(14px * var(--ui-text-scale,1))!important; font-weight: 500!important; line-height: 1.6; }
   #inputSettingsDialog label:has(input, select) { background: transparent!important; box-shadow: none!important; }
-  #inputSettingsDialog output { color: #e3d3b2!important; font-size: 13px!important; font-weight: 550!important; font-variant-numeric: tabular-nums; }
+  #inputSettingsDialog output { color: #e3d3b2!important; font-size: calc(13px * var(--ui-text-scale,1))!important; font-weight: 550!important; font-variant-numeric: tabular-nums; }
   #inputSettingsDialog #settingsPlayerMount { grid-template-columns: minmax(0, 1fr)!important; min-width: 0!important; width: 100%!important; gap: 8px!important; }
   #inputSettingsDialog #settingsPlayerMount>label { margin: 0!important; }
   #inputSettingsDialog #settingsPlayerMount #profileSaveBtn { justify-self: start; min-width: 112px!important; }
@@ -103,17 +103,17 @@
   #inputSettingsDialog .inputPreferenceGrid>.inputPreferenceCheck { display: flex!important; min-height: 54px!important; gap: 12px!important; cursor: pointer; }
   #inputSettingsDialog #stickPositionOpen { min-height: 54px!important; padding: 10px!important; }
   #inputSettingsDialog .inputKeyMap { grid-column: 1 / -1!important; min-width: 0; margin: 8px 0 0!important; padding: 16px!important; border: 1px solid #c2cedb26!important; border-radius: 12px!important; background: #131d28!important; }
-  #inputSettingsDialog .inputKeyMap legend { padding-inline: 8px; color: #c8cdd6!important; font-size: 13px!important; font-weight: 500!important; }
+  #inputSettingsDialog .inputKeyMap legend { padding-inline: 8px; color: #c8cdd6!important; font-size: calc(13px * var(--ui-text-scale,1))!important; font-weight: 500!important; }
   #inputSettingsDialog :is(.inputKeyMapButtons, .cameraPerspectiveButtons) { display: grid!important; grid-template-columns: repeat(3, minmax(0, 1fr))!important; gap: 8px!important; }
   #inputSettingsDialog .inputKeyMapButtons { grid-template-columns: repeat(4, minmax(0, 1fr))!important; }
-  #inputSettingsDialog .inputKeyMapButtons button { min-width: 0!important; font-size: 14px!important; }
+  #inputSettingsDialog .inputKeyMapButtons button { min-width: 0!important; font-size: calc(14px * var(--ui-text-scale,1))!important; }
   #inputSettingsDialog .inputKeyMapButtons span { color: #e7d5b1!important; }
   #inputSettingsDialog :is(.inputKeyMapStatus, .inputDeviceHelp) { color: #a3adbb!important; font-size: 12px!important; line-height: 1.7!important; }
   #inputSettingsDialog #performancePanel { width: 100%!important; max-width: none!important; border: 0!important; border-radius: 0!important; background: transparent!important; box-shadow: none!important; padding: 0!important; color: #b9c4d0!important; }
   #inputSettingsDialog #performancePanel .perfBody { display: grid!important; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr)!important; gap: 14px 18px!important; padding: 0!important; font-size: 12px!important; }
   #inputSettingsDialog #performancePanel .perfBody output { min-width: 0; overflow-wrap: anywhere; }
   #inputSettingsDialog #performancePanel .qualityChoices { gap: 10px!important; margin-bottom: 12px!important; }
-  #inputSettingsDialog #performancePanel .qualityChoices button { min-height: 44px!important; font-size: 14px!important; }
+  #inputSettingsDialog #performancePanel .qualityChoices button { min-height: 44px!important; font-size: calc(14px * var(--ui-text-scale,1))!important; }
   #inputSettingsDialog #performancePanel .shadowSetting { min-height: 44px!important; padding: 12px 16px!important; border-color: #c2cedb26!important; border-radius: 12px!important; background: #17212c!important; margin-bottom: 10px!important; }
   #inputSettingsDialog .settingsRoomPlayer { padding: 14px!important; background: #17212c!important; border-color: #c2cedb26!important; border-radius: 12px!important; }
   #inputSettingsDialog .settingsRoomPlayerName { color: #e7e8e9!important; font-weight: 550!important; }
@@ -124,16 +124,16 @@
   #stickPositionDialog .stickPositionHeader { gap: 12px; flex-wrap: wrap; }
   #stickPositionDialog h2 { font-size: 18px!important; color: #e9e6de!important; font-weight: 600!important; }
   #stickPositionDialog button { min-height: 44px!important; padding: 10px 16px!important; background: #e8ddc7!important; color: #20252b!important; border: 0!important; border-radius: 10px!important; }
-  #stickPositionDialog :is(label, p) { color: #b8c2d0!important; font-size: 13px!important; }
+  #stickPositionDialog :is(label, p) { color: #b8c2d0!important; font-size: calc(13px * var(--ui-text-scale,1))!important; }
   #stickPositionDialog input { accent-color: #d8c8a7; }
   #stickPositionDialog #stickPositionStage { border-color: #c2cedb29!important; background: #17212c!important; border-radius: 12px!important; }
   #inputSettingsDialog .settingsDesignPane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; flex: 1 1 0; }
   #inputSettingsDialog .settingsDesignPane .inputSettingsContent { flex: 1 1 0; }
   #inputSettingsDialog .settingsSectionToolbar { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 12px; border-bottom: 1px solid #c2cedb1a; }
-  #inputSettingsDialog #settingsActiveSectionTitle { margin: 0!important; font-size: 15px!important; }
+  #inputSettingsDialog #settingsActiveSectionTitle { margin: 0!important; font-size: calc(15px * var(--ui-text-scale,1))!important; }
   #inputSettingsDialog #settingsActiveSectionTitle[hidden] { display: none!important; }
   #inputSettingsDialog .settingsSectionToolbar[hidden] { display: none!important; }
-  #inputSettingsDialog .settingsDesignHeader #inputSettingsClose { flex: 0 0 auto; margin-left: auto!important; min-height: 40px!important; padding: 6px 14px!important; }
+  #inputSettingsDialog .settingsDesignHeader #inputSettingsClose { flex: 0 0 auto; margin-left: auto!important; min-height: 44px!important; padding: 6px 14px!important; }
   #inputSettingsDialog :is(.unifiedInputHeading, .unifiedAudioSettings > h3) { display: none!important; }
   #inputSettingsDialog .settingsProfileActions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
   #inputSettingsDialog #settingsPlayerMount #profileSaveBtn { min-width: 96px!important; }
@@ -149,16 +149,16 @@
   .ssGiftDialog .reviewCard h2 { display: flex; align-items: center; min-height: 40px; margin: 0 48px 0 0!important; font-size: 18px!important; font-weight: 600; }
   .ssGiftDialog .reviewClose { top: 12px!important; right: 12px!important; width: 44px!important; height: 44px!important; padding: 0!important; border: 1px solid #c0cedb29!important; border-radius: 10px!important; background: #1c2733!important; color: #dddfe4!important; font-size: 24px!important; }
   .ssGiftDialog .ssGiftFields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(80px, .35fr); gap: 10px; }
-  .ssGiftDialog .ssGiftFields label { display: grid!important; gap: 6px; min-width: 0; margin: 0!important; padding: 0!important; color: #bec7d3!important; font-size: 13px!important; font-weight: 500!important; }
-  .ssGiftDialog :is(select, input[type="number"]) { box-sizing: border-box!important; width: 100%!important; min-width: 0!important; min-height: 44px!important; margin: 0!important; padding: 8px 10px!important; border: 1px solid #bccbdb30!important; border-radius: 10px!important; background: #0a111a!important; color: #eeece6!important; font-family: inherit!important; font-size: 16px!important; line-height: 1.4; color-scheme: dark; }
+  .ssGiftDialog .ssGiftFields label { display: grid!important; gap: 6px; min-width: 0; margin: 0!important; padding: 0!important; color: #bec7d3!important; font-size: calc(13px * var(--ui-text-scale,1))!important; font-weight: 500!important; }
+  .ssGiftDialog :is(select, input[type="number"]) { box-sizing: border-box!important; width: 100%!important; min-width: 0!important; min-height: 44px!important; margin: 0!important; padding: 8px 10px!important; border: 1px solid #bccbdb30!important; border-radius: 10px!important; background: #0a111a!important; color: #eeece6!important; font-family: inherit!important; font-size: calc(16px * var(--ui-text-scale,1))!important; line-height: 1.4; color-scheme: dark; }
   .ssGiftDialog .ssGiftRecipients { min-width: 0; margin: 0; padding: 10px; border: 1px solid #c2cedb26; border-radius: 12px; }
-  .ssGiftDialog .ssGiftRecipients legend { padding: 0 6px; color: #bec7d3; font-size: 13px; }
+  .ssGiftDialog .ssGiftRecipients legend { padding: 0 6px; color: #bec7d3; font-size: calc(13px * var(--ui-text-scale,1)); }
   .ssGiftDialog .ssGiftPlayers { gap: 4px!important; max-height: min(240px, 30dvh)!important; margin: 0!important; overscroll-behavior: contain; }
   .ssGiftDialog label.ssGiftPlayer { min-height: 44px!important; padding: 8px 10px!important; border-color: #c2cedb26!important; border-radius: 10px!important; background: #17212c!important; color: #dddfe4!important; font-weight: 500!important; }
   .ssGiftDialog label.ssGiftPlayer:has(:checked) { border-color: #cbb68c99!important; background: #cbb68c16!important; }
   .ssGiftDialog .ssGiftPlayer input { accent-color: #d8c8a7!important; }
   .ssGiftDialog .reviewCard p { margin: 0!important; color: #aeb8c6!important; font-size: 12px!important; overflow-wrap: anywhere; }
-  .ssGiftDialog .reviewSend { min-height: 44px!important; margin: 0!important; padding: 10px 16px!important; border: 1px solid #e8ddc7!important; border-radius: 10px!important; background: #e8ddc7!important; color: #20252b!important; font-size: 14px!important; font-weight: 650!important; box-shadow: none!important; }
+  .ssGiftDialog .reviewSend { min-height: 44px!important; margin: 0!important; padding: 10px 16px!important; border: 1px solid #e8ddc7!important; border-radius: 10px!important; background: #e8ddc7!important; color: #20252b!important; font-size: calc(14px * var(--ui-text-scale,1))!important; font-weight: 650!important; box-shadow: none!important; }
   .ssGiftDialog button:disabled { opacity: .45!important; cursor: default; }
   .ssGiftDialog :is(button, input, select):focus-visible { outline: 2px solid #e4d3b3!important; outline-offset: 2px!important; }
   @media (max-width: 380px) { .ssGiftDialog .ssGiftFields { grid-template-columns: minmax(0, 1fr); } }
@@ -170,13 +170,13 @@
     #inputSettingsDialog { padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))!important; }
     #inputSettingsDialog .inputSettingsDialogCard { height: calc(100dvh - max(10px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)))!important; max-height: calc(100dvh - max(10px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)))!important; border-radius: 16px!important; }
     #inputSettingsDialog .settingsDesignHeader { padding: 2px 12px; }
-    #inputSettingsDialog #inputSettingsTitle { font-size: 16px!important; }
+    #inputSettingsDialog #inputSettingsTitle { font-size: calc(16px * var(--ui-text-scale,1))!important; }
     #inputSettingsDialog .inputSettingsShell { grid-template-columns: 128px minmax(0, 1fr)!important; }
     #inputSettingsDialog #inputSettingsNav { padding: 8px 6px!important; gap: 6px!important; }
-    #inputSettingsDialog #inputSettingsNav button { padding: 10px!important; min-height: 44px!important; font-size: 13px!important; gap: 10px; }
+    #inputSettingsDialog #inputSettingsNav button { padding: 10px!important; min-height: 44px!important; font-size: calc(13px * var(--ui-text-scale,1))!important; gap: 10px; }
     #inputSettingsDialog .inputSettingsContent { padding: 10px 12px!important; }
     #inputSettingsDialog .inputPreferenceGrid>label { padding: 10px!important; }
-    #inputSettingsDialog label { font-size: 13px!important; }
+    #inputSettingsDialog label { font-size: calc(13px * var(--ui-text-scale,1))!important; }
   }
   @media (max-width: 640px) and (orientation: portrait) {
     #inputSettingsDialog .inputSettingsShell { display: flex!important; flex-direction: column!important; }

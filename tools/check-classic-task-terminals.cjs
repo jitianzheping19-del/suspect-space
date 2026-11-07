@@ -21,7 +21,7 @@ const harness=`<!doctype html><html><head><meta charset="utf-8"><meta name="view
 import {createTaskTerminalDocument} from './task-terminal-document.js';
 let source=await createTaskTerminalDocument();
 for(const [name,inspect]of Object.entries(${JSON.stringify(inspectors)}))source=source.replace('name:'+JSON.stringify(name),'inspect:()=>'+inspect+',name:'+JSON.stringify(name));
-source=source.replace('composer.render();})();','if(!window.__qaSkipRender)composer.render();})();').replace('renderer.compile(scene,camera);',${JSON.stringify(probes)}+'renderer.setPixelRatio(.7);composer.setPixelRatio(.7);renderer.shadowMap.enabled=false;renderer.compile(scene,camera);');
+source=source.replace('composer.render();','if(!window.__qaSkipRender)composer.render();').replace('renderer.compile(scene,camera);',${JSON.stringify(probes)}+'renderer.setPixelRatio(.7);composer.setPixelRatio?.(.7);renderer.shadowMap.enabled=false;renderer.compile(scene,camera);');
 const frame=document.getElementById('terminal');let serial=0;window.__terminalQA={ready:false,done:[],open(index){const id='qa-'+(++serial);frame.contentWindow.postMessage({type:'ss-task-terminal-open',id,index,name:'Task QA',volume:0},'*');return id;},close(){frame.contentWindow.postMessage({type:'ss-task-terminal-close',id:frame.contentWindow.__classicQA.state().id},'*')}};
 addEventListener('message',e=>{if(e.source!==frame.contentWindow)return;if(e.data?.type==='ss-task-terminal-init')window.__terminalQA.ready=true;if(e.data?.type==='ss-task-terminal-done')window.__terminalQA.done.push(e.data.id);});frame.srcdoc=source;
 </script></body></html>`;
@@ -30,7 +30,8 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox','--enabl
 try{for(const touch of [false,true]){
  if(process.env.TASK_QA_TOUCH&&String(touch)!==process.env.TASK_QA_TOUCH)continue;
  const page=await browser.newPage({viewport:touch?{width:844,height:390}:{width:1280,height:800},hasTouch:touch,isMobile:touch}),errors=[];
- page.on('pageerror',e=>errors.push(e.message.slice(0,250)));
+ page.on('pageerror',e=>{errors.push(e.message.slice(0,250));console.error('TASK PAGE ERROR',e.message);});
+ await page.route(/https:\/\/(cdn.jsdelivr.net\/npm|unpkg.com)\/three@0.164.1\//,r=>r.fulfill({path:path.join(root,'node_modules/three',r.request().url().split('three@0.164.1/')[1]),contentType:'application/javascript'}));
  await page.route('**/classic-task-qa.html',r=>r.fulfill({body:harness,contentType:'text/html'}));
  await page.goto(base+'classic-task-qa.html');await page.waitForFunction(()=>window.__terminalQA?.ready,{},{timeout:90000});
  const frame=await(await page.locator('#terminal').elementHandle()).contentFrame(),cdp=await page.context().newCDPSession(page);

@@ -3,11 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check:quality": "node tools/check-quality-release.mjs",
     "build": "node tools/sync-lobby-photo-deck.mjs && node tools/sync-lobby-games.mjs && node tools/sync-lobby-lounge.mjs && node tools/sync-gacha-navigation.mjs && node tools/sync-meeting-scene.mjs && node tools/sync-render-budgets.mjs && node tools/sync-costume-companions.mjs && node tools/sync-game-entrypoints.mjs && node tools/export-kill-preview-assets.mjs && node tools/export-task-machine.mjs && node tools/export-ejection-preview.mjs && node tools/export-pet-preview.mjs && vite build"
   },
   "devDependencies": {
     "@skyway-sdk/room": "2.5.1",
     "esbuild": "0.25.12",
+    "playwright": "1.56.1",
     "three": "0.164.1",
     "vite": "6.4.1"
   }

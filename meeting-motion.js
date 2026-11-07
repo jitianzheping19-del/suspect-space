@@ -1,9 +1,10 @@
+import {createMotionPreference} from './motion-preference.js';
 // Presentation only: existing vote handlers, timers and 3D readiness own state.
 const meeting = document.getElementById('meeting');
 const players = document.getElementById('votePlayers');
 const intro = document.getElementById('meetingIntro');
 const results = document.getElementById('voteResultList');
-const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const reduced = createMotionPreference();
 const running = new Map();
 const cardState = new WeakMap();
 let boardKey = '', boardVisible = false, phase = '', frame = 0;

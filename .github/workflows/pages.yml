@@ -48,8 +48,32 @@ jobs:
       - name: Build static site
         run: npm run build
 
+      - name: Install browser for release checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify source and built game
+        run: npm run check:quality -- --skip-build
+
       - name: Keep project documents available on Pages
         run: cp -f ./space-suspect-update-notes-2026-10-20.docx ./CHANGELOG-2026-10-20.md ./CHANGELOG-2026-10-22.md dist/
+
+      - name: Archive the verified release
+        run: node tools/release-artifact.mjs create dist tmp/release-archive
+
+      - name: Retain release for rollback
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-game-release
+          path: tmp/release-archive
+          retention-days: 90
+
+      - name: Retain check results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-check-results
+          path: tmp/quality-release
+          if-no-files-found: ignore
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

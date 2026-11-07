@@ -7,7 +7,7 @@ export function animateRoleReveal(stage,kind='role'){
  let frame=stage.querySelector('.roleRevealFrame');
  if(!frame){frame=document.createElement('div');frame.className='roleRevealFrame';frame.setAttribute('aria-hidden','true');frame.innerHTML='<i class="revealArc left"></i><i class="revealArc right"></i><i class="revealCut"></i>';stage.prepend(frame);}
  const animations=[];active.set(stage,animations);
- if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+ if((globalThis.__spaceMotionPreference?.matches??globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true))return;
  const play=(node,frames,duration,delay=0)=>{if(node?.animate)animations.push(node.animate(frames,{duration,delay,easing:'cubic-bezier(.16,.85,.25,1)',fill:'backwards'}));};
  play(stage.querySelector('.card'),[{opacity:0,transform:'translateY(18px) scale(.92)'},{opacity:1,transform:'translateY(0) scale(1)'}],620);
  play(stage.querySelector('#roleRevealTitle'),[{opacity:0,transform:'translateY(12px)'},{opacity:1,transform:'translateY(0)'}],480,100);

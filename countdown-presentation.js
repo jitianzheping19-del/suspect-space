@@ -127,7 +127,7 @@ export function updateCountdownPresentation(stage,value,{visible=Number(value)>0
  stage.classList.remove('countdown-releasing');
  if(!active){stopPresentation(state);return;}
  const stamp=performance.now(),deadline=stamp+remainingMs;
- const reduced=!!globalThis.matchMedia?.('(prefers-reduced-motion:reduce)').matches;
+ const reduced=(globalThis.__spaceMotionPreference?.matches??globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true);
  // Ignore tiny clock differences on routine updates; preserve the timeline.
  if(!state.visible||state.key!==key||state.reduced!==reduced||Math.abs(state.deadline-deadline)>120){
   stopPresentation(state);

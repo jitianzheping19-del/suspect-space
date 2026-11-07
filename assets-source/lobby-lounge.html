@@ -258,7 +258,33 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
       camera.position.set(10.9, 14.5, 16.7);
 
     /* LOBBY_RENDER_BUDGET_BEGIN */
-const lobbyBudget=(function createRenderBudget() {
+(function createMotionPreference(){
+ if(globalThis.__spaceMotionPreference)return globalThis.__spaceMotionPreference;
+ const key='space-suspect-motion-v1',query=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)'),listeners=new Set();
+ let mode='system';try{if(localStorage.getItem(key)==='reduce')mode='reduce';}catch{}
+ try{if(parent!==window&&parent.__spaceMotionPreference)mode=parent.__spaceMotionPreference.mode;}catch{}
+ const frames=()=>globalThis.document?.querySelectorAll('iframe')||[];
+ const preference={get mode(){return mode;},get matches(){return mode==='reduce'||query?.matches===true;},
+  set(value,persist=true){if(!['system','reduce'].includes(value))return;mode=value;if(persist)try{localStorage.setItem(key,mode);}catch{}sync();},
+  addEventListener(type,listener){if(type==='change')listeners.add(listener);},removeEventListener(type,listener){if(type==='change')listeners.delete(listener);}};
+ globalThis.__spaceMotionPreference=preference;
+ const send=frame=>frame?.postMessage({type:'ss-motion-preference',mode},'*');
+ function sync(){
+  if(globalThis.document?.documentElement)document.documentElement.dataset.reducedMotion=String(preference.matches);
+  for(const frame of frames())send(frame.contentWindow);
+  for(const listener of listeners)listener({matches:preference.matches,mode});
+ }
+ query?.addEventListener?.('change',sync);
+ globalThis.addEventListener?.('message',event=>{
+  if(globalThis.parent!==globalThis&&event.source===globalThis.parent&&event.data?.type==='ss-motion-preference')preference.set(event.data.mode,false);
+  else if(event.data?.type==='ss-motion-preference-request'&&[...frames()].some(frame=>frame.contentWindow===event.source))send(event.source);
+ });
+ globalThis.document?.addEventListener('load',event=>{if(event.target?.tagName==='IFRAME')send(event.target.contentWindow);},true);
+ // Decorative CSS only: simulation clocks, controls and decision timers are unchanged.
+ if(globalThis.document){const style=document.createElement('style');style.textContent='html[data-reduced-motion="true"] *,html[data-reduced-motion="true"] *::before,html[data-reduced-motion="true"] *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}html[data-reduced-motion="true"] :is(#ssxFxCanvas,#ssxFxFlash,#ssxSabLayer,.flash,.ssxFlash){display:none!important}';document.head.append(style);}
+ sync();if(globalThis.parent&&globalThis.parent!==globalThis)globalThis.parent.postMessage({type:'ss-motion-preference-request'},'*');
+ return preference;
+})();const lobbyBudget=(function createRenderBudget() {
   const nav = globalThis.navigator || {};
   const mobile = nav.userAgentData?.mobile === true ||
     /Android|iPhone|iPad|iPod/i.test(nav.userAgent || '') ||
@@ -4528,7 +4554,7 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
 }
 function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[player]}){
  const photoCamera=new THREE.PerspectiveCamera(43,16/9,.1,80);photoCamera.position.set(0,4.9,1.4);photoCamera.lookAt(0,2.35,11.4);
- let timer=0,pending=null,preview=false,capturing=false,lastLabelLayout=[];const size=new THREE.Vector2();
+ let timer=0,pending=null,preview=false,capturing=false,lastLabelLayout=[],posesById={},selfId='',shotMeta=null;const size=new THREE.Vector2();
  const inPhoto=p=>Math.abs(p.x)<4.15&&p.z>9.1&&p.z<13&&p.y<2.8;
  const near=()=>inPhoto(player.root.position)||Math.hypot(player.root.position.x+4.1,player.root.position.z-8.0)<1.2;
  function prepareView(){
@@ -4536,7 +4562,12 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
   const saved=[],set=(node,visible)=>{if(node&&node.visible!==visible){saved.push([node,node.visible]);node.visible=visible;}};
   set(scene.getObjectByName('lobby-photo-camera-station'),true);
   if(preview||capturing)set(scene.getObjectByName('lobby-overhead-sculpture'),false);
+  const rotations=[];
   for(const crew of crews()){
+   if(inPhoto(crew.root.position)){
+    const pose=posesById[crew===player?selfId:crew.root.userData.photoUid]||'stand',arms=crew.arms||crew.root.userData.walkArms||[];
+    for(const [i,arm]of arms.entries()){if(!arm)continue;rotations.push([arm,arm.rotation.clone()]);if(pose==='wave'&&i===1){arm.rotation.z=-2.5;arm.rotation.x=-.35;}if(pose==='cheer'){arm.rotation.z=(i?-1:1)*2.5;arm.rotation.x=-.15;}if(pose==='hero'){arm.rotation.x=i?-1.5:.3;arm.rotation.z=i?-.8:.5;}}
+   }
    const data=crew.root?.userData||{};
    if(capturing)set(crew.root,inPhoto(crew.root.position));else if(preview&&crew===player)set(crew.root,true);
    for(const node of [crew.label,data.lobbyNameTag,data.lobbyMicTag,data.lobbyMicCross,data.readyTag,data.connectionIndicator?.root])set(node,false);
@@ -4546,7 +4577,7 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
     set(data.photoNameSprite,true);
    }else set(data.photoNameSprite,false);
   }
-  return()=>{for(const [node,visible]of saved)node.visible=visible;};
+  return()=>{for(const [node,rotation]of rotations)node.rotation.copy(rotation);for(const [node,visible]of saved)node.visible=visible;};
  }
  // Place small nameplates in image coordinates, avoiding other crew faces and
  // previously placed names. Microphone glyphs never enter this texture.
@@ -4571,13 +4602,14 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
  function cancel(){clearTimeout(timer);timer=0;pending=null;preview=false;capturing=false;window.__lobbyPhotoCamera=null;}
  window.addEventListener('message',event=>{
   if(event.source!==parent)return;const data=event.data||{};
+  if(data.type==='lobby-games-state'){selfId=String(data.uid||'');posesById=data.state?.photoPoses||{};return;}
   if(data.type==='lobby-photo-cancel'||data.type==='lobby-render-state'&&data.active!==true){cancel();return;}
   if(data.type!=='lobby-photo-start'||pending||typeof data.id!=='string'||data.id.length>100||!Number.isFinite(data.at)||data.at<Date.now()-100||data.at>Date.now()+6000)return;
-  pending=data.id;preview=data.preview===true&&near();if(preview)window.__lobbyPhotoCamera=photoCamera;
+  shotMeta=data;posesById=data.poses||posesById;pending=data.id;preview=data.preview===true&&near();if(preview)window.__lobbyPhotoCamera=photoCamera;
   timer=setTimeout(()=>{const id=pending;if(!id)return;
    if(document.hidden||window.SpaceSuspectLobby?.__lobbyRenderActive===false){cancel();parent.postMessage({type:'lobby-photo-error',id},'*');return;}
    const ratio=renderer.getPixelRatio();renderer.getSize(size);const width=size.x,height=size.y;
-   try{capturing=true;renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const output=document.createElement('canvas');output.width=1280;output.height=720;output.getContext('2d').drawImage(renderer.domElement,0,0);drawNames(output);const image=output.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
+   try{capturing=true;renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const output=document.createElement('canvas');output.width=1280;output.height=720;output.getContext('2d').drawImage(renderer.domElement,0,0);drawNames(output);if(shotMeta?.framed){const ctx=output.getContext('2d');ctx.strokeStyle='#cce8ed';ctx.lineWidth=12;ctx.strokeRect(6,6,1268,708);ctx.fillStyle='#0b2036e8';ctx.fillRect(12,664,1256,44);ctx.fillStyle='#f4fcff';ctx.font='24px sans-serif';ctx.textAlign='left';ctx.fillText(String(shotMeta.roomName||'みんなのロビー').slice(0,24),32,694,850);ctx.textAlign='right';ctx.fillText(String(shotMeta.dateLabel||''),1240,694,280);}const image=output.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
    catch(error){console.warn('集合写真の撮影に失敗しました',error);parent.postMessage({type:'lobby-photo-error',id},'*');}
    finally{renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();render(camera);}
   },Math.max(0,data.at-Date.now()));
@@ -4604,6 +4636,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
     cube(.85,.85,.7,0x263a41,x,.425,z);cube(.74,.08,.6,color,x,.89,z);cube(.5,.28,.16,0x45687a,x,1.1,z-.16);cube(.36,.16,.025,0x73dae8,x,1.13,z-.065,{emissive:0x399da5,emissiveIntensity:.6});addObstacle(x,z,.88,.73,.93,true);
   }
   const poolX=7.8,poolZ=8.45;
+  cube(.9,.8,.65,0x234657,4.1,.4,5.8);cube(.85,.48,.08,0x7ae6cf,4.1,1.05,5.9,{emissive:0x3eb89e,emissiveIntensity:.45});addObstacle(4.1,5.8,.95,.7,1.3,true);caption("タスク・役職練習",4.1,1.85,5.8,2.5,"#b5ffdf");
   cube(5.8,.14,5.7,0x1a6376,poolX,-1.07,poolZ);for(const [x,z,w,d] of [[poolX-2.76,poolZ,.18,5.55],[poolX+2.76,poolZ,.18,5.55],[poolX,poolZ-2.7,5.55,.18],[poolX,poolZ+2.7,5.55,.18]])cube(w,1.15,d,0x24566b,x,-.45,z);
   const waterGeometry=new THREE.PlaneGeometry(5.35,5.2,24,24),water=new THREE.Mesh(waterGeometry,new THREE.MeshStandardMaterial({color:0x42d4df,transparent:true,opacity:.45,roughness:.18,metalness:.12,emissive:0x14647a,emissiveIntensity:.28,side:THREE.DoubleSide}));water.rotation.x=-Math.PI/2;water.position.set(poolX,.05,poolZ);root.add(water);
   for(const [x,z,w,d] of [[poolX-2.86,poolZ-1.7,.23,2.5],[poolX+2.86,poolZ,.23,5.9],[poolX,poolZ-2.85,5.7,.23],[poolX,poolZ+2.85,5.7,.23]]){cube(w,.22,d,0xd8cfb9,x,.11,z);addObstacle(x,z,w,d,.22,true,true);}
@@ -4748,7 +4781,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
 }
     window.__lobbyWinBoard=null;
     window.__lobbyExpansion=installLobbyExpansion(THREE,scene,addObstacle);
-    window.__lobbyPhotoView=installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews:()=>[player,...remoteCrews.values()]});
+    window.__lobbyPhotoView=installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews:()=>[player,...[...remoteCrews].map(([id,crew])=>{crew.root.userData.photoUid=id;return crew;})]});
     const guide=new THREE.Group();guide.name="gacha-navigation";scene.add(guide);guide.visible=false;
     const guideMat=new THREE.MeshBasicMaterial({color:0x9cf9ed,transparent:true,opacity:.85,depthWrite:false});
     const guideShape=new THREE.Shape();guideShape.moveTo(0,.2);guideShape.lineTo(-.14,-.10);guideShape.lineTo(0,-.035);guideShape.lineTo(.14,-.10);guideShape.closePath();const guideGeo=new THREE.ShapeGeometry(guideShape);
@@ -6010,7 +6043,13 @@ function createLobbyGamesRules(){
     if(!live(p)||typeof request.id!=='string'||request.id.length>100||!Number.isFinite(request.at)||Math.abs(time-request.at)>10000||state.seen[id]===request.id)return {state,ok:false};
     const s=JSON.parse(JSON.stringify(state));setSoccerPitch(s.soccer);s.seen[id]=request.id;roster=soccerRoster(s.soccer,roster);
     const allowed=id===host,room=area(p),fail=message=>({state:s,ok:false,message});
-    if(kind==='photo-background'){
+    if(kind==='lobby-status'){
+      if(!['ready','preparing','away'].includes(request.value))return fail('状態を選び直してください。');
+      (s.statuses||={})[id]={value:request.value,at:time,until:time+60000};
+    }else if(kind==='photo-pose'){
+      if(!['stand','wave','cheer','hero'].includes(request.pose))return fail('ポーズを選び直してください。');
+      (s.photoPoses||={})[id]=request.pose;
+    }else if(kind==='photo-background'){
       if(!allowed)return fail('背景はホストだけが変更できます。');
       if(!['aurora','sunset','moon','rose'].includes(request.background))return fail('この背景は選べません。');
       if(s.photo&&time<s.photo.at+1000)return fail('撮影が終わってから背景を変更してください。');
@@ -6020,7 +6059,7 @@ function createLobbyGamesRules(){
       const atCamera=!p.lobbyCircuit&&!p.lobbyKart&&Math.hypot(p.x+4.1,p.z-8.0)<1.2&&Number(p.lobbyY||0)<1;
       if(!near(p)&&!atCamera)return fail('写真のステージかカメラの近くで撮影してください。');
       if(s.photo&&time<s.photo.at+1000)return fail('撮影中です。カウントダウンをお待ちください。');
-      s.photo={id:request.id,from:id,background:s.photoBackground||'aurora',at:time+5000,expiresAt:time+65000,members:Object.fromEntries(Object.entries(roster).filter(([uid,q])=>uid===id||near(q)).map(([uid])=>[uid,true]))};
+      s.photo={id:request.id,from:id,background:s.photoBackground||'aurora',framed:request.framed===true,roomName:String(request.roomName||'').slice(0,24),poses:{...(s.photoPoses||{})},at:time+5000,expiresAt:time+65000,members:Object.fromEntries(Object.entries(roster).filter(([uid,q])=>uid===id||near(q)).map(([uid])=>[uid,true]))};
     }else if(kind==='soccer-bots'){
       if(!allowed||room!=='soccer'||Math.hypot(p.x-34.6,p.z-10)>7)return fail('得点板のそばでホストが変更できます。');
       if(active(s.soccer))return fail('ボット数は開始前に変更してください。');
@@ -6126,6 +6165,7 @@ function createLobbyGamesRules(){
   }
   function step(s,roster,time,dt){
     let changed=false;
+    for(const [id,status]of Object.entries(s.statuses||{}))if(time>=status.until||!live(roster[id])){delete s.statuses[id];changed=true;}
     if(s.photo&&time>=s.photo.expiresAt){s.photo=null;changed=true;}
     const g=s.survival;
     if(active(g)){
@@ -7211,6 +7251,8 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       badge.material.transparent=true;badge.material.opacity=oni||immune?1:.42+.16*Math.sin(t/110);badge.scale.setScalar(oni||immune?1:threat?1.12:1);
       if(own&&enabled&&other==='soccer'&&!state?.soccer?.slides?.[id]){const lean=player.root.userData.soccerTurnLean||0;if(lean){pose(crew.root);crew.root.rotation.z+=lean;}}
       const nutmeg=state?.soccer?.nutmegs?.[id];if(enabled&&other==='soccer'&&nutmeg&&t>=nutmeg.at&&t<nutmeg.until){const w=Math.sin(Math.PI*(t-nutmeg.at)/(nutmeg.until-nutmeg.at));for(const [i,leg]of (crew.legs||[]).entries()){pose(leg);leg.position.x+=(i?1:-1)*.42*w;leg.rotation.z+=(i?-1:1)*.45*w;}pose(crew.body);crew.body.position.y-=.13*w;continue;}
+      const celebration=state?.soccer?.lastGoal,celebrationAge=t-Number(celebration?.at||0);
+      if(enabled&&other==='soccer'&&celebration&&team===celebration.team&&celebrationAge>=0&&celebrationAge<2200){const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];for(const [i,arm]of arms.entries()){pose(arm);arm.rotation.x=-2.3;arm.rotation.z=(i?-1:1)*.45;}if(!window.__spaceMotionPreference?.matches){pose(crew.root);crew.root.position.y+=Math.abs(Math.sin(celebrationAge/230))*.16;}continue;}
       const down=state?.soccer?.knockdowns?.[id];if(enabled&&other==='soccer'&&down&&t>=down.at&&t<down.until){applySoccerKnockdownPose(crew,down,t,pose);continue;}
       const slide=state?.soccer?.slides?.[id],slideMotion=enabled&&other==='soccer'?sampleSoccerSlide(slide,t):null;
       if(slideMotion&&crew.legs?.length){
