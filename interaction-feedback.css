@@ -1,0 +1,11 @@
+:root{--ui-confirm:#66e0b0;--ui-danger:#ff7189;--ui-selected:#86caff;--ui-ready:#66e0b0;--ui-muted:#aebdcc}
+#actionCancel{position:fixed;top:calc(env(safe-area-inset-top,0px) + 70px);right:16px;z-index:31000;min-height:44px;padding:8px 16px;background:#183044;color:#fff;border:2px solid var(--ui-selected);touch-action:none}
+#actionPreviewHint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 150px);transform:translateX(-50%);z-index:30999;max-width:70vw;padding:9px 14px;background:#081928ed;border:1px solid var(--ui-selected);border-radius:8px;color:#fff;pointer-events:none;font-size:13px}
+#actionCancel[hidden],#actionPreviewHint[hidden]{display:none!important}
+button[data-availability="ready"]{border-color:var(--ui-ready)!important}button[data-availability="unavailable"],button[data-availability="cooldown"]{border-color:var(--ui-muted)!important}
+:is(button.selected,button[aria-pressed="true"],button[aria-selected="true"]){outline:2px solid var(--ui-selected);outline-offset:-2px}
+:is(.danger,button[data-ui-tone="danger"],#killBtn,#killSecondBtn,#reportBtn){--ui-ready:var(--ui-danger)}
+:is(#startBtn,#readyBtn,#voteConfirmYes,#profileSaveBtn){border-color:var(--ui-confirm)!important}
+:is(#toast[data-kind="error"],#toast[data-kind="command-error"],#roleCapacityWarning,#settingsConflictNote){border-color:var(--ui-danger)!important}
+#settingsConflictNote{padding:10px;border:1px solid;border-radius:8px;color:#ffe4e9;background:#422635;white-space:pre-line}
+.sceneAudioSettings label{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.sceneAudioSettings input{flex:1;min-width:100px}

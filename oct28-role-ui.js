@@ -8,13 +8,30 @@ export function createExpansionRoleUI({getGame,getSelf,getId,getPosition,pose,cl
  const abilityReadyAt=(g,p)=>Math.max(actionReadyAt(g,p),p?.subrole==='overloader'&&p.overloaded?Number(p.overloadedAt||0)+3000:Math.max(Number(p?.abilityReadyAt)||0,p?.subrole==='sandworm'?Number(p.readyAt)||0:0));
  function selectedTarget(body=false){const g=getGame(),at=getPosition(),self=getId();return Object.entries(body?g.bodies||{}:g.players||{}).map(([id,p])=>({id,p,at:body?p:pose(g,id)})).filter(x=>x.at&&(body?!x.p.fake&&!x.p.removed&&!x.p.dissolved&&!x.p.carriedBy:x.id!==self&&x.p.alive&&!x.p.observer&&!x.p.disconnected&&!x.p.ventId&&!x.p.boxerFlight&&x.p.role!=='impostor')&&Math.hypot(x.at.x-at.x,x.at.z-at.z)<(body?3:2.9)&&!wallBetween(at,x.at)).sort((a,b)=>Math.hypot(a.at.x-at.x,a.at.z-at.z)-Math.hypot(b.at.x-at.x,b.at.z-at.z))[0]?.id;}
  const active=()=>{const p=getSelf(),g=getGame();return !!p?.alive&&!p.observer&&!p.disconnected&&connected()&&!blocked()&&!isTimeFrozen(g,clock())&&g.phase==='play'&&clock()>=actionReadyAt(g,p);};
- function targets(list,{body=false,players=true,range=2.9,filter=()=>true,action,bodyAction}={}){
-  const g=getGame(),id=getId(),at=getPosition(),distance=b=>Math.hypot(at.x-b.x,at.z-b.z);
-  const add=(text,payload)=>{const button=document.createElement('button');button.type='button';button.textContent=text;button.onclick=()=>{send('ability',payload);show('abilityTargetSelect',false);};list.append(button);};
-  if(body)for(const[bodyId,b]of Object.entries(g.bodies||{}))if(b&&!b.fake&&!b.removed&&!b.dissolved&&distance(b)<3&&filter(b,true))add('死体：'+(b.name||'プレイヤー'),{ability:bodyAction||action,bodyId});
-  if(players)for(const[target,p]of Object.entries(g.players||{})){const loc=pose(g,target);if(target!==id&&p?.alive&&!p.observer&&!p.disconnected&&!p.ventId&&loc&&distance(loc)<range&&filter(p,false,target))add(p.name||'プレイヤー',{ability:action,target});}
+ function targetCandidates({body=false,players=true,range=2.9,filter=()=>true}={}){
+  const g=getGame(),id=getId(),at=getPosition(),distance=b=>Math.hypot(at.x-b.x,at.z-b.z),rows=[];
+  if(body)for(const[bodyId,b]of Object.entries(g.bodies||{}))if(b&&!b.fake&&!b.removed&&!b.dissolved&&distance(b)<3&&filter(b,true))rows.push({id:bodyId,p:b,body:true});
+  if(players)for(const[target,p]of Object.entries(g.players||{})){const loc=pose(g,target);if(target!==id&&p?.alive&&!p.observer&&!p.disconnected&&!p.ventId&&loc&&distance(loc)<range&&filter(p,false,target))rows.push({id:target,p,body:false});}
+  return rows;
+ }
+ function targetOptions(recruit=false){
+  const p=getSelf(),role=p?.subrole;
+  if(recruit)return role==='vampire'?{action:'createVampireDependent',filter:target=>target.role!=='impostor'}:{action:'createSidekick',filter:target=>target.role!=='jackal'};
+  if(role==='cracker')return {body:true,players:false,action:'crackBody',filter:b=>!b.unreportable};
+  if(role==='bodyguard')return {range:5,action:'bodyguard',filter:(_p,_b,id)=>!p.guardedTargets?.[id]};
+  if(role==='missionary')return {action:'missionary',filter:p=>!p.missionaryDoom};
+  if(role==='sandworm'&&p.ventId)return {range:3.6,action:'sandwormAmbush',filter:p=>p.role!=='impostor'};
+  if(role==='eater')return {body:true,action:'eaterSwallow',bodyAction:'eaterCorpse'};
+  return null;
+ }
+ function targets(list,options){
+  if(options)for(const row of targetCandidates(options)){
+   const button=document.createElement('button');button.type='button';button.textContent=(row.body?'死体：':'')+(row.p.name||'プレイヤー');
+   button.onclick=()=>{send('ability',row.body?{ability:options.bodyAction||options.action,bodyId:row.id}:{ability:options.action,target:row.id});show('abilityTargetSelect',false);};list.append(button);
+  }
   if(!list.children.length){const empty=document.createElement('p');empty.textContent='使える対象が近くにいません。';list.append(empty);}
  }
+
  function useAbility(){
   const p=getSelf(),role=p?.subrole;
   if(!EXPANSION_ROLES[role]||role==='madJester'||EXPANSION_ROLES[role].passive)return false;
@@ -28,19 +45,19 @@ export function createExpansionRoleUI({getGame,getSelf,getId,getPosition,pose,cl
   }
   if(role==='overloader'||role==='freezer'){send('ability',{ability:role});return true;}
   const title=EXPANSION_ROLES[role].name;
-  if(role==='cracker')targets(panel(title,'通報できなくする死体を選んでください。'),{body:true,players:false,action:'crackBody',filter:b=>!b.unreportable});
-  if(role==='bodyguard')targets(panel(title,'通常キルの身代わりで守る相手を選んでください。'),{range:5,action:'bodyguard',filter:(_p,_b,id)=>!p.guardedTargets?.[id]});
-  if(role==='missionary')targets(panel(title,'宣教する相手を選んでください。'),{action:'missionary',filter:p=>!p.missionaryDoom});
+  if(role==='cracker')targets(panel(title,'通報できなくする死体を選んでください。'),targetOptions());
+  if(role==='bodyguard')targets(panel(title,'通常キルの身代わりで守る相手を選んでください。'),targetOptions());
+  if(role==='missionary')targets(panel(title,'宣教する相手を選んでください。'),targetOptions());
   if(role==='sandworm'){
    if(!p.ventId){toast('ベント内から強襲してください。');return true;}
-   targets(panel(title,'強襲する相手を選んでください。'),{range:3.6,action:'sandwormAmbush',filter:p=>p.role!=='impostor'});
+   targets(panel(title,'強襲する相手を選んでください。'),targetOptions());
   }
-  if(role==='eater')targets(panel(title,'死体を喰らうか、生存者を丸呑みします。'),{body:true,action:'eaterSwallow',bodyAction:'eaterCorpse'});
+  if(role==='eater')targets(panel(title,'死体を喰らうか、生存者を丸呑みします。'),targetOptions());
   return true;
  }
  function createSidekick(){
-  const p=getSelf();if(p?.subrole==='vampire'){if(!active()||p.vampireDependentId)return;targets(panel('眷属作成','眷属にする相手を選んでください。'),{action:'createVampireDependent',filter:target=>target.role!=='impostor'});return;}if(!JACKAL_RECRUITERS.includes(p?.subrole)||p.sidekickCreated||p.jackalLeaderId||!active()||!canPlay())return;
-  targets(panel('サイドキック作成','1試合に1人を味方にします。ジャッカルが全員死亡すると昇格し、キルできるようになります。'),{action:'createSidekick',filter:p=>p.role!=='jackal'});
+  const p=getSelf();if(p?.subrole==='vampire'){if(!active()||p.vampireDependentId)return;targets(panel('眷属作成','眷属にする相手を選んでください。'),targetOptions(true));return;}if(!JACKAL_RECRUITERS.includes(p?.subrole)||p.sidekickCreated||p.jackalLeaderId||!active()||!canPlay())return;
+  targets(panel('サイドキック作成','1試合に1人を味方にします。ジャッカルが全員死亡すると昇格し、キルできるようになります。'),targetOptions(true));
  }
  function sync(){
   const p=getSelf(),g=getGame(),role=p?.subrole,stamp=clock();
@@ -79,5 +96,5 @@ export function createExpansionRoleUI({getGame,getSelf,getId,getPosition,pose,cl
   if(!status){status=document.createElement('div');status.id='timeFreezeStatus';status.setAttribute('role','status');status.innerHTML='<span class="freezeEmblem" aria-hidden="true">❄</span><span class="freezeTitle">時間停止</span><span class="freezeSeconds"></span><span class="freezeTrack" aria-hidden="true"><i></i></span>';document.body.append(status);}
   status.hidden=!frozen;if(frozen){const left=Math.max(0,g.freeze.until-stamp),span=Math.max(1,g.freeze.until-(g.freeze.startedAt||g.freeze.until-5000));status.querySelector('.freezeSeconds').textContent=Math.ceil(left/1000)+'s';status.style.setProperty('--freeze-left',Math.min(1,left/span));for(const id of ['killBtn','killSecondBtn','abilityBtn','taskBtn','reportBtn','sabotageBtn'])if($(id))$(id).disabled=true;}
  }
- return{useAbility,createSidekick,sync};
+ return{useAbility,createSidekick,sync,previewTargets(recruit=false){const p=getSelf(),role=p?.subrole,options=targetOptions(recruit);if(options)return targetCandidates(options);if(!SELECTED_ROLES[role])return [];const body=['evolver','carrier'].includes(role)&&!p.carrierBodyId,player=['bomber','boxer'].includes(role)&&(role!=='boxer'||p.boxerCharge);if(!body&&!player)return [];const id=selectedTarget(body);return id?[{id,body}]:[];}};
 }

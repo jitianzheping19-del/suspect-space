@@ -4,9 +4,9 @@ import {createSkeldTaskMachine} from './skeld-task-machine.js';
 import {createFrostTaskRun,taskInstructions} from './frost-task-rules.js';
 import {createFrostTaskMachine} from './frost-task-machine.js';
 import './practice-lab.css';
+import {taskExample} from './task-help-examples.js';
+export {taskExample};
 const terminalIndex=classicTaskIndex;
-const examples=[['同じ色をつなぐ','左の端子を押し、同じ色の右の端子まで動かして離す。'],['転送を開始','開始ボタンを押し、ゲージが満ちるまで待つ。'],['コードを入力','画面に示された数字を、順番に押す。'],['針を合わせる','緑の範囲へ針を合わせ、指定の位置で確定する。'],['検査を続ける','指定された検査部分を押し、進行ゲージを確認する。'],['カードを通す','カードをつかみ、速すぎない一定の速さで読み取り部へ動かす。'],['燃料をためる','指定のボタンを押し続け、満タンになったら離す。']];
-export function taskExample(task){return examples[terminalIndex(task)]||examples[0];}
 export function installPracticeLab(api){
  const dialog=document.createElement('dialog');dialog.id='practiceLab';dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','タスク・役職練習');
  dialog.innerHTML='<header><h2>タスク・役職練習</h2><button type="button" data-close>閉じる</button></header><nav><button type="button" data-mode="tasks">タスク</button><button type="button" data-mode="roles">役職の能力</button></nav><section data-pick><label>練習する内容 <select data-choice></select></label><button type="button" data-start>練習する</button></section><section data-example><strong></strong><p></p><svg viewBox="0 0 260 58" aria-label="押して、動かして、離す操作の例"><rect x="12" y="10" width="50" height="38" rx="10" fill="#2e566b"/><path d="M75 29h103m-12-8 14 8-14 8" stroke="#b7e8d8" fill="none" stroke-width="3"/><rect x="195" y="10" width="50" height="38" rx="10" fill="#277764"/><circle class="practiceFinger" cx="37" cy="29" r="10" fill="#fff3cc"/></svg></section><p data-practice-status role="status"></p><div data-stage></div><button type="button" data-repeat hidden>もう一度練習</button>';
@@ -34,13 +34,13 @@ export function installPracticeLab(api){
  }
  q('[data-start]').onclick=start;q('[data-repeat]').onclick=start;
  function openTerminal(){if(!frame||!active||mode!=='tasks'||active.openSent)return;active.openSent=true;frame.contentWindow.postMessage({type:'ss-task-terminal-open',id:active.id,index:terminalIndex(active.task),name:active.task.name,hue:.5,volume:api.volume?.()??.7},'*');}
- window.addEventListener('message',event=>{
+ const onMessage=event=>{
   if(!frame||event.source!==frame.contentWindow)return;const data=event.data||{};if(mode==='roles'&&data.type==='ss-role-practice-exit'){close();return;}if(!active||mode!=='tasks')return;
   if(data.type==='ss-task-terminal-init')openTerminal();
   if(data.id!==active.id)return;if(data.type==='ss-task-terminal-ready'){active.ready=true;clearTimeout(loadTimer);loadTimer=0;status.textContent='操作してみよう。閉じるとロビーに戻れます。';}if(data.type==='ss-task-terminal-done')complete();if(data.type==='ss-task-terminal-cancel')close();
- });
- const button=document.createElement('button');button.type='button';button.id='poolPracticeBtn';button.textContent='タスク・役職練習';button.hidden=true;document.body.append(button);
- function open(){if(!api.available())return;api.pause?.();if(!dialog.open)dialog.showModal();populate();}button.onclick=open;
- const settings=document.querySelector('[data-settings-section="operation"]'),shortcut=document.createElement('button');shortcut.type='button';shortcut.textContent='プール横の練習設備';shortcut.onclick=()=>{if(api.available())open();};settings?.append(shortcut);
- return{open,close,sync(){const allowed=api.available();button.hidden=!allowed||!api.near();shortcut.disabled=!allowed;if(!allowed&&dialog.open)close();}};
+ };window.addEventListener('message',onMessage);
+ const button=api.button||document.createElement('button');button.type='button';button.id='poolPracticeBtn';button.textContent='タスク・役職練習';button.hidden=true;document.body.append(button);
+ function open(){if(!api.available())return;api.pause?.();if(!dialog.open)dialog.showModal();populate();}if(!api.button)button.onclick=open;
+ const settings=document.querySelector('[data-settings-section="operation"]'),shortcut=api.shortcut||document.createElement('button');shortcut.type='button';shortcut.textContent='プール横の練習設備';if(!api.shortcut)shortcut.onclick=()=>{if(api.available())open();};settings?.append(shortcut);
+ return{open,close,dispose(){close();stop();window.removeEventListener('message',onMessage);dialog.remove();button.remove();shortcut.remove();},sync(){const allowed=api.available();button.hidden=!allowed||!api.near();shortcut.disabled=!allowed;if(!allowed&&dialog.open)close();}};
 }

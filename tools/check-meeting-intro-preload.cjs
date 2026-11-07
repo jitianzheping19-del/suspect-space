@@ -5,11 +5,11 @@ const root=require('path').resolve(__dirname,'..');
  const browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader']});
  try{const p=await browser.newPage({viewport:{width:844,height:390},isMobile:true,hasTouch:true});const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.setContent('<div id="host" style="width:820px;height:360px;background:#102030"><p class="effectSub"></p></div>');await p.addScriptTag({content:output.outputFiles[0].text});
  await p.evaluate(()=>{
- const {THREE,createMeetingIntroPresentation}=api;window.actors=[];let renderers=0;const T={...THREE,WebGLRenderer:class extends THREE.WebGLRenderer{constructor(o){super(o);renderers++;window.gpu=this;const draw=this.render.bind(this);this.render=(s,c)=>{window.lastScene=s;draw(s,c)};}}};
+ const {THREE,createMeetingIntroPresentation}=api;window.actors=[];let renderers=0;const T={...THREE,WebGLRenderer:class extends THREE.WebGLRenderer{constructor(o){super(o);renderers++;window.gpu=this;const draw=this.render.bind(this);this.render=(s,c)=>{window.lastScene=s;window.lastCamera=c;draw(s,c)};}}};
  window.rendererCount=()=>renderers;window.frameTime=0;window.ticks=new Map();let id=0;performance.now=()=>window.frameTime;window.requestAnimationFrame=fn=>{ticks.set(++id,fn);return id};window.cancelAnimationFrame=id=>ticks.delete(id);
  const crew=p=>{const group=new THREE.Group(),suit=new THREE.MeshStandardMaterial({color:p.hue>.3?0x55c5d5:0xe4a848});group.userData.suit=suit;const body=new THREE.Mesh(new THREE.CapsuleGeometry(.32,.55,6,16),suit);body.position.y=.85;group.add(body);const visor=new THREE.Mesh(new THREE.SphereGeometry(.2,12,8),new THREE.MeshStandardMaterial({color:0xbbeaff}));visor.position.set(0,1.1,.28);group.add(visor);group.userData.arms=[-1,1].map(side=>{const arm=new THREE.Group();arm.position.set(side*.36,1.08,.02);const segment=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.30,5,10),suit);segment.position.y=-.04;arm.add(segment);group.add(arm);return arm});group.userData.legs=[];actors.push(group);return group;};
  window.presentation=createMeetingIntroPresentation(T,{host:document.getElementById('host'),createCrew:crew,disposeCrew:g=>g.traverse(o=>{o.geometry?.dispose();o.material?.dispose()})});
- window.options={reporter:{name:'レモン',hue:.5},body:{name:'クルー',hue:.1},report:false};
+ window.impacts=[];addEventListener('spacesuspect:meeting-intro-impact',event=>impacts.push(event.detail));window.options={reporter:{name:'レモン',hue:.5},body:{name:'クルー',hue:.1},report:false};
  window.step=ms=>{frameTime=ms;const work=[...ticks.values()];ticks.clear();work.forEach(fn=>fn(ms));};
  });
  await p.evaluate(async()=>{await presentation.prepare(options);await presentation.prepare({...options,report:true});await presentation.prepare(options);});
@@ -19,7 +19,7 @@ const root=require('path').resolve(__dirname,'..');
   const pose=await p.evaluate(ms=>{step(ms);const actor=actors.at(-1),hand=actor.userData.arms[1].children.at(-1),v=hand.getWorldPosition(new api.THREE.Vector3());const cap=lastScene.children.find(x=>x.geometry?.type==='CylinderGeometry'&&x.geometry.parameters.radiusTop===.46);return {ms,hand:v.toArray(),button:cap.position.y,actor:actor.position.toArray()};},ms);poses.push(pose);
   if(process.env.PHONE_SHOTS&&[700,920,1020].includes(ms))await p.screenshot({path:require('path').join(process.env.PHONE_SHOTS,`meeting-slam-${ms}.png`)});
  }
- assert(poses[2].hand[1]>2.3,'fist above head');assert(poses[2].hand[1]-poses[4].hand[1]>1.2,'fast downward stroke');assert(Math.abs(poses[4].hand[0]-.22)<.02,'fist over cap');assert(poses[5].button<.6,'button pressed');assert.equal(await p.evaluate(()=>rendererCount()),1);assert.equal(await p.locator('canvas').count(),1);
+ assert(poses[2].hand[1]>2.3,'fist above head');assert(poses[2].hand[1]-poses[4].hand[1]>1.2,'fast downward stroke');assert(Math.abs(poses[4].hand[0]-.22)<.02,'fist over cap');assert(poses[5].button<.6,'button pressed');assert.equal(await p.evaluate(()=>rendererCount()),1);assert.equal(await p.locator('canvas').count(),1);assert.equal(await p.evaluate(()=>impacts.length),1,'one sound cue at contact');
  await p.evaluate(()=>presentation.stop());
  const framePaths=await p.evaluate(()=>{
   const poses=[];
@@ -34,6 +34,15 @@ const root=require('path').resolve(__dirname,'..');
  console.log('PASS identical arm trajectory at 30, 60, and 120 Hz',JSON.stringify(framePaths));
  const memory=await p.evaluate(()=>{const rows=[];for(let i=0;i<25;i++){presentation.play({...options,report:i%2===0});step(frameTime+1000);presentation.stop();rows.push({...gpu.info.memory});}return rows;});
  assert.equal(memory.at(-1).geometries,memory[0].geometries);assert.equal(memory.at(-1).textures,memory[0].textures);console.log('PASS 25 repeated animations retain bounded GPU resources',memory.at(-1));
+ await p.evaluate(()=>{window.__spaceMotionPreference={matches:true};presentation.play(options);});
+ const stable=[];for(const offset of [0,450,1000,1700])stable.push(await p.evaluate(ms=>{step(ms+frameTime);return {position:lastCamera.position.toArray(),rotation:lastCamera.quaternion.toArray()};},offset));
+ assert.deepEqual(stable[0],stable[1]);assert.deepEqual(stable[1],stable[2]);
+ await p.evaluate(()=>{presentation.stop();window.__spaceMotionPreference={matches:false};impacts.length=0;presentation.play({...options,elapsed:1800});step(frameTime+1);});
+ assert.equal(await p.evaluate(()=>impacts.length),0,'late join does not replay impact sound');
+ await p.evaluate(()=>presentation.stop());
+ await p.evaluate(()=>presentation.play({...options,duration:80}));await p.waitForTimeout(120);
+ assert.equal(await p.locator('.meetingIntroRail,.meetingIntroFooter,canvas').count(),0,'deadline cleans up even without another animation frame');
+ console.log('PASS reduced-motion camera, late arrival, and cleanup without animation callbacks');
  await p.evaluate(()=>{step(3100);presentation.dispose()});assert.equal(await p.evaluate(()=>ticks.size),0);assert.equal(await p.locator('canvas').count(),0);
  console.log('PASS cached warmup, single renderer, overhead windup, downward contact, cap depression, cleanup');
  await p.evaluate(()=>{document.body.dataset.phase='lobby';window.jobs=[];window.preloader=api.createLobbyGamePreloader({tasks:[()=>new Promise(resolve=>jobs.push(resolve)),()=>Promise.resolve()]});});

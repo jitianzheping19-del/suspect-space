@@ -1,0 +1,6 @@
+.ssTicketBadge{position:fixed;top:max(18px,env(safe-area-inset-top));right:calc(100px + env(safe-area-inset-right));z-index:54;padding:7px 12px;border:1px solid #d3bc7b88;border-radius:20px;background:#0a1a25e8;color:#ffe6ac;font-weight:800}
+body .ssTicketBadge{box-sizing:border-box;right:calc(184px + env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));height:34px;min-height:34px;width:auto;max-width:150px;padding:6px 11px;font:800 13px/20px system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:none}
+@media(max-height:600px) and (orientation:landscape){body .ssTicketBadge{right:max(12px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 48px);height:30px;min-height:30px;max-width:125px;padding:4px 9px;font-size:12px}}
+body:has(#inputSettingsDialog:not(.hidden)) .ssTicketBadge,body:has(#costumeStudio:not(.hidden)) .ssTicketBadge{visibility:hidden;pointer-events:none}
+#poolPracticeBtn{position:fixed;bottom:calc(135px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:139;min-height:44px}#poolPracticeBtn[hidden]{display:none}
+.ssTicketBadge[hidden]{display:none!important}

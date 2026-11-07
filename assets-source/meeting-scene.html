@@ -98,7 +98,8 @@ function makeCrew(color=0x44c8ff,{arms=false}={}){
     const hand=new THREE.Group();hand.position.y=-.15;p.add(hand);p.userData.hand=hand;p.visible=arms;torso.add(p);return p;});
   root.userData.tailoredAvatar={arms:armsG,legs};
   root.traverse(o=>{if(o.isMesh)o.castShadow=true;});
-  return {root,rig,torso,body,pack,visor,visorM,suit,legs,arms:armsG,hands:armsG.map(a=>a.userData.hand),mats:[suit,visorM]};
+  const ownedGeometries=new Set(),ownedMaterials=new Set();root.traverse(o=>{if(o.geometry)ownedGeometries.add(o.geometry);if(o.material)ownedMaterials.add(o.material);});
+  return {dispose(){for(const g of ownedGeometries)g.dispose();for(const m of ownedMaterials)m.dispose();},root,rig,torso,body,pack,visor,visorM,suit,legs,arms:armsG,hands:armsG.map(a=>a.userData.hand),mats:[suit,visorM]};
 }
 
 /* ---------- particles ---------- */
@@ -113,12 +114,17 @@ function stepParticles(dt){for(let i=0;i<MAXP;i++){if(P.life[i]<=0){P.col[i*3]=P
   if(P.pos[i*3+1]<.03&&P.g[i]>0){P.pos[i*3+1]=.03;P.vel[i*3+1]*=-.35;}}pGeo.attributes.position.needsUpdate=true;pGeo.attributes.color.needsUpdate=true;}
 
 /* ---------- audio (synth) ---------- */
-let ac;const AC=()=>ac||(ac=new (window.AudioContext||window.webkitAudioContext)());
+let ac,audioMaster;const meetingSounds=new Set();
+const AC=()=>ac||(ac=new (window.AudioContext||window.webkitAudioContext)());
+function meetingAudioOutput(a){if(!audioMaster){audioMaster=a.createGain();try{if(parent.__spaceConnectEffectLimiter)parent.__spaceConnectEffectLimiter(a,audioMaster);else audioMaster.connect(a.destination);}catch{audioMaster.connect(a.destination);}}
+ let volume=.7,sceneGain=.65;try{volume=Math.max(0,Math.min(100,Number(parent.document.getElementById('audioEffectsVolume')?.value??70)))/100;sceneGain=parent.__spaceSceneEffectGain?.()??.65;}catch{}audioMaster.gain.setTargetAtTime(volume*sceneGain,a.currentTime,.02);return audioMaster;}
+function stopMeetingSounds(){for(const source of meetingSounds){try{source.stop();}catch{}}meetingSounds.clear();}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMeetingSounds();});addEventListener('pagehide',()=>{stopMeetingSounds();void ac?.close();});
 function noise(dur,{type="lowpass",f0=2000,f1=200,gain=.4,q=1,delay=0}={}){try{const a=AC(),n=a.sampleRate*dur,b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.5);
   const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type=type;f.Q.value=q;const t=a.currentTime+delay;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(Math.max(f1,20),t+dur);
-  const g=a.createGain();g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f).connect(g).connect(a.destination);s.start(t);}catch(e){}}
+  const g=a.createGain();g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f).connect(g).connect(meetingAudioOutput(a));meetingSounds.add(s);s.onended=()=>{meetingSounds.delete(s);s.disconnect();f.disconnect();g.disconnect();};s.start(t);}catch(e){}}
 function tone(f0,f1,dur,gain=.15,type="sine",delay=0){try{const a=AC(),o=a.createOscillator(),g=a.createGain(),t=a.currentTime+delay;o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(f1,20),t+dur);
-  g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g).connect(a.destination);o.start(t);o.stop(t+dur+.02);}catch(e){}}
+  g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g).connect(meetingAudioOutput(a));meetingSounds.add(o);o.onended=()=>{meetingSounds.delete(o);o.disconnect();g.disconnect();};o.start(t);o.stop(t+dur+.02);}catch(e){}}
 
 /* ---------- time control + loop ---------- */
 let ts=1;const hitstop=s=>{ts=0;setTimeout(()=>ts=1,s*1000);};const slowmo=(k,s)=>{ts=k;setTimeout(()=>ts=1,s*1000);};
@@ -298,7 +304,8 @@ const mrMats={
 };
 for(const material of Object.values(mrMats))material.envMapIntensity=.35;
 function mrMesh(geometry,material,parent=scene){const m=new THREE.Mesh(geometry,material);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
-function mrBox(w,h,d,material,parent=scene,x=0,y=0,z=0){const m=mrMesh(new THREE.BoxGeometry(w,h,d),material,parent);m.position.set(x,y,z);return m;}
+const mrBoxGeometries=new Map();
+function mrBox(w,h,d,material,parent=scene,x=0,y=0,z=0){const key=[w,h,d].join(',');if(!mrBoxGeometries.has(key))mrBoxGeometries.set(key,new THREE.BoxGeometry(w,h,d));const m=mrMesh(mrBoxGeometries.get(key),material,parent);m.position.set(x,y,z);return m;}
 function mrRing(radius,tube,material,parent=scene,y=0){const m=mrMesh(new THREE.TorusGeometry(radius,tube,8,96),material,parent);m.rotation.x=Math.PI/2;m.position.y=y;return m;}
 function mrLine(points,color,opacity=1,parent=scene){const g=new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(...p)));const m=new THREE.Line(g,new THREE.LineBasicMaterial({color,transparent:true,opacity}));parent.add(m);return m;}
 function mrPrism(points,height,centerX=0,centerZ=0){
@@ -389,6 +396,13 @@ for(let i=0;i<4;i++){const a=i/4*TAU,p=mrBox(.16,.75,.22,mrMats.trim,ped,Math.si
 const rimRing=mrRing(3.66,.033,mrMats.steel,scene,TOP+.1);
 const mrUnderRim=mrRing(3.59,.014,mrMats.cyan,table,-.16);
 const chairMat=mrMats.edge;
+const sharedMeetingChair=(()=>{const chair=new THREE.Group();
+    mrBox(.95,.16,.85,mrMats.dark,chair,0,.48,0);mrBox(.96,1.12,.18,mrMats.edge,chair,0,1.08,-.39);mrBox(.78,.79,.07,mrMats.trim,chair,0,1.08,-.28);
+    for(const side of[-1,1]){for(const depth of[-.28,.28])mrBox(.06,.43,.06,mrMats.steel,chair,side*.37,.23,depth);mrBox(.08,.09,.58,mrMats.trim,chair,side*.52,.75,.02);}
+ const buckets=new Map();chair.updateMatrixWorld(true);for(const child of [...chair.children]){const list=buckets.get(child.material)||[];const g=child.geometry.toNonIndexed();g.applyMatrix4(child.matrix);list.push(g);buckets.set(child.material,list);chair.remove(child);}
+ for(const [material,parts]of buckets){const geometry=new THREE.BufferGeometry();for(const name of ['position','normal','uv']){const values=parts.flatMap(g=>Array.from(g.attributes[name].array));geometry.setAttribute(name,new THREE.Float32BufferAttribute(values,name==='uv'?2:3));}parts.forEach(g=>g.dispose());mrMesh(geometry,material,chair);}return chair;
+})();
+
 const metal=new THREE.MeshStandardMaterial({color:0xc5a26d,metalness:.78,roughness:.35,envMapIntensity:.42});
 const mrGoldDark=new THREE.MeshStandardMaterial({color:0x67573e,metalness:.65,roughness:.42,envMapIntensity:.35});
 /* balance scale in the centre (天秤) */
@@ -442,15 +456,15 @@ function seatPose(p){resetPose(p.c);p.pinned=null;p.c.root.position.set(p.x,SEAT
   p.c.rig.position.y=-.02;p.c.rig.rotation.set(0,0,0);p.c.legs.forEach(l=>l.rotation.x=-Math.PI/2);p.shins.forEach(s=>s.visible=true);
   p.c.arms.forEach(a=>{a.visible=true;a.rotation.x=-.9;});}
 function standPose(p){resetPose(p.c);p.shins.forEach(s=>s.visible=false);p.c.root.rotation.y=Math.atan2(-p.x,-p.z);}
-function clearSeats(){seats.forEach(p=>{if(p.c._outline){p.c._outline.mat.dispose();p.c._outline=null;}scene.remove(p.c.root);scene.remove(p.chair);scene.remove(p.tag.s);if(p.voteCheck)scene.remove(p.voteCheck.s);if(p.roleTag)scene.remove(p.roleTag.s);if(p.voteTally){scene.remove(p.voteTally.s);p.voteTally.tex.dispose();}if(p.heart)scene.remove(p.heart);});seats=[];}
+function clearSeats(){seats.forEach(p=>{clearTargetOutline(p);p.c.dispose?.();scene.remove(p.c.root);if(p.chair)scene.remove(p.chair);for(const label of [p.tag,p.voteCheck,p.roleTag,p.voteTally]){if(!label)continue;label.s?.removeFromParent();label.tex?.dispose();label.s?.material?.dispose();}if(p.heart){p.heart.removeFromParent();p.heart.material?.map?.dispose();p.heart.material?.dispose();}});seats=[];}
+
 function buildSeats(list){
   clearSeats();const n=list.length;R=Math.max(n<=3?3.55:n<=5?4.25:5.24,n*1.9/(2*Math.PI));tableR=Math.max(1.9,R-1.59)*.90;
   table.scale.set(tableR/3.65,1,tableR/3.65);rimRing.scale.set(tableR/3.65,tableR/3.65,1);
   list.forEach((s,i)=>{
     const a=i/n*Math.PI*2,dx=Math.sin(a),dz=Math.cos(a),x=dx*R,z=dz*R;
     const chair=new THREE.Group();chair.position.set(x,0,z);chair.rotation.y=Math.atan2(-x,-z);scene.add(chair);
-    mrBox(.95,.16,.85,mrMats.dark,chair,0,.48,0);mrBox(.96,1.12,.18,mrMats.edge,chair,0,1.08,-.39);mrBox(.78,.79,.07,mrMats.trim,chair,0,1.08,-.28);
-    for(const side of[-1,1]){for(const depth of[-.28,.28])mrBox(.06,.43,.06,mrMats.steel,chair,side*.37,.23,depth);mrBox(.08,.09,.58,mrMats.trim,chair,side*.52,.75,.02);}
+    chair.add(sharedMeetingChair.clone(true));
     const col=suitColor(Number(s.hue)||0,.72,.52).getHex();
     const c=makeCrew(col,{arms:true});scene.add(c.root);
     const shins=c.legs.map(l=>{const sg=new THREE.Group();sg.position.set(0,-.6,0);sg.rotation.x=Math.PI/2;l.add(sg);
@@ -751,7 +765,7 @@ function refreshTargetOutlines(){
   }
 }
 function applyState(state){
-  meetingRenderActive=state.renderActive!==false;
+  meetingRenderActive=state.renderActive!==false;if(!meetingRenderActive)stopMeetingSounds();
   const list=Array.isArray(state.seats)?state.seats:[];
   const nextMeetingId=String(state.meetingId||"");if(meetingAbilityCleanups.size&&nextMeetingId!==String(meetingId||"")){pendingAbilityState=state;return;}const startingMeeting=nextMeetingId!==String(meetingId||"");if(startingMeeting){resultPlayback=false;resultRevealId="";meetingOutcome.style.display="none";mrResetRoom();}
   const key=list.map(s=>s.id).join("|");

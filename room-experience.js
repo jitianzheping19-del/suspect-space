@@ -1,6 +1,6 @@
 import {SKELD_EXTRA_HINTS} from './skeld-task-rules.js';
 import {taskInstructions} from './frost-task-rules.js';
-import {taskExample} from './practice-lab.js';
+import {taskExample} from './task-help-examples.js';
 import './room-experience.css';
 
 export function taskHelpText(task){return SKELD_EXTRA_HINTS[task.mode]||taskInstructions[task.mode]||taskExample(task)[1];}

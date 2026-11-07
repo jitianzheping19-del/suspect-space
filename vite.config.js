@@ -71,6 +71,7 @@ export default defineConfig({
     target: "esnext",
     rollupOptions: {
       input,
+      output:{manualChunks(id){if(['/skeld-task-machine.js','/skeld-task-rules.js','/task-terminal-document.js','/frost-task-rules.js'].some(name=>id.endsWith(name)))return 'task-tools';}},
       external: [/^three(?:\/.*)?$/],
     },
   },

@@ -1,5 +1,6 @@
 import {createRenderBudget} from './render-performance.js';
 import './meeting-intro-presentation.css';
+import {createMeetingIntroStage,createMeetingIntroChrome} from './meeting-intro-stage.js';
 
 // A short, local presentation. It never advances the meeting or writes game state.
 export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCrew}){
@@ -11,32 +12,33 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
   renderer ||= new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:'low-power'});
   if(budget.syncRenderer)budget.syncRenderer(renderer,1);else renderer.setPixelRatio(budget.pixelRatio(1));
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0,0);
-  renderer.domElement.className='meetingIntroCanvas';
+  renderer.domElement.className='meetingIntroCanvas';renderer.domElement.setAttribute('aria-hidden','true');
+  const chrome=preparing?null:createMeetingIntroChrome(host,{report,reduced,duration,elapsed});
   if(!preparing)host.insertBefore(renderer.domElement,host.querySelector('.effectSub'));
   const geometries=new Set(),materials=new Set(),textures=new Set(),actors=[];
   const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
   function mat(c,glow=false){const m=glow?new THREE.MeshBasicMaterial({color:c,toneMapped:false}):new THREE.MeshStandardMaterial({color:c,metalness:.55,roughness:.4});materials.add(m);return m;}
   function mesh(g,m,x=0,y=0,z=0,parent=scene){geometries.add(g);const o=new THREE.Mesh(g,m);o.position.set(x,y,z);parent.add(o);return o;}
   function nameTag(text,color=0xf4f8ff){
-   const c=document.createElement('canvas');c.width=768;c.height=96;const g=c.getContext('2d');g.font='800 58px sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=10;g.strokeStyle='#07121b';g.strokeText(text,384,48,738);g.fillStyle='#'+new THREE.Color(color).getHexString();g.fillText(text,384,48,738);
+   const c=document.createElement('canvas'),alert=text==='!';c.width=alert?128:768;c.height=alert?160:96;const g=c.getContext('2d');g.font=alert?'900 118px sans-serif':'800 58px sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=10;g.strokeStyle='#07121b';g.strokeText(text,c.width/2,c.height/2,c.width-30);g.fillStyle='#'+new THREE.Color(color).getHexString();g.fillText(text,c.width/2,c.height/2,c.width-30);
    const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;textures.add(texture);
    const material=new THREE.SpriteMaterial({map:texture,depthTest:false,depthWrite:false});materials.add(material);
    const s=new THREE.Sprite(material);s.scale.set(2.65,.331,1);s.renderOrder=30;scene.add(s);return s;
   }
-  scene.add(new THREE.HemisphereLight(0xceeafa,0x26384c,2.6));
-  const light=new THREE.DirectionalLight(0xffdfcb,3.5);light.position.set(-4,7,5);scene.add(light);
-  const rim=new THREE.DirectionalLight(0xff516a,3);rim.position.set(4,3,-3);scene.add(rim);
+  scene.add(new THREE.HemisphereLight(0xb8ddf2,0x111a2a,1.6));
+  const light=new THREE.DirectionalLight(0xffe8cf,3.2);light.position.set(-4,7,5);scene.add(light);
+  const rim=new THREE.DirectionalLight(report?0xff657b:0x7bdbea,2.7);rim.position.set(4,3,-3);scene.add(rim);
   function ownCompanion(crew){const pet=crew.userData.petFollower;if(pet){crew.add(pet);pet.position.set(-.65,.15,-.35);pet.rotation.set(0,0,0);}}
-  const actor=createCrew(reporter);actors.push(actor);ownCompanion(actor);actor.traverse(o=>{if(o.isSprite)o.visible=false;});scene.add(actor);actor.scale.multiplyScalar(1.16);
+  const actor=createCrew(reporter);actors.push(actor);ownCompanion(actor);actor.traverse(o=>{if(o.isSprite)o.visible=false;});scene.add(actor);actor.scale.multiplyScalar(1.16);if(actor.userData.groundShadow)actor.userData.groundShadow.visible=false;
   const tag=nameTag(reporter.name||'クルー'),dark=mat(0x152b3d),steel=mat(0x879aa7),red=mat(0xd93c58),shine=mat(0xffc29a,true);
-  const platform=mesh(new THREE.CylinderGeometry(4.8,4.8,.10,48),dark,0,-.08,0);
+  const stage=createMeetingIntroStage(THREE,{scene,report,geometries,materials,textures});
   const rings=[0,1,2].map(i=>{
-   const m=mat(i===1?0xffcf9e:0xff586e,true);m.transparent=true;m.depthWrite=false;
-   const o=mesh(new THREE.TorusGeometry(1,.035,6,48),m,0,.018+i*.006,0);o.rotation.x=-Math.PI/2;return o;
+   const m=mat(i===1?0xd9f4ff:report?0xff667e:0xffc979,true);m.transparent=true;m.depthWrite=false;
+   const o=mesh(new THREE.TorusGeometry(1,.022,6,64),m,0,.018+i*.006,0);o.rotation.x=-Math.PI/2;return o;
   });
   let corpse,corpseTag,button,alarm,hand;
   if(report){
-   corpse=createCrew(body||{});actors.push(corpse);ownCompanion(corpse);if(corpse.userData.petFollower)corpse.userData.petFollower.visible=false;corpse.traverse(o=>{if(o.isSprite)o.visible=false;});corpse.rotation.set(0,.2,-Math.PI/2);corpse.position.set(.55,.42,.18);scene.add(corpse);
+   corpse=createCrew(body||{});actors.push(corpse);ownCompanion(corpse);if(corpse.userData.petFollower)corpse.userData.petFollower.visible=false;if(corpse.userData.groundShadow)corpse.userData.groundShadow.visible=false;corpse.traverse(o=>{if(o.isSprite)o.visible=false;});corpse.rotation.set(0,.2,-Math.PI/2);corpse.position.set(.55,.42,.18);scene.add(corpse);
    corpseTag=nameTag(body?.name||'クルー',0xffb8c3);corpseTag.position.set(1.5,1.45,.18);
    mesh(new THREE.CylinderGeometry(.11,.095,.42,12),actor.userData.suit||steel,0,-.21,0,actor.userData.arms?.[1]||actor);
    hand=mesh(new THREE.SphereGeometry(.18,16,12),actor.userData.suit||steel,0,-.42,0,actor.userData.arms?.[1]||actor);hand.scale.set(1,.7,1.15);
@@ -46,7 +48,10 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    mesh(new THREE.CylinderGeometry(.70,.88,.52,32),steel,.22,.26,0);
    mesh(new THREE.CylinderGeometry(.65,.65,.10,32),dark,.22,.57,0);
    button=mesh(new THREE.CylinderGeometry(.46,.50,.25,32),red,.22,.75,0);
-   mesh(new THREE.TorusGeometry(.57,.045,6,40),shine,.22,.65,0).rotation.x=Math.PI/2;
+   mesh(new THREE.TorusGeometry(.57,.025,8,48),shine,.22,.65,0).rotation.x=Math.PI/2;
+   const capFace=mesh(new THREE.CylinderGeometry(.41,.43,.035,40),mat(0xf55a6c),0,.13,0,button);
+   const capRim=mesh(new THREE.TorusGeometry(.44,.018,8,48),shine,0,.12,0,button);capRim.rotation.x=Math.PI/2;
+   const bolts=new THREE.CylinderGeometry(.045,.045,.018,8);for(const a of [0,Math.PI/2,Math.PI,Math.PI*1.5])mesh(bolts,steel,.22+Math.sin(a)*.59,.63,Math.cos(a)*.59);
    for(const side of[-1,1])for(const end of[-1,1])mesh(new THREE.BoxGeometry(.12,.12,.12),shine,.22+side*.49,.63,end*.49);
    mesh(new THREE.CylinderGeometry(.11,.095,.42,12),actor.userData.suit||steel,0,-.21,0,actor.userData.arms?.[1]||actor);
    hand=mesh(new THREE.SphereGeometry(.18,16,12),actor.userData.suit||steel,0,-.42,0,actor.userData.arms?.[1]||actor);hand.scale.set(1,.7,1.15);
@@ -61,16 +66,18 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
   const actorBounds=new THREE.Box3().setFromObject(actor),tagHeight=Math.max(2.55,Math.min(4.2,actorBounds.max.y+.20));
   const framingHeight=tagHeight+(report?1.5:.45);
   const focus=new THREE.Vector3(report?.10:-.1,framingHeight*.5-.05,0);
-  let cameraDistance=8,raf=0,finished=false;
+  let cameraDistance=8,settledDistance=8,raf=0,endTimer=0,finished=false;
   function resize(){
-   const w=preparing?256:Math.max(1,host.clientWidth),h=preparing?160:Math.max(1,Math.min(innerHeight*.62,500));renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+   const w=preparing?256:Math.max(1,host.clientWidth),h=preparing?160:Math.max(1,chrome?.resizeHeight()||Math.min(innerHeight*.62,500));renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
    // Dolly toward the actors, with a fit bound on narrow windows.
    cameraDistance=Math.max(framingHeight/(2*Math.tan(16*Math.PI/180)),(report?6.8:4.6)/(2*Math.tan(16*Math.PI/180)*camera.aspect));
+   settledDistance=Math.max(framingHeight/(2*Math.tan(16*Math.PI/180)),(report?(camera.aspect<.9?4.9:6.3):4.6)/(2*Math.tan(16*Math.PI/180)*camera.aspect));
   }
   resize();if(!preparing)window.addEventListener('resize',resize);
   const started=performance.now()-Math.max(0,Number(elapsed)||0),impactAt=report?1.02:.92;
+  let impactSent=preparing||Number(elapsed)>=impactAt*1000;
   const cleanup=()=>{
-   if(finished)return;finished=true;cancelAnimationFrame(raf);document.removeEventListener('visibilitychange',resume);window.removeEventListener('resize',resize);
+   if(finished)return;finished=true;cancelAnimationFrame(raf);clearTimeout(endTimer);chrome?.dispose();document.removeEventListener('visibilitychange',resume);window.removeEventListener('resize',resize);
    for(const actor of actors){actor.removeFromParent();disposeCrew(actor);}
    geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());if(!preparing)renderer?.domElement.remove();
   };
@@ -80,6 +87,8 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    raf=0;if(finished||(!preparing&&document.hidden))return;
    const t=(stamp-started)/1000;if(t>duration/1000){cleanup();return;}
    if(!preparing)raf=requestAnimationFrame(tick);if(!gate.due(stamp))return;
+   chrome?.update(t,impactAt);
+   if(!impactSent&&t>=impactAt){impactSent=true;if(t-impactAt<.25)window.dispatchEvent(new CustomEvent('spacesuspect:meeting-intro-impact',{detail:{report}}));}
    const impact=Math.max(0,t-impactAt),reveal=smooth((t-impactAt)/.16),decay=Math.exp(-impact*10);
    if(report){
     // Fast approach, planted stop, backward recoil, then a clear pointing pose.
@@ -120,21 +129,22 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
     button.position.y=.75-press*.19+rebound;button.material.color.setHex(t>impactAt?0xff667b:0xd93c58);
     for(const[i,leg]of(actor.userData.legs||[]).entries())leg.rotation.x=(i?-.1:.12)*press;
    }
+   stage.update({time:t,impactAt,actor,reduced});
    actor.updateMatrixWorld(true);tag.position.set(actor.position.x,tagHeight+actor.position.y,actor.position.z);tag.scale.x=2.65;
    const centerX=report?1.1:.22;
    rings.forEach((ring,i)=>{const u=(impact-i*.10)/.70;ring.visible=u>=0&&u<1&&!reduced;if(ring.visible){ring.position.x=centerX;ring.scale.setScalar(.50+u*3.7);ring.material.opacity=(1-u)*.80;}});
    sparks.visible=!reduced&&t>=impactAt&&impact<.68;sparkMat.opacity=Math.max(0,1-impact/.68);
    if(sparks.visible){for(let i=0;i<28;i++){const a=i*2.39996,speed=1.3+i%4*.55,k=i*3;sparkPositions[k]=centerX+Math.cos(a)*speed*impact;sparkPositions[k+1]=(report?.3:.7)+(.6+i%5*.3)*impact-2.8*impact*impact;sparkPositions[k+2]=Math.sin(a)*speed*impact;}sparkGeo.attributes.position.needsUpdate=true;}
    // One directional impact, not a repeated screen shake or strobe.
-   const kick=!reduced&&t>=impactAt?decay*.10:0,dolly=reduced?0:smooth(t/.75)*.16+reveal*.24;
+   const kick=!reduced&&t>=impactAt?decay*.065:0,dolly=reduced?0:smooth(t/.75)*.22+reveal*.32;
    const arc=reduced?0:(1-smooth(t/1.15))*(report?.55:-.45);
-   camera.position.set((report?-.20:.15)+arc,focus.y+2.0+kick,cameraDistance+.9-dolly);camera.lookAt(report?aim.copy(focus).add(new THREE.Vector3(smooth((t-1.3)/.5)*.18,-smooth((t-1.3)/.5)*.12,0)):focus);budget.syncRenderer?.(renderer);renderer.render(scene,camera);
+   camera.position.set((report?-.20:.15)+arc,focus.y+2.0+kick,(reduced?settledDistance:cameraDistance+(settledDistance-cameraDistance)*smooth(t/1.1))+.9-dolly);camera.lookAt(report&&!reduced?aim.copy(focus).add(new THREE.Vector3(smooth((t-1.3)/.5)*.18,-smooth((t-1.3)/.5)*.12,0)):focus);budget.syncRenderer?.(renderer);renderer.render(scene,camera);
   }
   if(preparing){
    warmed.push(cleanup);
    return Promise.resolve().then(()=>renderer?.compileAsync?.(scene,camera)).then(()=>{if(!finished&&!renderer.domElement.isConnected)tick(started);}).catch(error=>{cleanup();const index=warmed.indexOf(cleanup);if(index>=0)warmed.splice(index,1);throw error;});
   }
-  stop=cleanup;raf=requestAnimationFrame(tick);return cleanup;
+  stop=cleanup;endTimer=setTimeout(cleanup,Math.max(0,duration-Math.max(0,Number(elapsed)||0)));raf=requestAnimationFrame(tick);return cleanup;
  }
  return{play,prepare(options){const key=Boolean(options.report);if(!preparations.has(key))preparations.set(key,play({...options,preparing:true}).catch(error=>{preparations.delete(key);throw error;}));return preparations.get(key);},stop:()=>stop(),dispose(){stop();preparations.clear();warmed.splice(0).forEach(cleanup=>cleanup());renderer?.dispose();renderer?.forceContextLoss();renderer=null;}};
 }

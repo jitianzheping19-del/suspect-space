@@ -12,6 +12,7 @@ const checks=[
  'check-input-quality.cjs','check-comfort-ui.cjs','check-motion-preference.mjs','check-playtest-recorder.mjs',
  'check-victory-priority.mjs','check-bot-evidence.mjs','check-release-artifact.mjs','check-quality-flow.cjs','check-modal-freeze.cjs','check-update-gift-ui.cjs',
  'check-gacha-economy.mjs','check-costume-ownership.mjs','check-pose-bandwidth.cjs','check-built-startup.cjs',
+ 'check-interaction-feedback.mjs','check-interaction-continued.mjs','check-interaction-lifecycle.cjs','check-meeting-intro-preload.cjs','check-built-interaction.cjs',
  'check-selected-features.mjs','check-photo-poses.mjs','check-selected-ui.cjs','check-curve-touch.cjs','check-collection-extras.cjs','check-lobby-photo-ui.cjs','check-built-practice.cjs','check-room-exit-screen.cjs']
  .map(name=>[name,process.execPath,['tools/'+name]])
 ];

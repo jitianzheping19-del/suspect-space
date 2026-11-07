@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {isHostConnectionNotice} from '../room-resume-state.js';
+const feedback=readFileSync(new URL('../interaction-feedback.js',import.meta.url),'utf8').replace("import './interaction-feedback.css';",'');
+const {createNotificationCounter}=await import('data:text/javascript;base64,'+Buffer.from(feedback).toString('base64'));
+
 
 const source=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const between=(start,end)=>{const a=source.indexOf(start),b=source.indexOf(end,a+start.length);assert(a>=0&&b>a,start);return source.slice(a,b);};
@@ -76,10 +79,11 @@ console.log('PASS task retry is released on write failure and missing receipts; 
 
 {
  const node={dataset:{},style:{},setAttribute(){}};let visible=false;
- const c=context({isHostConnectionNotice,$:()=>node,show:(_,v)=>visible=v,toastTimer:0,setTimeout:()=>1,clearTimeout:()=>{}});
+ const c=context({notificationCounter:createNotificationCounter(),isHostConnectionNotice,$:()=>node,show:(_,v)=>visible=v,toastTimer:0,setTimeout:()=>1,clearTimeout:()=>{}});
  vm.runInContext(between('let toastPriority=0;','\n    let readyAcknowledgedAt='),c);
  c.toast('ホストが接続していないため操作を処理できません。');assert(!visible);
  c.toast('ホストが接続していないため操作を処理できません。','command-error');assert(visible);
  c.dismissToast();c.toast('PERMISSION_DENIED','error');assert(visible);assert.equal(node.dataset.kind,'error');
+ c.toast('PERMISSION_DENIED','error');assert.match(node.textContent,/2件/);
  console.log('PASS explicit action and persistence errors remain visible through connection-notice filtering');
 }
