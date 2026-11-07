@@ -111,7 +111,7 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
  let last=-Infinity;
  return{root,spots:rows,update(stamp){if(stamp-last<100)return;last=stamp;aurora.uniforms.time.value=stamp*.001;recordMaterial.color.set(window.__lobbyPhotoCamera?(Math.sin(stamp*.012)>0?0xffc989:0xe25c66):0x88f7d6);},setBackground,dispose(){window.removeEventListener('message',backgroundMessage);root.removeFromParent();const geometries=new Set(),materials=new Set(),textures=new Set();root.traverse(n=>{if(n.geometry)geometries.add(n.geometry);for(const m of Array.isArray(n.material)?n.material:n.material?[n.material]:[]){materials.add(m);if(m.map)textures.add(m.map);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}};
 }
-function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[player],ascent=()=>null,circuit=()=>null}){
+function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[player]}){
  const photoCamera=new THREE.PerspectiveCamera(43,16/9,.1,80);photoCamera.position.set(0,4.9,1.4);photoCamera.lookAt(0,2.35,11.4);
  let timer=0,pending=null,preview=false,capturing=false,lastLabelLayout=[];const size=new THREE.Vector2();
  const inPhoto=p=>Math.abs(p.x)<4.15&&p.z>9.1&&p.z<13&&p.y<2.8;
@@ -119,9 +119,8 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
  function prepareView(){
   if(!near()&&!preview&&!capturing)return()=>{};
   const saved=[],set=(node,visible)=>{if(node&&node.visible!==visible){saved.push([node,node.visible]);node.visible=visible;}};
-  set(ascent(),false);set(scene.getObjectByName('lobby-photo-camera-station'),true);
+  set(scene.getObjectByName('lobby-photo-camera-station'),true);
   if(preview||capturing)set(scene.getObjectByName('lobby-overhead-sculpture'),false);
-  const track=circuit();for(const node of [track?.root,track?.skyMap?.root,track?.spaceMap?.root,track?.vehicles])set(node,false);
   for(const crew of crews()){
    const data=crew.root?.userData||{};
    if(capturing)set(crew.root,inPhoto(crew.root.position));else if(preview&&crew===player)set(crew.root,true);

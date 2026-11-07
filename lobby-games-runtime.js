@@ -181,16 +181,14 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
     if(playing&&game?.practice)status.textContent='1人練習 · '+status.textContent;
     const tagPlayers=Object.values(c.players||{}).filter(p=>rules.live(p)&&rules.area(p)==='lobby'&&!p.lobbyCircuit&&!p.lobbyKart).length;
     const otherGameActive=localArea==='lobby'&&!playing&&(rules.active(state?.survival)||rules.active(state?.soccer));
-    const own=c.players?.[c.uid],riding=localArea==='lobby'&&!playing&&(own?.lobbyCircuit||own?.lobbyKart);
     if(!playing&&localArea==='lobby'){
       if(otherGameActive)status.textContent='進行中の遊びが終わると開始できます';
-      else if(riding)status.textContent='乗り物から降りて開始してください';
       else status.textContent=`参加者 ${tagPlayers}人 · `+(tagPlayers===1?'1人で練習できます':'最初の鬼はランダム');
     }
     if(!playing&&feedback&&t<feedbackUntil)status.textContent=feedback;
-    start.hidden=!canStart||playing;start.disabled=!!pending||localArea!=='lobby'&&rules.active(tag)||!!otherGameActive||!!riding||localArea==='lobby'&&tagPlayers===0;
+    start.hidden=!canStart||playing;start.disabled=!!pending||localArea!=='lobby'&&rules.active(tag)||!!otherGameActive||localArea==='lobby'&&tagPlayers===0;
     start.textContent=pending?'開始を送信中…':localArea==='lobby'?(tagPlayers===1?'1人で練習開始':'鬼ごっこ開始'):'スタート';
-    start.title=otherGameActive?'進行中の遊びが終わってから開始できます。':riding?'乗り物から降りて開始してください。':'';
+    start.title=otherGameActive?'進行中の遊びが終わってから開始できます。':'';
     stop.hidden=!canStart||!playing;exit.hidden=!inRoom;
     touch.classList.toggle('hidden',!enabled||!tagPlaying||tag.oni!==c.uid);
     touch.disabled=!action.target||!!pending;touch.classList.toggle('armed',!!action.target);

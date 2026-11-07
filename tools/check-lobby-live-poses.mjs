@@ -24,6 +24,6 @@ for(const [name,html] of cases){
  send({remote:{x:0,z:0,yaw:0,lobbyY:0,updatedAt:1001}});assert.equal(states.get('remote').x,5.9,'old position must be ignored');
  send({remote:{x:99,z:0,yaw:0,lobbyY:0,updatedAt:9000}},{});assert.equal(states.get('remote').x,5.9,'another window cannot update the lobby');
  send({self:{x:0,z:0,yaw:0,lobbyY:0,updatedAt:9000},remote:{x:NaN,z:0,yaw:0,lobbyY:0,updatedAt:9000}});assert.equal(states.get('self').x,9);assert.equal(states.get('remote').x,5.9);
- send({remote:{x:6,z:3,yaw:1,lobbyY:2,walking:true,lobbyVehicle:true,lobbyVehicleX:8,lobbyVehicleZ:9,kartSession:'session',circuitCourse:'sky',updatedAt:3000}});assert.equal(states.get('remote').lobbyVehicleX,8);assert.equal(states.get('remote').lobbyY,2);
- console.log('PASS',name,'60 live updates, metadata preservation, stale-config protection, origin/self guards and kart/jump state');
+ send({remote:{x:6,z:3,yaw:1,lobbyY:2,walking:true,lobbyVehicle:true,lobbyVehicleX:8,lobbyVehicleZ:9,kartSession:'session',circuitCourse:'sky',updatedAt:3000}});assert.equal(states.get('remote').lobbyVehicleX,undefined,'retired vehicle data is not applied');assert.equal(states.get('remote').lobbyY,2);
+ console.log('PASS',name,'60 live updates, metadata preservation, stale-config protection, origin/self guards and jump state and retired vehicle rejection');
 }

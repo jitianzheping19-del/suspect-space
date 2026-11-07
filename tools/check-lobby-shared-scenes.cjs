@@ -3,7 +3,7 @@ const {build}=require('esbuild'),{chromium}=require('playwright');
 (async()=>{
  const html=fs.readFileSync('assets-source/lobby-lounge.html','utf8'),match=html.match(/<script type="module">([\s\S]*?)<\/script>/);
  assert(match,'embedded lobby module');
- const bundled=await build({stdin:{contents:match[1]+'\nwindow.QA={THREE,renderer,scene,player,camera,remoteCrews,lobbyAscent,obstacles};',resolveDir:process.cwd()},bundle:true,minify:true,write:false,format:'iife'});
+ const bundled=await build({stdin:{contents:match[1]+'\nwindow.QA={THREE,renderer,scene,player,camera,remoteCrews,obstacles,canMoveTo,lobbyPlatformAt};',resolveDir:process.cwd()},bundle:true,minify:true,write:false,format:'iife'});
  const source=html.replace(match[0],()=>'<script>'+bundled.outputFiles[0].text.replace(/<\/script/gi,'<\\/script')+'</script>');
  const browser=await chromium.launch({args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader']});
  try{
@@ -11,16 +11,15 @@ const {build}=require('esbuild'),{chromium}=require('playwright');
   page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',route=>route.fulfill({body:source,contentType:'text/html'}));await page.goto('http://127.0.0.1/lobby');
   await page.waitForFunction(()=>window.QA&&window.__lobbyGames);await page.waitForTimeout(400);
   await page.evaluate(()=>{window.received=[];window.addEventListener('message',e=>received.push(e.data));});
-  const ascent=await page.evaluate(()=>{
-   const {lobbyAscent:a,obstacles}=QA,pads=obstacles.filter(p=>p.ascent),initial=a.visiblePads;
-   const invisibleBefore=a.distanceTo(pads[2],pads[2].x,pads[2].z);
-   a.update({x:pads[0].x,z:pads[0].z,y:pads[0].top},0,'Crew');const first=a.visiblePads;
-   a.update({x:pads[1].x,z:pads[1].z,y:pads[1].top},1,'Crew');const second=a.visiblePads;
-   const counts=a.root.children.filter(m=>m.userData.padRanges).map(m=>[m.geometry.drawRange.count,m.userData.padRanges[3]]);
-   return{initial,invisibleBefore:invisibleBefore===Infinity,first,second,counts};
-  });
-  assert.equal(ascent.initial,2);assert(ascent.invisibleBefore);assert.equal(ascent.first,3);assert.equal(ascent.second,4);assert(ascent.counts.every(([a,b])=>a===b));
-  console.log('PASS first/second landings reveal third/fourth platforms; hidden platforms have no support');
+  const retired=await page.evaluate(()=>({
+   course:!!window.__lobbyKartCircuit,
+   roots:!!QA.scene.getObjectByName('lobby-sky-ascent')||!!QA.scene.getObjectByName('lobby-waiting-circuit')||!!QA.scene.getObjectByName('uploaded-sky-loop-circuit'),
+   pads:QA.obstacles.some(p=>p.ascent),hud:!!document.getElementById('lobbyKartHud'),
+   outside:QA.canMoveTo(13,-4.8),floor:QA.lobbyPlatformAt(0,4),
+   photo:!!QA.scene.getObjectByName('lobby-photo-camera-station')
+  }));
+  assert.deepEqual(retired,{course:false,roots:false,pads:false,hud:false,outside:false,floor:0,photo:true});
+  console.log('PASS no course geometry, vehicles, platform colliders or HUD; closed exit and photo station preserved');
   await page.evaluate(()=>{
    const now=Date.now(),s=window.__lobbyGames.state||{soccer:{status:'playing',members:{self:0,friend:0,enemy:1},kicks:{},ball:{x:23,y:.3,z:10,vx:0,vy:0,vz:0,at:now},score:[0,0],startAt:now-1000,endAt:now+180000},tag:null,survival:null};
    window.testState=s;window.testRoster={self:{online:true,name:'あなた',x:23,z:9},friend:{online:true,name:'味方',x:24,z:17},enemy:{online:true,name:'相手',x:24,z:4}};

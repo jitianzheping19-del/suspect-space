@@ -59,10 +59,10 @@ const {chromium}=require('playwright');
     await page.evaluate(()=>{window.ctx.players.guest={online:true,name:'Guest',x:0,z:0};});
     await page.waitForFunction(()=>document.getElementById('lobbyMiniGameStart').textContent==='鬼ごっこ開始');
     assert.match(await page.locator('#lobbyMiniGamePanel').innerText(),/参加者 2人/);
-    await page.evaluate(()=>{delete window.ctx.players.guest;window.ctx.players.host.lobbyKart=true;});
+    await page.evaluate(()=>{delete window.ctx.players.guest;window.ctx.players.host.online=false;});
     await page.waitForFunction(()=>document.getElementById('lobbyMiniGameStart').disabled);
-    assert.match(await page.locator('#lobbyMiniGamePanel').innerText(),/乗り物から降りて/);
-    await page.evaluate(()=>{window.ctx.players.host.lobbyKart=false;});
+    assert.equal(await page.locator('#lobbyKartStartBtn').count(),0,'retired race controls are absent');
+    await page.evaluate(()=>{window.ctx.players.host.online=true;});
     await page.waitForFunction(()=>!document.getElementById('lobbyMiniGameStart').disabled);
     await start.tap();
     await page.waitForFunction(()=>window.frameState.state.tag?.status==='countdown');
@@ -77,13 +77,15 @@ const {chromium}=require('playwright');
     assert(await page.locator('#lobbyRoster').isVisible(),'end restores roster');
     for(const area of ['survival','soccer']){
      await page.evaluate(({area,player})=>{window.ctx.players.host=player;window.controller.handleFrame({type:'lobby-games-action',area,enabled:false});},{area,player:position(area)});
-     await start.tap();await page.waitForFunction(area=>window.frameState.state[area]?.status==='countdown'&&window.frameState.state[area].practice,area);
+     if(area==='soccer')await page.evaluate(()=>window.controller.handleFrame({type:'lobby-games-station',station:'start'}));else await start.tap();
+     await page.waitForFunction(area=>window.frameState.state[area]?.status==='countdown'&&window.frameState.state[area].practice,area);
      assert(await page.locator('#lobbyMiniGameCountdown').isVisible(),area+' participant countdown');
      if(area==='soccer'){
-      assert(await page.locator('#lobbySoccerScore').isVisible());assert.match(await page.locator('#lobbySoccerScore').textContent(),/青 0 — 0 赤/);assert.equal(await page.locator('#lobbySoccerScore details').count(),0);
-      const a=await page.locator('#lobbySoccerScore').boundingBox();assert(a.x<=12&&a.y<=12,'score at upper left');assert(await page.locator('#lobbyMiniGamePanel').isHidden(),'no duplicate bottom panel');
+      assert(await page.locator('#lobbySoccerScore').isHidden(),'score remains on the physical court display');
+      assert(await page.locator('#lobbyMiniGamePanel').isHidden(),'no duplicate bottom panel');
      }
-     await stop.tap();await page.waitForFunction(area=>window.frameState.state[area]?.status==='finished',area);
+     if(area==='soccer')await page.evaluate(()=>window.controller.handleFrame({type:'lobby-games-station',station:'stop'}));else await stop.tap();
+     await page.waitForFunction(area=>window.frameState.state[area]?.status==='finished',area);
      assert.equal(await page.locator('#lobbyMiniGameCountdown').isVisible(),false,'cancel clears countdown');
      assert.equal(await page.evaluate(()=>document.body.dataset.lobbyMinigame),undefined,'cancel restores normal UI');
     }

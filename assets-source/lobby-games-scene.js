@@ -203,7 +203,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const ballShadow=new THREE.Mesh(new THREE.PlaneGeometry(.95,.95),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shadowCanvas),transparent:true,depthWrite:false}));ballShadow.rotation.x=-Math.PI/2;ballShadow.position.set(23,.055,10);soccer.add(ballShadow);
   const now=()=>Date.now()+offset;
   const area=()=>localArea;
-  function teleport(x,y,z){player.root.position.set(x,y,z);player.root.userData.lobbyHeightInitialized=true;clearMotion();parent.postMessage({type:'lobby-position',gameArea:localArea,x,z,lobbyY:y,yaw:player.root.rotation.y,walking:false,lobbyKart:false,circuitTrack:false},'*');}
+  function teleport(x,y,z){player.root.position.set(x,y,z);player.root.userData.lobbyHeightInitialized=true;clearMotion();parent.postMessage({type:'lobby-position',gameArea:localArea,x,z,lobbyY:y,yaw:player.root.rotation.y,walking:false},'*');}
   function exit(){staminaGauge.hidden=true;const a=area();localArea='lobby';if(a==='survival')teleport(-9.5,0,-2.3);else if(a==='soccer')teleport(9.5,0,2.1);previousX=player.root.position.x;}
   let pressIntent=false,dashIntent=null,aimIntent={active:false},soccerCamera='length',cameraChanged=false;
   function setSoccerCamera(mode){if(['length','side','third'].includes(mode)&&soccerCamera!==mode){soccerCamera=mode;cameraChanged=true;}}
@@ -383,7 +383,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const stickGesture=createSoccerStickGesture();
   function update(dt){
     const position=player.root.position;
-    if(enabled&&!window.__lobbyKartCircuit?.active){
+    if(enabled){
       if(localArea==='lobby'&&previousX>=-12&&position.x< -12&&Math.abs(position.z+2.3)<1.25)localArea='survival';
       else if(localArea==='lobby'&&previousX<=12&&position.x>12&&Math.abs(position.z-2.1)<1.25)localArea='soccer';
       else if(localArea==='survival'&&position.x> -12||localArea==='soccer'&&position.x<12)localArea='lobby';
@@ -393,7 +393,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     for(const door of doors){const near=Math.hypot(player.root.position.x-door.x,player.root.position.z-door.z)<3.5;for(const leaf of door.leaves)leaf.position.x+=((near?2.25:.74)*leaf.userData.side-leaf.position.x)*(1-Math.exp(-12*dt));}
     const g=state?.survival;
     if(a==='survival'&&g?.status==='finished'&&g.members?.[uid]?.alive&&t>g.endedAt+4500&&finishedSeen!==g.id){finishedSeen=g.id;teleport(-15.2,0,0);}
-    const rows={...roster,[uid]:{...(roster[uid]||{}),online:true,x:player.root.position.x,z:player.root.position.z,lobbyY:player.root.position.y,lobbyCircuit:window.__lobbyKartCircuit?.active===true}};
+    const rows={...roster,[uid]:{...(roster[uid]||{}),online:true,x:player.root.position.x,z:player.root.position.z,lobbyY:player.root.position.y}};
     const circle=stickGesture(lobbyStick.x,lobbyStick.z,t,enabled&&a==='soccer'&&!!state&&state.soccer.ball.dribbler===uid&&!activeLocalTrap()&&rules.canSkill(state,uid,rows,t));if(circle)parent.postMessage({type:'lobby-games-command',kind:'soccer-skill',skill:'scissors',side:circle,yaw:player.root.rotation.y},'*');
     const target=state?rules.tagTarget(state,uid,rows,t):'',kick=state&&(rules.canKick(state,uid,rows,t)||rules.canQueueKick(state,uid,rows,t));
     camera.updateMatrixWorld();const matrix=camera.matrixWorld.elements,rightLength=Math.hypot(matrix[0],matrix[2])||1,forwardLength=Math.hypot(matrix[8],matrix[10])||1;
@@ -465,8 +465,6 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     for(const door of doors)door.countSign.userData.setText(count(door.side)+'人プレイ中');tagCountSign.userData.setText('鬼ごっこ · '+count('tag')+'人プレイ中');
     const a=area(),t=now();roots.survival.visible=enabled&&a==='survival';roots.soccer.visible=enabled&&a==='soccer';
     if(enabled&&a!=='lobby'){
-      const circuit=window.__lobbyKartCircuit;for(const root of [circuit?.root,circuit?.skyMap.root,circuit?.spaceMap.root,circuit?.vehicles])if(root){hiddenRoots.push([root,root.visible]);root.visible=false;}
-      for(const id of ['lobbyKartHud','lobbyKartSpeed']){const node=document.getElementById(id);if(node)node.dataset.show='false';}
       savedFov=camera.fov;camera.fov=Math.max(camera.fov,Math.min(85,Math.atan(Math.tan(Math.PI/10)/camera.aspect)*360/Math.PI));camera.updateProjectionMatrix();
     }
     camera.updateMatrixWorld();updateStaminaGauge();

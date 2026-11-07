@@ -1,7 +1,6 @@
 // Keep the editable costume sculpts and all game/preview consumers synchronized.
 import './sync-costume-catalog.mjs';
 import './sync-premium-catalog.mjs';
-import './sync-lobby-ascent.mjs';
 import './sync-lobby-photo-deck.mjs';
 import {readFile,writeFile} from 'node:fs/promises';
 import {gzipSync,gunzipSync} from 'node:zlib';
