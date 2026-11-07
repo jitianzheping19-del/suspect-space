@@ -1,5 +1,5 @@
 // Milliseconds of sprint remain authoritative across heartbeat renewals.
-export const SOCCER_STAMINA={capacity:4000,recoveryDelay:500,recoveryRate:1,restart:1000};
+export const SOCCER_STAMINA={capacity:3000,recoveryDelay:500,recoveryRate:1,restart:1000};
 export function soccerDashStatus(g,id,time){
  const d=g?.dashes?.[id],C=SOCCER_STAMINA;
  if(!d)return {value:C.capacity,fraction:1,running:false,exhausted:false};

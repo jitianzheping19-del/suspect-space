@@ -32,17 +32,6 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   const botCount=document.createElement('div');botCount.id='soccerBotCount';botCount.setAttribute('role','status');
   viewTools.append(cameraButton,botCount);document.body.append(viewTools);
   cameraButton.onclick=()=>{cameraIndex=(cameraIndex+1)%cameraModes.length;frame()?.postMessage({type:'lobby-soccer-camera',mode:cameraModes[cameraIndex][0]},'*');render();};
-  const staminaGauge=document.createElement('div');staminaGauge.id='soccerStamina';staminaGauge.hidden=true;
-  const staminaLabel=document.createElement('span');staminaLabel.textContent='スタミナ';
-  const staminaBar=document.createElement('div');staminaBar.className='soccerStaminaTrack';staminaBar.setAttribute('role','progressbar');staminaBar.setAttribute('aria-label','ダッシュのスタミナ');staminaBar.setAttribute('aria-valuemin','0');staminaBar.setAttribute('aria-valuemax','100');
-  const staminaFill=document.createElement('i');staminaBar.append(staminaFill);staminaGauge.append(staminaLabel,staminaBar);document.body.append(staminaGauge);
-  function updateStamina(){
-    const c=context(),energy=rules.dashStatus(state,c.uid,clock());
-    staminaGauge.hidden=!c.enabled||localArea!=='soccer'||guide.open||rules.active(state?.tag)||!['idle','playing'].includes(state?.soccer?.status)||!rules.live(c.players[c.uid])||state?.soccer?.status==='playing'&&state.soccer.members?.[c.uid]===undefined||!energy.running&&energy.fraction>=1;
-    staminaGauge.dataset.mode=energy.exhausted?'empty':energy.running?'running':'recovering';
-    staminaLabel.textContent=energy.exhausted?'スタミナ回復中':'スタミナ '+(energy.value/1000).toFixed(1)+'秒';
-    staminaFill.style.transform='scaleX('+energy.fraction+')';staminaBar.setAttribute('aria-valuenow',String(Math.round(energy.fraction*100)));
-  }
   const panel=document.createElement('section');panel.id='lobbyMiniGamePanel';panel.className='hidden';panel.setAttribute('aria-label','ロビーの遊び');
   const title=document.createElement('strong'),status=document.createElement('div'),buttons=document.createElement('div');buttons.className='miniGameButtons';panel.append(title,status,buttons);document.body.append(panel);
   const start=document.createElement('button'),stop=document.createElement('button'),exit=document.createElement('button');
@@ -155,7 +144,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
   }
   function use(){const c=context();if(!c.enabled||localArea!=='soccer')return false;if(action.station){stationAction(action.station);return true;}if(rules.canOverhead(state,c.uid,c.players,clock()))request('soccer-overhead');else if(action.enabled)request('kick',{yaw:action.yaw});return true;}
   function render(){
-    rules.setSoccerPitch(state?.soccer);soccerFeedback.update(state?.soccer);updateStamina();
+    rules.setSoccerPitch(state?.soccer);soccerFeedback.update(state?.soccer);
     flickControls.update();defenseControls.update();
     const c=context();onPhoto(c.enabled?state?.photo:null,state?.photoBackground||'aurora');const enabled=c.enabled,tag=state?.tag,tagPlaying=rules.active(tag),game=tagPlaying?tag:state?.[localArea==='lobby'?'tag':localArea];
     const participation=enabled&&rules.live(c.players[c.uid])&&Object.entries({tag:state?.tag,survival:state?.survival,soccer:state?.soccer}).find(([,g])=>rules.active(g)&&Object.hasOwn(g.members||{},c.uid));
@@ -239,7 +228,7 @@ export function createLobbyGamesRuntime({context,db,ref,update,set,frame,transpo
         }
       }
     }
-    lastStep=t;updateStamina();
+    lastStep=t;
     const signature=roomKey+':'+(state?.revision||0)+':'+Math.floor(t/200);
     if(signature!==lastFrame){lastFrame=signature;send({type:'lobby-games-state',enabled:true,state,uid:c.uid,host:c.host,serverNow:t,players:c.players,soccerCamera:cameraModes[cameraIndex][0]});render();decorateAction();}
   }

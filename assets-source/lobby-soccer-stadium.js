@@ -69,11 +69,11 @@ function createSoccerStadium(THREE,root,F){
    const punting=k?.distribution==='punt'&&['pickup','catch','punt'].includes(k.phase),holding=['pickup','catch'].includes(k?.phase),holdingAge=holding?Math.max(0,(time-k.at)/1000):0,throwing=k?.phase==='distribute',throwAge=throwing?Math.max(0,(time-k.at)/1000):0;
    const age=k?.phase==='dive'?Math.max(0,(time-k.at)/1000):0,dive=k?.phase==='dive',recovery=k?.phase==='recover'?Math.max(0,Math.min(1,(k.until-time)/500)):0;
    const progress=Math.min(1,age/.28),land=Math.max(0,Math.min(1,(age-.42)/.35));
-   model.rig.position.set(dive?k.fromX+(k.toX-k.fromX)*progress:k?.x??23,dive?Math.sin(Math.min(1,age/.65)*Math.PI)*Math.max(.25,(k.height||1)-.6):0,k?.z??z);
-   model.rig.rotation.set(0,dir===1?0:Math.PI,dive?-k.side*dir*1.25*Math.sin(Math.min(1,age/.95)*Math.PI):recovery*-dir*(k?.side||1)*.5);
-   model.body.position.y=.88-(dive?land*.42:recovery*.22);model.body.rotation.x=dive?.2:recovery?.35:.12;
-   model.arms.forEach((arm,i)=>{arm.rotation.x=dive?-1.35:-.48;arm.rotation.z=(i?1:-1)*(dive?.85:.28);});
-   model.legs.forEach((leg,i)=>{leg.position.set((i?1:-1)*.24,-.5,0);leg.rotation.x=dive?(i?.7:-.25):recovery?.6:.15;leg.rotation.z=(i?1:-1)*.12;});
+   const pose=sampleSoccerKeeperPose(k||{team:model.team,x:23,z,phase:'ready'},time);
+   model.rig.position.set(pose.x,pose.y,pose.z);model.rig.rotation.set(0,pose.yaw,pose.roll);
+   model.body.position.y=pose.bodyY;model.body.rotation.x=pose.pitch;
+   model.arms.forEach((arm,i)=>{arm.rotation.x=pose.armX;arm.rotation.z=(i?1:-1)*pose.armZ;});
+   model.legs.forEach((leg,i)=>{leg.position.set((i?1:-1)*.24,-.5,0);leg.rotation.x=pose.legX[i];leg.rotation.z=(i?1:-1)*.12;});
    if(holding){
     const settle=Math.max(0,1-holdingAge/.45),scoop=k.phase==='pickup'?Math.sin(Math.min(1,holdingAge/.6)*Math.PI):0,windup=punting?0:Math.max(0,Math.min(1,(holdingAge-.7)/.5)),raise=windup*windup*(3-2*windup);
     model.rig.position.y=(k.grabLift||0)*settle;model.rig.rotation.y=k.holdYaw??(dir===1?0:Math.PI);model.rig.rotation.z=(k.grabRoll||0)*settle;model.body.position.y=.88-scoop*.3;model.body.rotation.x=scoop*.6-raise*.12;

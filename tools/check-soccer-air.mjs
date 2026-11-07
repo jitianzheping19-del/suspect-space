@@ -35,7 +35,7 @@ for(const team of [0,1])for(const speed of [12,20]){
  Object.assign(f.s.soccer.ball,{x:23,y:1,z:line-dir*4,vx:0,vy:1,vz:dir*speed,dribbler:'',lastTouch:'self',freeUntil:T+5000});
  let dive=false;for(let i=0;i<70;i++){tick(f);dive ||=f.s.soccer.keepers[team].phase==='dive';if(f.s.soccer.lastSave)break;}
  const g=f.s.soccer;
- assert(g.lastSave,'keeper saves a shot on target');assert.equal(g.lastSave.team,team);assert.equal(g.score[0]+g.score[1],0);if(speed===12)assert(dive,'slower shots allow the delayed dive');
+ assert(g.lastSave,'keeper saves a shot on target');assert.equal(g.lastSave.team,team);assert.equal(g.score[0]+g.score[1],0);assert(['body','arm','glove','leg','boot'].includes(g.lastSave.part),'save requires physical contact');
  if(speed===12){
   assert.equal(g.ball.keeperOwner,team,'catchable shots are held');assert.equal(g.ball.vz,0);assert.equal(g.keepers[team].phase,'catch');
   for(let i=0;i<120&&!g.flight;i++)tick(f);

@@ -109,22 +109,66 @@ export function stepSoccerKeepers(g,F,time,dt,players={}){
  }
  return {controlled:b.keeperOwner!==undefined,changed:heldBefore||b.keeperOwner!==undefined||previous!==JSON.stringify(g.keepers)};
 }
+// This pose is shared by the renderer and the authoritative collision shapes.
+export function sampleSoccerKeeperPose(k,time){
+ const dir=k.team===0?1:-1,dive=k.phase==='dive',age=dive?Math.max(0,(time-k.at)/1000):0;
+ const recovery=k.phase==='recover'?Math.max(0,Math.min(1,(k.until-time)/500)):0;
+ const land=Math.max(0,Math.min(1,(age-.42)/.35));
+ return {x:dive?k.fromX+(k.toX-k.fromX)*Math.min(1,age/.28):k.x,z:k.z,
+  y:dive?Math.sin(Math.min(1,age/.65)*Math.PI)*Math.max(.25,(k.height||1)-.6):0,
+  yaw:dir===1?0:Math.PI,roll:dive?-k.side*dir*1.25*Math.sin(Math.min(1,age/.95)*Math.PI):recovery*-dir*(k.side||1)*.5,
+  bodyY:.88-(dive?land*.42:recovery*.22),pitch:dive?.2:recovery?.35:.12,
+  armX:dive?-1.35:-.48,armZ:dive?.85:.28,legX:[dive?-.25:recovery?.6:.15,dive?.7:recovery?.6:.15]};
+}
+export function soccerKeeperColliders(k,time){
+ const pose=sampleSoccerKeeperPose(k,time),shapes=[];
+ function rotate(v,x=0,y=0,z=0){
+  const cz=Math.cos(z),sz=Math.sin(z),cy=Math.cos(y),sy=Math.sin(y),cx=Math.cos(x),sx=Math.sin(x);
+  const a=v.x*cz-v.y*sz,b=v.x*sz+v.y*cz,c=a*cy+v.z*sy,d=-a*sy+v.z*cy;
+  return {x:c,y:b*cx-d*sx,z:b*sx+d*cx};
+ }
+ function world(v){const b=rotate(v,pose.pitch);b.y+=pose.bodyY;const r=rotate(b,0,pose.yaw,pose.roll);return {x:r.x+pose.x,y:r.y+pose.y,z:r.z+pose.z};}
+ function add(part,a,b,radius){shapes.push({part,a:world(a),b:world(b),radius});}
+ add('body',{x:0,y:.115,z:0},{x:0,y:.645,z:0},.43);
+ for(const [i,side]of [-1,1].entries()){
+  const arm=v=>{const p=rotate(v,pose.armX,0,side*pose.armZ);return {x:p.x+side*.48,y:p.y+.43,z:p.z};};
+  add('arm',arm({x:side*.12,y:-.29,z:.02}),arm({x:side*.12,y:.01,z:.02}),.13);
+  const glove=arm({x:side*.16,y:-.4,z:.12});add('glove',glove,glove,.21);
+  const leg=v=>{const p=rotate(v,pose.legX[i],0,side*.12);return {x:p.x+side*.24,y:p.y-.5,z:p.z};};
+  add('leg',leg({x:0,y:-.15,z:0}),leg({x:0,y:.11,z:0}),.16);
+  add('boot',leg({x:0,y:-.3,z:-.035}),leg({x:0,y:-.3,z:.195}),.12);
+ }
+ return shapes;
+}
+// Closest points on the swept ball segment and a body-part capsule axis.
+function keeperSegmentContact(p,q,a,b,radius){
+ const sub=(u,v)=>({x:u.x-v.x,y:u.y-v.y,z:u.z-v.z}),dot=(u,v)=>u.x*v.x+u.y*v.y+u.z*v.z,clamp=v=>Math.max(0,Math.min(1,v));
+ const d=sub(q,p),e=sub(b,a),r=sub(p,a),dd=dot(d,d),ee=dot(e,e),de=dot(d,e),dr=dot(d,r),er=dot(e,r);
+ let t=dd>1e-12?clamp(-dr/dd):0,u=0;
+ if(ee>1e-12){const den=dd*ee-de*de;t=den>1e-12?clamp((de*er-dr*ee)/den):0;u=(de*t+er)/ee;
+  if(u<0){u=0;t=dd>1e-12?clamp(-dr/dd):0;}else if(u>1){u=1;t=dd>1e-12?clamp((de-dr)/dd):0;}}
+ const distanceAt=v=>{const offset={x:r.x+d.x*v,y:r.y+d.y*v,z:r.z+d.z*v},u=ee>1e-12?clamp(dot(offset,e)/ee):0;return Math.hypot(offset.x-e.x*u,offset.y-e.y*u,offset.z-e.z*u);};
+ if(distanceAt(t)<=radius&&distanceAt(0)>radius){let lo=0,hi=t;for(let i=0;i<18;i++){const mid=(lo+hi)/2;if(distanceAt(mid)>radius)lo=mid;else hi=mid;}t=hi;u=ee>1e-12?clamp((de*t+er)/ee):0;}
+ const point={x:p.x+d.x*t,y:p.y+d.y*t,z:p.z+d.z*t},axis={x:a.x+e.x*u,y:a.y+e.y*u,z:a.z+e.z*u};
+ return {t,point,distance:Math.hypot(point.x-axis.x,point.y-axis.y,point.z-axis.z)};
+}
 export function collideSoccerKeeper(g,F,time,old){
  const b=g.ball;if(b.keeperOwner!==undefined||time<Number(b.keeperReleaseUntil||0))return false;
+ let hit=null;
  for(const k of Object.values(g.keepers||{})){
-  if(['recover','pickup','catch','distribute','punt'].includes(k.phase))continue;
-  const dir=k.team===0?1:-1,u=k.phase==='dive'?Math.max(0,Math.min(1,(time-k.at)/280)):0,x=k.phase==='dive'?k.fromX+(k.toX-k.fromX)*u:k.x;
-  // A swept ball/keeper contact prevents fast shots tunnelling through gloves.
-  const dz=b.z-old.z;if(!dz||Math.abs(dz)<1e-7)continue;
-  const f=(k.z-old.z)/dz;if(f<0||f>1||b.vz*dir>=0)continue;
-  const bx=old.x+(b.x-old.x)*f,by=old.y+(b.y-old.y)*f;
-  const reach=k.phase==='dive'?.66:.5,top=k.phase==='dive'?k.height+.55:1.8,bottom=k.phase==='dive'?Math.max(.0,k.height-.85):0;
-  if(Math.abs(bx-x)>reach||by<bottom||by>top)continue;
-  const catchable=Math.hypot(b.vx,b.vy,b.vz)<13&&by<2.2;
-  if(catchable){b.x=bx;b.y=Math.max(.32,by);b.z=k.z;k.x=x;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:k.z};holdSoccerKeeperBall(g,k,time);return true;}
-  b.x=bx;b.y=Math.max(.32,by);b.z=k.z+dir*.34;b.vx=(bx>=x?1:-1)*(3+Math.abs(b.vx)*.3);b.vz=dir*(5+Math.abs(b.vz)*.3);b.vy=2.6;b.dribbler='';b.spin=0;b.lastTouch='keeper-'+k.team;b.keeperReleaseUntil=time+650;b.freeUntil=time+250;g.flight=null;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:k.z};return true;
+  if(['pickup','catch'].includes(k.phase))continue;
+  for(const shape of soccerKeeperColliders(k,time)){
+   const contact=keeperSegmentContact(old,b,shape.a,shape.b,shape.radius+(F.radius||.3));
+   if(contact.distance>shape.radius+(F.radius||.3))continue;
+   if(!hit||contact.t<hit.t)hit={...contact,k,part:shape.part};
+  }
  }
- return false;
+ if(!hit)return false;
+ const k=hit.k,dir=k.team===0?1:-1,{x:bx,y:by,z:bz}=hit.point,pose=sampleSoccerKeeperPose(k,time);
+ const catchable=Math.hypot(b.vx,b.vy,b.vz)<13&&by<2.2;
+ b.x=bx;b.y=Math.max(.3,by);b.z=bz;k.saves++;k.saveAt=time;g.lastSave={team:k.team,at:time,x:bx,y:by,z:bz,part:hit.part};
+ if(catchable){if(k.phase==='dive')k.x=pose.x;holdSoccerKeeperBall(g,k,time);return true;}
+ b.z=bz+dir*.05;b.vx=(bx>=pose.x?1:-1)*(3+Math.abs(b.vx)*.3);b.vz=dir*(5+Math.abs(b.vz)*.3);b.vy=2.6;b.dribbler='';b.spin=0;b.lastTouch='keeper-'+k.team;b.keeperReleaseUntil=time+650;b.freeUntil=time+250;g.flight=null;return true;
 }
 
 export function sampleSoccerPunt(age){

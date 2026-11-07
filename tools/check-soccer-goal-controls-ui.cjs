@@ -36,17 +36,15 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    await page.evaluate(owner=>{commands=[];fixture(owner);if(owner)Object.assign(ctx.snapshot.soccer.ball,{x:23,z:8.74});},owner);
    await page.clock.runFor(250);await page.evaluate(owner=>enter(!!owner,!!owner),owner);
    finger=await point(owner?'#soccerFeintBtn':'#soccerPressBtn');await touch('touchStart',[finger]);await page.clock.runFor(1200);
-   assert(await page.locator('#soccerStamina').isVisible());
-   const level=Number(await page.locator('#soccerStamina [role=progressbar]').getAttribute('aria-valuenow'));assert(level>65&&level<90,'gauge decreases while sprinting');
-   const bar=await page.locator('#soccerStamina').boundingBox();assert(bar.x>=0&&bar.x+bar.width<=width&&bar.y>=0&&bar.y+bar.height<=height);
-   await page.clock.runFor(3500);
-   assert.equal(await page.locator('#soccerStamina').getAttribute('data-mode'),'empty');
+   assert.equal(await page.locator('#soccerStamina').count(),0,'gauge belongs to the 3D scene, not the bottom HUD');
+   const level=await page.evaluate(()=>rules.dashStatus(ctx.snapshot,'self',Date.now()).fraction);assert(level>.5&&level<.9);
+   await page.clock.runFor(2500);
    assert(!(await page.evaluate(()=>rules.dashStatus(ctx.snapshot,'self',Date.now()).running)));
    assert.equal(await page.evaluate(()=>commands.at(-1).held),false,'exhaustion releases the held button');
    const count=await page.evaluate(()=>commands.length);await page.clock.runFor(1600);
    assert.equal(await page.evaluate(()=>commands.length),count,'held finger cannot auto-restart after exhaustion');
-   assert.equal(await page.locator('#soccerStamina').getAttribute('data-mode'),'recovering');
-   await touch('touchEnd',[]);await page.clock.runFor(4500);assert(await page.locator('#soccerStamina').isHidden(),'full recovery hides gauge');
+
+   await touch('touchEnd',[]);await page.clock.runFor(4500);assert.equal(await page.evaluate(()=>rules.dashStatus(ctx.snapshot,'self',Date.now()).fraction),1);
   }
   await page.evaluate(()=>{commands=[];fixture('friend');});await page.clock.runFor(250);await page.evaluate(()=>enter());
   assert(await page.locator('#soccerDefenseZone').isHidden());assert(await page.locator('#soccerKickBtn').isEnabled());
@@ -69,6 +67,6 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
   await page.evaluate(()=>{ctx.snapshot.soccer.bots={b1:{online:true,team:0},b2:{online:true,team:0},r1:{online:true,team:1}};ctx.snapshot.at=Date.now();});await page.clock.runFor(250);
   assert.equal(await page.locator('#soccerBotCount').textContent(),'BOT　青 2 ／ 赤 1');
   await page.evaluate(()=>runtime.handleFrame({type:'lobby-games-action',area:'lobby'}));assert(await page.locator('#soccerViewTools').isHidden());assert.deepEqual(errors,[]);
-  console.log('PASS touch/remote ack: four-second sprint and gauge with/without ball, exhaustion/recovery, shot, nutmeg, camera and exit',width,height);await page.close();
+  console.log('PASS touch/remote ack: three-second sprint and scene-owned gauge with/without ball, exhaustion/recovery, shot, nutmeg, camera and exit',width,height);await page.close();
  }}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

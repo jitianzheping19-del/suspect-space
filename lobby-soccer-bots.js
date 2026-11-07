@@ -76,9 +76,9 @@ export function stepSoccerBots(g,players,F,time,dt){
   }
   if(!p.feintPass&&time-p.ownedAt<1050)continue;
   const defender=opponents.some(other=>Math.hypot(players[other].x-p.x,players[other].z-p.z)<3.5),nearGoal=Math.abs(goal-p.z)<10;
-  const pass=q&&(!!p.feintPass||!nearGoal||defender),shoot=nearGoal&&!pass;if(!pass&&!shoot){p.feintPass=null;continue;}
+  const pass=q&&(!!p.feintPass||!nearGoal||defender||Math.abs(goal-q.z)<=6&&(q.z-p.z)*dir>1),shoot=nearGoal&&!pass;if(!pass&&!shoot){p.feintPass=null;continue;}
   const keeper=g.keepers?.[1-team],x=pass?q.x:23+(keeper?.x>=23?-1:1)*1.7,z=pass?q.z:goal;
-  const mode=pass?(soccerPassLane(p,q,g,players,team)>.35&&Math.hypot(x-p.x,z-p.z)>5?'lob':'pass'):'shot',kickYaw=Math.atan2(x-b.x,z-b.z);
+  const mode=pass?(Math.hypot(x-p.x,z-p.z)>=8||Math.abs(goal-q.z)<=6||soccerPassLane(p,q,g,players,team)>.35&&Math.hypot(x-p.x,z-p.z)>5?'lob':'pass'):'shot',kickYaw=Math.atan2(x-b.x,z-b.z);
   g.kicks||={};g.kicks[id]={id:id+':'+time,at:time,yaw:kickYaw,foot:soccerKickFoot(p,b,kickYaw),mode,power:shoot?.82:.62,target:pass?target:'',applied:false};p.yaw=kickYaw;p.nextAction=time+1900;p.ownedAt=0;p.feintPass=null;
  }
  return changed;

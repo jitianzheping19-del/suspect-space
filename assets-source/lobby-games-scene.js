@@ -50,6 +50,22 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   let enabled=false,uid='',host='',state=null,roster={},offset=0,roundSeen='',kickoffSeen='',eliminatedSeen='',finishedSeen='',lastAction='',lastBall=null,localArea='lobby',previousX=player.root.position.x;
   const roots={survival:new THREE.Group(),soccer:new THREE.Group()},doors=[],badges=new Map(),soccerBots=new Map();
   for(const [name,root]of Object.entries(roots)){root.name='lobby-game-'+name;root.visible=false;scene.add(root);}
+  // Screen-space bar anchored to the local player's feet, inside the game iframe.
+  const staminaGauge=document.createElement('div');staminaGauge.id='soccerStamina';staminaGauge.hidden=true;
+  staminaGauge.style.cssText='position:fixed;z-index:30;width:66px;height:6px;padding:2px;background:#071b2bd9;border:1px solid #b7f6df99;border-radius:6px;transform:translateX(-50%);pointer-events:none;box-shadow:0 2px 5px #0006';
+  staminaGauge.setAttribute('role','progressbar');staminaGauge.setAttribute('aria-label','ダッシュのスタミナ');staminaGauge.setAttribute('aria-valuemin','0');staminaGauge.setAttribute('aria-valuemax','100');
+  const staminaFill=document.createElement('div');staminaFill.style.cssText='height:100%;border-radius:4px;transform-origin:left;background:linear-gradient(90deg,#39bcac,#b8ffe3)';staminaGauge.append(staminaFill);document.body.append(staminaGauge);
+  const staminaPoint=new THREE.Vector3();
+  function updateStaminaGauge(){
+    const energy=rules.dashStatus(state,uid,now()),g=state?.soccer;
+    staminaPoint.copy(player.root.position).project(camera);
+    staminaGauge.hidden=!enabled||area()!=='soccer'||rules.active(state?.tag)||!['idle','playing'].includes(g?.status)||!rules.live(roster[uid])||g?.status==='playing'&&g.members?.[uid]===undefined||!energy.running&&energy.fraction>=1||Math.abs(staminaPoint.x)>1||Math.abs(staminaPoint.y)>1||Math.abs(staminaPoint.z)>1;
+    if(staminaGauge.hidden)return;
+    staminaGauge.style.left=((staminaPoint.x+1)*innerWidth/2)+'px';staminaGauge.style.top=((1-staminaPoint.y)*innerHeight/2+10)+'px';
+    staminaGauge.dataset.mode=energy.exhausted?'empty':energy.running?'running':'recovering';
+    staminaFill.style.transform='scaleX('+energy.fraction+')';staminaFill.style.background=energy.exhausted?'#ffb56b':energy.running?'linear-gradient(90deg,#39bcac,#b8ffe3)':'#94caff';
+    staminaGauge.setAttribute('aria-valuenow',String(Math.round(energy.fraction*100)));
+  }
   const mats=new Map(),unitBox=new THREE.BoxGeometry(1,1,1);
   function material(color){if(!mats.has(color))mats.set(color,new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.12}));return mats.get(color);}
   function box(root,x,y,z,w,h,d,color){const m=new THREE.Mesh(unitBox,material(color));m.position.set(x,y,z);m.scale.set(w,h,d);root.add(m);return m;}
@@ -149,6 +165,11 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     const label=sign(root,text,0,y,.19,width);label.name='soccer-button-'+id;label.userData.station=id;
     stations.push({id,root,label,x,z});return label;
   }
+  const botDisplay=new THREE.Group();botDisplay.name='soccer-bot-display';botDisplay.position.set(34.35,0,10);botDisplay.rotation.y=-Math.PI/2;soccer.add(botDisplay);
+  box(botDisplay,0,3.6,0,5.3,1.8,.35,'#0c1d30');box(botDisplay,0,4.53,0,5.4,.08,.4,'#78e9dd');box(botDisplay,0,2.67,0,5.4,.08,.4,'#78e9dd');
+  sign(botDisplay,'BOT PLAYERS',0,4.12,.2,3.2);
+  const botDisplayCount=sign(botDisplay,'青 1人   |   赤 1人',0,3.48,.2,4.7);botDisplayCount.name='soccer-bot-display-count';
+  const botDisplayTotal=sign(botDisplay,'合計 2人 · GK 2人',0,2.96,.2,3.8);
   const startLabel=station('start','スタート',10,1.35,2.8);
   const blueLabel=station('blue-count','青 BOT 1',6.2,2.2,3),redLabel=station('red-count','赤 BOT 1',13.8,2.2,3);
   station('blue-minus','−',5.4,1.1,1.2);station('blue-plus','＋',7,1.1,1.2);
@@ -169,6 +190,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   },{passive:false});
   function updateStations(){const playing=rules.active(state?.soccer),options=state?.soccer?.botOptions||{blue:1,red:1};
     const bots=Object.values(state?.soccer?.bots||{}),counts=playing?[0,1].map(team=>bots.filter(p=>p.online!==false&&p.team===team).length):[options.enabled===false?0:options.blue,options.enabled===false?0:options.red];
+    botDisplayCount.userData.setText(`青 ${counts[0]}人   |   赤 ${counts[1]}人`);botDisplayTotal.userData.setText(`合計 ${counts[0]+counts[1]}人 · GK 2人`);
     blueLabel.userData.setText('青 BOT '+counts[0]);redLabel.userData.setText('赤 BOT '+counts[1]);startLabel.userData.setText(playing?'試合終了':'スタート');
     for(const s of stations){s.root.visible=!playing||['start','exit','blue-count','red-count'].includes(s.id);s.label.material.opacity=uid===host||s.id==='exit'?1:.65;s.label.material.transparent=true;}
   }
@@ -180,7 +202,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const now=()=>Date.now()+offset;
   const area=()=>localArea;
   function teleport(x,y,z){player.root.position.set(x,y,z);player.root.userData.lobbyHeightInitialized=true;clearMotion();parent.postMessage({type:'lobby-position',gameArea:localArea,x,z,lobbyY:y,yaw:player.root.rotation.y,walking:false,lobbyKart:false,circuitTrack:false},'*');}
-  function exit(){const a=area();localArea='lobby';if(a==='survival')teleport(-9.5,0,-2.3);else if(a==='soccer')teleport(9.5,0,2.1);previousX=player.root.position.x;}
+  function exit(){staminaGauge.hidden=true;const a=area();localArea='lobby';if(a==='survival')teleport(-9.5,0,-2.3);else if(a==='soccer')teleport(9.5,0,2.1);previousX=player.root.position.x;}
   let pressIntent=false,dashIntent=null,aimIntent={active:false},soccerCamera='length',cameraChanged=false;
   function setSoccerCamera(mode){if(['length','side','third'].includes(mode)&&soccerCamera!==mode){soccerCamera=mode;cameraChanged=true;}}
   window.addEventListener('message',event=>{
@@ -194,7 +216,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     if(data?.type==='lobby-games-exit'){exit();return;}
     if(data?.type!=='lobby-games-state')return;
     enabled=data.enabled===true;
-    if(!enabled){pressIntent=false;dashIntent=null;aimIntent={active:false};exit();state=null;roots.survival.visible=roots.soccer.visible=false;return;}
+    if(!enabled){staminaGauge.hidden=true;pressIntent=false;dashIntent=null;aimIntent={active:false};exit();state=null;roots.survival.visible=roots.soccer.visible=false;return;}
     setSoccerCamera(data.soccerCamera);state=data.state;rules.setSoccerPitch(state?.soccer);resizePitch();uid=data.uid||uid;host=data.host||'';roster=soccerRoster(state?.soccer,data.players||{});offset=Number(data.serverNow)-Date.now();
     const a=area(),g=state?.[a];
     if(g?.id&&rules.active(g)&&g.members?.[uid]!==undefined&&roundSeen!==g.id){
@@ -359,7 +381,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       else if(localArea==='survival'&&position.x> -12||localArea==='soccer'&&position.x<12)localArea='lobby';
     }
     previousX=position.x;
-    const a=area(),t=now();separateLocal();steerLocalTrap();advanceSlide();advanceSkill();advancePress(dt);separateLocal();updateSlideDust(t);
+    const a=area(),t=now();if(a!=='soccer')staminaGauge.hidden=true;separateLocal();steerLocalTrap();advanceSlide();advanceSkill();advancePress(dt);separateLocal();updateSlideDust(t);
     for(const door of doors){const near=Math.hypot(player.root.position.x-door.x,player.root.position.z-door.z)<3.5;for(const leaf of door.leaves)leaf.position.x+=((near?2.25:.74)*leaf.userData.side-leaf.position.x)*(1-Math.exp(-12*dt));}
     const g=state?.survival;
     if(a==='survival'&&g?.status==='finished'&&g.members?.[uid]?.alive&&t>g.endedAt+4500&&finishedSeen!==g.id){finishedSeen=g.id;teleport(-15.2,0,0);}
@@ -439,6 +461,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       for(const id of ['lobbyKartHud','lobbyKartSpeed']){const node=document.getElementById(id);if(node)node.dataset.show='false';}
       savedFov=camera.fov;camera.fov=Math.max(camera.fov,Math.min(85,Math.atan(Math.tan(Math.PI/10)/camera.aspect)*360/Math.PI));camera.updateProjectionMatrix();
     }
+    camera.updateMatrixWorld();updateStaminaGauge();
     if(roots.survival.visible){
       for(let i=0;i<56;i++){const p=rules.tilePoint(i),until=state?.survival?.tiles?.[i],drop=rules.active(state?.survival)&&until&&until<=t;dummy.position.set(p.x,drop?-10:2.85,p.z);dummy.scale.setScalar(drop?.001:1);dummy.updateMatrix();tiles.setMatrixAt(i,dummy.matrix);tileColor.set(until&&rules.active(state?.survival)?'#e99745':(i+Math.floor(i/8))%2?'#3b9399':'#64b7ac');tiles.setColorAt(i,tileColor);}tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;tiles.computeBoundingSphere();
     }
@@ -595,7 +618,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     const focus=p.clone().add(delta);focus.y=p.y+.7;
     const aspect=Math.max(.4,camera.aspect),zoom=Math.max(1,Math.min(1.45,1/aspect)),height=(15+Math.min(distance,12)*.25)*zoom;
     const destination=new THREE.Vector3(focus.x,focus.y+height,focus.z+height*.72);
-    if(soccerCamera==='side')destination.set(focus.x+height*.85,focus.y+height,focus.z);
+    if(soccerCamera==='side')destination.set(focus.x-height*.85,focus.y+height,focus.z);
     else if(soccerCamera==='third'){
       const yaw=player.root.rotation.y;focus.copy(p).add(new THREE.Vector3(Math.sin(yaw)*2,1.2,Math.cos(yaw)*2));
       destination.set(p.x-Math.sin(yaw)*7*zoom,p.y+4.8*zoom,p.z-Math.cos(yaw)*7*zoom);
