@@ -12,7 +12,9 @@ if (card && nav) {
   title.textContent = '設定';
   header.append(title);
   const close = document.getElementById('inputSettingsClose');
+  const statusButton=document.getElementById('settingsStatusButton');if(statusButton)header.append(statusButton);
   if(close){close.classList.remove('settingsNavClose');delete close.dataset.spacePointerAction;header.append(close);}
+  const statusChoices=document.getElementById('settingsStatusChoices');if(statusChoices)header.append(statusChoices);
   card.prepend(header);
   dialog.setAttribute('aria-labelledby', title.id);
 
@@ -45,6 +47,7 @@ if (card && nav) {
     quality: '<rect x="3" y="3" width="18" height="14" rx="3"/><path d="M8 21h8m-4-4v4m-5-9 3-3 3 2 4-4"/>',
     operation: '<path d="M7 7h10c3 0 5 8 4 11s-4 0-6-2H9c-2 2-5 5-6 2S4 7 7 7Z"/><path d="M6 11h4m-2-2v4m7-2h.01M18 13h.01"/>',
     room: '<path d="M4 21V5l12-2v18M2 21h20M16 7h4v14m-8-9h.01"/>',
+    friends: '<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 4v2"/>',
     inbox: '<path d="m5 4-3 9v7h20v-7l-3-9H5ZM2 13h6l2 3h4l2-3h6"/>',
     admin: '<path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6l8-4Z"/><path d="m8 12 3 3 5-6"/>'
   };

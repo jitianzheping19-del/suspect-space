@@ -4026,10 +4026,11 @@ function createConnectionIndicator(THREE){
  return{root,update(stamp,show,camera){root.visible=!!show;if(!show)return;if(camera)ring.quaternion.copy(camera.quaternion);ring.rotateZ(-stamp*.004);},dispose(){texture.dispose();label.material.dispose();ring.geometry.dispose();ring.material.dispose();root.removeFromParent();}};
 }
 
-    function createLobbyIdentityLabel(name,mic,ready,speaking,voiceEnabled,nameColor='#f8fdff'){
+    function createLobbyIdentityLabel(name,mic,ready,speaking,voiceEnabled,nameColor='#f8fdff',status=''){
       const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
       ctx.font='900 60px sans-serif';const nameWidth=Math.ceil(ctx.measureText(name).width),micWidth=voiceEnabled?72:0;
-      canvas.width=nameWidth+micWidth+(ready?72:0)+32;canvas.height=112;
+      const baseWidth=nameWidth+micWidth+(ready?72:0)+32;ctx.font='700 36px sans-serif';canvas.width=Math.max(baseWidth,status?Math.ceil(ctx.measureText(status).width)+32:0);canvas.height=status?164:112;
+      if(status){ctx.font='700 36px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.strokeStyle='#071320';ctx.lineWidth=7;ctx.strokeText(status,canvas.width/2,26);ctx.fillStyle='#a9eedf';ctx.fillText(status,canvas.width/2,26);}ctx.translate((canvas.width-baseWidth)/2,status?52:0);
       ctx.font='900 60px sans-serif';ctx.textBaseline='middle';ctx.textAlign='left';ctx.lineJoin='round';
       if(voiceEnabled){
         ctx.strokeStyle=speaking?'#00ff68':mic?'#c8ffe9':'#dce7ee';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=speaking?10:6;if(speaking){ctx.shadowColor='#00e66b';ctx.shadowBlur=24;}
@@ -4041,7 +4042,7 @@ function createConnectionIndicator(THREE){
       if(ready){ctx.fillStyle='#58f3a6';ctx.strokeStyle='#071320';ctx.strokeText('✓',textX+nameWidth+12,56);ctx.fillText('✓',textX+nameWidth+12,56);}
       const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
       const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,depthTest:false}));
-      sprite.renderOrder=1000;sprite.scale.set(canvas.width/112*.8,.8,1);sprite.position.set(0,2.4,0);return sprite;
+      sprite.renderOrder=1000;sprite.scale.set(canvas.width/112*.8,canvas.height/112*.8,1);sprite.position.set(0,2.4+(status?26/112*.8:0),0);return sprite;
     }
     // Three places on each of four benches; all coordinates are in lobby world space.
     const lobbySeats=[];
@@ -4141,11 +4142,11 @@ function createConnectionIndicator(THREE){
         if(crew.label)crew.label.visible=false;
         if(state.reconnecting===true&&!data.connectionIndicator){data.connectionIndicator=createConnectionIndicator(THREE);root.add(data.connectionIndicator.root);}data.connectionIndicator?.update(performance.now(),state.reconnecting===true,camera);
         const nameColor=window.__lobbyGames?.teamColor(id)||'#f8fdff';
-        const mic=state.micOn===true,tagText=(state.name||"プレイヤー").slice(0,16),tagKey=tagText+":"+nameColor+":"+!!state.ready+":"+!!state.micEnabled+":"+(mic?(state.micSpeaking?"speaking":"on"):"muted");
+        const mic=state.micOn===true,tagText=(state.name||"プレイヤー").slice(0,16),tagKey=String(state.lobbyStatus||'')+":"+tagText+":"+nameColor+":"+!!state.ready+":"+!!state.micEnabled+":"+(mic?(state.micSpeaking?"speaking":"on"):"muted");
         data.photoNameText=tagText;
         if(data.lobbyNameTagKey!==tagKey){
           for(const key of ["lobbyNameTag","lobbyMicTag","lobbyMicCross"]){const old=data[key];if(old){root.remove(old);old.material?.map?.dispose();old.material?.dispose();delete data[key];}}
-          const nameTag=createLobbyIdentityLabel(tagText,mic,!!state.ready,!!state.micSpeaking,!!state.micEnabled,nameColor);root.add(nameTag);data.lobbyNameTag=nameTag;
+          const nameTag=createLobbyIdentityLabel(tagText,mic,!!state.ready,!!state.micSpeaking,!!state.micEnabled,nameColor,String(state.lobbyStatus||'').slice(0,30));root.add(nameTag);data.lobbyNameTag=nameTag;
           data.lobbyNameTagKey=tagKey;
         }
         if(data.readyTag){root.remove(data.readyTag);data.readyTag.material.map?.dispose();data.readyTag.material.dispose();delete data.readyTag;}

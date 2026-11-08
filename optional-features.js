@@ -34,7 +34,7 @@ export function createLazyGacha(THREE,api){
  return{open,close(){shell.close();},sync(visible){shell.sync(visible);badge.hidden=!visible;},setWallet(value){wallet=value;shell.setWallet(value);label();if(!shell.loaded)api.onWallet?.(value);},reset(){wallet=null;failed=false;shell.reset();label();},dispose(){shell.dispose();badge.remove();},get loaded(){return shell.loaded;}};
 }
 export function createLazyPractice(api){
- const button=makeLauncher('タスク・役職練習','poolPracticeBtn'),shortcut=document.createElement('button');shortcut.type='button';shortcut.textContent='プール横の練習設備';shortcut.disabled=true;document.querySelector('[data-settings-section="operation"]')?.append(shortcut);
+ const button=makeLauncher('タスク・役職練習','poolPracticeBtn'),shortcut=document.createElement('button');shortcut.type='button';shortcut.textContent='プール横の練習設備';shortcut.disabled=true;
  let failed=false;
  const shell=deferredFeature(()=>import('./practice-lab.js'),m=>m.installPracticeLab({...api,button,shortcut}),()=>{failed=true;});
  const open=async()=>{shell.sync(api.available());if(!api.available())return;failed=false;loadStatus(button,true);loadStatus(shortcut,true);button.textContent='読み込み中…';shortcut.textContent='読み込み中…';try{await shell.open();}finally{loadStatus(button,false);loadStatus(shortcut,false);button.textContent=failed?'練習を再試行':'タスク・役職練習';shortcut.textContent=failed?'練習を再試行':'プール横の練習設備';}};

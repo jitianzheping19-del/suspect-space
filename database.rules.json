@@ -56,7 +56,8 @@
     "onlineUsers": {
       ".read": "auth != null",
       ".indexOn": [
-        "online"
+        "online",
+        "name"
       ],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
@@ -560,6 +561,39 @@
         "$gift": {
           ".write": "auth != null && (auth.uid === 'dUAYnvjlbvTUluFXyQkTsAFMs1c2' || auth.uid === 'Lv0aTXfHM7M3CItek3dNwjjd0si1') && (!data.exists() || newData.val() === data.val())",
           ".validate": "newData.hasChildren(['count','kind','sender','createdAt']) && newData.child('sender').val() === auth.uid && newData.child('count').isNumber() && newData.child('count').val() >= 1 && newData.child('count').val() <= 999 && (newData.child('kind').val() === 'normal' || newData.child('kind').val() === 'premium') && newData.child('createdAt').isNumber()"
+        }
+      }
+    },
+    "friendEdges": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$peer": {
+          ".write": "auth != null && $uid !== $peer && (auth.uid === $uid || auth.uid === $peer) && ((!newData.exists() && data.exists()) || (newData.exists() && ((newData.child('state').val() === 'pending' && newData.child('from').val() === auth.uid && (!data.exists() || data.child('state').val() === 'declined') && newData.child('seen').val() === false && newData.child('at').val() >= now - 60000 && newData.child('at').val() <= now + 1000 && root.child('onlineUsers').child(newData.child('to').val()).exists() && newData.child('fromName').val() === root.child('onlineUsers').child(auth.uid).child('name').val() && newData.child('toName').val() === root.child('onlineUsers').child(newData.child('to').val()).child('name').val()) || (data.child('state').val() === 'pending' && data.child('to').val() === auth.uid && (newData.child('state').val() === 'pending' || newData.child('state').val() === 'accepted' || newData.child('state').val() === 'declined') && newData.child('seen').val() === true && newData.child('from').val() === data.child('from').val() && newData.child('to').val() === data.child('to').val() && newData.child('fromName').val() === data.child('fromName').val() && newData.child('toName').val() === data.child('toName').val() && newData.child('at').val() === data.child('at').val()))))",
+          ".validate": "newData.hasChildren(['from','to','fromName','toName','at','state','seen']) && ((newData.child('from').val() === $uid && newData.child('to').val() === $peer) || (newData.child('from').val() === $peer && newData.child('to').val() === $uid))",
+          "from": {
+            ".validate": "newData.isString()"
+          },
+          "to": {
+            ".validate": "newData.isString()"
+          },
+          "fromName": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 16"
+          },
+          "toName": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 16"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "state": {
+            ".validate": "newData.val() === 'pending' || newData.val() === 'accepted' || newData.val() === 'declined'"
+          },
+          "seen": {
+            ".validate": "newData.isBoolean()"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }

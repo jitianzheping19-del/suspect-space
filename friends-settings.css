@@ -1,0 +1,56 @@
+.friendUnread{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff4b65;margin-left:6px}.friendUnread[hidden],#settingsStatusChoices[hidden],[data-friend-view][hidden]{display:none!important}
+[data-settings-target=friends].hasUnread::after{content:'';width:9px;height:9px;flex-shrink:0;background:#ff4b65;border-radius:50%;margin-left:4px}
+[data-settings-section=friends] button,#settingsStatusButton,#settingsStatusChoices button{min-height:44px;touch-action:manipulation}
+#friendNotifications{position:fixed;z-index:2400;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(480px,calc(100vw - 20px));max-height:30dvh;overflow:auto;pointer-events:auto}
+#friendNotifications:empty{display:none}#friendNotifications .friendRow{padding:10px;background:#17212c;color:#eeece6;border:1px solid #c2cedb26;border-radius:12px;margin-bottom:8px;box-shadow:0 4px 18px #0008}#friendNotifications button{min-width:44px;min-height:44px;touch-action:manipulation}
+#inputSettingsDialog .settingsDesignHeader{position:relative;gap:8px}#inputSettingsDialog .settingsDesignHeader #settingsStatusButton{margin-left:auto;font-size:13px;padding:6px 10px}#inputSettingsDialog .settingsDesignHeader #inputSettingsClose{margin-left:0!important}
+#settingsStatusChoices{position:absolute;right:10px;top:100%;z-index:10;display:grid;gap:6px;width:min(240px,calc(100vw - 40px));padding:12px;border:1px solid #c2cedb29;border-radius:12px;background:#101720;color:#eeece6;box-shadow:0 24px 70px #0008}#settingsStatusChoices p:empty{display:none}#settingsStatusChoices p{font-size:13px;margin:0}.lobbyRosterStatus{display:block;color:#a9eedf;font-size:11px;width:100%;line-height:1.4}
+@media(max-width:420px){#settingsStatusButton{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+/* Match the settings palette while giving people and actions a clear hierarchy. */
+@layer settings-observatory {
+ #inputSettingsDialog .friendSettings{container-type:inline-size;--friend-line:#c2cedb26;--friend-ink:#eeece6;--friend-muted:#a3adbb}
+ .friendSummary{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:2px 0 16px}.friendSummary strong{font-size:calc(18px * var(--ui-text-scale,1));font-weight:600;color:var(--friend-ink)}.friendSummary p{font-size:12px;line-height:1.6;color:var(--friend-muted);margin:4px 0 0}
+ #inputSettingsDialog .friendTabs{position:sticky;z-index:2;display:flex;gap:4px;border:1px solid var(--friend-line);padding:4px;margin:0 0 16px;border-radius:12px;top:0;background:#101720}
+ #inputSettingsDialog .friendTabs button{position:relative;flex:1;min-width:0;min-height:44px!important;padding:8px 6px!important;border:1px solid transparent!important;background:transparent!important;color:#aeb8c6!important;font-size:calc(14px * var(--ui-text-scale,1))!important;border-radius:10px!important;white-space:nowrap}
+ #inputSettingsDialog .friendTabs button[aria-selected=true]{border-color:#cbb68c33!important;background:#d5bd8c12!important;color:#e9d9b9!important;font-weight:550!important;box-shadow:none!important}
+ .friendTabs [data-list-count],.friendTabs [data-request-count]{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 3px;margin-left:3px;border-radius:5px;background:#ffffff0d;font-size:11px;font-variant-numeric:tabular-nums}.friendTabs button[aria-selected=true] :is([data-list-count],[data-request-count]){background:#dac9a60e}.friendUnread{position:absolute;top:5px;right:5px;box-shadow:0 0 0 2px #101720}
+ #inputSettingsDialog .friendListTools{display:flex;gap:8px;margin-bottom:12px}#inputSettingsDialog .friendSettings :is(input[type=search],#friendNameInput){box-sizing:border-box;min-width:0;width:100%;min-height:48px!important;padding:10px 13px!important;border:1px solid #bccbdb30!important;border-radius:10px!important;background:#0a111a!important;color:#eeece6!important;font-size:calc(16px * var(--ui-text-scale,1))!important;font-family:inherit;box-shadow:none!important}#inputSettingsDialog .friendListTools [data-refresh]{flex-shrink:0;padding-inline:12px!important;font-size:13px!important}
+ #inputSettingsDialog .friendSearch{margin:0 0 20px;padding:16px;border:1px solid var(--friend-line);border-radius:12px;background:#131d28}#inputSettingsDialog .friendSearch label{margin:0 0 10px!important;color:#bec7d3!important;font-size:calc(13px * var(--ui-text-scale,1))!important;font-weight:500}#inputSettingsDialog .friendSearch>div{display:flex;gap:8px}#inputSettingsDialog .friendSearch input{flex:1 1 0}#inputSettingsDialog .friendSearch button{flex:0 0 auto;min-width:64px!important;white-space:nowrap!important}
+ .friendSectionHeading{display:flex;justify-content:space-between;align-items:center;margin:16px 0 4px;gap:12px}#inputSettingsDialog .friendSettings .friendSectionHeading h3{margin:0!important;font-size:16px!important}.friendSectionHeading>span{font-size:12px;color:var(--friend-muted)}.friendGroupTitle{font-size:12px;font-weight:550;color:var(--friend-muted);margin:16px 0 8px;letter-spacing:.03em}
+ #inputSettingsDialog .friendSettings .friendRow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;padding:14px;margin:0 0 8px;border:1px solid var(--friend-line);border-radius:12px;background:#17212c;box-shadow:none}
+ #inputSettingsDialog .friendSettings .friendRow[data-kind=request]{grid-template-columns:40px minmax(0,1fr) auto auto}
+ .friendAvatar{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;box-sizing:border-box;border:1px solid #dac9a633;border-radius:10px;background:#dac9a60e;color:#dac9a6;font-size:18px;font-weight:550}
+ .friendIdentity{min-width:0}.friendIdentity strong{display:block;font-size:calc(14px * var(--ui-text-scale,1));line-height:1.45;font-weight:550;color:#e7e8e9;overflow-wrap:anywhere}.friendIdentity small{display:block;font-size:calc(12px * var(--ui-text-scale,1));line-height:1.5;color:#a3adbb;margin-top:3px}.friendRow[data-online=true] .friendIdentity small{color:#9bdfbf}.friendRow[data-online] .friendIdentity small::before{content:'';display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:#718096}.friendRow[data-online=true] .friendIdentity small::before{background:#7ed9aa}
+ #inputSettingsDialog .friendSettings .friendRow button{min-width:44px!important;min-height:44px!important;padding:8px 10px!important}
+ #inputSettingsDialog .friendSettings .friendAddButton{min-width:76px!important;padding:8px 10px!important;white-space:nowrap}
+ #inputSettingsDialog .friendSettings .friendRow[data-kind=request] button{min-width:64px!important;white-space:nowrap}
+ .friendRequestHint{margin:0 0 14px;color:var(--friend-muted);font-size:12px;line-height:1.65}.friendEmpty{display:grid;justify-items:center;text-align:center;padding:28px 16px;border:1px solid var(--friend-line);border-radius:12px;background:#131d28;margin:12px 0}.friendEmptyIcon{display:grid;place-items:center;width:44px;height:44px;margin-bottom:12px;border:1px solid #dac9a633;border-radius:10px;background:#dac9a60e;color:#dac9a6;font-size:24px}.friendEmpty strong{font-size:14px;color:#e0e4eb}.friendEmpty p{max-width:260px;font-size:12px;line-height:1.8;color:#aab7c7;margin:8px 0 16px}.friendEmpty button{font-size:13px!important}
+ #inputSettingsDialog [data-friend-message]:empty{display:none}#inputSettingsDialog [data-friend-message]{font-size:13px;line-height:1.6;padding:10px 12px;margin:0 0 12px;border-radius:10px;background:#17212c;border-left:2px solid #cbb68c;color:#eeece6;overflow-wrap:anywhere}
+ #inputSettingsDialog [data-friend-message][data-tone=success]{background:#17212c;border-color:#7bba9d;color:#b9c4d0}
+ #inputSettingsDialog [data-friend-message][data-tone=error]{background:#b66c6910;border-color:#d590892e;color:#e0a49c}
+ #inputSettingsDialog [data-friend-message]{scroll-margin-top:68px}
+ #inputSettingsDialog .friendTabs button::after,#inputSettingsDialog .friendFilters button::after{content:none!important}
+ .friendSummary>button{flex-shrink:0}
+ #inputSettingsDialog .friendSearch label{display:block}#inputSettingsDialog .friendSearch>p{font-size:12px;line-height:1.6;color:var(--friend-muted);margin:10px 0 0}
+ .friendFilters{display:flex;gap:8px;margin-bottom:14px}
+ #inputSettingsDialog .friendSettings .friendFilters button{padding:8px 12px!important}
+ .friendFilters span{font-variant-numeric:tabular-nums;margin-left:5px}
+ .friendRowActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+ #inputSettingsDialog .friendSettings .friendRow [hidden]{display:none!important}
+ #inputSettingsDialog .friendSettings .friendRowActions button{white-space:nowrap}
+ #inputSettingsDialog .friendSettings .friendManageButton{width:44px!important;padding:0!important;font-size:24px!important}
+ .friendRemoveConfirm{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding-top:12px;border-top:1px solid var(--friend-line)}
+ .friendRemoveConfirm p{grid-column:1 / -1;font-size:13px;line-height:1.6;margin:0 0 4px;color:#bec7d3;overflow-wrap:anywhere}
+ .friendPendingLabel{font-size:12px;white-space:nowrap;color:#dac9a6;background:#dac9a60e;border:1px solid #dac9a633;border-radius:8px;padding:8px}
+ @container (max-width:420px){
+  #inputSettingsDialog .friendSettings .friendRow[data-kind=request]{grid-template-columns:40px repeat(2,minmax(0,1fr))}
+  #inputSettingsDialog .friendSettings .friendRow[data-kind=request] .friendIdentity{grid-column:2 / -1}
+  #inputSettingsDialog .friendSettings .friendRow[data-kind=request] .friendDecline{grid-column:2;grid-row:2}
+  #inputSettingsDialog .friendSettings .friendRow[data-kind=request] .friendAccept{grid-column:3;grid-row:2}
+  #inputSettingsDialog .friendSettings .friendRow[data-kind=list]:has(.friendJoinButton:not([hidden])) .friendIdentity{grid-column:2 / -1}
+  #inputSettingsDialog .friendSettings .friendRow[data-kind=list]:has(.friendJoinButton:not([hidden])) .friendRowActions{grid-column:2 / -1;grid-row:2}
+  #inputSettingsDialog .friendSettings .friendRowActions .friendJoinButton{flex:1}
+ }
+ @container (max-width:370px){.friendSummary strong{font-size:calc(16px * var(--ui-text-scale,1))}#inputSettingsDialog .friendSearch{padding:12px}#inputSettingsDialog .friendSettings .friendRow{padding:10px;gap:8px}}
+}
+#friendNotifications .friendRow{display:flex;gap:8px;background:#17212c;border-color:#c2cedb26;font-family:"Avenir Next","Hiragino Sans","Noto Sans JP",system-ui,sans-serif}#friendNotifications .friendIdentity{flex:1}#friendNotifications button{border:1px solid #c0cedb29;border-radius:10px;background:#1c2733;color:#dddfe4;font:inherit;box-shadow:none}#friendNotifications .friendAccept{background:#e8ddc7;border-color:#e8ddc7;color:#20252b}#friendNotifications button:disabled{opacity:.45}#friendNotifications button:focus-visible{outline:2px solid #e4d3b3;outline-offset:3px}
