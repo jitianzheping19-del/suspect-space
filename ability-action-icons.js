@@ -1,6 +1,6 @@
 // The shared HUD owns these models, materials and geometry. No separate canvas.
 export const ROLE_ABILITY_ICONS=Object.freeze({
- engineer:'repair',scientist:'vitals',tracker:'radar',detective:'investigate',medic:'medicalShield',guardianAngel:'angel',
+ engineer:'repair',scientist:'vitals',tracker:'radar',medic:'medicalShield',guardianAngel:'angel',
  shapeshifter:'masks',morphing:'scanMask',doorer:'door',phantom:'ghost',viper:'venom',photographer:'camera',
  lightkeeper:'bulb',navigator:'compass',cupid:'heartBow',camouflager:'camouflage',cleaner:'broom',
  teleportJackal:'portal',teleporter:'portal',vampire:'fangs',hawk:'eye',niceHawk:'eye',

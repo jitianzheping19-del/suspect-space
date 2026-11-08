@@ -70,17 +70,17 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   function material(color){if(!mats.has(color))mats.set(color,new THREE.MeshStandardMaterial({color,roughness:.65,metalness:.12}));return mats.get(color);}
   function box(root,x,y,z,w,h,d,color){const m=new THREE.Mesh(unitBox,material(color));m.position.set(x,y,z);m.scale.set(w,h,d);root.add(m);return m;}
   function sign(root,text,x,y,z,width=4,numeric=false){
-    const c=document.createElement('canvas');c.width=numeric?256:1024;c.height=192;const g=c.getContext('2d');
-    const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*192/c.width),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);root.add(m);
-    m.userData.setText=value=>{if(m.userData.text===value)return;m.userData.text=value;g.fillStyle='#102635';g.fillRect(0,0,c.width,192);g.strokeStyle='#d6bb87';g.lineWidth=8;g.strokeRect(6,6,c.width-12,180);g.fillStyle='#fff3d7';g.font=numeric?'900 148px system-ui':'700 74px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(value,c.width/2,96,c.width-32);map.needsUpdate=true;};m.userData.setText(text);return m;
+    const c=document.createElement('canvas');c.width=numeric?256:1024;c.height=numeric?192:240;const g=c.getContext('2d');
+    const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*c.height/c.width),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);root.add(m);
+    m.userData.setText=value=>{if(m.userData.text===value)return;m.userData.text=value;if(!numeric){paintLobbySign(g,value,c.width,c.height);map.needsUpdate=true;return;}g.fillStyle='#102635';g.fillRect(0,0,c.width,192);g.strokeStyle='#d6bb87';g.lineWidth=8;g.strokeRect(6,6,c.width-12,180);g.fillStyle='#fff3d7';g.font=numeric?'900 148px system-ui':'700 74px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(value,c.width/2,96,c.width-32);map.needsUpdate=true;};m.userData.setText(text);return m;
   }
   function door(x,z,text,side){
     const root=new THREE.Group();root.name='lobby-'+side+'-game-door';root.position.set(x,0,z);root.rotation.y=side==='survival'?Math.PI/2:-Math.PI/2;scene.add(root);
     for(const dx of [-1.55,1.55])box(root,dx,1.55,0,.16,3.1,.3,'#bda675');box(root,0,3.1,0,3.25,.18,.3,'#bda675');
-    const leaves=[-1,1].map(s=>{const m=box(root,s*.74,1.42,0,1.44,2.8,.12,'#32636a');m.userData.side=s;return m;});sign(root,text,0,3.6,0,3.8);const countSign=sign(root,'0人プレイ中',0,4.3,0,3);countSign.name='lobby-player-count-'+side;doors.push({x,z,leaves,side,countSign});
+    const leaves=[-1,1].map(s=>{const m=box(root,s*.74,1.42,0,1.44,2.8,.12,'#32636a');m.userData.side=s;return m;});const countSign=sign(root,text+' · 待機中 · 0人',0,3.85,0,4.4);countSign.name='lobby-player-count-'+side;doors.push({x,z,leaves,side,countSign,text});
   }
   door(-12.1,-2.3,'消える床サバイバル','survival');door(12.1,2.1,'フットサル','soccer');
-  const tagCountSign=sign(scene,'鬼ごっこ · 0人プレイ中',0,3.7,-5.35,4.2);tagCountSign.name='lobby-player-count-tag';
+  const tagCountSign=sign(scene,'鬼ごっこ · 待機中 · 0人',0,3.7,-5.35,4.2);tagCountSign.name='lobby-player-count-tag';
   const survival=roots.survival;
   box(survival,-24,-.2,4.5,24,.4,19,'#122635');
   box(survival,-36,.65,4.5,.18,1.3,19,'#304654');
@@ -462,7 +462,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   function beforeRender(dt){
     syncSoccerBots(dt);
     const count=name=>rules.active(state?.[name])?Object.entries(state[name].members||{}).filter(([id,m])=>(name==='soccer'?soccerLive(roster[id]):rules.live(roster[id]))&&(name!=='survival'||m.alive)).length:0;
-    for(const door of doors)door.countSign.userData.setText(count(door.side)+'人プレイ中');tagCountSign.userData.setText('鬼ごっこ · '+count('tag')+'人プレイ中');
+    const activity=name=>{const n=count(name);return n>0?'プレイ中 · '+n+'人':'待機中 · 0人';};for(const door of doors)door.countSign.userData.setText(door.text+' · '+activity(door.side));tagCountSign.userData.setText('鬼ごっこ · '+activity('tag'));
     const a=area(),t=now();roots.survival.visible=enabled&&a==='survival';roots.soccer.visible=enabled&&a==='soccer';
     if(enabled&&a!=='lobby'){
       savedFov=camera.fov;camera.fov=Math.max(camera.fov,Math.min(85,Math.atan(Math.tan(Math.PI/10)/camera.aspect)*360/Math.PI));camera.updateProjectionMatrix();

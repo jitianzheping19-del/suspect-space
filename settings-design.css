@@ -207,3 +207,13 @@
   }
 }
 @keyframes settingsSectionEnter { from { opacity: .3; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+#inputSettingsDialog #lobbyRolePreview{border:0!important;box-shadow:none!important;background:transparent!important;padding:0!important}
+#inputSettingsDialog .rolePreviewTotals{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0!important;background:none!important;border:0!important;white-space:normal!important}
+#inputSettingsDialog .rolePreviewTotals>div{display:flex;flex-direction:column;gap:5px;padding:10px 8px;border-radius:10px;background:#17232d;color:#b6d8e5;text-align:center}
+#inputSettingsDialog .rolePreviewTotals [data-faction=impostor]{background:#301e26;color:#f0b9c1}
+#inputSettingsDialog .rolePreviewTotals [data-faction=neutral]{background:#2b2820;color:#e7d6a5}
+#inputSettingsDialog .rolePreviewTotals span{font-size:12px;line-height:1.4}
+#inputSettingsDialog .rolePreviewTotals strong{font-size:24px!important;line-height:1.2}
+.portalRoomHost,.portalRoomFriend{display:block;white-space:normal;overflow-wrap:anywhere;font-size:12px;line-height:1.5;color:#a9b9c8}
+.portalRoomFriend{color:#a8ddbd}

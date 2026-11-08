@@ -24,10 +24,9 @@ const checks=`
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('space-suspect-playtest-v1')));assert(saved.endedAt);assert.equal(saved.observations[0].text,'操作確認');assert(!JSON.stringify(saved).includes('5291'));
   await page.locator('#inputSettingsClose').tap();
   await page.evaluate(()=>{window.__ssxExperienceSync({phase:'lobby',position:{x:0,z:0},roster:5,current:{role:'crew',tasks:{}},actors:{},lobbySettings:{},settings:{}});});
-  await page.waitForTimeout(50);assert(await page.locator('#playGuide').isVisible());assert((await page.locator('#playGuideText').textContent()).includes('移動'));
-  await page.evaluate(()=>window.__ssxExperienceSync({phase:'meeting',voted:true,current:{role:'crew'},actors:{},settings:{}}));assert(await page.locator('#playGuide').isHidden());assert.equal(await page.evaluate(()=>localStorage.getItem('space-suspect-learning-v1')),'done');
+  assert.equal(await page.locator('#playGuide,#comfortGuideRestart').count(),0);assert(!(await page.locator('#comfortSettings').innerText()).includes('対戦の速度'));
   await page.evaluate(()=>__inputQualityQA.gift());await page.locator('#ssGiftToast').tap();await page.locator('#inputSettingsDialog').waitFor({state:'visible'});assert.equal(await page.locator('[data-settings-target="inbox"]').getAttribute('aria-selected'),'true');await page.evaluate(()=>window.__comfortReview.dispose());
-  console.log('PASS touch dismissal of portrait prompt and gift notification; action states, five viewport sizes with enlarged text, accessible close controls, motion/OS preferences, recording and contextual guide');
+  console.log('PASS touch dismissal of portrait prompt and gift notification; action states, five viewport sizes with enlarged text, accessible close controls, motion/OS preferences, recording and removed gameplay guide');
 `;
 const begin=source.indexOf('const checks=`'),end=source.indexOf('\nsource=source.slice',begin);if(begin<0||end<0)throw Error('Input fixture changed');
 source=source.slice(0,begin)+'const checks='+JSON.stringify(checks)+';'+source.slice(end);

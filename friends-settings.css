@@ -54,3 +54,12 @@
  @container (max-width:370px){.friendSummary strong{font-size:calc(16px * var(--ui-text-scale,1))}#inputSettingsDialog .friendSearch{padding:12px}#inputSettingsDialog .friendSettings .friendRow{padding:10px;gap:8px}}
 }
 #friendNotifications .friendRow{display:flex;gap:8px;background:#17212c;border-color:#c2cedb26;font-family:"Avenir Next","Hiragino Sans","Noto Sans JP",system-ui,sans-serif}#friendNotifications .friendIdentity{flex:1}#friendNotifications button{border:1px solid #c0cedb29;border-radius:10px;background:#1c2733;color:#dddfe4;font:inherit;box-shadow:none}#friendNotifications .friendAccept{background:#e8ddc7;border-color:#e8ddc7;color:#20252b}#friendNotifications button:disabled{opacity:.45}#friendNotifications button:focus-visible{outline:2px solid #e4d3b3;outline-offset:3px}
+
+#inputSettingsDialog .settingsDesignHeader #settingsStatusButton{display:inline-flex;align-items:center;gap:7px;border:1px solid #a3c4b438;border-radius:999px;background:#183128;color:#c9e9dc;font-weight:600;box-shadow:none}
+#settingsStatusButton::before{content:'';flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:#63d49b;box-shadow:0 0 0 3px #63d49b16}
+#settingsStatusButton[data-status=preparing]::before{background:#e6bd6b;box-shadow:0 0 0 3px #e6bd6b16}
+#settingsStatusButton[data-status=away]::before{background:#a6add0;box-shadow:0 0 0 3px #a6add016}
+#settingsStatusButton[data-status=offline]::before{background:#84909e;box-shadow:none}
+#settingsStatusButton::after{content:'⌄';font-size:14px;color:#a7c7b8}
+#settingsStatusChoices button[aria-pressed=true]{border-color:#8dcca8;background:#203c30;color:#d8f3e4}
+.friendRoomHost{color:#c6d6e5!important}

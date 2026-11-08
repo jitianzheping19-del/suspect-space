@@ -28,9 +28,9 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
     const expected=ui.previewTargets().map(t=>t.id);ui.useAbility();if(list)for(const b of list.querySelectorAll('button'))b.click();const actual=sent.map(p=>p.bodyId||p.target);if(JSON.stringify(expected)!==JSON.stringify(actual))throw Error(role+': preview does not match action');checked.push(role);
    }return checked;
   });assert.equal(roles.length,7);
-  await page.locator('#poolPracticeBtn').click();await page.locator('#practiceLab').waitFor({state:'visible'});assert.equal(await page.locator('#poolPracticeBtn').count(),1);assert.equal(await page.locator('#practiceLab').count(),1);
-  for(let i=0;i<5;i++){await page.locator('#practiceLab [data-close]').click();await page.locator('#poolPracticeBtn').click();}
-  await page.locator('#practiceLab [data-close]').click();await page.evaluate(()=>{available=false;practice.sync();});assert(await page.locator('#poolPracticeBtn').isHidden());await page.evaluate(()=>{available=true;practice.sync();});
+  await page.evaluate(()=>practice.open());await page.locator('#practiceLab').waitFor({state:'visible'});assert.equal(await page.locator('#poolPracticeBtn').count(),0);assert.equal(await page.locator('#practiceLab').count(),1);
+  for(let i=0;i<5;i++){await page.locator('#practiceLab [data-close]').click();await page.evaluate(()=>practice.open());}
+  await page.locator('#practiceLab [data-close]').click();await page.evaluate(()=>{available=false;practice.sync();});await page.evaluate(()=>practice.open());assert(await page.locator('#practiceLab').isHidden());await page.evaluate(()=>{available=true;practice.sync();});
   await page.locator('.ssTicketBadge').click();await page.locator('.ssGacha').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('.ssTicketBadge').textContent.includes('12'));assert.equal(await page.locator('.ssTicketBadge').count(),1);assert.equal(await page.locator('#gachaItemDetail').count(),1);
   await page.locator('.gachaClose').click();await page.evaluate(()=>{preview.dispose();gacha.dispose();practice.dispose();});assert.equal(await page.locator('#actionCancel,#actionPreviewHint,#practiceLab,#poolPracticeBtn,.ssGacha,.ssTicketBadge,#gachaItemDetail').count(),0);assert.deepEqual(errors,[]);
   console.log('PASS real lazy launchers, no idle imports, wallet preservation, repeated practice, blur/hidden cancellation, complete disposal');

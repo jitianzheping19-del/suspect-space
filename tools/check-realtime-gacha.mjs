@@ -43,3 +43,8 @@ result=await createRealtimeGacha(api)('updateGift',{release:GACHA_UPDATE_RELEASE
 await assert.rejects(()=>request('updateGift',{release:'old-campaign'}),/更新/);
 activeUid='legacy-balance-user';write(`economy/${activeUid}`,{tickets:'50',premium:'5',gachaLaunchBonus:true});result=await request('updateGift',{release:GACHA_UPDATE_RELEASE});assert.equal(result.wallet.premium,15);assert.equal(result.wallet.tickets,50);
 console.log('PASS direct announcement receipt: works without read-state marker, safe retry after profile failure, missing and legacy balances normalized');
+
+activeUid='previous-update-recipient';write(`economy/${activeUid}`,{tickets:17,premium:6,gachaLaunchBonus:true,owned:{1001:true},receipts:{'update_2026-11-01-special-ticket-10':{count:10,at:1}}});
+result=await request('updateGift',{release:GACHA_UPDATE_RELEASE});assert.equal(result.wallet.premium,16);assert.equal(result.wallet.tickets,17);assert(result.wallet.owned[1001]);assert(result.wallet.receipts['update_2026-11-01-special-ticket-10']);
+for(let attempt=0;attempt<3;attempt++)assert.equal((await createRealtimeGacha(api)('updateGift',{release:GACHA_UPDATE_RELEASE})).wallet.premium,16);
+console.log('PASS previous gift recipients get the new 10 once, with balances and inventory preserved');

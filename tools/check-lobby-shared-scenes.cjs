@@ -27,7 +27,7 @@ const {build}=require('esbuild'),{chromium}=require('playwright');
   });await page.waitForTimeout(80);
   await page.evaluate(()=>{QA.player.root.position.set(11.9,0,2.1);__lobbyGames.update(.016);QA.player.root.position.x=13;__lobbyGames.update(.016);QA.player.root.position.set(23,0,9);});
   await page.waitForFunction(()=>__lobbyGames.area==='soccer');
-  const signs=await page.evaluate(()=>{__lobbyGames.beforeRender(.016);const text=QA.scene.getObjectByName('lobby-player-count-soccer').userData.text;__lobbyGames.afterRender();return text;});assert.equal(signs,'3人プレイ中');
+  const signs=await page.evaluate(()=>{__lobbyGames.beforeRender(.016);const text=QA.scene.getObjectByName('lobby-player-count-soccer').userData.text;__lobbyGames.afterRender();return text;});assert.equal(signs,'フットサル · プレイ中 · 3人');
   const ball=await page.evaluate(()=>{
    window.SpaceSuspectLobby.__lobbyRenderActive=false;
    const {THREE:T,scene,renderer}=QA,game=__lobbyGames;game.beforeRender(.016);

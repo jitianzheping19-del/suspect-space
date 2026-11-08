@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import {createLobbyGamesRules} from '../lobby-games-rules.js';
-import {roomHasPower} from '../room-facilities.js';
+import {roomHasPower,initialLightSwitches} from '../room-facilities.js';
 import {gachaItemRates,chooseGachaItem} from '../gacha-rarity.js';
 import {GACHA_CATALOG} from '../gacha-catalog.js';
 import {createPracticeDatabase,practiceRef,practiceOperation as op,isPracticeReference} from '../practice-database.js';
 const R=createLobbyGamesRules(),T=100000,people={u:{online:true,x:0,z:11},v:{online:true,x:1,z:11}},cmd=(s,kind,extra={})=>R.command(s,{uid:'u',id:kind,kind,at:T,...extra},people,'u',new Set(),T);
 let s=R.fresh('u',T),r=cmd(s,'lobby-status',{value:'away'});assert(r.ok);s=r.state;assert.equal(s.statuses.u.until,T+60000);R.step(s,people,T+59999,.016);assert(s.statuses.u);R.step(s,people,T+60000,.001);assert(!s.statuses.u);
 r=cmd(s,'photo-pose',{pose:'cheer'});assert(r.ok);s=r.state;r=cmd(s,'photo-start',{framed:true,roomName:'集まった部屋'});assert(r.ok);assert.equal(r.state.photo.poses.u,'cheer');assert.equal(r.state.photo.framed,true);assert.equal(r.state.photo.roomName,'集まった部屋');assert.deepEqual(Object.keys(r.state.photo.members),['u','v']);assert.equal(cmd(s,'photo-pose',{id:'bad',pose:'unknown'}).ok,false);
+for(const ids of [[],['one'],['a','b','c','d','e','f','g']])assert.deepEqual(initialLightSwitches(ids),Object.fromEntries(ids.map(id=>[id,false])));
 const rooms=[{id:'a',x:0,z:0},{id:'b',x:4,z:0}],panels=[{id:'lights-a',room:'lights',x:0,z:0},{id:'lights-b',kind:'lights',x:4,z:0}],contains=(x,z,r)=>Math.abs(x-r.x)<1&&Math.abs(z-r.z)<1,sabotage={type:'lights',endsAt:T+1000,switches:{'lights-a':true,'lights-b':false}};
 assert(roomHasPower({x:0,z:0},rooms,panels,sabotage,T,contains));assert(!roomHasPower({x:4,z:0},rooms,panels,sabotage,T,contains));assert(!roomHasPower({x:2,z:0},rooms,panels,sabotage,T,contains));assert(roomHasPower({x:4,z:0},rooms,panels,sabotage,T+1001,contains));
 for(const category of [0,1,2,3,4,5])for(const ratio of [0,.5,1]){

@@ -1,7 +1,7 @@
 import {chooseGachaItem} from './gacha-rarity.js';
 import {GACHA_CATALOG as catalog} from './gacha-catalog.js';
 export const GACHA_RELEASE='2026-10-27-gacha';
-export const GACHA_UPDATE_RELEASE='2026-11-01-special-ticket-10';
+export const GACHA_UPDATE_RELEASE='2026-11-08-special-ticket-10';
 export const GACHA_UPDATE_GIFT_COUNT=10;
 const updateGiftReceipt='update_'+GACHA_UPDATE_RELEASE;
 const validId=x=>/^[A-Za-z0-9_-]{16,80}$/.test(String(x||''));

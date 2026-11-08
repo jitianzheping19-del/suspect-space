@@ -5,7 +5,8 @@ import './meeting-motion.js';
 const guide = document.getElementById('ssxOrientationGuide');
 const continueButton = document.getElementById('ssxOrientationContinue');
 const portraitPhone = matchMedia('(max-width: 600px) and (orientation: portrait) and (pointer: coarse)');
-let dismissed = false;
+// Embedded ability practice already sits inside the responsive practice dialog.
+let dismissed = new URLSearchParams(location.search).get('rolePractice') === '1';
 
 function closeGuide() {
   if (!guide) return;

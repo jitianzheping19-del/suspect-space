@@ -1,0 +1,9 @@
+const fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
+const filename=path.join(__dirname,'check-all-roles.cjs');let source=fs.readFileSync(filename,'utf8');
+source=source.replace(".replace('if(!skipAutoLoginOnce){setTimeout(()=>connectFirebase(\"\"),0);}','')", ".replace('if(!skipAutoLoginOnce&&!rolePracticeMode){setTimeout(()=>connectFirebase(\"\"),0);}','')");
+source=source.replace("const page=await browser.newPage(),errors=[];","const page=await browser.newPage(),errors=[];await page.addInitScript(()=>{try{localStorage.setItem('space-suspect-render-preset-v1','ultralow');}catch{}});");
+source=source.replace("fixture+'\\nfunction showMeetingIntro(reason)'", "fixture+'\\nwindow.__pauseRoleRendering=()=>{renderContextLost=true;cancelAnimationFrame(frameRequestId);};\\nfunction showMeetingIntro(reason)'");
+source=source.replace('page.evaluate(()=>window.__allRolesQA.all())','page.evaluate(()=>{window.__pauseRoleRendering();return window.__allRolesQA.all();})');
+source=source.replace("fs.readFileSync(path.join(__dirname,'all-roles-probe.js'),'utf8')","fs.readFileSync(path.join(__dirname,'all-roles-probe.js'),'utf8').replace('return{all,prepare,tick,state:()=>game,rows};',fs.readFileSync(path.join(__dirname,'practice-followup-probe.js'),'utf8')+'return{all:followup};')");
+source=source.replace("path.resolve(root,'../artifacts/premium-complete-2026-10-28')","path.resolve(root,'tmp/practice-followup')");
+const adapted=fs.readFileSync(path.join(__dirname,'run-quality-browser.cjs'),'utf8').replace('const name=process.argv[2];',"const name='check-all-roles.cjs';").replace("let source=fs.readFileSync(filename,'utf8');",'let source='+JSON.stringify(source)+';');const runner=new Module(filename,module);runner.filename=filename;runner.paths=Module._nodeModulePaths(__dirname);runner._compile(adapted,filename);

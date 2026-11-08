@@ -32,7 +32,7 @@ for (const task of tasks) {
       press('clock:0'); assert(!s.locked[0], 'Wrong clock timing accepted');
       for (let i = 0; i < 1800 && !s.finished; i++) { for (let j = 0; j < 3; j++) if (!s.locked[j] && Math.abs(angleDelta(s.angles[j], Math.PI / 2)) < .12) press('clock:' + j); step(.02); }
       break;
-    case 'cargo': press('cargo:2', s.cargo[2], 0); drag('cargo:2', 1, 0); release(); step(1); break;
+    case 'cargo': {const i=s.weights.indexOf(Math.max(...s.weights)),target=-s.cargo.reduce((sum,x,j)=>sum+(i===j?0:x*s.weights[j]),0)/s.weights[i];press('cargo:'+i,s.cargo[i],0);drag('cargo:'+i,target,0);release();step(1);break;}
     case 'drone':
       for (let i = 0; i < 1500 && !s.finished; i++) { pad((.65 - s.x) * 1.8 - s.vx * 1.6, (-.85 - s.y) * 1.8 - s.vy * 1.6); step(.02); }
       break;
@@ -46,7 +46,7 @@ for (const task of tasks) {
     case 'defrost':
       press('wipe', -3, -1.5); for (let row = 0; row < 7; row++) { const y = -1.5 + row * .5; drag('wipe', row % 2 ? 3 : -3, y); drag('wipe', row % 2 ? -3 : 3, y); } release();
       assert(s.clear.length === frostPixels.length); break;
-    case 'triangulate': for (let i = 0; i < 3; i++) { press('antenna:' + i, ...antennaBases[i]); drag('antenna:' + i, ...signalSource); release(); } break;
+    case 'triangulate': for (let i = 0; i < 3; i++) { press('antenna:' + i, ...s.antennaBases[i]); drag('antenna:' + i, ...s.signalSource); release(); } break;
     case 'waveform':
       for (let slot = 0; slot < 4; slot++) { press('wave:' + slot, -2.7 + s.order.indexOf(slot) * 1.8, .1); drag('wave:' + slot, -2.7 + slot * 1.8, .1); release(); }
       break;

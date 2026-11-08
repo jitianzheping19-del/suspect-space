@@ -46,7 +46,6 @@ window.__allRolesQA=(()=>{
   await action('engineer',ability('engineerRepair'),(p,g)=>p.remoteRepairUsed&&!g.sabotage,()=>game.sabotage=createSabotage('lights','enemy',clock));
   await action('tracker',ability('tracker',{target:'b'}),p=>p.trackedId==='b'&&p.trackUntil>clock);
   await action('medic',ability('medicShield',{target:'b'}),(p,g)=>p.medicShieldUsed&&g.players.b.shieldedBy==='qa');
-  await action('detective',ability('notes',{text:'事件メモ'}),p=>p.caseNotes==='事件メモ');
   await action('guardianAngel',{type:'protect',target:'b'},(p,g)=>g.players.b.shieldUntil>clock&&p.abilityReadyAt>clock);
   await action('cupid',ability('cupid',{targets:['b','c']}),(p,g)=>p.cupidUsed&&g.players.b.loverPartnerId==='c'&&g.players.c.loverPartnerId==='b');
   await action('cleaner',ability('cleanBody',{bodyId:'dead'}),(p,g)=>!g.bodies.dead&&p.abilityReadyAt>clock);

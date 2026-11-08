@@ -1,4 +1,45 @@
-#practiceLab{box-sizing:border-box;width:min(1000px,96vw);height:92dvh;max-height:92dvh;overflow:auto;border:1px solid #79a8b4;border-radius:16px;background:#102231;color:#eef9fb;padding:12px}
-#practiceLab::backdrop{background:#020c16d9}#practiceLab header{display:flex;align-items:center;justify-content:space-between;gap:8px}#practiceLab h2{font-size:18px;margin:0}#practiceLab button{min-height:40px}#practiceLab nav,#practiceLab [data-pick]{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}#practiceLab select{max-width:62vw;min-height:40px;font-size:16px}#practiceLab [data-stage]{height:55dvh;min-height:230px;position:relative}#practiceLab iframe{width:100%;height:100%;border:0}#practiceLab [data-example]{display:grid;grid-template-columns:1fr auto;gap:4px 12px}#practiceLab [data-example] p{font-size:13px;margin:0}#practiceLab svg{grid-column:2;grid-row:1/3;width:130px}.practiceFinger{animation:practiceDrag 2.8s ease-in-out infinite}@keyframes practiceDrag{0%,20%{transform:translateX(0)}70%,100%{transform:translateX(183px)}}
-#poolPracticeBtn{position:fixed;bottom:calc(135px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:139;min-height:44px}#poolPracticeBtn[hidden]{display:none}
-@media(max-height:500px){#practiceLab [data-example] svg{display:none}#practiceLab [data-example] p{font-size:11px}#practiceLab [data-stage]{height:58dvh;min-height:180px}}
+#practiceLab{box-sizing:border-box;width:min(1000px,calc(100vw - 24px));height:min(760px,calc(100dvh - 24px));max-width:none;max-height:none;margin:auto;padding:0;overflow:hidden;border:1px solid #c2cedb29;border-radius:22px;background:#101720;color:#eeece6;box-shadow:0 30px 100px #0008;font-family:"Avenir Next","Hiragino Sans","Noto Sans JP",system-ui,sans-serif}
+#practiceLab[open]{display:grid;grid-template-rows:auto minmax(0,1fr)}
+#practiceLab::backdrop{background:#03080dc9;backdrop-filter:blur(6px)}
+#practiceLab *{box-sizing:border-box}
+#practiceLab>header{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #c2cedb1f;background:#151e28}
+#practiceLab nav{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:min(360px,100%);margin-right:auto}
+#practiceLab>header button,#practiceLab .practiceChoices button{min-height:44px;margin:0;padding:9px 14px;border:1px solid #c0cedb29;border-radius:10px;background:#1c2733;color:#dde3ea;box-shadow:none;font-family:inherit;font-size:14px;font-weight:600;line-height:1.4;cursor:pointer;touch-action:manipulation;white-space:nowrap}
+#practiceLab>header button[aria-pressed=true]{background:#cbb68c16;border-color:#cbb68c99;color:#eadbbe}
+#practiceLab :is(button,select,summary):focus-visible{outline:2px solid #e1c68f;outline-offset:2px}
+#practiceLab .practiceBody{display:grid;grid-template-columns:clamp(164px,24vw,230px) minmax(0,1fr);min-height:0}
+#practiceLab .practiceChoices{min-width:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#596577 transparent;padding:16px 12px;border-right:1px solid #c2cedb1a;background:#111a24}
+#practiceLab [data-pick]{display:grid;gap:16px}
+#practiceLab [data-pick] label{display:grid;gap:7px;min-width:0;color:#bcc6d2;font-size:13px;line-height:1.4}
+#practiceLab [data-pick] select{display:block;width:100%;min-width:0;min-height:44px;padding:9px 6px;border:1px solid #c0cedb33;border-radius:9px;background:#1c2733;color:#eeece6;font-family:inherit;font-size:16px;line-height:1.4;cursor:pointer}
+#practiceLab [data-pick] select:disabled{opacity:.45;cursor:default}
+#practiceLab [data-example]{margin-top:16px;border-top:1px solid #c2cedb1f;padding-top:8px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+#practiceLab [data-example] summary{min-height:44px;padding:9px 0;cursor:pointer;color:#d9ccaf}
+#practiceLab [data-example] strong{font-weight:500}
+#practiceLab [data-example] p{margin:4px 0;color:#b4c0cd}
+#practiceLab [data-practice-status]{margin:12px 0;font-size:13px;line-height:1.6;color:#e3ce9c;overflow-wrap:anywhere}
+#practiceLab [data-repeat]{width:100%}
+#practiceLab [data-stage]{min-width:0;min-height:0;position:relative;overflow:hidden;background:#0b121a}
+#practiceLab iframe{display:block;width:100%;height:100%;border:0}
+#practiceLab [data-empty],#practiceLab [data-loading-screen]{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:16px;text-align:center;color:#b8c4d1;font-size:16px;line-height:1.6}
+#practiceLab [data-loading-screen]{z-index:1;background:#101720;color:#eadbbe}
+#practiceLab [hidden]{display:none!important}
+#practiceLab [data-practice-status]:empty{display:none}
+@media(max-width:640px) and (min-height:501px){
+ #practiceLab{width:calc(100vw - 16px);height:calc(100dvh - 16px);border-radius:16px}
+ #practiceLab>header{gap:8px;padding:8px}
+ #practiceLab>header button{padding:9px 10px}
+ #practiceLab .practiceBody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+ #practiceLab .practiceChoices{max-height:30dvh;padding:10px 12px;border-right:0;border-bottom:1px solid #c2cedb1a}
+ #practiceLab [data-pick]{grid-template-columns:1fr 1fr;gap:10px}
+ #practiceLab[data-mode=roles] [data-pick]{grid-template-columns:1fr}
+ #practiceLab [data-example]{margin-top:8px;padding-top:0}
+ #practiceLab [data-example] summary{padding:9px 0}
+ #practiceLab [data-practice-status]{margin:6px 0}
+}
+@media(max-height:500px){
+ #practiceLab{width:calc(100vw - 16px);height:calc(100dvh - 16px);border-radius:14px}
+ #practiceLab>header{padding:5px 10px}
+ #practiceLab .practiceChoices{padding:10px}
+ #practiceLab [data-pick]{gap:10px}
+}

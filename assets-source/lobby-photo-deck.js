@@ -10,14 +10,14 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
  function mesh(g,m,x,y,z,sx=1,sy=1,sz=1){const n=new THREE.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.receiveShadow=true;root.add(n);return n;}
  function block(m,x,y,z,w,h,d){return mesh(box,m,x,y,z,w,h,d);}
  // Wide shallow risers: entered from the open front, with no camera tripod in
- // the walking lane. Each collider has the exact dimensions of its tread.
+ // the walking lane. Treads support feet without blocking horizontal movement.
  const rows=[];
  for(let row=0;row<3;row++){
   const top=.16+row*.26,z=10.25+row*1.06,width=7.5-row*.18;
   block(shell,0,top/2,z,width,top,1.06);block(floor,0,top-.018,z,width-.08,.036,1.00);
   block(gold,0,top-.045,z-.53,width,.035,.028);
   block(glow,0,top-.085,z-.535,width-.24,.018,.014);
-  addObstacle(0,z,width,1.06,top,true);
+  addObstacle(0,z,width,1.06,top,true,false,true);
   const columns=row<2?7:6;
   for(let col=0;col<columns;col++){
    const x=(col-(columns-1)/2)*1.04;
@@ -74,9 +74,9 @@ function createLobbyPhotoDeck({THREE,scene,addObstacle}){
  const glass=part(new THREE.CylinderGeometry(.145,.145,.02,24),new THREE.MeshStandardMaterial({color:0x72bfce,metalness:.8,roughness:.18,emissive:0x153843}),0,1.5,.37);glass.rotation.x=Math.PI/2;
  part(new THREE.BoxGeometry(.24,.08,.15),warm,0,1.77,.04);
  part(new THREE.BoxGeometry(.5,.26,.02),glow,0,1.5,-.17);
- const label=document.createElement('canvas');label.width=512;label.height=160;const labelContext=label.getContext('2d');labelContext.fillStyle='#102735';labelContext.fillRect(0,0,512,160);labelContext.textAlign='center';labelContext.fillStyle='#dffbef';labelContext.font='bold 40px system-ui';labelContext.fillText('撮影 / ライブラリ',256,65);labelContext.font='26px system-ui';labelContext.fillText('背景はホストが選択',256,117);
+ const label=document.createElement('canvas');label.width=1024;label.height=240;paintLobbySign(label.getContext('2d'),'カメラ · 撮影 / 写真を見る');
  const labelMap=new THREE.CanvasTexture(label);labelMap.colorSpace=THREE.SRGBColorSpace;
- const stationLabel=part(new THREE.PlaneGeometry(1.3,.406),new THREE.MeshBasicMaterial({map:labelMap,side:THREE.DoubleSide,toneMapped:false}),0,2.13,0);stationLabel.rotation.y=Math.PI;
+ const stationLabel=part(new THREE.PlaneGeometry(2.2,2.2*240/1024),new THREE.MeshBasicMaterial({map:labelMap,side:THREE.DoubleSide,toneMapped:false}),0,2.13,0);stationLabel.rotation.y=Math.PI;
  addObstacle(-4.1,8.0,.65,.5,1.8,false);
  // Layered lens coatings, focusing rings and a live shutter indicator.
  for(const [radius,z]of [[.22,.13],[.19,.28],[.16,.385]]){

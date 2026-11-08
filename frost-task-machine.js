@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createRenderBudget} from './render-performance.js';
-import { taskInstructions, circuitPorts, tubeClips, antennaBases, signalSource, starPoints, frostPixels, crackPoints, clamp, angleDelta } from './frost-task-rules.js';
+import { taskInstructions, circuitPorts, tubeClips, starPoints, frostPixels, crackPoints, clamp, angleDelta } from './frost-task-rules.js';
 
 // Retain one idle WebGL context between terminals. Task state, listeners and
 // scene resources are still discarded on close; no hidden render loop remains.
@@ -193,11 +193,10 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
       const g = group(s.cargo[i], -.12, .7); const size = .6 + weight * .12;
       plate(size, size, .45, [blue, violet, metal][i], 0, 0, 0, g);
       for (const dx of [-.25, .25]) box(.08, size + .04, .06, trim, dx, 0, .48, g);
-      label(['A', 'B', 'C'][i], 0, 0, .54, .5, '#e4f4fa', g);
+      label(['A','B','C'][i]+' · '+weight+'kg',0,0,.54,.9,'#e4f4fa',g);
       const control = hit('cargo:' + i, 0, 0, size + .18, 1.1, 'drag', g, .7); return { g, control };
     });
-    gauge(0, 1.2, 5, () => .5 + s.torque / 20, [.48, .52]);
-    label('重心', -3.8, 1.2, .5, .9);
+    plate(5,.22,.06,rubber,0,1.2,.3);box(.4,.28,.03,green,0,1.2,.39);const balanceNeedle=box(.06,.38,.05,amber,0,1.2,.5);updates.push(()=>{balanceNeedle.position.x=clamp(s.torque/4,-1,1)*2.5;balanceNeedle.material=Math.abs(s.torque)<.32?green:amber;});label('左',-2.85,1.2,.5,.5);label('右',2.85,1.2,.5,.5);label('緑の中央に合わせる',0,1.65,.5,3.4);
     updates.push(() => { platform.rotation.z = clamp(-s.torque * .025, -.18, .18); crates.forEach(({ g }, i) => { g.position.x = s.cargo[i]; g.position.y = -.12 + s.cargo[i] * platform.rotation.z; g.rotation.z = platform.rotation.z; }); });
   } else if (mode === 'drone') {
     grid(-.85, .05, 5.4, 3.2); ring(.48, .045, green, .65, -.85, .1); box(.5, .035, .02, green, .65, -.85, .13);
@@ -238,21 +237,21 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   } else if (mode === 'triangulate') {
     grid(0, .15, 7.7, 3.15);
     for (let i = 0; i < 3; i++) {
-      const [x, y] = antennaBases[i]; disc(.32, .2, metal, x, y, .22); ring(.29, .03, trim, x, y, .36);
+      const [x,y]=s.antennaBases[i]; disc(.32, .2, metal, x, y, .22); ring(.29, .03, trim, x, y, .36);
       const dish = group(x, y, .46); const bowl = mesh(new THREE.ConeGeometry(.48, .65, 32, 1, true), trim, 0, .23, 0, dish); bowl.rotation.x = Math.PI / 2;
       segment([0, 0, .1], [0, .55, .1], brass, .035, dish); ball(.09, cyan, 0, .58, .1, dish);
       const beam = box(.025, 2.7, .02, glow('#66e5df', .55), 0, 1.35, -.05, dish);
       const led = disc(.08, .05, amber, x - .45, y, .5); hit('antenna:' + i, x, y, 1.25, 1.15, 'aim');
-      gauge(x, 1.38, 1.9, () => s.strength[i]);
+      gauge(x,1.38,1.9,()=>s.strength[i],[.9,1]);const meter=screen(x,1.67,1.7,.32,false);updates.push(()=>meter(String(Math.round(s.strength[i]*100)),(ctx,w,h)=>{ctx.fillStyle=s.strength[i]>.9?'#8df1c7':'#e1edf5';ctx.font='600 44px sans-serif';ctx.textAlign='center';ctx.fillText(Math.round(s.strength[i]*100)+'%',w/2,h*.72);}));
       updates.push(() => { dish.rotation.z = s.angles[i] - Math.PI / 2; led.material = s.strength[i] > .9 ? green : amber; beam.material.opacity = .14 + s.strength[i] * .65; });
     }
-    const beacon = ring(.15, .018, glow('#85ddd8', .25), ...signalSource, .2);
-    updates.push(() => { beacon.material.opacity = .15 + Math.min(...s.strength) * .85; });
+    const beacon = ring(.15, .018, glow('#85ddd8', .25), ...s.signalSource, .2);
+    updates.push(() => { beacon.material.opacity = .65 + Math.sin(s.elapsed*3)*.2; });
   } else if (mode === 'waveform') {
-    grid(0, .1, 7.5, 2.6); const pieces = [];
+    grid(0,.1,7.5,2.6);const pieces=[];const waveAt=t=>Math.sin(t*s.frequency+s.phase)*.6+Math.sin(t*4.5+s.phase*.5)*.2;line(Array.from({length:160},(_,i)=>[-3.5+i/159*7,1.5+waveAt(i/159*4)*.24,.4]),'#e5d3a5');label('お手本',-4.2,1.5,.5,.8);
     for (let i = 0; i < 4; i++) {
       const g = group(0, .1, .3); plate(1.63, 2.1, .13, metal, 0, 0, 0, g); plate(1.46, 1.8, .04, dark, 0, 0, .17, g);
-      const f = (t) => Math.sin(t * 1.8) * .6 + Math.sin(t * 4.5) * .2;
+      const f=t=>Math.sin(t*s.frequency+s.phase)*.6+Math.sin(t*4.5+s.phase*.5)*.2;
       line(Array.from({ length: 45 }, (_, j) => [-.7 + j / 44 * 1.4, f(i + j / 44), .27]), '#6be8dd', g);
       for (const side of [-1, 1]) { const end = f(i + (side > 0 ? 1 : 0)); disc(.07, .07, brass, side * .77, end, .28, g); }
       hit('wave:' + i, 0, 0, 1.65, 2.25, 'drag', g, .7); pieces.push(g);
@@ -348,10 +347,10 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
       const x = (i - 2) * 1.65; plate(1.4, 2.65, .2, metal, x, -.05, .05); box(.05, .32, .06, brass, x, 1.2, .12);
       disc(.48, .07, dark, x, .65, .3); const a = Math.PI * .85 - s.amps[i] / 20 * Math.PI * .7;
       const needle = box(.36, .025, .02, i === s.fault ? red : cyan, x + Math.cos(a) * .14, .65 + Math.sin(a) * .14, .45); needle.rotation.z = a;
-      label(s.amps[i] + 'A', x, .35, .6, 1, i === s.fault ? '#ff8a90' : '#98edd1');
+      const reading=screen(x,.35,1,.35,false);updates.push(()=>reading(String(s.switches[i]),(ctx,w,h)=>{ctx.fillStyle=s.switches[i]&&i===s.fault?'#ff8a90':'#98edd1';ctx.font='600 44px monospace';ctx.textAlign='center';ctx.fillText((s.switches[i]?s.amps[i]:0)+'A',w/2,h*.72);}));
       const lever = group(x, -.6, .5); plate(.32, .65, .16, trim, 0, 0, 0, lever); box(.52, .14, .2, rubber, 0, .2, .12, lever);
       hit('breaker:' + i, x, -.4, 1.45, 2.2); label('0' + (i + 1), x, -1.42, .6, .75);
-      updates.push(() => { lever.rotation.x = s.switches[i] ? -.35 : .65; });
+      updates.push(()=>{lever.rotation.x=s.switches[i]?-.35:.65;needle.rotation.z=s.switches[i]?a:Math.PI*.85;needle.position.set(x+Math.cos(needle.rotation.z)*.14,.65+Math.sin(needle.rotation.z)*.14,.45);});
     }
   } else if (mode === 'battery') {
     plate(3.45, 2.7, .35, metal, 0, 0, 0); plate(2.6, 2.25, .15, rubber, 0, 0, .4);
@@ -460,7 +459,8 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     for (let remaining = dt; remaining > 0; remaining -= .02) run.step(Math.min(.02, remaining));
     for (const fn of updates) fn();
     const roverPrompt = mode === 'rover' ? s.snagged ? '引っ掛かり！「緩める」を長押し' : s.tension > .95 ? '張りすぎ！「緩める」を長押し' : '「巻く」を長押しで回収' : '';
-    const message = s.finished ? 'タスク完了' : s.feedback || roverPrompt;
+    const batterySteps=['−端子を外す','＋端子を外す','固定具を外す','古い電池を左へ引き出す','新しい電池を中央へ動かす','「回す」で端子の向きを合わせる','固定具を締める','＋端子を接続する','−端子を接続する'];const taskPrompt=mode==='battery'?(s.stage+1)+' / 9 · '+(batterySteps[s.stage]||'完了'):mode==='cargo'?Math.abs(s.torque)<.32?'水平です。手を離してください':s.torque>0?'右が重い → 貨物を左へ動かす':'左が重い → 貨物を右へ動かす':mode==='waveform'?'接続 '+(s.connections||0)+' / 5 · 端の波形をつなぐ':mode==='triangulate'?'目標へ向ける · 3本とも90%以上で完了':mode==='overcurrent'?'10Aを超える回線だけOFFにする':'';
+    const message = s.finished ? 'タスク完了' : s.feedback || taskPrompt || roverPrompt;
     statusScreen.setVisible(!!message);
     statusScreen(message, (ctx, w, h) => { ctx.fillStyle = s.errorUntil > s.elapsed ? '#ff9ba5' : '#8df1c7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 30px system-ui,sans-serif'; ctx.fillText(message, w / 2, h / 2, w - 10); });
     progressLight.scale.x = Math.max(.3, Math.min(1, s.progress) * 18); progressLight.material = s.finished ? green : cyan;

@@ -66,6 +66,7 @@ export function createFrostGameLayout(data) {
 }
 
 export function requiredTaskIdsFor(tasks) {
+  if(tasks.some(task=>task.taskEngine==='skeld'))return [];
   const legacy = ['power', 'numbers', 'card'].filter((id) => tasks.some((task) => task.id === id));
   return legacy.length ? legacy : tasks.slice(0, 3).map((task) => task.id);
 }

@@ -11,8 +11,3 @@ html:not([data-text-size="normal"]) .overlay>.card :is(p,label,.muted,.chatText,
 #buttons>button[data-availability="unavailable"]{filter:grayscale(.8);opacity:.65}
 #buttons>button[data-availability="pending"]{border-style:dotted!important}
 #abilityBtn[data-availability]::after{content:attr(data-availability-label);font-size:9px;line-height:1.1;color:inherit;display:block;white-space:nowrap}
-#playGuide{position:fixed;left:50%;top:max(76px,calc(env(safe-area-inset-top) + 68px));transform:translateX(-50%);z-index:110;box-sizing:border-box;width:min(430px,calc(100vw - 32px));display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--ui-line);border-radius:12px;background:#101e2bf2;color:var(--ui-ink);box-shadow:0 4px 14px #0006;font-size:calc(12px * var(--ui-text-scale));pointer-events:none}
-#playGuide[hidden]{display:none!important}#playGuide p{margin:0;line-height:1.5;flex:1}#playGuide button{pointer-events:auto;min-width:44px;min-height:44px;padding:0;border:1px solid var(--ui-line);border-radius:9px;background:#1b3345;color:var(--ui-ink);font-size:20px}
-body[data-phase="meeting"] #playGuide{top:auto;bottom:max(8px,env(safe-area-inset-bottom));max-width:360px}
-body:has(#inputSettingsDialog:not(.hidden)) #playGuide,body:has(#roundRoles:not(.hidden)) #playGuide,body[data-lobby-loading="true"] #playGuide{display:none!important}
-@media(max-height:500px){#playGuide{top:60px;width:min(360px,46vw);padding:5px 8px;font-size:11px}#playGuide button{min-width:44px;min-height:44px}}

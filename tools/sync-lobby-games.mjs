@@ -1,6 +1,11 @@
 import {readFile,writeFile} from 'node:fs/promises';
 const file=new URL('../assets-source/lobby-lounge.html',import.meta.url);
 let html=await readFile(file,'utf8');
+const signs=(await readFile(new URL('../lobby-sign-style.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
+const pool=(await readFile(new URL('../lobby-pool.js',import.meta.url),'utf8')).replaceAll('export function ','function ');
+const signsBlock='/* LOBBY_SIGNS_BEGIN */\n'+signs+'\n'+pool+'\n/* LOBBY_SIGNS_END */';
+const signsMarker=/\/\* LOBBY_SIGNS_BEGIN \*\/[\s\S]*?\/\* LOBBY_SIGNS_END \*\//;
+if(signsMarker.test(html))html=html.replace(signsMarker,()=>signsBlock);else html=html.replace('<script type="module">',()=>'<script type="module">\n'+signsBlock);
 const combinations=(await readFile(new URL('../lobby-soccer-combinations.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'').replaceAll('export function ','function ');
 const ultimate=(await readFile(new URL('../lobby-soccer-ultimate.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'').replaceAll('export function ','function ');
 const powers=(await readFile(new URL('../lobby-soccer-powers.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'').replaceAll('export function ','function ');

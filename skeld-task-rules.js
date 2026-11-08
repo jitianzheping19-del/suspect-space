@@ -1,6 +1,6 @@
 export const SKELD_EXTRA_MODES=Object.freeze(['manifolds','garbage','asteroids','prime-shields','inspect-sample','steering','reactor-memory','chart-course']);
 export const SKELD_COURSE=Object.freeze([[.12,.72],[.30,.26],[.50,.55],[.70,.18],[.88,.65]]);
-export const SKELD_EXTRA_HINTS=Object.freeze({'chart-course':'船をつかんで航路に沿って終点まで運ぶ。',manifolds:'1から10まで順番に押す。間違えたら1からやり直し。',garbage:'レバーを下げて、ごみが全部出たら離す。',asteroids:'動く隕石を20個撃ち落とす。','prime-shields':'赤い六角形を押して、すべてのシールドを点灯。','inspect-sample':'分析を開始し、色と模様が異なる試料を選ぶ。',steering:'照準を中央に合わせて安定させる。','reactor-memory':'左の点灯順を覚え、右のボタンで同じ順番を入力。全5段階。'});
+export const SKELD_EXTRA_HINTS=Object.freeze({'chart-course':'船をつかんで航路に沿って終点まで運ぶ。',manifolds:'1から10まで順番に押す。間違えたら1からやり直し。',garbage:'レバーを下げて、ごみが全部出たら離す。',asteroids:'動く隕石を20個撃ち落とす。','prime-shields':'赤い六角形を押して、すべてのシールドを点灯。','inspect-sample':'分析を開始し、色と模様が異なる試料を選ぶ。',steering:'照準を中央に合わせて安定させる。','reactor-memory':'ボタンが光る順番を覚え、点灯後に同じボタンを同じ順で押す。全5段階。'});
 export function createSkeldTaskRun(task,onComplete=()=>{},random=Math.random,clock=Date.now){
  const mode=task.mode;if(!SKELD_EXTRA_MODES.includes(mode))throw new Error('Unknown Skeld task '+mode);
  const int=n=>Math.min(n-1,Math.floor(random()*n)),s={mode,finished:false,accepting:true,progress:0,feedback:'',elapsed:0};
@@ -13,7 +13,7 @@ export function createSkeldTaskRun(task,onComplete=()=>{},random=Math.random,clo
  if(mode==='inspect-sample')Object.assign(s,{phase:'ready',analysis:0,analysisUntil:0,anomaly:int(5)});
  if(mode==='chart-course')Object.assign(s,{courseIndex:1,ship:[...SKELD_COURSE[0]]});
  if(mode==='steering')Object.assign(s,{x:.18,y:.77,steady:0});
- if(mode==='reactor-memory')Object.assign(s,{sequence:Array.from({length:5},()=>int(9)),round:1,input:0,phase:'show',playback:0,lit:0});
+ if(mode==='reactor-memory')Object.assign(s,{sequence:Array.from({length:5},()=>int(9)),round:1,input:0,phase:'show',playback:0,lit:-1});
  function release(cancel=false){s.holding=false;if(!cancel&&mode==='garbage'&&s.emptied>=1)complete();}
  function dispatch(e){
   if(!s.accepting||!e)return false;

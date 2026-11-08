@@ -58,20 +58,21 @@ const distanceToSegment = (p, a, b) => {
   return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t);
 };
 
-export function createFrostTaskRun(task, onComplete = () => {}) {
+export function createFrostTaskRun(task, onComplete = () => {}, random = Math.random) {
   if (!FROST_TASK_MODES.includes(task.mode)) throw new Error('Unknown FROST task: ' + task.mode);
   const mode = task.mode;
+  const shuffle=items=>{const out=[...items];for(let i=out.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}return out;};
   const s = { task, mode, elapsed: 0, progress: 0, finished: false, accepting: true,
     feedback: '', errorUntil: 0, hold: '', pointer: null, steady: 0, touched: false };
   const initializers = {
     circuit: () => ({ turns: [0, 1, 1, 1, 0, 1, 0, 2, 1] }),
     clocks: () => ({ angles: [-1.1, .1, 3.7], locked: [false, false, false] }),
-    cargo: () => ({ cargo: [-2.4, -.3, 1.6], weights: [1, 2, 3], torque: 1.8 }),
+    cargo: () => ({ cargo: [-2.5+random()*.5, -.5+random(), 1.5+random()], weights: shuffle([1,2,3]), torque: 0 }),
     drone: () => ({ x: -2.8, y: 1.05, vx: 0, vy: 0, control: [0, 0] }),
     stars: () => ({ selected: [], rotation: 0 }),
     defrost: () => ({ clear: frostPixels.map(() => false), previous: null }),
-    triangulate: () => ({ angles: [.6, 1.9, 2.55], strength: [0, 0, 0] }),
-    waveform: () => ({ order: [2, 0, 3, 1], dragging: -1, dragX: 0 }),
+    triangulate: () => ({ angles: [.35+random()*.6, 1.2+random(), 2.2+random()*.6], antennaBases:antennaBases.map(([x,y])=>[x+(random()-.5)*.35,y+(random()-.5)*.25]), signalSource:[-.9+random()*1.8,.8+random()*.35], strength: [0, 0, 0] }),
+    waveform: () => ({ order: shuffle([0,1,2,3]), phase:random()*Math.PI*2, frequency:1.3+random()*.8, dragging: -1, dragX: 0 }),
     tubing: () => ({ clips: 0, tip: [-3.3, -1.2] }),
     medicine: () => ({ levels: [0, 0, 0], targets: [.35, .65, .5] }),
     irrigation: () => ({ moisture: [.18, .7, .3], water: -1 }),
@@ -88,6 +89,8 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
     rover: () => ({ recovered: 0, tension: .38, winch: 0, snagged: false, unhooked: false, releaseTime: 0, wheel: 0 }),
   };
   Object.assign(s, initializers[mode]());
+  if(mode==='cargo'){s.torque=s.cargo.reduce((sum,x,i)=>sum+x*s.weights[i],0);if(Math.abs(s.torque)<.8){s.cargo[1]+=Math.sign(s.torque||1)*.7;s.torque=s.cargo.reduce((sum,x,i)=>sum+x*s.weights[i],0);}}
+  if(mode==='waveform'&&s.order.every((id,i)=>id===i))[s.order[0],s.order[3]]=[s.order[3],s.order[0]];
   const error = (message) => { s.feedback = message; s.errorUntil = s.elapsed + 1.4; };
   function complete() {
     if (s.finished) return;
@@ -172,7 +175,7 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
         frostPixels.forEach((cell, i) => { if (distanceToSegment(cell, from, p) < .46) s.clear[i] = true; });
         s.previous = p;
       }
-      if (mode === 'triangulate' && n >= 0 && n < 3 && Math.hypot(x - antennaBases[n][0], y - antennaBases[n][1]) > .2) s.angles[n] = clamp(Math.atan2(y - antennaBases[n][1], x - antennaBases[n][0]), .08, Math.PI - .08);
+      if (mode === 'triangulate' && n >= 0 && n < 3 && Math.hypot(x - s.antennaBases[n][0], y - s.antennaBases[n][1]) > .2) s.angles[n] = clamp(Math.atan2(y - s.antennaBases[n][1], x - s.antennaBases[n][0]), .08, Math.PI - .08);
       if (mode === 'waveform' && s.dragging >= 0) s.dragX = clamp(x, -2.7, 2.7);
       if (mode === 'tubing' && id === 'tube') {
         const next = tubeClips[s.clips];
@@ -182,8 +185,8 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
       }
       if (mode === 'core' && id === 'depth' && !s.cut) s.depth = clamp((1.5 - y) / 3, 0, 1);
       if (mode === 'core' && id === 'extract' && s.cut) { s.extraction = clamp((x + .4) / 3.5, 0, 1); if (s.extraction > .93) complete(); }
-      if (mode === 'battery' && s.stage === 3 && id === 'old') { s.oldX = clamp(x, -3.2, 0); if (x < -2.5) s.stage = 4; }
-      if (mode === 'battery' && s.stage === 4 && id === 'new') { s.newX = clamp(x, 0, 3.2); if (x < .35) s.stage = 5; }
+      if (mode === 'battery' && s.stage === 3 && id === 'old') { s.oldX = clamp(x, -3.2, 0); if (x < -2.5) {s.oldX=-3.2;s.stage=4;s.feedback='新しい電池を中央へ動かす';s.errorUntil=0;} }
+      if (mode === 'battery' && s.stage === 4 && id === 'new') { s.newX = clamp(x, 0, 3.2); if (x < .35) {s.newX=0;s.stage=5;s.feedback='電池を回して端子の向きを合わせる';s.errorUntil=0;} }
       if (mode === 'seal') s.pointer = [x, y];
       if (mode === 'radar' && id === 'head') {
         const previous = s.head; s.head = clamp(x, -3, 3);
@@ -210,10 +213,10 @@ export function createFrostTaskRun(task, onComplete = () => {}) {
       case 'stars': s.progress = s.selected.length / 5; break;
       case 'defrost': s.progress = s.clear.filter(Boolean).length / s.clear.length; if (s.progress > .92) complete(); break;
       case 'triangulate':
-        s.strength = s.angles.map((a, i) => clamp(1 - Math.abs(angleDelta(a, Math.atan2(signalSource[1] - antennaBases[i][1], signalSource[0] - antennaBases[i][0]))) / .65, 0, 1));
+        s.strength = s.angles.map((a, i) => clamp(1 - Math.abs(angleDelta(a, Math.atan2(s.signalSource[1] - s.antennaBases[i][1], s.signalSource[0] - s.antennaBases[i][0]))) / .65, 0, 1));
         s.progress = s.strength.reduce((a, b) => a + b, 0) / 3;
         if (s.strength.every((v) => v > .9)) complete(); break;
-      case 'waveform': s.progress = s.order.filter((p, i) => p === i).length / 4; break;
+      case 'waveform': s.connections=Number(s.order[0]===0)+Number(s.order[3]===3)+s.order.slice(1).filter((id,i)=>id===s.order[i]+1).length;s.progress=s.connections/5;break;
       case 'tubing': s.progress = s.clips / tubeClips.length; break;
       case 'medicine': s.progress = s.levels.reduce((a, v, i) => a + clamp(1 - Math.abs(v - s.targets[i]) / s.targets[i], 0, 1), 0) / 3; break;
       case 'irrigation': s.progress = s.moisture.filter((v) => v >= .45 && v <= .75).length / 3; break;
