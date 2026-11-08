@@ -16,7 +16,7 @@
 - `node tools/check-airship-task-ui.cjs`: 実際の19画面から完了まで操作。320×568 / 390×844 / 844×390 / 1024×768のレイアウトとボタンサイズ。画像は `tmp/airship-tasks/`。
 - `node tools/check-airship-integration.mjs`: 本編のID・座標・キャッシュ・試合切り替え・古い完了通知の除外。
 - `node tools/check-built-practice-lab.cjs`: 本番のタッチ処理を含む一覧の実スワイプ、ビルド済み役職画面の起動、エラー後の再試行、描画フレームが進まない場合の準備完了。
-- `node tools/check-gacha-performance.cjs`: 変更前との描画回数の比較、プレビュー中の背景停止、抽選演出の完了。
+- `node tools/check-gacha-performance.cjs`: 記録済み基準に対する描画回数の上限、プレビュー中の背景停止、抽選演出の完了。
 - `node tools/check-gacha-preview-controls.cjs`: 4画面サイズで高レア順、正面固定、指・マウス・スクロールでの回転と再表示。
 - `node tools/check-lobby-garage.cjs`: 車のモデル・通路・乗降・運転・ジャンプ・着地・当たり判定・リセット・相手の乗車表示と切断復旧。画像は `tmp/lobby-garage/`。
 - `node tools/check-pose-bandwidth.cjs`: 乗降時の状態保存と、移動通信量の既存条件。
