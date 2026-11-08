@@ -565,11 +565,6 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
     }
     for(const x of [-1.67,1.67])box(.035,3.25,.05,loungeGlow,x,1.75,-5.48);
     wallSign('SPACE  SUSPECT',0,4.55,-5.88,4.3,'#e4d3ad','D E P A R T U R E   L O U N G E');
-    // The suspended sculpture is open in the centre; it does not form a ceiling.
-    const overheadSculpture=new THREE.Group();overheadSculpture.name='lobby-overhead-sculpture';scene.add(overheadSculpture);
-    loungeRing(2.4,.052,metalMat,0,4.75,-.2,overheadSculpture);loungeRing(2.32,.035,loungeGlow,0,4.71,-.2,overheadSculpture);
-    const innerHalo=loungeRing(1.5,.035,metalMat,0,5.25,-.2,overheadSculpture);innerHalo.rotation.z=.13;
-    for(const x of [-1.85,1.85])box(.018,.7,.018,metalMat,x,5.08,-.2,overheadSculpture);
     // A distant planet and a ring are visible through the observation bays.
     const planetTexture=loungeTexture(1024,512,(g,w,h)=>{
       const base=g.createLinearGradient(0,0,0,h);base.addColorStop(0,'#597784');base.addColorStop(.3,'#b9b49f');base.addColorStop(.52,'#d3bea0');base.addColorStop(.78,'#687f8d');base.addColorStop(1,'#334e68');g.fillStyle=base;g.fillRect(0,0,w,h);
@@ -4649,7 +4644,7 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
   timer=setTimeout(()=>{const id=pending;if(!id)return;
    if(document.hidden||window.SpaceSuspectLobby?.__lobbyRenderActive===false){cancel();parent.postMessage({type:'lobby-photo-error',id},'*');return;}
    const ratio=renderer.getPixelRatio();renderer.getSize(size);const width=size.x,height=size.y;
-   try{capturing=true;renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const output=document.createElement('canvas');output.width=1280;output.height=720;output.getContext('2d').drawImage(renderer.domElement,0,0);drawNames(output);if(shotMeta?.framed){const ctx=output.getContext('2d');ctx.strokeStyle='#cce8ed';ctx.lineWidth=12;ctx.strokeRect(6,6,1268,708);ctx.fillStyle='#0b2036e8';ctx.fillRect(12,664,1256,44);ctx.fillStyle='#f4fcff';ctx.font='24px sans-serif';ctx.textAlign='left';ctx.fillText(String(shotMeta.roomName||'みんなのロビー').slice(0,24),32,694,850);ctx.textAlign='right';ctx.fillText(String(shotMeta.dateLabel||''),1240,694,280);}const image=output.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
+   try{capturing=true;renderer.setPixelRatio(1);renderer.setSize(1280,720,false);photoCamera.aspect=16/9;photoCamera.updateProjectionMatrix();render(photoCamera);const output=document.createElement('canvas');output.width=1280;output.height=720;output.getContext('2d').drawImage(renderer.domElement,0,0);drawNames(output);{const ctx=output.getContext('2d');ctx.fillStyle='#0b2036dd';ctx.fillRect(1000,666,264,38);ctx.fillStyle='#f4fcff';ctx.font='24px sans-serif';ctx.textAlign='right';ctx.fillText(String(shotMeta?.dateLabel||new Date().toLocaleDateString('ja-JP')),1244,693,230);}const image=output.toDataURL('image/png');parent.postMessage({type:'lobby-photo-result',id,image},'*');}
    catch(error){console.warn('集合写真の撮影に失敗しました',error);parent.postMessage({type:'lobby-photo-error',id},'*');}
    finally{renderer.setPixelRatio(ratio);renderer.setSize(width,height,false);cancel();render(camera);}
   },Math.max(0,data.at-Date.now()));
@@ -4774,6 +4769,63 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   royal(new THREE.BoxGeometry(.56,.34,.04),obsidian,0,.67,.69);royal(new THREE.BoxGeometry(.44,.025,.04),plasma,0,.52,.72);
   const premiumSign=caption("特別ガチャ",-10.92,3.5,9.3,2.6,"#e5d2ff");premiumSign.mesh.position.x=-10.9;
   caption("通常ガチャ",-10.9,3.3,6,2.6,"#f4dcab");addObstacle(-11.1,9.3,1.7,1.85,3.3,true);
+  // Open-front garage beside the capsule machines, facing the lobby walkway.
+  const garage=new THREE.Group();garage.name='lobby-racing-garage';garage.position.set(-9.6,0,11.95);garage.rotation.y=Math.PI/2;root.add(garage);
+  const garageShell=material(0x213440,{metalness:.55,roughness:.4}),garageFloor=material(0x15242d,{roughness:.85}),garageTrim=material(0xa4c1ce,{metalness:.8,roughness:.25});
+  const garageLight=material(0x9ce6e9,{emissive:0x64cdd3,emissiveIntensity:1.2});
+  const unitGarageBox=new THREE.BoxGeometry(1,1,1);
+  function garageBox(mat,x,y,z,w,h,d,parent=garage){const m=new THREE.Mesh(unitGarageBox,mat);m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=m.receiveShadow=true;parent.add(m);return m;}
+  garageBox(garageFloor,0,.025,0,3,.05,4.1);
+  garageBox(garageShell,0,1.45,-2,3,2.9,.16);
+  for(const side of [-1,1]){
+    garageBox(garageShell,side*1.46,.65,0,.12,1.3,4.1);
+    for(const z of [-1.96,1.96])garageBox(garageTrim,side*1.44,1.46,z,.13,2.92,.13);
+    garageBox(garageLight,side*1.36,.075,0,.035,.035,3.85);
+    garageBox(garageTrim,side*1.44,2.86,0,.13,.14,4.1);
+    addObstacle(-9.6,11.95-side*1.46,4.1,.12,1.3,false);
+    addObstacle(-7.64,11.95-side*1.44,.13,.13,2.92,false);
+  }
+  garageBox(garageShell,0,2.9,-1.36,3,.14,1.35);
+  garageBox(garageShell,0,2.78,1.96,3,.3,.22);
+  garageBox(garageLight,0,2.6,1.96,2.65,.035,.05);
+  const garageRoof=material(0x9bd5e3,{transparent:true,opacity:.15,depthWrite:false,metalness:.2,roughness:.25,side:THREE.DoubleSide});
+  garageBox(garageRoof,0,2.9,.65,2.8,.035,2.6).castShadow=false;
+  addObstacle(-11.6,11.95,.16,3,2.9,false);
+  // Painted parking lines and a compact service cabinet keep the entrance open.
+  for(const x of [-1.05,1.05])garageBox(cream,x,.06,0,.04,.012,3.2);
+  garageBox(cream,0,.06,-1.62,2.14,.012,.04);
+  garageBox(garageShell,.84,.46,-1.7,.75,.86,.43);
+  for(let row=0;row<3;row++){garageBox(garageTrim,.84,.3+row*.2,-1.475,.64,.015,.02);garageBox(dark,.84,.36+row*.2,-1.46,.2,.025,.03);}
+  const raceCar=new THREE.Group();raceCar.name='lobby-garage-race-car';raceCar.position.set(0,.06,.15);garage.add(raceCar);
+  const paint=material(0x2b89b6,{metalness:.65,roughness:.24}),rubber=material(0x131a22,{roughness:.95}),raceGlass=material(0x132b39,{metalness:.6,roughness:.12});
+  garageBox(dark,0,.32,0,1.35,.18,2.65,raceCar);
+  garageBox(paint,0,.51,0,1.4,.32,2.45,raceCar);
+  garageBox(paint,0,.59,.88,1.3,.16,.9,raceCar);
+  garageBox(paint,0,.7,-.94,1.3,.22,.54,raceCar);
+  garageBox(dark,0,.71,-.1,.86,.21,1.17,raceCar);
+  // Twin white stripes, an open cockpit and the race wing read from lobby height.
+  for(const x of [-.19,.19]){garageBox(cream,x,.678,.91,.13,.018,.82,raceCar);garageBox(cream,x,.817,-1.01,.13,.018,.36,raceCar);}
+  garageBox(rubber,0,.77,-.36,.68,.2,.58,raceCar);
+  garageBox(rubber,0,1.02,-.62,.67,.52,.16,raceCar).rotation.x=-.12;
+  garageBox(paint,0,1.3,-.64,.42,.13,.17,raceCar);
+  garageBox(raceGlass,0,.86,.45,.97,.29,.055,raceCar).rotation.x=-.35;
+  for(const side of [-1,1]){
+    garageBox(paint,side*.72,.55,0,.13,.27,1.5,raceCar);
+    garageBox(garageTrim,side*.48,.91,-1.04,.045,.45,.07,raceCar);
+    garageBox(garageLight,side*.46,.56,1.245,.27,.11,.035,raceCar);
+    garageBox(material(0xec655d,{emissive:0x942820,emissiveIntensity:.6}),side*.46,.6,-1.245,.25,.09,.035,raceCar);
+  }
+  garageBox(dark,0,1.16,-1.04,1.65,.09,.42,raceCar);
+  for(const x of [-.81,.81])garageBox(paint,x,1.2,-1.04,.035,.24,.46,raceCar);
+  const tireGeometry=new THREE.CylinderGeometry(.31,.31,.24,18),rimGeometry=new THREE.CylinderGeometry(.18,.18,.255,12);
+  for(const x of [-.75,.75])for(const z of [-.83,.84]){
+    const tire=new THREE.Mesh(tireGeometry,rubber);tire.name='race-car-wheel';tire.position.set(x,.31,z);tire.rotation.z=Math.PI/2;tire.castShadow=true;raceCar.add(tire);
+    const rim=new THREE.Mesh(rimGeometry,chrome);rim.position.copy(tire.position);rim.rotation.copy(tire.rotation);raceCar.add(rim);
+  }
+  const steering=new THREE.Mesh(new THREE.TorusGeometry(.2,.035,6,16),rubber);steering.position.set(0,.99,.2);steering.rotation.x=-.65;raceCar.add(steering);
+  garageBox(garageTrim,0,.83,.23,.045,.35,.045,raceCar).rotation.x=-.55;
+  addObstacle(-9.45,11.95,2.8,1.74,1.4,false);
+  caption('レーシングガレージ',-7.6,3.2,11.95,3.1);
   const oldGachaUpdate=window.__lobbyGachaUpdate;window.__lobbyGachaUpdate=t=>{oldGachaUpdate?.(t);crystal.rotation.y=t*.45;crystal.position.y=1.94+Math.sin(t*1.6)*.07;orbitals.forEach((ring,i)=>ring.rotation.z=t*(i%2?-.2:.25));};
   // These objects never move locally. Parent/world matrices remain automatic.
   const animatedRoots=new Set([float,water,gacha,premium,...fish.map(f=>f.group)]);
@@ -4826,8 +4878,10 @@ function installLobbyExpansion(THREE,scene,addObstacle){
 
 // First-visit practice guide, controlled by the parent account preference.
     const practiceGuide=new THREE.Group();practiceGuide.name='practice-navigation';practiceGuide.visible=false;scene.add(practiceGuide);
-    const practiceMaterial=new THREE.MeshBasicMaterial({color:0xffe999,depthWrite:false});
+    const practiceMaterial=new THREE.MeshBasicMaterial({color:0xffe999,depthWrite:false,toneMapped:false,transparent:true,opacity:.95});
     const practiceDots=new THREE.InstancedMesh(new THREE.CircleGeometry(.075,8),practiceMaterial,180);practiceDots.count=0;practiceDots.frustumCulled=false;practiceGuide.add(practiceDots);
+    const practiceGlow=new THREE.InstancedMesh(new THREE.CircleGeometry(.25,12),new THREE.MeshBasicMaterial({color:0xffdc82,map:glowTexture,transparent:true,depthWrite:false,toneMapped:false,blending:THREE.AdditiveBlending}),180);practiceGlow.name='practice-route-glow';practiceGlow.instanceMatrix=practiceDots.instanceMatrix;practiceGlow.count=0;practiceGlow.frustumCulled=false;practiceGuide.add(practiceGlow);
+    const practicePulseColor=new THREE.Color(),practiceReducedMotion=matchMedia('(prefers-reduced-motion: reduce)');let practicePulseAt=-Infinity;
     const practiceTransform=new THREE.Object3D();practiceTransform.rotation.x=-Math.PI/2;
     const practiceCanvas=document.createElement('canvas');practiceCanvas.width=128;practiceCanvas.height=128;const practiceContext=practiceCanvas.getContext('2d');practiceContext.fillStyle='#ffe999';practiceContext.font='bold 110px system-ui';practiceContext.textAlign='center';practiceContext.fillText('!',64,108);
     const practiceTexture=new THREE.CanvasTexture(practiceCanvas);const practiceMark=new THREE.Sprite(new THREE.SpriteMaterial({map:practiceTexture,depthTest:false}));practiceMark.name='practice-first-visit';practiceMark.position.set(4.1,3.05,5.8);practiceMark.scale.set(.7,.7,1);practiceGuide.add(practiceMark);
@@ -4837,10 +4891,20 @@ function installLobbyExpansion(THREE,scene,addObstacle){
       if(!practiceGuide.visible)return;
       const p=player.root.position;
       if(time-practiceGuideAt>1200&&(!practiceGuideOrigin||Math.hypot(p.x-practiceGuideOrigin.x,p.z-practiceGuideOrigin.z)>.5)){
-        const path=planGachaRoute(p,{x:4.1,z:4.6},obstacles);practiceDots.count=Math.min(180,path.length);
+        const path=planGachaRoute(p,{x:4.1,z:4.6},obstacles);practiceGlow.count=practiceDots.count=Math.min(180,path.length);
         for(let i=0;i<practiceDots.count;i++){practiceTransform.position.set(path[i].x,.08,path[i].z);practiceTransform.updateMatrix();practiceDots.setMatrixAt(i,practiceTransform.matrix);}practiceDots.instanceMatrix.needsUpdate=true;practiceGuideAt=time;practiceGuideOrigin={x:p.x,z:p.z};
       }
-      practiceMark.position.y=3.05+Math.sin(time*.003)*.08;
+      if(time-practicePulseAt>40){
+        for(let i=0;i<practiceDots.count;i++){
+          const pulse=practiceReducedMotion.matches?1:.45+.55*Math.pow((Math.sin(time*.004-i*.65)+1)/2,3);
+          practicePulseColor.setRGB(pulse,pulse,pulse);practiceDots.setColorAt(i,practicePulseColor);practiceGlow.setColorAt(i,practicePulseColor);
+        }
+        if(practiceDots.instanceColor)practiceDots.instanceColor.needsUpdate=true;
+        if(practiceGlow.instanceColor)practiceGlow.instanceColor.needsUpdate=true;
+        practicePulseAt=time;
+      }
+      practiceMark.material.opacity=practiceReducedMotion.matches?1:.75+.25*(Math.sin(time*.004)+1)/2;
+      practiceMark.position.y=practiceReducedMotion.matches?3.05:3.05+Math.sin(time*.003)*.08;
     };
 
 /* LOBBY_GAMES_BUNDLE_BEGIN */

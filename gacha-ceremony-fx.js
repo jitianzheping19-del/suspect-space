@@ -27,16 +27,17 @@ export function createGachaCeremony(T,{scene,premium,mobile,geo,mat,textures,red
  const streakCount=premium?42:20,streakPositions=new Float32Array(streakCount*6),streakGeo=geo(new T.BufferGeometry());streakGeo.setAttribute('position',new T.BufferAttribute(streakPositions,3).setUsage(T.DynamicDrawUsage));const streakMat=mat(new T.LineBasicMaterial({color,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending})),streaks=new T.LineSegments(streakGeo,streakMat);root.add(streaks);
  const vault=createCelestialVault(T,{root,premium,mobile,geo,mat,reduced});
  function update(t,{rank=-1,power=0,shake=0,burst=0,charging=false,complete=false,x=0,size=1}={}){
+  if(reduced)t=0;
   root.position.x=x;root.scale.setScalar(size);vault.update(t,{power,burst,charging,color});
   energy.color.copy(color);runeMat.color.copy(color);particleMat.color.copy(color);streakMat.color.copy(color);
   root.visible=!complete;const b=Math.min(1,burst),charge=charging?power:0;
-  if(!reduced){sigil.rotation.z=-t*(premium?.075:.035);seals.rotation.z=t*.10;for(let j=0;j<gates.length;j++){gates[j].rotation.z=t*(j%2?-.12:.09)+j*.3;gates[j].rotation.y=Math.sin(t*.3+j)*(.18+charge*.22);}}
+  if(!reduced){sigil.rotation.z=-t*(premium?.10:.05);seals.rotation.z=t*.14;for(let j=0;j<gates.length;j++){gates[j].rotation.z=t*(j%2?-.16:.12)+j*.3;gates[j].rotation.y=Math.sin(t*.3+j)*(.18+charge*.22);}}
   sigil.scale.setScalar(1+charge*.12+b*.5);runeMat.opacity=((premium?.42:.15)+charge*.22+shake*.15)*(1-b*.5);
   energy.opacity=(.2+charge*.42)*(1-b*.6);metal.emissive.copy(color);metal.emissiveIntensity=.04+charge*.28;
   for(let j=0;j<gates.length;j++)gates[j].scale.setScalar((1.65+j*.24)*(1+b*.8+shake*.025));
   beam.visible=premium||burst>0;plumeUniforms.power.value=premium?(charge*.45+Math.sin(b*Math.PI)*2):Math.sin(b*Math.PI)*.7;
   beam.rotation.y=t*.15;beam.scale.set(1+charge*.5,1+b*.4,1+charge*.5);
-  for(let j=0;j<count;j++){const k=j*3,a=j*2.39996+t*(.13+charge*.6),base=.80+(j%13)*.11;const radial=burst>0?base+b*b*(2+j%7*.6):base;positions[k]=Math.cos(a)*radial;positions[k+1]=burst>0?Math.sin(j*6.7)*(1+b*3):(j/count*3.7+t*(.11+charge*.5))%3.7-1.8;positions[k+2]=Math.sin(a)*radial-.3;}particleGeo.attributes.position.needsUpdate=true;
+  for(let j=0;j<count;j++){const k=j*3,a=j*2.39996+t*(.21+charge*.6),base=.80+(j%13)*.11;const radial=burst>0?base+b*b*(2+j%7*.6):base;positions[k]=Math.cos(a)*radial;positions[k+1]=burst>0?Math.sin(j*6.7)*(1+b*3):(j/count*3.7+t*(.18+charge*.5))%3.7-1.8;positions[k+2]=Math.sin(a)*radial-.3;}particleGeo.attributes.position.needsUpdate=true;
   particleMat.opacity=.3+charge*.5+(burst>0?Math.sin(b*Math.PI)*.4:0);
   for(let j=0;j<streakCount;j++){const a=j*2.39996,z=Math.sin(j*7.3)*.6,r=1+b*4,k=j*6;streakPositions[k]=Math.cos(a)*r;streakPositions[k+1]=Math.sin(a)*r;streakPositions[k+2]=z;streakPositions[k+3]=Math.cos(a)*(r+.2+b*1.7);streakPositions[k+4]=Math.sin(a)*(r+.2+b*1.7);streakPositions[k+5]=z-b;}streakGeo.attributes.position.needsUpdate=true;streakMat.opacity=burst>0?Math.sin(b*Math.PI)*.75:0;
   for(let j=0;j<shockwaves.length;j++){const phase=Math.max(0,Math.min(1,(b-j*.09)*1.2));shockwaves[j].scale.setScalar(.8+phase*(premium?5:3.5));shockwaves[j].material.opacity=burst>0?Math.sin(phase*Math.PI)*.6:0;}

@@ -151,8 +151,8 @@
     body[data-phase="play"] #controls #knob {
       width: calc(var(--knob-size, 64px) * 1.08) !important;
       height: calc(var(--knob-size, 64px) * 1.08) !important;
-      left: calc(50% - var(--knob-size, 64px) * .54) !important;
-      top: calc(50% - var(--knob-size, 64px) * .54) !important;
+      left: 50% !important;
+      top: 50% !important;
     }
   }
 
@@ -178,8 +178,8 @@
     body:is([data-phase="play"], [data-phase="lobby"]) #controls #knob {
       width: calc(var(--knob-size, 64px) * 1.18) !important;
       height: calc(var(--knob-size, 64px) * 1.18) !important;
-      left: calc(50% - var(--knob-size, 64px) * .59) !important;
-      top: calc(50% - var(--knob-size, 64px) * .59) !important;
+      left: 50% !important;
+      top: 50% !important;
     }
     body[data-phase="lobby"] #lobbyUseBtn:not(.hidden) {
       width: 126px !important; min-width: 126px !important; max-width: 126px !important;

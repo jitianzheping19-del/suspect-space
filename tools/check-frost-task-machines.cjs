@@ -75,7 +75,7 @@ async function play(page, task, touch = false) {
       await up(); break;
     }
     case 'triangulate': for(let i=0;i<3;i++)await drag('antenna:'+i,[(await current()).signalSource]);break;
-    case 'waveform': for (let i = 0; i < 4; i++) { if ((await current()).finished) break; await drag('wave:' + i, [[-2.7 + i * 1.8, .1]]); } break;
+    case 'waveform': for (let i = 0; i < 4; i++) { if ((await current()).finished) break; await drag('wave:' + i, [[-2.7 + i * 1.8, -.95]]); } break;
     case 'tubing': await drag('tube', [[-2.8, 1.1], [-1.4, .35], [0, 1], [1.3, -.5], [2.8, -1.1]]); break;
     case 'medicine':
       for (let i = 0; i < 3; i++) {

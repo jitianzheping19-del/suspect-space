@@ -1,3 +1,4 @@
+import {updateGachaTicketBadge} from './gacha-ticket-badge.js';
 // Availability does not load the feature. Only an explicit open starts import().
 export function deferredFeature(load,create,onError=()=>{}){
  let instance=null,pending=null,enabled=false,revision=0,wallet=null,disposed=false;
@@ -27,7 +28,7 @@ function makeLauncher(label,id,className){const button=document.createElement('b
 function loadStatus(button,loading){button.setAttribute('aria-busy',String(loading));button.dataset.loading=String(loading);}
 export function createLazyGacha(THREE,api){
  const badge=makeLauncher('🎟 —','','ssTicketBadge');let wallet=null,failed=false;
- const label=()=>{badge.textContent=failed?'ガチャを再試行':`🎟 ${wallet?.tickets??'—'}${wallet?'枚':''}`;badge.title=failed?'読み込めませんでした。押すと再試行します。':`通常チケット ${wallet?.tickets??'確認中'}枚 / 特別 ${wallet?.premium??'確認中'}枚`;};
+ const label=()=>updateGachaTicketBadge(badge,wallet,failed);label();
  const shell=deferredFeature(()=>import('./gacha-ui.js'),m=>m.createGachaUI(THREE,{...api,badge,onWallet(value){wallet=value;label();api.onWallet?.(value);}}),()=>{failed=true;});
  const open=async(...args)=>{shell.sync(api.canOpen());if(!api.canOpen())return;failed=false;loadStatus(badge,true);badge.textContent='読み込み中…';try{await shell.open(...args);}finally{loadStatus(badge,false);label();}};
  badge.onclick=()=>open();

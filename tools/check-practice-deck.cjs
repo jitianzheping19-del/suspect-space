@@ -13,9 +13,9 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    const paths=[walk({x:0,z:9},{x:0,z:12.35}),walk({x:0,z:12.35},{x:0,z:9}),walk({x:-4,z:10.3},{x:4,z:10.3})];
    QA.player.root.position.set(0,.68,12.35);const wallBlocked=!QA.canMoveTo(0,13);
    window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'lobby-practice-guide',visible:true}}));QA.player.root.position.set(0,0,0);__lobbyPracticeGuideUpdate(2000);const guide=QA.scene.getObjectByName('practice-navigation'),mark=QA.scene.getObjectByName('practice-first-visit'),shown=guide.visible&&mark.visible,dots=guide.children.find(n=>n.isInstancedMesh).count;
-   window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'lobby-practice-guide',visible:false}}));return{paths,wallBlocked,shown,dots,hidden:!guide.visible};
+   const lights=guide.children.find(n=>n.isInstancedMesh),before=Array.from(lights.instanceColor.array);__lobbyPracticeGuideUpdate(2400);const flowing=before.some((v,i)=>Math.abs(v-lights.instanceColor.array[i])>.05),glow=guide.getObjectByName('practice-route-glow');const noRing=!QA.scene.getObjectByName('lobby-overhead-sculpture');window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'lobby-practice-guide',visible:false}}));return{paths,wallBlocked,shown,dots,hidden:!guide.visible,flowing,glowCount:glow.count,noRing};
   });
-  for(const path of result.paths)assert(!path.blocked,JSON.stringify(path.blocked));assert(Math.abs(Math.max(...result.paths[0].heights)-.68)<.001);assert.equal(result.paths[1].final[1],0);assert(result.wallBlocked);assert(result.shown&&result.dots>2&&result.hidden);assert.deepEqual(errors,[]);
+  for(const path of result.paths)assert(!path.blocked,JSON.stringify(path.blocked));assert(Math.abs(Math.max(...result.paths[0].heights)-.68)<.001);assert.equal(result.paths[1].final[1],0);assert(result.wallBlocked);assert(result.shown&&result.dots>2&&result.hidden);assert(result.flowing&&result.glowCount===result.dots&&result.noRing);assert.deepEqual(errors,[]);
   console.log('PASS actual photo deck ascent, descent and sideways traversal without jumping; rear wall remains solid; first-visit mark and dotted route show/hide together');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

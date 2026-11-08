@@ -136,3 +136,23 @@ body .ssGacha[data-planet-mode=complete] .gachaToolbar,body .ssGacha[data-planet
 }
 
 .gachaItemDetail{width:min(560px,90vw);max-height:90dvh;border:1px solid #cfbb89;border-radius:18px;background:#101e2b;color:#f8f2df;overflow:auto}.gachaItemDetail::backdrop{background:#020912ce}.gachaItemDetail header{display:flex;justify-content:space-between;align-items:center;gap:12px}.gachaItemDetail button{min-height:44px}.gachaItemDetail .gachaPrizeModel{height:45dvh;min-height:180px}.gachaNew{color:#083b31;background:#a1f7d2;border-radius:6px;padding:3px 6px;font:700 11px sans-serif}.gachaDuplicateNote{position:absolute;bottom:6px;left:16px;right:16px;margin:0;font-size:10px;color:#d9e4e9;pointer-events:none;text-align:center}.ssGacha .gachaRates[open]{max-height:65dvh;overflow:auto}.ssGacha[data-stage=drawing] .gachaDuplicateNote,.ssGacha[data-stage=reveal] .gachaDuplicateNote{display:none}
+
+/* The item label opens one large, centred, manually rotated preview. */
+body .ssGacha button.gachaItemLabel{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;align-self:stretch;flex:1;min-width:0;min-height:44px;padding:5px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+body .ssGacha .gachaItemLabel>span{font-size:30px;line-height:1.1;flex-shrink:0}
+body .ssGacha .gachaItemLabel>small{color:var(--rarity);letter-spacing:.04em;overflow-wrap:anywhere;line-height:1.4}
+body .ssGacha .gachaItemLabel>strong{line-height:1.4}
+body .ssGacha .gachaRail{grid-auto-rows:minmax(160px,max-content)}
+body .ssGacha[data-view=collection] .gachaRates{display:none}
+@media(max-width:600px){body .ssGacha .gachaRail{grid-template-columns:repeat(2,minmax(0,1fr))}}
+body .ssGacha .gachaItemLabel:focus-visible,.gachaItemDetail canvas:focus-visible{outline:2px solid #ffe4a0;outline-offset:2px}
+.gachaItemDetail{box-sizing:border-box;position:fixed;inset:0;margin:auto;width:min(820px,calc(100vw - 24px));height:min(780px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);padding:16px;overflow:hidden}
+.gachaItemDetail[open]{display:flex;flex-direction:column;gap:8px}
+.gachaItemDetail header{flex:none;min-width:0}
+.gachaItemDetail h3{margin:0;font-size:clamp(15px,3vw,22px);overflow-wrap:anywhere}
+.gachaItemDetail header button{flex:none;padding:8px 16px;border:1px solid #cfbb89;border-radius:8px;background:#263a4a;color:#fff}
+.gachaItemDetail .gachaPrizeModel{width:100%;height:auto;min-height:0;flex:1;margin:0 auto;overflow:hidden}
+.gachaItemDetail .gachaPrizeModel canvas{display:block;width:100%;height:100%}
+.gachaItemDetail p,.gachaPreviewHint{flex:none;margin:0;text-align:center;color:#e6d5b0}
+.gachaPreviewHint{font-size:12px}
+@media(max-height:450px){.gachaItemDetail{padding:10px;gap:4px}.gachaItemDetail p{font-size:11px}}

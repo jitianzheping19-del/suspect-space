@@ -8,17 +8,20 @@
 #practiceLab>header button[aria-pressed=true]{background:#cbb68c16;border-color:#cbb68c99;color:#eadbbe}
 #practiceLab :is(button,select,summary):focus-visible{outline:2px solid #e1c68f;outline-offset:2px}
 #practiceLab .practiceBody{display:grid;grid-template-columns:clamp(164px,24vw,230px) minmax(0,1fr);min-height:0}
-#practiceLab .practiceChoices{min-width:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#596577 transparent;padding:16px 12px;border-right:1px solid #c2cedb1a;background:#111a24}
-#practiceLab [data-pick]{display:grid;gap:16px}
+#practiceLab .practiceChoices{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;padding:16px 12px;border-right:1px solid #c2cedb1a;background:#111a24}
+#practiceLab [data-pick]{display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#596577 transparent}
+#practiceLab .practiceChoiceList{display:flex;flex-direction:column;gap:7px;min-width:0}
+#practiceLab .practiceChoiceList button{width:100%;flex:none;text-align:left;white-space:normal;overflow-wrap:anywhere;padding:11px 12px}
+#practiceLab .practiceChoiceList button[aria-pressed=true]{background:#29433e;border-color:#85caba;color:#d3ffef}
 #practiceLab [data-pick] label{display:grid;gap:7px;min-width:0;color:#bcc6d2;font-size:13px;line-height:1.4}
 #practiceLab [data-pick] select{display:block;width:100%;min-width:0;min-height:44px;padding:9px 6px;border:1px solid #c0cedb33;border-radius:9px;background:#1c2733;color:#eeece6;font-family:inherit;font-size:16px;line-height:1.4;cursor:pointer}
 #practiceLab [data-pick] select:disabled{opacity:.45;cursor:default}
-#practiceLab [data-example]{margin-top:16px;border-top:1px solid #c2cedb1f;padding-top:8px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+#practiceLab [data-example]{flex:none;max-height:35%;overflow:auto;margin-top:8px;border-top:1px solid #c2cedb1f;padding-top:0;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 #practiceLab [data-example] summary{min-height:44px;padding:9px 0;cursor:pointer;color:#d9ccaf}
 #practiceLab [data-example] strong{font-weight:500}
 #practiceLab [data-example] p{margin:4px 0;color:#b4c0cd}
 #practiceLab [data-practice-status]{margin:12px 0;font-size:13px;line-height:1.6;color:#e3ce9c;overflow-wrap:anywhere}
-#practiceLab [data-repeat]{width:100%}
+#practiceLab [data-repeat]{width:100%;flex:none}
 #practiceLab [data-stage]{min-width:0;min-height:0;position:relative;overflow:hidden;background:#0b121a}
 #practiceLab iframe{display:block;width:100%;height:100%;border:0}
 #practiceLab [data-empty],#practiceLab [data-loading-screen]{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:16px;text-align:center;color:#b8c4d1;font-size:16px;line-height:1.6}
@@ -30,8 +33,8 @@
  #practiceLab>header{gap:8px;padding:8px}
  #practiceLab>header button{padding:9px 10px}
  #practiceLab .practiceBody{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
- #practiceLab .practiceChoices{max-height:30dvh;padding:10px 12px;border-right:0;border-bottom:1px solid #c2cedb1a}
- #practiceLab [data-pick]{grid-template-columns:1fr 1fr;gap:10px}
+ #practiceLab .practiceChoices{height:34dvh;padding:10px 12px;border-right:0;border-bottom:1px solid #c2cedb1a}
+ #practiceLab [data-pick]{grid-template-columns:1fr;gap:10px}
  #practiceLab[data-mode=roles] [data-pick]{grid-template-columns:1fr}
  #practiceLab [data-example]{margin-top:8px;padding-top:0}
  #practiceLab [data-example] summary{padding:9px 0}

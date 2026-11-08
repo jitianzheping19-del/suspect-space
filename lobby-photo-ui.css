@@ -31,4 +31,7 @@ body[data-lobby-photo="countdown"] :is(#lobbyUseBtn,#startBtn,#readyBtn,#lobbyOp
 @media(max-height:500px) and (orientation:landscape){.lobbyPhotoResult{padding:12px 16px;gap:10px}.photoCameraHome{grid-template-columns:100px 1fr;gap:6px 20px;padding:0}.photoCameraIllustration{grid-row:1/5;margin:6px;transform:scale(.8)}.photoCameraHome h3{font-size:17px}.photoCameraHome p{font-size:11px;line-height:1.5}.photoCameraHome>small{font-size:9px}.photoLibraryGrid{max-height:110px}.photoBackgroundGrid i{height:55px}.photoChrome{margin:18px 22px}.photoBottom{left:24%;right:24%;bottom:4px}.photoFocus strong{font-size:70px}}
 @media(prefers-reduced-motion:reduce){#lobbyPhotoDialog button{transition:none}}
 
-.photoPersonalOptions{display:grid;gap:8px;text-align:left;width:100%;max-width:440px;margin:12px auto}.photoPersonalOptions label{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.photoPersonalOptions :is(input:not([type=checkbox]),select){min-height:40px;font-size:16px;max-width:100%;box-sizing:border-box}
+#lobbyPhotoPoseBtn{position:fixed;z-index:2147483646;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:48px;min-height:48px;padding:4px;border:1px solid #a4ded4;border-radius:12px;background:#173849ed;color:#f1fff9;font:700 14px/1.2 system-ui;touch-action:manipulation;pointer-events:auto}
+#lobbyPhotoPoseBtn small{font-size:10px;font-weight:500}
+#lobbyPhotoPoseBtn[hidden]{display:none!important}
+#lobbyPhotoPoseBtn:focus-visible{outline:2px solid #d8ffee;outline-offset:2px}

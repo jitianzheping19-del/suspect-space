@@ -147,7 +147,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   }
   box(8.7, .02, .02, metal, 0, 1.84, 0);
   label(s.task.instrument || s.task.name, 0, 2.13, .3, 7.9, '#bddee8', scene, .29);
-  const statusScreen = screen(0, -1.83, 7.5, .26, false);
+  const statusScreen = screen(0, mode === 'waveform' ? -2.13 : -1.83, 7.5, .26, false);
   const progressLight = box(.035, .035, .035, green, -4.3, 2.12, .2);
 
   if (mode === 'circuit') {
@@ -248,13 +248,19 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     const beacon = ring(.15, .018, glow('#85ddd8', .25), ...s.signalSource, .2);
     updates.push(() => { beacon.material.opacity = .65 + Math.sin(s.elapsed*3)*.2; });
   } else if (mode === 'waveform') {
-    grid(0,.1,7.5,2.6);const pieces=[];const waveAt=t=>Math.sin(t*s.frequency+s.phase)*.6+Math.sin(t*4.5+s.phase*.5)*.2;line(Array.from({length:160},(_,i)=>[-3.5+i/159*7,1.5+waveAt(i/159*4)*.24,.4]),'#e5d3a5');label('お手本',-4.2,1.5,.5,.8);
+    const pieces=[],waveAt=t=>Math.sin(t*s.frequency+s.phase)*.6+Math.sin(t*4.5+s.phase*.5)*.2;
+    label('お手本',-4.2,.9,.65,1);label('並べる',-4.2,-.95,.65,1);
     for (let i = 0; i < 4; i++) {
-      const g = group(0, .1, .3); plate(1.63, 2.1, .13, metal, 0, 0, 0, g); plate(1.46, 1.8, .04, dark, 0, 0, .17, g);
-      const f=t=>Math.sin(t*s.frequency+s.phase)*.6+Math.sin(t*4.5+s.phase*.5)*.2;
-      line(Array.from({ length: 45 }, (_, j) => [-.7 + j / 44 * 1.4, f(i + j / 44), .27]), '#6be8dd', g);
-      for (const side of [-1, 1]) { const end = f(i + (side > 0 ? 1 : 0)); disc(.07, .07, brass, side * .77, end, .28, g); }
-      hit('wave:' + i, 0, 0, 1.65, 2.25, 'drag', g, .7); pieces.push(g);
+      const reference=group(-2.7+i*1.8,.9,.3),g=group(0,-.95,.3);
+      // Both rows use identical samples, panel sizes and spacing. Only the
+      // lower row is shuffled, so the target stays directly comparable.
+      const points=Array.from({length:45},(_,j)=>[-.7+j/44*1.4,waveAt(i+j/44),.27]);
+      for(const [panel,kind] of [[reference,'reference'],[g,'piece']]){
+        plate(1.63,1.75,.13,metal,0,0,0,panel);plate(1.46,1.62,.04,dark,0,0,.17,panel);
+        line(points,'#6be8dd',panel).name='waveform-'+kind+'-'+i;
+        for(const side of [-1,1])disc(.07,.07,brass,side*.77,waveAt(i+(side>0?1:0)),.28,panel);
+      }
+      hit('wave:' + i, 0, 0, 1.65, 1.75, 'drag', g, .7); pieces.push(g);
     }
     updates.push(() => pieces.forEach((g, i) => { g.position.x = s.dragging === i ? s.dragX : -2.7 + s.order.indexOf(i) * 1.8; g.position.z = s.dragging === i ? .8 : .3; g.rotation.z = s.dragging === i ? .025 : 0; }));
   } else if (mode === 'tubing') {

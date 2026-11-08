@@ -3,3 +3,8 @@ body .ssTicketBadge{box-sizing:border-box;right:calc(184px + env(safe-area-inset
 @media(max-height:600px) and (orientation:landscape){body .ssTicketBadge{right:max(12px,env(safe-area-inset-right));top:calc(max(8px,env(safe-area-inset-top)) + 48px);height:30px;min-height:30px;max-width:125px;padding:4px 9px;font-size:12px}}
 body:has(#inputSettingsDialog:not(.hidden)) .ssTicketBadge,body:has(#costumeStudio:not(.hidden)) .ssTicketBadge{visibility:hidden;pointer-events:none}
 .ssTicketBadge[hidden]{display:none!important}
+.ssTicketBadge:has(.gachaTicketBalance){display:flex;align-items:center;justify-content:center;gap:8px;padding-top:3px;padding-bottom:3px}
+.ssTicketBadge .gachaTicketBalance{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.1;min-width:0}
+.ssTicketBadge .gachaTicketBalance small{font-size:9px;font-weight:500}
+.ssTicketBadge .gachaTicketBalance strong{font-size:11px;font-variant-numeric:tabular-nums}
+.ssTicketBadge .gachaTicketBalance+span{color:#ffe19b}
