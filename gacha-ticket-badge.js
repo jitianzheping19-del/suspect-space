@@ -1,5 +1,3 @@
-import './optional-launchers.css';
-
 export function updateGachaTicketBadge(badge, wallet, failed = false) {
  if (failed) {
   badge.textContent = 'ガチャを再試行';
