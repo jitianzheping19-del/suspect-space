@@ -20,7 +20,7 @@ for(const file of ['index.html','space-suspect-complete.html']){
  const c={$:id=>controls.get(id),document:{querySelectorAll:()=>[...controls.values()]},localStorage:{getItem:()=>null},
   clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),roleCooldownSettingsFromInputs:()=>({}),selectedRoleCounts:()=>({samurai:1}),
   readLastMatchSettings:()=>null,game:{phase:'lobby',settings:{},lobbySettings:{}},now:()=>stamp,token:()=>String(stamp),
-  rotation:{history:{}},impostorStreak:{},expansionKillCooldown:(_p,_s,base)=>base,isMiniPlayer:p=>p?.mini||p?.subrole==='mini',roleCounts:{samurai:1},impostorCount:1,botCount:2,waveModeSelected:'normal',selectedTaskCount:6,nextRound:2,
+  currentMapMode:'classic',taskAssignmentUsage:new Map([['power',2],['card',1]]),rotation:{history:{}},impostorStreak:{},expansionKillCooldown:(_p,_s,base)=>base,isMiniPlayer:p=>p?.mini||p?.subrole==='mini',roleCounts:{samurai:1},impostorCount:1,botCount:2,waveModeSelected:'normal',selectedTaskCount:6,nextRound:2,
   waveSetup:{countdownEndsAt:50000,playStartsAt:50000},roster:{a:{role:'impostor',subrole:'samurai'}},
   lobbySettingsPayload:s=>({matchSettings:s}),code:'1234',roomCode:'1234',db:{},ref:(_,path)=>path,set:async(_,body)=>{stored=body;},
   upgradedRoleCooldownMs:()=>0,roleBehaviorValue:()=>0,
@@ -34,6 +34,7 @@ for(const file of ['index.html','space-suspect-complete.html']){
  await vm.runInContext('(async()=>{const matchSettingsSnapshot=snapshot;'+start+'})()',c);
  for(const [id,value]of Object.entries(values))if(id.endsWith('Seconds'))assert.equal(stored.settings[id],value,file+' omitted '+id);
  assert.equal(stored.settings.samuraiCanVent,true);
+ assert.equal(stored.taskUsage.classic.power,2);assert.equal(stored.taskUsage.classic.card,1);
  vm.runInContext(between('    const killCooldownFor =','    const SPEED ='),c);
  vm.runInContext('game.settings=snapshot;',c);
  const initial=between('        const initialRoleCooldown=','        saveLastMatchSettings(');
