@@ -156,3 +156,5 @@ body .ssGacha .gachaItemLabel:focus-visible,.gachaItemDetail canvas:focus-visibl
 .gachaItemDetail p,.gachaPreviewHint{flex:none;margin:0;text-align:center;color:#e6d5b0}
 .gachaPreviewHint{font-size:12px}
 @media(max-height:450px){.gachaItemDetail{padding:10px;gap:4px}.gachaItemDetail p{font-size:11px}}
+
+.gachaRail>article{content-visibility:auto;contain-intrinsic-size:auto 165px}

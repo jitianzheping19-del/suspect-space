@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict'),{chromium}=require('playwright');
 (async()=>{
  const root=process.cwd(),requests=[];
- const html=`<meta charset="utf-8"><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script><section data-settings-section="operation"></section><button id="abilityBtn" style="width:100px;height:60px">能力</button><script type="module">
+ const html=`<meta charset="utf-8"><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script><section data-settings-section="operation"></section><button id="abilityBtn" style="width:100px;height:60px">能力</button><script type="module">
  import * as THREE from 'three';import {createLazyGacha,createLazyPractice} from '/optional-features.js';import {installActionPreview} from '/interaction-feedback.js';
  window.available=true;window.count=0;window.selected=false;
  const selection=()=>window.selected;document.querySelector('#abilityBtn').onclick=()=>{window.count++;window.selected=true;};
@@ -20,6 +20,7 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
    await page.mouse.up();assert.equal(await page.evaluate(()=>window.count),0);assert(await page.locator('#actionPreviewHint').isHidden());
   }
   await page.waitForTimeout(850);await button.click();assert.equal(await page.evaluate(()=>window.count),1);await page.evaluate(()=>{preview.sync();window.dispatchEvent(new Event('blur'));});assert.equal(await page.evaluate(()=>window.selected),false);
+  await page.waitForTimeout(500);assert(requests.includes('/gacha-ui.js'),'gacha module prefetched during idle lobby');assert.equal(await page.locator('.ssGacha').count(),0,'prefetch creates no hidden renderer or screen');
   const roles=await page.evaluate(async()=>{
    const {createExpansionRoleUI}=await import('/oct28-role-ui.js');const checked=[];
    for(const role of ['bodyguard','missionary','cracker','eater','sandworm','bomber','carrier']){
@@ -33,6 +34,6 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
   await page.locator('#practiceLab [data-close]').click();await page.evaluate(()=>{available=false;practice.sync();});await page.evaluate(()=>practice.open());assert(await page.locator('#practiceLab').isHidden());await page.evaluate(()=>{available=true;practice.sync();});
   await page.locator('.ssTicketBadge').click();await page.locator('.ssGacha').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('.ssTicketBadge').textContent.includes('12'));assert.equal(await page.locator('.ssTicketBadge').count(),1);assert.equal(await page.locator('#gachaItemDetail').count(),1);
   await page.locator('.gachaClose').click();await page.evaluate(()=>{preview.dispose();gacha.dispose();practice.dispose();});assert.equal(await page.locator('#actionCancel,#actionPreviewHint,#practiceLab,#poolPracticeBtn,.ssGacha,.ssTicketBadge,#gachaItemDetail').count(),0);assert.deepEqual(errors,[]);
-  console.log('PASS real lazy launchers, no idle imports, wallet preservation, repeated practice, blur/hidden cancellation, complete disposal');
+  console.log('PASS real lazy launchers, deferred practice and gacha prefetch, wallet preservation, repeated practice, blur/hidden cancellation, complete disposal');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

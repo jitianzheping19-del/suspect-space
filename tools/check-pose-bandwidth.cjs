@@ -18,7 +18,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
    peerPoseNetwork:null,peerPoseJoined:true,peerPoseUiTimer:0,peerPoseLastRows:new Map(),peerPoseFirebaseAt:new Map(),PeerPoseNetwork:Network,
    game:{phase:'play',round:1,settings:{positionUpdateMode:'light'},players:{}},players:{u:{...row}},roomRosterRaw:{u:{...row}},roomPositionsRaw:{u:{...row}},roomPositionKnown:new Set(['u']),
    botPositions:{},position:{x:1,z:2},lastSent:{x:999,z:999,at:0},lobbyFacingYaw:0,lobbyWalking:false,lobbyElevation:0,
-   lobbyKartRiding:false,lobbyCircuitLocation:false,lobbyVehicleSpawned:false,kartSession:'s',circuitCourse:'sky',avatars:new Map(),window:{},db:{},
+   lobbyCarRiding:false,lobbyKartRiding:false,lobbyCircuitLocation:false,lobbyVehicleSpawned:false,kartSession:'s',circuitCourse:'sky',avatars:new Map(),window:{},db:{},
    isHost:()=>true,isLobbyInteractionActive:()=>c.game.phase==='lobby',distance:(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),now:()=>t,ref:(_,p)=>p,serverTimestamp:()=>({'.sv':'timestamp'}),
    update:async(p,patch)=>{writes.push({path:p,patch});if(pending)await new Promise(r=>release=r);},set:async(p,patch)=>writes.push({path:p,patch}),toast:e=>{throw e;},safeRenderUI:()=>{},setTimeout:()=>1,clearTimeout:()=>{},
    setInterval:(f,ms)=>{assert.equal(ms,50);callback=f;}
@@ -37,6 +37,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
   direct=true;c.game.phase='lobby';t+=50;await callback();writes=[];
   for(let i=0;i<1200;i++){t+=50;await callback();}assert.equal(writes.length,1,'idle lobby writes only its final stop checkpoint after a moving phase transition');
   writes=[];for(let i=0;i<1200;i++){t+=50;await callback();}assert.equal(writes.length,0,'settled idle lobby must not publish periodic positions');
+  writes=[];c.lobbyCarRiding=true;t+=50;await callback();assert(writes.some(w=>w.patch.lobbyVehicle===true),'mount saved as a structural pose change');writes=[];c.lobbyCarRiding=false;t+=50;await callback();assert(writes.some(w=>w.patch.lobbyVehicle===false),'dismount clears the durable vehicle flag');
   pending=true;c.game.round++;t+=50;c.position.x+=1;const captured=c.position.x,slow=callback();await Promise.resolve();t+=50;c.position.x+=2;vm.runInContext('publishDirectRoomPose()',c);assert.equal(c.players.u.x,c.position.x,'slow durable writes must not block live poses');release();await slow;pending=false;assert.equal(c.lastSent.x,captured,'async checkpoint commits its captured position');
   c.game.lobbySettings={positionUpdateMode:'standard'};t+=50;await callback();assert(c.peerPoseNetwork.context,'every mode must retain the low-traffic direct lane');
   console.log('PASS',file,'60 Hz samples, no periodic RTC position writes, one stop snapshot, bounded recovery, local facing, idle lobby and delayed writes');

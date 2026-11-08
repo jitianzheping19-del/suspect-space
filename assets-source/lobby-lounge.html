@@ -782,7 +782,7 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
     }));
     window.addEventListener("message", (event) => {
       if(event.source!==parent)return;
-      if(event.data?.type==="lobby-return-reset"||event.data?.type==="lobby-reset"){player.root.position.y=0;player.root.userData.lobbyHeightInitialized=false;lobbyJumpVelocity=0;} if(event.data?.type==="lobby-force-stand"){const own=lobbyVisualStates.get(visualSelfUid);if(own){own.seated=false;own.sitting=false;own.seatId=null;own.lobbyY=0;}player.root.position.y=0;player.root.userData.lobbyHeightInitialized=false;lobbyJumpVelocity=0;return;} if(event.data?.type==="lobby-jump"){if(window.__lobbyGames?.motionLocked())return;const p=player.root.position,support=lobbyPlatformAt(p.x,p.z,p.y+.05);if(lobbyJumpVelocity===0&&p.y<=support+.06){lobbyJumpVelocity=LOBBY_JUMP_STRENGTH;lobbyJumpQueuedUntil=0;}else lobbyJumpQueuedUntil=performance.now()+220;return;} if(event.data?.type==="lobby-unstuck"){const p=player.root.position,options=Array.from({length:16},(_,i)=>{const a=i*Math.PI/8;return {x:p.x+Math.cos(a)*1.1,z:p.z+Math.sin(a)*1.1};});const free=options.find(q=>canMoveTo(q.x,q.z)&&![...lobbyVisualStates].some(([id,state])=>id!==visualSelfUid&&state.online!==false&&Math.hypot(q.x-(state.x||0),q.z-(state.z||0))<1.05));if(free){p.x=free.x;p.z=free.z;parent.postMessage({type:"lobby-position",gameArea:window.__lobbyGames?.area||"lobby",x:p.x,z:p.z,lobbyY:p.y,yaw:player.root.rotation.y,walking:false},"*");}return;} if(event.data?.type==="lobby-studio-state"){window.__lobbyStudioOpen=event.data.open===true;keyboardKeys.clear();lobbyStick.set(0,0);return;} if(event.data?.type==="lobby-set-costume"){if(typeof event.data.costume==="string"&&/^(?:custom|premium)-[a-z0-9-]{3,160}$/.test(event.data.costume))setLobbyCostume(event.data.costume,false);return;} if(event.data?.type==="lobby-customize-toggle"){if(Math.hypot(player.root.position.x+4.3,player.root.position.z+3.8)<2.0)customizePanel.classList.toggle("open");return;} if (event.data?.type === "lobby-stick") {
+      if(event.data?.type==="lobby-return-reset"||event.data?.type==="lobby-reset"){player.root.position.y=0;player.root.userData.lobbyHeightInitialized=false;lobbyJumpVelocity=0;} if(event.data?.type==="lobby-force-stand"){const own=lobbyVisualStates.get(visualSelfUid);if(own){own.seated=false;own.sitting=false;own.seatId=null;own.lobbyY=0;}player.root.position.y=0;player.root.userData.lobbyHeightInitialized=false;lobbyJumpVelocity=0;return;} if(event.data?.type==="lobby-jump"){if(window.__lobbyRaceCar?.jump())return;if(window.__lobbyGames?.motionLocked())return;const p=player.root.position,support=lobbyPlatformAt(p.x,p.z,p.y+.05);if(lobbyJumpVelocity===0&&p.y<=support+.06){lobbyJumpVelocity=LOBBY_JUMP_STRENGTH;lobbyJumpQueuedUntil=0;}else lobbyJumpQueuedUntil=performance.now()+220;return;} if(event.data?.type==="lobby-unstuck"){const p=player.root.position,options=Array.from({length:16},(_,i)=>{const a=i*Math.PI/8;return {x:p.x+Math.cos(a)*1.1,z:p.z+Math.sin(a)*1.1};});const free=options.find(q=>canMoveTo(q.x,q.z)&&![...lobbyVisualStates].some(([id,state])=>id!==visualSelfUid&&state.online!==false&&Math.hypot(q.x-(state.x||0),q.z-(state.z||0))<1.05));if(free){p.x=free.x;p.z=free.z;parent.postMessage({type:"lobby-position",gameArea:window.__lobbyGames?.area||"lobby",x:p.x,z:p.z,lobbyY:p.y,yaw:player.root.rotation.y,walking:false},"*");}return;} if(event.data?.type==="lobby-studio-state"){window.__lobbyStudioOpen=event.data.open===true;keyboardKeys.clear();lobbyStick.set(0,0);return;} if(event.data?.type==="lobby-set-costume"){if(typeof event.data.costume==="string"&&/^(?:custom|premium)-[a-z0-9-]{3,160}$/.test(event.data.costume))setLobbyCostume(event.data.costume,false);return;} if(event.data?.type==="lobby-customize-toggle"){if(Math.hypot(player.root.position.x+4.3,player.root.position.z+3.8)<2.0)customizePanel.classList.toggle("open");return;} if (event.data?.type === "lobby-stick") {
         lobbyStick.set(event.data.x || 0, event.data.z || 0);
         return;
       }
@@ -970,7 +970,9 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
     function lobbyPlatformAt(x,z,maxTop=Infinity){const gameFloor=window.__lobbyGames?.groundAt(x,z,maxTop);if(gameFloor!==null&&gameFloor!==undefined)return gameFloor;const water=sampleLobbyPool(x,z,performance.now()*.001);let top=water?water.feet:Math.abs(x-7.8)<2.745&&Math.abs(z-8.45)<2.735?-1:0;for(const obstacle of obstacles){if(obstacle.platform&&obstacle.top<=maxTop+(obstacle.photoStep ? .7 : .001)&&(Math.abs(x-obstacle.x)<=obstacle.w/2+.12&&Math.abs(z-obstacle.z)<=obstacle.d/2+.12))top=Math.max(top,obstacle.top);}return Math.max(-2,Math.min(60,top));}
 
     let lastPositionMessage = 0;
-    function updatePlayer(dt, elapsed) { const localState=lobbyVisualStates.get(visualSelfUid),motionLocked=window.__lobbyGames?.motionLocked()||window.__lobbyStudioOpen===true||performance.now()<(window.__lobbyMotionUntil||0),seated=(localState?.seated===true||localState?.sitting===true)&&!motionLocked; const position=player.root.position;if(!motionLocked&&!seated)driftLobbyPool(position,dt,performance.now()*.001,canMoveTo);const previousY=position.y,support=lobbyPlatformAt(position.x,position.z,position.y+.05);if(!seated){if(lobbyJumpVelocity===0&&lobbyJumpQueuedUntil>performance.now()&&position.y<=support+.06){lobbyJumpVelocity=LOBBY_JUMP_STRENGTH;lobbyJumpQueuedUntil=0;}if(lobbyJumpVelocity!==0||position.y>support+.025){lobbyJumpVelocity-=17*dt;position.y=Math.max(support,position.y+lobbyJumpVelocity*dt);}else position.y=support;}else{position.y=support;lobbyJumpVelocity=0;} const landingTop=lobbyPlatformAt(position.x,position.z,previousY+.05);if(lobbyJumpVelocity<=0&&position.y<=landingTop+.025){position.y=landingTop;lobbyJumpVelocity=0;} if(motionLocked||seated){if(elapsed-lastPositionMessage>=1/60){lastPositionMessage=elapsed;parent.postMessage({type:"lobby-position",gameArea:window.__lobbyGames?.area||"lobby",x:position.x,z:position.z,lobbyY:position.y,yaw:player.root.rotation.y,walking:false},"*");}player.legs.forEach(leg=>leg.rotation.x=0);return;}
+    function updatePlayer(dt, elapsed) {
+      if(window.__lobbyRaceCar?.tick(dt,{forward:Number(pressed("KeyW","ArrowUp"))-Number(pressed("KeyS","ArrowDown"))-lobbyStick.z,turn:Number(pressed("KeyD","ArrowRight"))-Number(pressed("KeyA","ArrowLeft"))+lobbyStick.x}))return;
+      const localState=lobbyVisualStates.get(visualSelfUid),motionLocked=window.__lobbyGames?.motionLocked()||window.__lobbyStudioOpen===true||performance.now()<(window.__lobbyMotionUntil||0),seated=(localState?.seated===true||localState?.sitting===true)&&!motionLocked; const position=player.root.position;if(!motionLocked&&!seated)driftLobbyPool(position,dt,performance.now()*.001,canMoveTo);const previousY=position.y,support=lobbyPlatformAt(position.x,position.z,position.y+.05);if(!seated){if(lobbyJumpVelocity===0&&lobbyJumpQueuedUntil>performance.now()&&position.y<=support+.06){lobbyJumpVelocity=LOBBY_JUMP_STRENGTH;lobbyJumpQueuedUntil=0;}if(lobbyJumpVelocity!==0||position.y>support+.025){lobbyJumpVelocity-=17*dt;position.y=Math.max(support,position.y+lobbyJumpVelocity*dt);}else position.y=support;}else{position.y=support;lobbyJumpVelocity=0;} const landingTop=lobbyPlatformAt(position.x,position.z,previousY+.05);if(lobbyJumpVelocity<=0&&position.y<=landingTop+.025){position.y=landingTop;lobbyJumpVelocity=0;} if(motionLocked||seated){if(elapsed-lastPositionMessage>=1/60){lastPositionMessage=elapsed;parent.postMessage({type:"lobby-position",gameArea:window.__lobbyGames?.area||"lobby",x:position.x,z:position.z,lobbyY:position.y,yaw:player.root.rotation.y,walking:false},"*");}player.legs.forEach(leg=>leg.rotation.x=0);return;}
       const horizontal =
         Number(pressed("KeyD", "ArrowRight")) -
         Number(pressed("KeyA", "ArrowLeft")) + lobbyStick.x;
@@ -1098,7 +1100,7 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
       const dt = Math.min(clock.getDelta(), 0.05);
       elapsed += dt;window.__lobbyGachaUpdate?.(elapsed);window.__lobbyGachaGuideUpdate?.(stamp);window.__lobbyPracticeGuideUpdate?.(stamp);
 
-      updatePlayer(dt, elapsed);window.__lobbyGames?.update(dt);if(lobbyTouchLookPointer===null){const settle=Math.exp(-8*dt),difference=Math.atan2(Math.sin(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)),Math.cos(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)));if(lobbyTouchLookYaw!==null){lobbyTouchLookYaw+=difference*(1-settle);if(Math.abs(difference)<.002)lobbyTouchLookYaw=null;}lobbyTouchLookPitch*=settle;} {const cameraMode=window.__lobbyGames?.area==='soccer'?'soccer':window.__lobbyCameraPerspective||'third'; if(cameraMode==='soccer'){window.__lobbyGames.updateCamera(dt,controls);}else if(window.__lobbyCameraFixedUntil>performance.now()){player.root.visible=true;controls.enabled=false;camera.position.set(window.__lobbyCameraFocusX||0,5.8,6);camera.lookAt(window.__lobbyCameraFocusX||0,1,-4.8);}else if(cameraMode==='first'){player.root.visible=false;controls.enabled=false;const yaw=lobbyTouchLookYaw??player.root.rotation.y,lookReach=8*Math.cos(lobbyTouchLookPitch),own=lobbyVisualStates.get(visualSelfUid),sitting=own?.seated===true||own?.sitting===true,eyeY=player.root.position.y+1.95;camera.up.set(0,1,0);camera.position.set(player.root.position.x,eyeY,player.root.position.z);camera.lookAt(player.root.position.x+Math.sin(yaw)*lookReach,eyeY+Math.sin(lobbyTouchLookPitch)*8,player.root.position.z+Math.cos(yaw)*lookReach);}else if(cameraMode==='overhead'){player.root.visible=true;controls.enabled=false;camera.position.set(player.root.position.x,player.root.position.y+12,player.root.position.z+8);camera.lookAt(player.root.position.x,player.root.position.y,player.root.position.z);}else{player.root.visible=true;controls.rotateSpeed=.25;if(window.__lastLobbyCameraMode!=='third'){camera.position.set(player.root.position.x+10.9,player.root.position.y+14.5,player.root.position.z+16.7);controls.target.copy(player.root.position);}controls.enabled=true;const follow=1-Math.exp(-4*dt);camera.position.x+=(player.root.position.x-controls.target.x)*follow;camera.position.y+=(player.root.position.y-controls.target.y)*follow;camera.position.z+=(player.root.position.z-controls.target.z)*follow;controls.target.lerp(player.root.position,follow);controls.update();}window.__lastLobbyCameraMode=cameraMode;}
+      updatePlayer(dt, elapsed);window.__lobbyGames?.update(dt);if(lobbyTouchLookPointer===null){const settle=Math.exp(-8*dt),difference=Math.atan2(Math.sin(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)),Math.cos(player.root.rotation.y-(lobbyTouchLookYaw??player.root.rotation.y)));if(lobbyTouchLookYaw!==null){lobbyTouchLookYaw+=difference*(1-settle);if(Math.abs(difference)<.002)lobbyTouchLookYaw=null;}lobbyTouchLookPitch*=settle;} {const cameraMode=window.__lobbyGames?.area==='soccer'?'soccer':window.__lobbyCameraPerspective||'third'; if(window.__lobbyRaceCar?.updateCamera(dt)){}else if(cameraMode==='soccer'){window.__lobbyGames.updateCamera(dt,controls);}else if(window.__lobbyCameraFixedUntil>performance.now()){player.root.visible=true;controls.enabled=false;camera.position.set(window.__lobbyCameraFocusX||0,5.8,6);camera.lookAt(window.__lobbyCameraFocusX||0,1,-4.8);}else if(cameraMode==='first'){player.root.visible=false;controls.enabled=false;const yaw=lobbyTouchLookYaw??player.root.rotation.y,lookReach=8*Math.cos(lobbyTouchLookPitch),own=lobbyVisualStates.get(visualSelfUid),sitting=own?.seated===true||own?.sitting===true,eyeY=player.root.position.y+1.95;camera.up.set(0,1,0);camera.position.set(player.root.position.x,eyeY,player.root.position.z);camera.lookAt(player.root.position.x+Math.sin(yaw)*lookReach,eyeY+Math.sin(lobbyTouchLookPitch)*8,player.root.position.z+Math.cos(yaw)*lookReach);}else if(cameraMode==='overhead'){player.root.visible=true;controls.enabled=false;camera.position.set(player.root.position.x,player.root.position.y+12,player.root.position.z+8);camera.lookAt(player.root.position.x,player.root.position.y,player.root.position.z);}else{player.root.visible=true;controls.rotateSpeed=.25;if(window.__lastLobbyCameraMode!=='third'){camera.position.set(player.root.position.x+10.9,player.root.position.y+14.5,player.root.position.z+16.7);controls.target.copy(player.root.position);}controls.enabled=true;const follow=1-Math.exp(-4*dt);camera.position.x+=(player.root.position.x-controls.target.x)*follow;camera.position.y+=(player.root.position.y-controls.target.y)*follow;camera.position.z+=(player.root.position.z-controls.target.z)*follow;controls.target.lerp(player.root.position,follow);controls.update();}window.__lastLobbyCameraMode=cameraMode;}
 
       window.__loungeLastActiveAt??=stamp;
       let loungeIdle=keyboardKeys.size===0&&Math.abs(lobbyStick.x)+Math.abs(lobbyStick.z)<.001&&lobbyJumpVelocity===0&&lobbyTouchLookPointer===null;
@@ -1122,16 +1124,17 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
       customizeButton.classList.toggle("near", nearCustomize);
       if (!nearCustomize) customizePanel.classList.remove("open");
 
-      window.updateLobbyArrivals?.(); window.updateLobbyVisualPoses?.(visualDt); window.__lobbyExpansion?.update(stamp); if(window.__lobbyCustomizeArrow)window.__lobbyCustomizeArrow.position.y=3.65+Math.sin(performance.now()*.003)*.14; const stateForNearCheck=lobbyVisualStates.get(visualSelfUid),syncNearCustomize=Math.hypot(player.root.position.x+4.3,player.root.position.z+3.8)<2.0,syncNearMonitor=Math.hypot(player.root.position.x-3.75,player.root.position.z+5.42)<2.6,syncNearUpdates=Math.hypot(player.root.position.x+9.7,player.root.position.z+5.1)<2.2,syncNearSeat=!!(stateForNearCheck?.seated||stateForNearCheck?.sitting)||lobbySeats.some(seat=>{if([...lobbyVisualStates].some(([id,state])=>id!==visualSelfUid&&state.online!==false&&state.seatId===seat.id))return false;return Math.hypot(player.root.position.x-seat.x,player.root.position.z-seat.z)<1.9;}),adjacencyClock=performance.now(),adjacentPlayers=[...lobbyVisualStates].some(([id,state])=>id!==visualSelfUid&&state.online!==false&&Math.hypot(player.root.position.x-(state.x||0),player.root.position.z-(state.z||0))<1.45&&!remoteArrivals.has(id)&&!remoteDepartures.has(id)&&Math.abs((Number(state.lobbyY)||0)-player.root.position.y)<.55); if(adjacentPlayers)window.__lobbyAdjacentSince=window.__lobbyAdjacentSince||adjacencyClock;else window.__lobbyAdjacentSince=0; const syncNeedsNudge=adjacentPlayers&&adjacencyClock-window.__lobbyAdjacentSince>=5000; const lobbyUiInteractionKey=String(syncNearCustomize)+":"+String(syncNearSeat)+":"+String(syncNearMonitor)+":"+String(syncNearUpdates)+":"+String(syncNeedsNudge); if(window.__lobbyInteractionKey!==lobbyUiInteractionKey){window.__lobbyInteractionKey=lobbyUiInteractionKey;parent.postMessage({type:"lobby-interaction-state",nearCustomize:syncNearCustomize,nearSeat:syncNearSeat,nearMonitor:syncNearMonitor,nearUpdates:syncNearUpdates,needsNudge:syncNeedsNudge},"*");}
+      window.updateLobbyArrivals?.(); window.updateLobbyVisualPoses?.(visualDt); window.__lobbyRaceCar?.visuals(visualDt); window.__lobbyExpansion?.update(stamp); if(window.__lobbyCustomizeArrow)window.__lobbyCustomizeArrow.position.y=3.65+Math.sin(performance.now()*.003)*.14; const stateForNearCheck=lobbyVisualStates.get(visualSelfUid),syncNearCustomize=Math.hypot(player.root.position.x+4.3,player.root.position.z+3.8)<2.0,syncNearMonitor=Math.hypot(player.root.position.x-3.75,player.root.position.z+5.42)<2.6,syncNearUpdates=Math.hypot(player.root.position.x+9.7,player.root.position.z+5.1)<2.2,syncNearSeat=!!(stateForNearCheck?.seated||stateForNearCheck?.sitting)||lobbySeats.some(seat=>{if([...lobbyVisualStates].some(([id,state])=>id!==visualSelfUid&&state.online!==false&&state.seatId===seat.id))return false;return Math.hypot(player.root.position.x-seat.x,player.root.position.z-seat.z)<1.9;}),adjacencyClock=performance.now(),adjacentPlayers=[...lobbyVisualStates].some(([id,state])=>id!==visualSelfUid&&state.online!==false&&Math.hypot(player.root.position.x-(state.x||0),player.root.position.z-(state.z||0))<1.45&&!remoteArrivals.has(id)&&!remoteDepartures.has(id)&&Math.abs((Number(state.lobbyY)||0)-player.root.position.y)<.55); if(adjacentPlayers)window.__lobbyAdjacentSince=window.__lobbyAdjacentSince||adjacencyClock;else window.__lobbyAdjacentSince=0; const syncNeedsNudge=adjacentPlayers&&adjacencyClock-window.__lobbyAdjacentSince>=5000; const lobbyUiInteractionKey=String(syncNearCustomize)+":"+String(syncNearSeat)+":"+String(syncNearMonitor)+":"+String(syncNearUpdates)+":"+String(syncNeedsNudge); if(window.__lobbyInteractionKey!==lobbyUiInteractionKey){window.__lobbyInteractionKey=lobbyUiInteractionKey;parent.postMessage({type:"lobby-interaction-state",nearCustomize:syncNearCustomize,nearSeat:syncNearSeat,nearMonitor:syncNearMonitor,nearUpdates:syncNearUpdates,needsNudge:syncNeedsNudge},"*");}
 
       updateLobbyCompanions(visualDt,stamp);
       lobbyBudget.shadows(renderer,stamp);
       if(window.__lobbyPhotoCamera){window.__lobbyPhotoCamera.aspect=innerWidth/innerHeight;window.__lobbyPhotoCamera.updateProjectionMatrix();}
       window.__lobbyGames?.beforeRender(visualDt);
+      const restoreCarView=window.__lobbyRaceCar?.beforeRender();
       const restorePhotoView=window.__lobbyPhotoView?.prepareView();
       try{renderer.render(scene, window.__lobbyPhotoCamera||camera);
        if(!window.SpaceSuspectLobby.__lobbyRendered){window.SpaceSuspectLobby.__lobbyRendered=true;parent.postMessage({type:'lobby-rendered'},'*');}
-      }finally{restorePhotoView?.();}
+      }finally{restorePhotoView?.();restoreCarView?.();}
       }finally{window.__lobbyGames?.afterRender();}
     }
 
@@ -4035,7 +4038,7 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
     let visualSelfUid="";const lobbyVisualStates=new Map();
     /* LOBBY_LIVE_POSE_BEGIN */
     const lobbyLivePoseStamps=new Map();
-    const lobbyLivePoseFields=['x','z','yaw','lobbyY','walking'];
+    const lobbyLivePoseFields=['x','z','yaw','lobbyY','walking','lobbyVehicle'];
     function mergeLobbyVisualState(id,incoming){
       const current=lobbyVisualStates.get(id),live=lobbyLivePoseStamps.get(id),stamp=Number(incoming?.updatedAt)||0;
       if(current&&live&&stamp<live){
@@ -4051,7 +4054,7 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
         if(id===visualSelfUid||!current||current.online===false||!pose||typeof pose!=='object')continue;
         const stamp=Number(pose.updatedAt),x=Number(pose.x),z=Number(pose.z),yaw=Number(pose.yaw),height=Number(pose.lobbyY);
         if(!Number.isFinite(stamp)||stamp<=0||stamp<(lobbyLivePoseStamps.get(id)||0)||![x,z,yaw,height].every(Number.isFinite)||Math.abs(x)>4096||Math.abs(z)>4096||height< -2||height>60)continue;
-        const patch={x,z,yaw,lobbyY:height,walking:pose.walking===true,updatedAt:stamp};
+        const patch={x,z,yaw,lobbyY:height,walking:pose.walking===true,lobbyVehicle:pose.lobbyVehicle===true,updatedAt:stamp};
         Object.assign(current,patch);lobbyLivePoseStamps.set(id,stamp);
       }
     }
@@ -4653,6 +4656,224 @@ function installLobbyPhotoCamera({THREE,renderer,scene,camera,player,crews=()=>[
  return{cancel,prepareView,render,get labelLayout(){return lastLabelLayout;}};
 }
 /* LOBBY_PHOTO_DECK_END */
+/* LOBBY_RACE_CAR_BEGIN */
+function createLobbyRaceCar(THREE){
+ const root=new THREE.Group();root.name='lobby-garage-race-car';
+ const body=new THREE.Group();body.name='race-car-body';root.add(body);
+ const paint=new THREE.MeshPhysicalMaterial({color:0x087f9e,metalness:.68,roughness:.25,clearcoat:1,clearcoatRoughness:.13});
+ const dark=new THREE.MeshStandardMaterial({color:0x09151c,metalness:.25,roughness:.48});
+ const gold=new THREE.MeshStandardMaterial({color:0xe0bb7f,metalness:.83,roughness:.26});
+ const alloy=new THREE.MeshStandardMaterial({color:0xb5c6cf,metalness:.88,roughness:.28});
+ const rubber=new THREE.MeshStandardMaterial({color:0x12171d,roughness:.92});
+ const seatMat=new THREE.MeshStandardMaterial({color:0x172735,roughness:.83});
+ const white=new THREE.MeshStandardMaterial({color:0xe9e5d7,metalness:.25,roughness:.34});
+ const led=new THREE.MeshBasicMaterial({color:0xc8f9ff,toneMapped:false});
+ const rearLed=new THREE.MeshBasicMaterial({color:0xff4a3c,toneMapped:false});
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const ctx=canvas.getContext('2d');
+ ctx.fillStyle='#141d24';ctx.fillRect(0,0,64,64);for(let y=0;y<64;y+=8)for(let x=0;x<64;x+=8){ctx.fillStyle=(x+y)%16?'#26333b':'#0d171e';ctx.fillRect(x,y,7,4);ctx.fillStyle='#39454b';ctx.fillRect(x,y,1,4);}
+ const weave=new THREE.CanvasTexture(canvas);weave.colorSpace=THREE.SRGBColorSpace;weave.wrapS=weave.wrapT=THREE.RepeatWrapping;weave.repeat.set(5,5);
+ const carbon=new THREE.MeshPhysicalMaterial({color:0x778a94,map:weave,metalness:.35,roughness:.38,clearcoat:.45});
+ const boxGeo=new THREE.BoxGeometry(1,1,1),sphereGeo=new THREE.SphereGeometry(1,24,12);
+ const mesh=(geo,mat,x=0,y=0,z=0,parent=body)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;parent.add(m);return m;};
+ const box=(mat,x,y,z,w,h,d,parent=body)=>{const m=mesh(boxGeo,mat,x,y,z,parent);m.scale.set(w,h,d);return m;};
+ const oval=(mat,x,y,z,w,h,d,parent=body)=>{const m=mesh(sphereGeo,mat,x,y,z,parent);m.scale.set(w,h,d);return m;};
+ const tube=(points,mat,r=.015,parent=body)=>mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p))),Math.max(16,points.length*6),r,6,false),mat,0,0,0,parent);
+ // Smooth longitudinal sections give the monocoque a tapered nose and shoulders.
+ function loft(rows,mat,parent=body){
+  const vertices=[],uv=[],indices=[],steps=24;
+  rows.forEach(([z,width,center,height],i)=>{for(let j=0;j<=steps;j++){const a=j/steps*Math.PI*2;vertices.push(Math.cos(a)*width,center+Math.sin(a)*height,z);uv.push(j/steps,i/(rows.length-1));}});
+  for(let i=0;i<rows.length-1;i++)for(let j=0;j<steps;j++){const a=i*(steps+1)+j,b=a+steps+1;indices.push(a,a+1,b,a+1,b+1,b);}
+  for(const i of [0,rows.length-1]){const center=vertices.length/3;vertices.push(0,rows[i][2],rows[i][0]);uv.push(.5,.5);for(let j=0;j<steps;j++){const a=i*(steps+1)+j;indices.push(...(i?[center,a,a+1]:[center,a+1,a]));}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(g,mat,0,0,0,parent);
+ }
+ const shellRows=[[-1.59,.57,.4,.14],[-1.4,.75,.45,.22],[-.92,.79,.47,.23],[-.3,.66,.42,.19],[.34,.65,.43,.2],[.85,.73,.47,.23],[1.32,.65,.4,.19],[1.63,.43,.33,.095]];
+ loft(shellRows,paint);
+ function surfacePatch(x1,x2,z1,z2,mat){
+  const p=[],uv=[],index=[],nx=8,nz=24;
+  for(let i=0;i<=nz;i++){const z=z1+(z2-z1)*i/nz,at=Math.max(1,shellRows.findIndex(r=>r[0]>=z)),a=shellRows[at-1],b=shellRows[at],t=(z-a[0])/(b[0]-a[0]),width=a[1]+(b[1]-a[1])*t,center=a[2]+(b[2]-a[2])*t,height=a[3]+(b[3]-a[3])*t;
+   for(let j=0;j<=nx;j++){const x=x1+(x2-x1)*j/nx;p.push(x,center+height*Math.sqrt(Math.max(0,1-(x/width)**2))+.009,z);uv.push(j/nx,1-i/nz);if(i<nz&&j<nx){const n=i*(nx+1)+j;index.push(n,n+nx+1,n+1,n+1,n+nx+1,n+nx+2);}}
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(index);g.computeVertexNormals();mesh(g,mat);
+ }
+ loft([[-1.65,.67,.25,.04],[-1.3,.82,.24,.04],[.6,.74,.24,.045],[1.45,.77,.23,.04],[1.7,.53,.25,.025]],carbon);
+ for(const side of [-1,1]){
+  for(const z of [-1.04,1.02])oval(paint,side*.64,.57,z,.3,.235,.59);
+  loft([[-.88,.13,.54,.14],[-.3,.13,.56,.19],[.25,.11,.53,.15],[.7,.09,.52,.09]],paint).position.x=side*.58;
+  box(carbon,side*.72,.27,-.05,.13,.11,1.55);
+  tube([[side*.75,.34,-.94],[side*.75,.34,.2],[side*.7,.35,.86]],gold,.011);
+  // Recessed side intakes and individual cooling vanes.
+  oval(dark,side*.753,.49,-.38,.018,.105,.35);
+  for(let i=0;i<5;i++)box(alloy,side*.776,.5,-.6+i*.105,.013,.115,.018).rotation.x=-.2;
+  for(let i=0;i<4;i++){const z=-1.22+i*.105,y=.57+.235*Math.sqrt(1-((z+1.04)/.59)**2);box(carbon,side*.63,y+.009,z,.21,.012,.03);}
+  tube([[side*.55,.75,1.43],[side*.64,.8,1.29],[side*.66,.815,1.1]],dark,.041);
+  for(const offset of [-.018,.018])tube([[side*(.55+offset),.765,1.43],[side*(.64+offset),.816,1.29],[side*(.66+offset),.832,1.1]],led,.009);
+  surfacePatch(side*.16-.035,side*.16+.035,.73,1.52,white);
+  surfacePatch(side*.16-.006,side*.16+.006,.73,1.52,gold);
+  tube([[side*.08,.7,-.88],[side*.12,.66,-1.37]],white,.043);
+  const mirror=oval(carbon,side*.85,.84,.25,.11,.055,.16);mirror.rotation.y=side*.3;
+  tube([[side*.61,.65,.12],[side*.76,.8,.2],[side*.83,.83,.22]],gold,.018);
+  oval(alloy,side*.85,.84,.135,.075,.038,.009);
+ }
+ // Open cockpit, contoured seat, harness and a curved low windscreen.
+ oval(carbon,0,.61,-.17,.49,.105,.63);oval(seatMat,0,.67,-.28,.34,.12,.38);
+ oval(seatMat,0,.96,-.61,.35,.36,.12);oval(carbon,0,1.22,-.69,.21,.16,.095);
+ for(const side of [-1,1]){oval(seatMat,side*.3,.9,-.51,.095,.27,.2);tube([[side*.13,1.19,-.49],[side*.13,.92,-.45],[side*.1,.72,-.1]],gold,.028);}
+ box(alloy,0,.77,-.15,.1,.065,.05);
+ const glassMat=new THREE.MeshPhysicalMaterial({color:0x98dce9,metalness:.2,roughness:.12,transparent:true,opacity:.46,clearcoat:1,side:THREE.DoubleSide,depthWrite:false});
+ const windshield=new THREE.BufferGeometry(),wp=[],wi=[];
+ for(let i=0;i<=24;i++){const x=(i/24-.5)*.98,z=.48-.18*(x/.49)**2;wp.push(x,.71,z,x,.99-.09*Math.abs(x/.49),z-.13);if(i<24){const n=i*2;wi.push(n,n+2,n+1,n+1,n+2,n+3);}}
+ windshield.setAttribute('position',new THREE.Float32BufferAttribute(wp,3));windshield.setIndex(wi);windshield.computeVertexNormals();mesh(windshield,glassMat);
+ tube([[-.49,.71,.3],[-.49,.9,.17],[0,.99,.35],[.49,.9,.17],[.49,.71,.3]],carbon,.018);
+ const steering=new THREE.Group();steering.name='race-steering';steering.position.set(0,.98,.12);steering.rotation.x=-.38;root.add(steering);
+ tube([[-.2,-.09,0],[-.23,.06,0],[-.15,.18,0],[.15,.18,0],[.23,.06,0],[.2,-.09,0],[-.2,-.09,0]],rubber,.028,steering);
+ box(carbon,0,.035,0,.29,.11,.035,steering);box(alloy,0,-.06,0,.035,.15,.035,steering);
+ for(const side of [-1,1])oval(side===1?rearLed:led,side*.1,.045,.024,.018,.018,.01,steering);
+ box(dark,0,.88,.36,.39,.15,.04);box(led,0,.89,.388,.27,.065,.012);
+ // Swan-neck wing, diffuser, central rain light and polished exhausts.
+ for(const side of [-1,1]){
+  tube([[side*.4,.65,-1.18],[side*.4,.92,-1.09],[side*.4,1.25,-1.3]],carbon,.035);
+  box(carbon,side*.89,1.24,-1.31,.035,.28,.55);
+  tube([[side*.89,1.38,-1.55],[side*.89,1.38,-1.1]],gold,.009);
+  const pipe=mesh(new THREE.CylinderGeometry(.075,.075,.21,18,1,true),alloy,side*.24,.4,-1.58);pipe.rotation.x=Math.PI/2;
+  mesh(new THREE.CircleGeometry(.06,18),dark,side*.24,.4,-1.69).rotation.y=Math.PI;
+ }
+ const wing=box(carbon,0,1.24,-1.3,1.8,.065,.44);wing.rotation.x=-.12;
+ box(gold,0,1.28,-1.51,1.75,.018,.025);
+ tube([[-.62,.58,-1.5],[0,.56,-1.59],[.62,.58,-1.5]],rearLed,.022);
+ box(rearLed,0,.36,-1.665,.08,.08,.015);
+ for(let i=0;i<7;i++)box(carbon,(i-3)*.19,.26,-1.49,.025,.16,.39).rotation.x=.14;
+ // Independently steered and rotating wheels; all four share their buffers.
+ const tireGeo=new THREE.LatheGeometry([new THREE.Vector2(.22,-.125),new THREE.Vector2(.29,-.125),new THREE.Vector2(.345,-.085),new THREE.Vector2(.35,.075),new THREE.Vector2(.29,.125),new THREE.Vector2(.22,.125)],40);
+ const diskGeo=new THREE.CylinderGeometry(.215,.215,.018,32),hubGeo=new THREE.CylinderGeometry(.075,.075,.09,16),grooveGeo=new THREE.TorusGeometry(.35,.004,4,40);
+ for(const side of [-1,1])for(const z of [-1.04,1.02]){
+  const pivot=new THREE.Group();pivot.name=z>0?'race-wheel-front':'race-wheel-rear';pivot.position.set(side*.77,.35,z);root.add(pivot);
+  const spin=new THREE.Group();spin.name='race-wheel-spin';pivot.add(spin);
+  mesh(tireGeo,rubber,0,0,0,spin).rotation.z=Math.PI/2;
+  for(const offset of [-.055,0,.055])mesh(grooveGeo,dark,offset,0,0,spin).rotation.y=Math.PI/2;
+  mesh(diskGeo,alloy,side*.1,0,0,spin).rotation.z=Math.PI/2;
+  mesh(hubGeo,gold,side*.13,0,0,spin).rotation.z=Math.PI/2;
+  for(let i=0;i<10;i++){const a=i*Math.PI/5,r=.145;const spoke=box(alloy,side*.145,Math.cos(a)*r,Math.sin(a)*r,.035,.17,.032,spin);spoke.rotation.x=a;}
+  mesh(new THREE.TorusGeometry(.245,.012,6,32),gold,side*.145,0,0,spin).rotation.y=Math.PI/2;
+  box(rearLed,side*.075,.02,.18,.055,.17,.07,pivot);
+ }
+ const decalCanvas=document.createElement('canvas');decalCanvas.width=512;decalCanvas.height=256;const d=decalCanvas.getContext('2d');d.fillStyle='#f4ebd7';d.font='italic 900 125px sans-serif';d.textAlign='center';d.fillText('07',256,132);d.font='600 30px sans-serif';d.fillText('A S T R A   G T',256,188);d.fillStyle='#e3b978';d.fillRect(100,212,312,5);
+ const decal=new THREE.CanvasTexture(decalCanvas);decal.colorSpace=THREE.SRGBColorSpace;
+ surfacePatch(-.12,.12,.85,1.1,new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false}));
+ // Batch stationary opaque parts by material, preserving only the moving rigs.
+ body.updateMatrixWorld(true);const groups=new Map();body.traverse(n=>{if(n.isMesh&&!n.material.transparent){if(!groups.has(n.material))groups.set(n.material,[]);groups.get(n.material).push(n);}});
+ for(const [mat,nodes]of groups){if(nodes.length<2)continue;const attrs={position:[],normal:[],uv:[]};for(const n of nodes){const g=(n.geometry.index?n.geometry.toNonIndexed():n.geometry.clone()).applyMatrix4(n.matrixWorld);for(const key of Object.keys(attrs)){const a=g.getAttribute(key);attrs[key].push(a?Array.from(a.array):new Array(g.getAttribute('position').count*2).fill(0));}g.dispose();n.removeFromParent();}const g=new THREE.BufferGeometry();for(const key of Object.keys(attrs))g.setAttribute(key,new THREE.Float32BufferAttribute(attrs[key].flat(),key==='uv'?2:3));mesh(g,mat);}
+ return root;
+}
+
+function lobbyCarOverlaps(x,z,yaw,halfWidth,halfLength,box,pad=0){
+ const c=Math.cos(yaw),s=Math.sin(yaw),dx=box.x-x,dz=box.z-z,w=box.w/2+pad,d=box.d/2+pad;
+ return Math.abs(dx*c-dz*s)<halfWidth+w*Math.abs(c)+d*Math.abs(s)&&Math.abs(dx*s+dz*c)<halfLength+w*Math.abs(s)+d*Math.abs(c)&&Math.abs(dx)<w+halfWidth*Math.abs(c)+halfLength*Math.abs(s)&&Math.abs(dz)<d+halfWidth*Math.abs(s)+halfLength*Math.abs(c);
+}
+
+function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle,player,camera,controls,rows,crews,self,groundAt,locked,clearInput}){
+ const parking={x:0,y:.06,z:.15},parkingYaw=0,template=parked.clone(true),remote=new Map();
+ let riding=false,speed=0,steer=0,verticalSpeed=0,actionKey='',lastSent=-Infinity,cameraWasDriving=false,disposed=false;
+ const halfWidth=.91,halfLength=1.72;
+ const hud=document.createElement('div');hud.id='lobbyRaceCarHud';hud.hidden=true;hud.style.cssText='position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);padding:8px 14px;border:1px solid #8ac7d26b;border-radius:12px;background:#091b29e8;color:#e8faff;font:700 13px system-ui;text-align:center;pointer-events:none;z-index:20';document.body.append(hud);
+ const rig=root=>({root,wheels:root.children.filter(n=>n.name.startsWith('race-wheel-')),wheel:root.getObjectByName('race-steering'),previous:null,phase:0});
+ const ownRig=rig(parked),outPosition=new THREE.Vector3(),camTarget=new THREE.Vector3();
+ const others=()=>[...rows()].filter(([id,p])=>id!==self()&&p.online!==false&&p.lobbyVehicle===true);
+ const parkedVisible=()=>!riding&&others().length===0;
+ function setCollider(visible){const i=obstacles.indexOf(parkedObstacle);if(visible&&i<0)obstacles.push(parkedObstacle);if(!visible&&i>=0)obstacles.splice(i,1);}
+ function near(){const p=player.root.position;return parkedVisible()&&p.x> -8.3&&p.z>10.4&&Math.hypot(p.x+9.45,p.z-11.95)<3&&p.y<.5&&!locked();}
+ function announce(notice){const state={near:near(),riding},key=JSON.stringify(state);if(key!==actionKey||notice){actionKey=key;parent.postMessage({type:'lobby-car-state',...state,...(notice?{notice}:{})},'*');}}
+ function send(force=false){const time=performance.now();if(!force&&time-lastSent<1000/60)return;lastSent=time;const p=player.root.position;parent.postMessage({type:'lobby-position',gameArea:'lobby',x:p.x,z:p.z,lobbyY:Math.max(0,p.y),yaw:player.root.rotation.y,walking:riding&&Math.abs(speed)>.08,lobbyVehicle:riding},'*');}
+ function canOccupy(x,z,y,yaw){
+  const c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw)),rx=c*halfWidth+s*halfLength,rz=s*halfWidth+c*halfLength;
+  if(x-rx< -11.85||x+rx>11.85||z-rz< -5.8||z+rz>13.85)return false;
+  if(lobbyCarOverlaps(x,z,yaw,halfWidth,halfLength,{x:7.8,z:8.45,w:5.8,d:5.65}))return false;
+  for(const o of obstacles){if(o===parkedObstacle)continue;if(Number.isFinite(o.top)&&y>=o.top+.025)continue;if(lobbyCarOverlaps(x,z,yaw,halfWidth,halfLength,o,.025))return false;}
+  for(const [id,p]of rows()){if(id===self()||p.online===false||Math.abs((p.lobbyY||0)-y)>1.7)continue;if(lobbyCarOverlaps(x,z,yaw,halfWidth,halfLength,{x:Number(p.x)||0,z:Number(p.z)||0,w:p.lobbyVehicle?1.8:.85,d:p.lobbyVehicle?3.4:.85},.06))return false;}
+  return true;
+ }
+ function freeExit(force){
+  const p=player.root.position,yaw=player.root.rotation.y;
+  for(const radius of [1.7,2.2,2.8,3.5])for(const offset of [Math.PI/2,-Math.PI/2,Math.PI,0,Math.PI/4,-Math.PI/4]){
+   const x=p.x+Math.sin(yaw+offset)*radius,z=p.z+Math.cos(yaw+offset)*radius;
+   if(x< -11.3||x>11.3||z< -5.2||z>13.2||Math.abs(x-7.8)<3.25&&Math.abs(z-8.45)<3.2)continue;
+   if([...obstacles,parkedObstacle].some(o=>Math.abs(x-o.x)<o.w/2+.5&&Math.abs(z-o.z)<o.d/2+.5))continue;
+   if([...rows()].some(([id,q])=>id!==self()&&q.online!==false&&Math.hypot(x-q.x,z-q.z)<1.1))continue;
+   return {x,y:0,z};
+  }
+  return force?{x:-6.9,y:0,z:9}:null;
+ }
+ function leave(force=false,notify=true){
+  if(!riding)return true;
+  if(!force&&player.root.position.y>groundAt(player.root.position.x,player.root.position.z,player.root.position.y+.05)+.08){announce('airborne');return false;}
+  const exit=freeExit(force);if(!exit){announce('blocked');return false;}
+  riding=false;speed=steer=verticalSpeed=0;clearInput();player.root.position.set(exit.x,exit.y,exit.z);player.root.userData.lobbyHeightInitialized=true;
+  garage.add(parked);parked.position.set(parking.x,parking.y,parking.z);parked.rotation.set(0,parkingYaw,0);parked.updateMatrix();setCollider(parkedVisible());hud.hidden=true;
+  if(cameraWasDriving){controls.target.copy(player.root.position);camera.position.set(player.root.position.x+7,player.root.position.y+9,player.root.position.z+11);cameraWasDriving=false;window.__lastLobbyCameraMode=null;}
+  if(notify)send(true);announce();return true;
+ }
+ function toggle(){
+  if(riding)return leave();if(!near()){announce('occupied');return false;}
+  parked.getWorldPosition(outPosition);const yaw=Math.PI/2;
+  if(!canOccupy(outPosition.x,outPosition.z,0,yaw)){announce('blocked');return false;}
+  clearInput();riding=true;speed=steer=verticalSpeed=0;scene.add(parked);parked.matrixAutoUpdate=true;player.root.position.set(outPosition.x,0,outPosition.z);player.root.rotation.y=yaw;player.root.userData.lobbyHeightInitialized=true;
+  const state=rows().get(self());if(state){state.seated=false;state.sitting=false;state.seatId=null;}setCollider(false);send(true);announce();return true;
+ }
+ function jump(){if(!riding)return false;if(locked())return true;const p=player.root.position,support=groundAt(p.x,p.z,p.y+.05);if(Math.abs(verticalSpeed)<.01&&p.y<=support+.06)verticalSpeed=8.2;return true;}
+ function tick(dt,input){
+  if(!riding){announce();return false;}
+  dt=Math.max(0,Math.min(.05,dt));const p=player.root.position;
+  if(others().some(([id])=>self()&&id.localeCompare(self())<0)){leave(true);return true;}
+  const stopped=locked()||document.hidden,throttle=stopped?0:Math.max(-1,Math.min(1,input.forward)),turn=stopped?0:Math.max(-1,Math.min(1,input.turn));
+  steer+=(turn*.5-steer)*(1-Math.exp(-9*dt));
+  const desired=throttle*(throttle<0?3.2:8.5),acceleration=throttle===0||Math.sign(desired)!==Math.sign(speed)?12:5.8;
+  speed+=Math.max(-acceleration*dt,Math.min(acceleration*dt,desired-speed));if(stopped)speed=0;
+  const count=Math.max(1,Math.ceil(Math.max(Math.abs(speed)*dt,Math.abs(steer)*dt*3)/.06)),step=dt/count;
+  for(let i=0;i<count;i++){
+   const previousY=p.y,support=groundAt(p.x,p.z,p.y+.05);if(verticalSpeed||p.y>support+.015){verticalSpeed-=18*step;p.y+=verticalSpeed*step;}else p.y=support;
+   const floor=groundAt(p.x,p.z,previousY+.05);if(p.y<=floor&&verticalSpeed<=0){p.y=floor;verticalSpeed=0;}
+   if(p.x< -7.5&&p.z>10.35&&p.z<13.55&&p.y>.78){p.y=.78;verticalSpeed=Math.min(0,verticalSpeed);}
+   const yaw=player.root.rotation.y-steer*Math.min(1.6,Math.abs(speed)*.5)*Math.sign(speed||1)*step;
+   if(canOccupy(p.x,p.z,p.y,yaw))player.root.rotation.y=yaw;
+   const nx=p.x+Math.sin(player.root.rotation.y)*speed*step,nz=p.z+Math.cos(player.root.rotation.y)*speed*step;
+   if(canOccupy(nx,nz,p.y,player.root.rotation.y)){p.x=nx;p.z=nz;}else speed=0;
+  }
+  send();announce();hud.hidden=false;hud.textContent='ASTRA GT  ·  '+Math.round(Math.abs(speed)*3.6)+' km/h  ·  '+(p.y>.1?'ジャンプ中':'ジャンプで跳ぶ');return true;
+ }
+ function updateRig(r,dt,driveSpeed,turn,height){
+  r.phase+=driveSpeed*dt/.35;for(const wheel of r.wheels){wheel.rotation.y=wheel.name==='race-wheel-front'?-turn:0;wheel.getObjectByName('race-wheel-spin').rotation.x=r.phase;}
+  if(r.wheel)r.wheel.rotation.z=turn*1.1;
+ }
+ function visuals(dt){
+  const active=others(),wanted=new Set(active.map(([id])=>id));setCollider(parkedVisible());
+  parked.visible=riding||active.length===0;
+  if(riding){parked.position.copy(player.root.position);parked.rotation.set(Math.max(-.09,Math.min(.09,-verticalSpeed*.009)),player.root.rotation.y,steer*speed*.012,'YXZ');updateRig(ownRig,dt,speed,steer,player.root.position.y);}
+  for(const [id,p]of active){const crew=crews().get(id);if(!crew||!crew.root.visible)continue;let r=remote.get(id);if(!r){r=rig(template.clone(true));r.root.name='remote-race-car-'+id;scene.add(r.root);remote.set(id,r);}r.root.visible=true;r.root.position.copy(crew.root.position);r.root.rotation.set(0,crew.root.rotation.y,0);const previous=r.previous,distance=previous?Math.hypot(r.root.position.x-previous.x,r.root.position.z-previous.z):0;updateRig(r,dt,Math.min(10,distance/Math.max(.001,dt)),0,r.root.position.y);r.previous={x:r.root.position.x,z:r.root.position.z};}
+  for(const [id,r]of remote)if(!wanted.has(id)||!crews().has(id)){r.root.removeFromParent();remote.delete(id);}
+ }
+ function beforeRender(){
+  const saved=[];for(const [id,crew]of [[self(),player],...crews()]){
+   if(crew===player?!riding:rows().get(id)?.lobbyVehicle!==true)continue;
+   const save=n=>{if(!n)return;saved.push([n,n.position.clone(),n.rotation.clone(),n.scale.clone()]);};
+   save(crew.root);crew.root.position.y-=.08;
+   for(const leg of crew.legs){save(leg);leg.position.set(leg.position.x,.57,.27);leg.rotation.set(-1.2,0,0);}
+   for(const [i,arm]of (crew.arms||crew.root.userData.walkArms||[]).entries()){save(arm);arm.rotation.set(-1.18,0,(i?1:-1)*.18);}
+  }
+  return()=>{for(const [n,p,r,s]of saved){n.position.copy(p);n.rotation.copy(r);n.scale.copy(s);}};
+ }
+ function updateCamera(dt){
+  if(!riding)return false;controls.enabled=false;player.root.visible=true;const p=player.root.position,yaw=player.root.rotation.y;
+  const first=window.__lobbyCameraPerspective==='first',overhead=window.__lobbyCameraPerspective==='overhead';
+  const inGarage=p.x< -7.4&&p.z>10.35&&p.z<13.55;
+  outPosition.set(p.x-Math.sin(yaw)*(first?-.05:overhead?3.5:6.4),p.y+(first?1.45:overhead?10:inGarage?1.9:3.5),p.z-Math.cos(yaw)*(first?-.05:overhead?3.5:6.4));
+  // Keep the chase camera inside the lounge wall, including at the garage.
+  outPosition.x=Math.max(-11.32,Math.min(11.65,outPosition.x));outPosition.z=Math.max(-5.6,Math.min(13.65,outPosition.z));
+  camera.position.lerp(outPosition,cameraWasDriving?1-Math.exp(-7*dt):1);camTarget.set(p.x+Math.sin(yaw)*1.9,p.y+.8,p.z+Math.cos(yaw)*1.9);camera.up.set(0,1,0);camera.lookAt(camTarget);player.root.visible=!first;cameraWasDriving=true;return true;
+ }
+ function onMessage(event){if(event.source!==parent)return;const d=event.data;if(d?.type==='lobby-car-toggle')toggle();if(['lobby-reset','lobby-return-reset'].includes(d?.type)||d?.type==='lobby-render-state'&&!d.active){const p=player.root.position.clone();leave(true,false);player.root.position.copy(p);hud.hidden=true;for(const r of remote.values())r.root.removeFromParent();remote.clear();actionKey='';}}
+ const pause=()=>{speed=0;clearInput();};window.addEventListener('message',onMessage);window.addEventListener('blur',pause);document.addEventListener('visibilitychange',pause);
+ return{tick,jump,toggle,leave,near,visuals,beforeRender,updateCamera,canOccupy,get riding(){return riding;},get speed(){return speed;},dispose(){if(disposed)return;disposed=true;leave(true,false);window.removeEventListener('message',onMessage);window.removeEventListener('blur',pause);document.removeEventListener('visibilitychange',pause);hud.remove();for(const r of remote.values())r.root.removeFromParent();remote.clear();}};
+}
+/* LOBBY_RACE_CAR_END */
 function installLobbyExpansion(THREE,scene,addObstacle){
   const root=new THREE.Group();root.name="lobby-leisure-deck";scene.add(root);
   const mats={};
@@ -4686,7 +4907,7 @@ function installLobbyExpansion(THREE,scene,addObstacle){
     cube(1.5,.12,1.1,0x22323d,x,.76,3.55);cube(.22,.75,.22,0x243a4e,x,.375,3.55);addObstacle(x,3.55,1.55,1.15,.82,true);
     const orb=new THREE.Mesh(new THREE.IcosahedronGeometry(.24,1),material(0x7fddec,{emissive:0x246a84,emissiveIntensity:.7}));orb.position.set(x,1.12,3.55);root.add(orb);addObstacle(x,3.55,.48,.48,1.36,true);
   }
-  for(const [x,z] of [[-5.5,11.8],[5.3,12.4]]){cube(1.25,.65,.7,0x293b40,x,.325,z);addObstacle(x,z,1.3,.75,.65,true);for(const dx of [-.36,.36])cube(.1,.68,.74,0xbca67d,x+dx,.34,z);}
+  for(const [x,z] of [[-8.0,-4.8],[5.3,12.4]]){cube(1.25,.65,.7,0x293b40,x,.325,z);addObstacle(x,z,1.3,.75,.65,true);for(const dx of [-.36,.36])cube(.1,.68,.74,0xbca67d,x+dx,.34,z);}
   // Capsule machine beside the front left banquette; the old orb table sits inland.
   const gacha=new THREE.Group();gacha.name="lobby-capsule-machine";gacha.position.set(-11.35,0,6);gacha.rotation.y=Math.PI/2;root.add(gacha);
   const enamel=new THREE.MeshPhysicalMaterial({color:0x173d50,metalness:.58,roughness:.22,clearcoat:.9,clearcoatRoughness:.2});
@@ -4778,11 +4999,9 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   garageBox(garageFloor,0,.025,0,3,.05,4.1);
   garageBox(garageShell,0,1.45,-2,3,2.9,.16);
   for(const side of [-1,1]){
-    garageBox(garageShell,side*1.46,.65,0,.12,1.3,4.1);
     for(const z of [-1.96,1.96])garageBox(garageTrim,side*1.44,1.46,z,.13,2.92,.13);
     garageBox(garageLight,side*1.36,.075,0,.035,.035,3.85);
     garageBox(garageTrim,side*1.44,2.86,0,.13,.14,4.1);
-    addObstacle(-9.6,11.95-side*1.46,4.1,.12,1.3,false);
     addObstacle(-7.64,11.95-side*1.44,.13,.13,2.92,false);
   }
   garageBox(garageShell,0,2.9,-1.36,3,.14,1.35);
@@ -4794,41 +5013,16 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   // Painted parking lines and a compact service cabinet keep the entrance open.
   for(const x of [-1.05,1.05])garageBox(cream,x,.06,0,.04,.012,3.2);
   garageBox(cream,0,.06,-1.62,2.14,.012,.04);
-  garageBox(garageShell,.84,.46,-1.7,.75,.86,.43);
-  for(let row=0;row<3;row++){garageBox(garageTrim,.84,.3+row*.2,-1.475,.64,.015,.02);garageBox(dark,.84,.36+row*.2,-1.46,.2,.025,.03);}
-  const raceCar=new THREE.Group();raceCar.name='lobby-garage-race-car';raceCar.position.set(0,.06,.15);garage.add(raceCar);
-  const paint=material(0x2b89b6,{metalness:.65,roughness:.24}),rubber=material(0x131a22,{roughness:.95}),raceGlass=material(0x132b39,{metalness:.6,roughness:.12});
-  garageBox(dark,0,.32,0,1.35,.18,2.65,raceCar);
-  garageBox(paint,0,.51,0,1.4,.32,2.45,raceCar);
-  garageBox(paint,0,.59,.88,1.3,.16,.9,raceCar);
-  garageBox(paint,0,.7,-.94,1.3,.22,.54,raceCar);
-  garageBox(dark,0,.71,-.1,.86,.21,1.17,raceCar);
-  // Twin white stripes, an open cockpit and the race wing read from lobby height.
-  for(const x of [-.19,.19]){garageBox(cream,x,.678,.91,.13,.018,.82,raceCar);garageBox(cream,x,.817,-1.01,.13,.018,.36,raceCar);}
-  garageBox(rubber,0,.77,-.36,.68,.2,.58,raceCar);
-  garageBox(rubber,0,1.02,-.62,.67,.52,.16,raceCar).rotation.x=-.12;
-  garageBox(paint,0,1.3,-.64,.42,.13,.17,raceCar);
-  garageBox(raceGlass,0,.86,.45,.97,.29,.055,raceCar).rotation.x=-.35;
-  for(const side of [-1,1]){
-    garageBox(paint,side*.72,.55,0,.13,.27,1.5,raceCar);
-    garageBox(garageTrim,side*.48,.91,-1.04,.045,.45,.07,raceCar);
-    garageBox(garageLight,side*.46,.56,1.245,.27,.11,.035,raceCar);
-    garageBox(material(0xec655d,{emissive:0x942820,emissiveIntensity:.6}),side*.46,.6,-1.245,.25,.09,.035,raceCar);
-  }
-  garageBox(dark,0,1.16,-1.04,1.65,.09,.42,raceCar);
-  for(const x of [-.81,.81])garageBox(paint,x,1.2,-1.04,.035,.24,.46,raceCar);
-  const tireGeometry=new THREE.CylinderGeometry(.31,.31,.24,18),rimGeometry=new THREE.CylinderGeometry(.18,.18,.255,12);
-  for(const x of [-.75,.75])for(const z of [-.83,.84]){
-    const tire=new THREE.Mesh(tireGeometry,rubber);tire.name='race-car-wheel';tire.position.set(x,.31,z);tire.rotation.z=Math.PI/2;tire.castShadow=true;raceCar.add(tire);
-    const rim=new THREE.Mesh(rimGeometry,chrome);rim.position.copy(tire.position);rim.rotation.copy(tire.rotation);raceCar.add(rim);
-  }
-  const steering=new THREE.Mesh(new THREE.TorusGeometry(.2,.035,6,16),rubber);steering.position.set(0,.99,.2);steering.rotation.x=-.65;raceCar.add(steering);
-  garageBox(garageTrim,0,.83,.23,.045,.35,.045,raceCar).rotation.x=-.55;
-  addObstacle(-9.45,11.95,2.8,1.74,1.4,false);
+  garageBox(garageShell,1.22,.46,-1.7,.36,.86,.43);
+  for(let row=0;row<3;row++){garageBox(garageTrim,1.22,.3+row*.2,-1.475,.3,.015,.02);garageBox(dark,1.22,.36+row*.2,-1.46,.16,.025,.03);}
+  const raceCar=createLobbyRaceCar(THREE);raceCar.position.set(0,.06,.15);garage.add(raceCar);
+  const parkedObstacle={x:-9.45,z:11.95,w:3.44,d:1.82,top:1.4,platform:false};obstacles.push(parkedObstacle);
+  addObstacle(-11.3,10.73,.43,.36,.9,false);
+  window.__lobbyRaceCar=installLobbyRaceCar({THREE,scene,garage,parked:raceCar,parkedObstacle,obstacles,player,camera,controls,rows:()=>lobbyVisualStates,crews:()=>remoteCrews,self:()=>visualSelfUid,groundAt:lobbyPlatformAt,locked:()=>window.__lobbyStudioOpen===true||performance.now()<(window.__lobbyMotionUntil||0)||lobbyVisualStates.get(visualSelfUid)?.seated===true,clearInput:()=>{keyboardKeys.clear();lobbyStick.set(0,0);lobbyJumpVelocity=0;lobbyJumpQueuedUntil=0;}});
   caption('レーシングガレージ',-7.6,3.2,11.95,3.1);
   const oldGachaUpdate=window.__lobbyGachaUpdate;window.__lobbyGachaUpdate=t=>{oldGachaUpdate?.(t);crystal.rotation.y=t*.45;crystal.position.y=1.94+Math.sin(t*1.6)*.07;orbitals.forEach((ring,i)=>ring.rotation.z=t*(i%2?-.2:.25));};
   // These objects never move locally. Parent/world matrices remain automatic.
-  const animatedRoots=new Set([float,water,gacha,premium,...fish.map(f=>f.group)]);
+  const animatedRoots=new Set([raceCar,float,water,gacha,premium,...fish.map(f=>f.group)]);
   root.traverse(object=>{for(let p=object;p&&p!==root;p=p.parent)if(animatedRoots.has(p))return;object.updateMatrix();object.matrixAutoUpdate=false;});
   // Identical opaque box materials share one unit cube, in spatial cells so
   // Three.js can still cull distant furniture. Obstacles stay in their own grid.

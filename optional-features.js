@@ -1,5 +1,5 @@
 import {updateGachaTicketBadge} from './gacha-ticket-badge.js';
-// Availability does not load the feature. Only an explicit open starts import().
+// Features stay deferred; the gacha module may be prefetched while the lobby is idle.
 export function deferredFeature(load,create,onError=()=>{}){
  let instance=null,pending=null,enabled=false,revision=0,wallet=null,disposed=false;
  function ensure(){
@@ -29,10 +29,15 @@ function loadStatus(button,loading){button.setAttribute('aria-busy',String(loadi
 export function createLazyGacha(THREE,api){
  const badge=makeLauncher('🎟 —','','ssTicketBadge');let wallet=null,failed=false;
  const label=()=>updateGachaTicketBadge(badge,wallet,failed);label();
- const shell=deferredFeature(()=>import('./gacha-ui.js'),m=>m.createGachaUI(THREE,{...api,badge,onWallet(value){wallet=value;label();api.onWallet?.(value);}}),()=>{failed=true;});
+ let modulePromise=null,warmTimer=0,visible=false,warmAttempted=false;
+ const loadModule=()=>modulePromise||(modulePromise=import('./gacha-ui.js').catch(error=>{modulePromise=null;throw error;}));
+ const warm=()=>{warmTimer=0;if(visible&&!document.hidden){warmAttempted=true;void loadModule().catch(()=>{});}};
+ const scheduleWarm=()=>{if(visible&&!document.hidden&&!modulePromise&&!warmTimer&&!warmAttempted)warmTimer=setTimeout(warm,1500);};
+ document.addEventListener('visibilitychange',scheduleWarm);
+ const shell=deferredFeature(loadModule,m=>m.createGachaUI(THREE,{...api,badge,onWallet(value){wallet=value;label();api.onWallet?.(value);}}),()=>{failed=true;});
  const open=async(...args)=>{shell.sync(api.canOpen());if(!api.canOpen())return;failed=false;loadStatus(badge,true);badge.textContent='読み込み中…';try{await shell.open(...args);}finally{loadStatus(badge,false);label();}};
  badge.onclick=()=>open();
- return{open,close(){shell.close();},sync(visible){shell.sync(visible);badge.hidden=!visible;},setWallet(value){wallet=value;shell.setWallet(value);label();if(!shell.loaded)api.onWallet?.(value);},reset(){wallet=null;failed=false;shell.reset();label();},dispose(){shell.dispose();badge.remove();},get loaded(){return shell.loaded;}};
+ return{open,close(){shell.close();},sync(value){visible=!!value;shell.sync(visible);badge.hidden=!visible;if(!visible){clearTimeout(warmTimer);warmTimer=0;warmAttempted=false;}else scheduleWarm();},setWallet(value){wallet=value;shell.setWallet(value);label();if(!shell.loaded)api.onWallet?.(value);},reset(){wallet=null;failed=false;shell.reset();label();},dispose(){clearTimeout(warmTimer);document.removeEventListener('visibilitychange',scheduleWarm);shell.dispose();badge.remove();},get loaded(){return shell.loaded;}};
 }
 export function createLazyPractice(api){
  const shell=deferredFeature(()=>import('./practice-lab.js'),m=>m.installPracticeLab(api),()=>api.error?.());
