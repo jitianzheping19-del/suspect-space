@@ -4999,10 +4999,8 @@ function installLobbyExpansion(THREE,scene,addObstacle){
   garageBox(garageFloor,0,.025,0,3,.05,4.1);
   garageBox(garageShell,0,1.45,-2,3,2.9,.16);
   for(const side of [-1,1]){
-    for(const z of [-1.96,1.96])garageBox(garageTrim,side*1.44,1.46,z,.13,2.92,.13);
     garageBox(garageLight,side*1.36,.075,0,.035,.035,3.85);
     garageBox(garageTrim,side*1.44,2.86,0,.13,.14,4.1);
-    addObstacle(-7.64,11.95-side*1.44,.13,.13,2.92,false);
   }
   garageBox(garageShell,0,2.9,-1.36,3,.14,1.35);
   garageBox(garageShell,0,2.78,1.96,3,.3,.22);
