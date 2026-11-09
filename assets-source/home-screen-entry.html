@@ -1,0 +1,104 @@
+<!-- ENTRY_HEAD -->
+<meta charset="UTF-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style id="home-screen-entry-style">
+@layer home-screen-entry {
+ #homeScreenGuide{display:none!important}
+ html[data-home-screen-gate="required"]{background:#091727!important;overflow:auto!important}
+ html[data-home-screen-gate="required"] body{overflow:auto!important;touch-action:pan-y!important;background:#091727!important}
+ html[data-home-screen-gate="required"] body>:not(#homeScreenGuide),html[data-home-screen-gate="required"] body::before,html[data-home-screen-gate="required"] body::after{display:none!important}
+ html[data-home-screen-gate="required"] #homeScreenGuide{display:block!important;position:relative!important;z-index:2147483647!important;min-height:100svh!important;width:100%!important;margin:0!important;padding:max(22px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(26px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))!important;box-sizing:border-box!important;background:radial-gradient(ellipse at 50% 0,#173c4b 0,transparent 55%),#091727!important;color:#eff8ff!important;font:16px/1.5 system-ui,-apple-system,sans-serif!important;touch-action:pan-y!important;user-select:text!important;overscroll-behavior:contain!important}
+ #homeScreenGuide [hidden]{display:none!important}
+ #homeScreenGuide .homeEntryWrap{width:min(100%,520px);margin:auto}
+ #homeScreenGuide .homeEntryBrand{display:flex;align-items:center;gap:12px;color:#b9d9e8;font-size:14px;font-weight:800;letter-spacing:.08em}
+ #homeScreenGuide .homeEntryBrand img{width:48px;height:48px;border-radius:13px;flex:none}
+ #homeScreenGuide .homeEntryEyebrow{margin:24px 0 6px;color:#9fe5cb;font-size:15px;font-weight:800}
+ #homeScreenGuide h1{margin:0 0 14px;color:#f4fbff;font-size:clamp(29px,8.4vw,40px);line-height:1.23;letter-spacing:-.035em;font-weight:900}
+ #homeScreenGuide .homeEntryIntro{margin:0 0 20px;color:#b7cfdf;font-size:16px;line-height:1.5}
+ #homeScreenGuide .homeEntryPlatforms{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:4px;border:1px solid #7397ac44;border-radius:14px;background:#0c1b2a;margin-bottom:18px}
+ #homeScreenGuide button{min-height:48px;box-sizing:border-box;padding:10px 12px;border:1px solid transparent;border-radius:10px;background:transparent;color:#b7cddd;font:800 16px/1.3 system-ui;cursor:pointer;touch-action:manipulation}
+ #homeScreenGuide button[aria-pressed="true"]{background:#a8e7d1;color:#0b3028;box-shadow:0 2px 9px #0004}
+ #homeScreenGuide button:focus-visible,#homeScreenGuide summary:focus-visible{outline:3px solid #ffe79e;outline-offset:3px}
+ #homeScreenGuide .homeEntrySteps{list-style:none;display:grid;gap:12px;margin:0;padding:0;counter-reset:install}
+ #homeScreenGuide .homeEntrySteps li{display:grid;grid-template-columns:48px minmax(0,1fr);gap:14px;align-items:center;position:relative;padding:20px 16px;border:1px solid #90c5dc40;border-radius:18px;background:#142d40;box-shadow:0 8px 22px #0002;counter-increment:install}
+ #homeScreenGuide .homeEntryStepIcon{display:grid;place-items:center;position:relative;width:48px;height:54px;background:#234b60;border-radius:13px;color:#b5f4ed}
+ #homeScreenGuide .homeEntryStepIcon::before{content:counter(install);position:absolute;left:-8px;top:-9px;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#a8e7d1;color:#11352c;font-size:14px;font-weight:900;border:2px solid #142d40}
+ #homeScreenGuide svg{width:32px;height:32px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+ #homeScreenGuide .homeEntrySteps strong{display:block;font-size:clamp(22px,6.4vw,28px);font-weight:900;line-height:1.35;overflow-wrap:anywhere}
+ #homeScreenGuide .homeEntrySteps small{display:block;margin-top:5px;font-size:14px;line-height:1.5;color:#b7d0df}
+ #homeScreenGuide .homeEntryConfirm{margin:12px 4px 20px;color:#bbd0df;font-size:15px}
+ #homeScreenGuide .homeEntryLaunch{display:flex;align-items:center;gap:13px;padding:17px 15px;border-radius:16px;border:1px solid #93e4c561;background:#173f3d}
+ #homeScreenGuide .homeEntryLaunch img{width:52px;height:52px;border-radius:14px;flex:none}
+ #homeScreenGuide .homeEntryLaunch strong{font-size:20px;line-height:1.4;color:#eafff3;display:block}
+ #homeScreenGuide .homeEntryLaunch span{display:block;font-size:13px;color:#a7d7c5;margin-top:4px}
+ #homeScreenGuide #homeInstallButton{width:100%;background:#a8e7d1;color:#0b3028;margin:15px 0 0;min-height:54px;font-size:19px}
+ #homeScreenGuide #homeInstallStatus{min-height:1em;margin:12px 0 0;font-size:15px;color:#b9dcd4}
+ #homeScreenGuide details{margin-top:18px;color:#9fb7c9;font-size:14px}
+ #homeScreenGuide summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px}
+ #homeScreenGuide summary::before{content:'＋'}
+ #homeScreenGuide details[open] summary::before{content:'−'}
+ #homeScreenGuide details p{margin:4px 0 12px;line-height:1.6}
+ @media(max-height:500px) and (orientation:landscape){#homeScreenGuide .homeEntryWrap{width:min(100%,800px)}#homeScreenGuide .homeEntryBrand img{width:36px;height:36px}#homeScreenGuide .homeEntryEyebrow{margin-top:12px}#homeScreenGuide h1{font-size:30px}#homeScreenGuide h1 br{display:none}#homeScreenGuide .homeEntrySteps{grid-template-columns:1fr 1fr}#homeScreenGuide .homeEntrySteps strong{font-size:23px}#homeScreenGuide .homeEntrySteps li{padding:18px 14px}#homeScreenGuide .homeEntryPlatforms{max-width:360px}}
+}
+</style>
+<script id="home-screen-entry-bootstrap">
+(()=>{
+ const nav=navigator,ua=nav.userAgent||'',touch=Number(nav.maxTouchPoints)||0,shortSide=Math.min(screen.width||innerWidth,screen.height||innerHeight);
+ const applePhone=/iPhone|iPod/i.test(ua)||(nav.platform==='MacIntel'&&touch>1&&shortSide<=600);
+ const appleTablet=/iPad/i.test(ua)||(nav.platform==='MacIntel'&&touch>1&&!applePhone);
+ const androidPhone=/Android/i.test(ua)&&(/Mobile/i.test(ua)||nav.userAgentData?.mobile===true);
+ const phone=!appleTablet&&(applePhone||androidPhone||nav.userAgentData?.mobile===true);
+ const modes=['standalone'].map(mode=>matchMedia('(display-mode: '+mode+')'));
+ const fromHome=()=>nav.standalone===true||modes.some(mode=>mode.matches);
+ let required=phone&&!fromHome(),release,promptEvent=null,selected=applePhone?'ios':'android';
+ window.__spaceHomeScreenReady=new Promise(resolve=>{release=resolve;if(!required)resolve();});
+ const update=()=>{required=phone&&!fromHome();document.documentElement.dataset.homeScreenGate=required?'required':'ready';if(!required){release();document.getElementById('homeScreenGuide')?.setAttribute('aria-hidden','true');}else document.getElementById('homeScreenGuide')?.removeAttribute('aria-hidden');};
+ function mount(){
+  const guide=document.getElementById('homeScreenGuide');if(!guide)return;
+  function select(os){selected=os;guide.dataset.platform=os;for(const button of guide.querySelectorAll('[data-home-platform]'))button.setAttribute('aria-pressed',String(button.dataset.homePlatform===os));for(const section of guide.querySelectorAll('[data-home-instructions]'))section.hidden=section.dataset.homeInstructions!==os;guide.querySelector('#homeInstallButton').hidden=!(os==='android'&&promptEvent);}
+  for(const button of guide.querySelectorAll('[data-home-platform]'))button.addEventListener('click',()=>select(button.dataset.homePlatform));
+  guide.querySelector('#homeInstallButton').addEventListener('click',async()=>{const event=promptEvent;if(!event)return;promptEvent=null;select(selected);try{await event.prompt();const choice=await event.userChoice;guide.querySelector('#homeInstallStatus').textContent=choice?.outcome==='accepted'?'追加後は、ホーム画面のアイコンから開いてください。':'上の手順で、メニューからも追加できます。';}catch{guide.querySelector('#homeInstallStatus').textContent='上の手順で、ブラウザのメニューから追加してください。';}});
+  addEventListener('beforeinstallprompt',event=>{if(!required)return;event.preventDefault();promptEvent=event;select(selected);});
+  addEventListener('appinstalled',()=>{promptEvent=null;select(selected);guide.querySelector('#homeInstallStatus').textContent='追加できました！ホーム画面のアイコンから開いてください。';});
+  select(selected);update();
+ }
+ for(const mode of modes)mode.addEventListener?.('change',update);
+ addEventListener('pageshow',update);document.addEventListener('visibilitychange',update);
+ document.addEventListener('keydown',event=>{if(required&&!document.getElementById('homeScreenGuide')?.contains(event.target)){event.stopImmediatePropagation();}},true);
+ window.SpaceHomeScreen={mount,isRequired:()=>required};update();
+})();
+</script>
+<!-- ENTRY_BODY -->
+<main id="homeScreenGuide" aria-labelledby="homeScreenTitle">
+ <div class="homeEntryWrap">
+  <div class="homeEntryBrand"><img src="./apple-touch-icon.png" alt="" width="48" height="48"><span>SPACE SUSPECT</span></div>
+  <p class="homeEntryEyebrow">はじめに、これだけ！</p>
+  <h1 id="homeScreenTitle">ホーム画面に<br>追加して遊ぼう</h1>
+  <p class="homeEntryIntro">スマホでは、ホーム画面のアイコンから遊びます。</p>
+  <div class="homeEntryPlatforms" role="group" aria-label="使っているスマホ">
+   <button type="button" data-home-platform="ios" aria-pressed="false">iPhone</button>
+   <button type="button" data-home-platform="android" aria-pressed="false">Android</button>
+  </div>
+  <section data-home-instructions="ios" aria-label="iPhoneの追加方法" hidden>
+   <ol class="homeEntrySteps">
+    <li><span class="homeEntryStepIcon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M10 13H6v15h20V13h-4M16 21V3m-6 6 6-6 6 6"/></svg></span><div><strong>共有ボタンを<br>押す</strong><small>四角から上向きの矢印が出たマークです。</small></div></li>
+    <li><span class="homeEntryStepIcon" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="5"/><path d="M16 9v14M9 16h14"/></svg></span><div><strong>「ホーム画面に追加」を押す</strong><small>見つからないときは、メニューを下へスクロール。</small></div></li>
+   </ol>
+   <p class="homeEntryConfirm">最後に「追加」を押したら完了！</p>
+  </section>
+  <section data-home-instructions="android" aria-label="Androidの追加方法" hidden>
+   <ol class="homeEntrySteps">
+    <li><span class="homeEntryStepIcon" aria-hidden="true"><svg viewBox="0 0 32 32" style="fill:currentColor;stroke:none"><circle cx="16" cy="6" r="2.6"/><circle cx="16" cy="16" r="2.6"/><circle cx="16" cy="26" r="2.6"/></svg></span><div><strong>右上の︙を<br>押す</strong><small>Chromeのメニューボタンです。</small></div></li>
+    <li><span class="homeEntryStepIcon" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="4" y="4" width="24" height="24" rx="5"/><path d="M16 9v14M9 16h14"/></svg></span><div><strong>「ホーム画面に追加」を押す</strong><small>「アプリをインストール」と表示されることもあります。</small></div></li>
+   </ol>
+   <p class="homeEntryConfirm">「インストール」または「追加」で完了！</p>
+  </section>
+  <div class="homeEntryLaunch"><img src="./apple-touch-icon.png" alt="SPACE SUSPECTのアイコン" width="52" height="52"><div><strong>追加したアイコンから<br>開いてね！</strong><span>ホーム画面から開くと、この案内は消えます。</span></div></div>
+  <button id="homeInstallButton" type="button" hidden>ホーム画面に追加する</button>
+  <p id="homeInstallStatus" role="status" aria-live="polite"></p>
+  <details><summary>追加する項目が見つからないとき</summary><p data-home-instructions="ios" hidden>Safariでこのサイトを開いてください。「Webアプリとして開く」が表示されたら、オンにして追加します。</p><p data-home-instructions="android" hidden>Chromeでこのサイトを開いてください。「ショートカットを作成」と「インストール」が選べる場合は、「インストール」を選びます。</p></details>
+ </div>
+</main>
+<script>window.SpaceHomeScreen?.mount();</script>
