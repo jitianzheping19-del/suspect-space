@@ -20104,7 +20104,7 @@ function meetingLocationLayout(mapMode=game.settings?.mapMode||"classic"){
  const mode=["astra","frost"].includes(mapMode)?mapMode:"classic";
  if(!meetingLocationLayouts.has(mode)){
   const source=mode==="astra"?window.createAirshipLayout():mode==="frost"?frostGameLayout:{bounds:SKELD_WORLD,rooms:SKELD_ROOMS,corridors:SKELD_CORRIDORS};
-  meetingLocationLayouts.set(mode,{bounds:source.bounds,rooms:source.rooms,corridors:source.corridors||[]});
+  meetingLocationLayouts.set(mode,{bounds:source.bounds,rooms:source.rooms,corridors:source.corridors||[],walls:mode==="classic"?SKELD_WALLS:source.walls||[]});
  }
  return meetingLocationLayouts.get(mode);
 }
@@ -20114,7 +20114,7 @@ function visibleMeetingLocations(){
 }
 const meetingLocations=createMeetingLocationMap({
  getContext:()=>({room:code,round:game.round,uid,phase:game.phase,meeting:game.meeting,self:self(),players:game.players||{},mapMode:["astra","frost"].includes(game.settings?.mapMode)?game.settings.mapMode:"classic",color:'#'+suitColor(Number(self()?.hue)||0,.72,.52).getHexString(),reports:visibleMeetingLocations(),canSend:game.phase==="meeting"&&!!self()&&connected&&hostOnline()&&now()>=(game.meeting?.presentationEndsAt||(game.meeting?.startedAt||0)+2500)&&now()<Number(game.meeting?.endsAt)&&$("meetingIntro").classList.contains("hidden")}),
- getLayout:meetingLocationLayout,notify:message=>toast(message,"command-error"),
+ getLayout:meetingLocationLayout,setToolsVisible:visible=>show("meetingMapTools",visible),notify:message=>toast(message,"command-error"),
  sendReport:report=>{
   if(game.phase!=="meeting"||!self()||!connected||!hostOnline()||meetingChatSubmitLock||now()>=game.meeting.endsAt){toast("今は送信できません。接続と会議の状態を確認してください。","command-error");return false;}
   const clientId=token(),item={clientId,commandId:clientId,text:locationReportText(report),locationReport:report,status:"sending",error:"",at:now()};

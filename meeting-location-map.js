@@ -1,3 +1,4 @@
+import {locationPath} from './meeting-location-navigation.js';
 import './meeting-location-map.css';
 import {roomIcon,loadRoomIcons} from './meeting-room-icons.js';
 import {normalizeLocationSelection,normalizeLocationReport,locationReportText,locationRoom,routeSegments,MAX_ROUTE_STOPS} from './meeting-location-rules.js';
@@ -30,13 +31,18 @@ export function drawLocationMap(layout,records=[],{compact=false,selected='',onR
   const r=record.report,c=color(record),group=shape('g',{'data-report':record.id||'','pointer-events':'none',opacity:selected&&record.id!==selected?'.45':'1'});
   if(r.kind==='route'){
    const arrowId='location-arrow-'+(++serial)+'-'+Math.random().toString(36).slice(2,7),defs=shape('defs'),marker=shape('marker',{id:arrowId,viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:5,markerHeight:5,orient:'auto-start-reverse'});marker.append(shape('path',{d:'M0 0L10 5L0 10Z',fill:c}));defs.append(marker);svg.append(defs);
-   for(const segment of routeSegments(r.stops,unit*1.2)){
-    const a=segment.from,z=segment.to;group.append(shape('path',{d:`M${a.x},${a.z}L${z.x},${z.z}`,fill:'none',stroke:c,'stroke-width':compact?1.8:2.8,'stroke-linecap':'round','vector-effect':'non-scaling-stroke','marker-end':`url(#${arrowId})`,'data-route-step':segment.step}));
-    const dx=z.x-a.x,dz=z.z-a.z,len=Math.hypot(dx,dz),ux=dx/len,uz=dz/len,ax=a.x+dx*.62,az=a.z+dz*.62;
-    group.append(shape('polygon',{points:[[ax+ux*unit*1.4,az+uz*unit*1.4],[ax-ux*unit*.8-uz*unit*.85,az-uz*unit*.8+ux*unit*.85],[ax-ux*unit*.8+uz*unit*.85,az-uz*unit*.8-ux*unit*.85]].map(p=>p.join(',')).join(' '),fill:c}));
-    if(!compact)group.append(shape('text',{x:(a.x+z.x)/2-uz*unit*1.7,y:(a.z+z.z)/2+ux*unit*1.7,'font-size':unit*1.7,'text-anchor':'middle',fill:c},segment.step));
+   const clipId=arrowId+'-floor',clip=shape('clipPath',{id:clipId,clipPathUnits:'userSpaceOnUse'});
+   for(const region of [...layout.rooms,...(layout.corridors||[])]){const rings=[points(region),...(region.holes||[])];clip.append(shape('path',{d:rings.map(r=>'M'+r.map(p=>p.x+','+p.z).join('L')+'Z').join(''),'clip-rule':'evenodd'}));}defs.append(clip);
+   const ink=shape('g',{'clip-path':`url(#${clipId})`}),legs=new Map();group.append(ink);
+   for(const segment of routeSegments(r.stops,unit*1.2,layout)){if(!legs.has(segment.step))legs.set(segment.step,[]);legs.get(segment.step).push(segment);}
+   for(const [step,segments]of legs){
+    const d=segments.map(({from:a,to:b})=>`M${a.x},${a.z}L${b.x},${b.z}`).join('');
+    ink.append(shape('path',{d,fill:'none',stroke:c,'stroke-width':compact?1.8:2.8,'stroke-linecap':'round','vector-effect':'non-scaling-stroke','marker-end':`url(#${arrowId})`,'data-route-step':step}));
+    const segment=segments[Math.floor(segments.length/2)],a=segment.from,z=segment.to,dx=z.x-a.x,dz=z.z-a.z,len=Math.hypot(dx,dz),ux=dx/len,uz=dz/len,ax=(a.x+z.x)/2,az=(a.z+z.z)/2;
+    ink.append(shape('polygon',{points:[[ax+ux*unit,az+uz*unit],[ax-ux*unit*.6-uz*unit*.6,az-uz*unit*.6+ux*unit*.6],[ax-ux*unit*.6+uz*unit*.6,az-uz*unit*.6-ux*unit*.6]].map(p=>p.join(',')).join(' '),fill:c}));
    }
-   for(const [i,stop]of r.stops.entries())group.append(shape('circle',{cx:stop.x,cy:stop.z,r:unit*.75,fill:c,stroke:'#091623','stroke-width':1,'vector-effect':'non-scaling-stroke'}));
+   const visits=new Map();for(const [i,stop]of r.stops.entries()){const key=stop.roomId||stop.x+':'+stop.z;if(!visits.has(key))visits.set(key,{stop,orders:[]});visits.get(key).orders.push(i+1);}
+   for(const {stop,orders}of visits.values()){group.append(shape('circle',{cx:stop.x,cy:stop.z,r:unit*.75,fill:c,stroke:'#091623','stroke-width':1,'vector-effect':'non-scaling-stroke'}));if(!compact){const label=shape('text',{x:stop.x,y:stop.z-unit*1.3,'font-size':unit*1.7,'text-anchor':'middle'},orders.slice(0,4).join('・')+(orders.length>4?'…':''));label.append(shape('title',{},'通った順番：'+orders.join(' → ')));group.append(label);}}
    const first=r.stops[0],last=r.stops.at(-1);if(!compact){group.append(shape('text',{x:first.x,y:first.z-unit*2,'font-size':unit*1.7,'text-anchor':'middle'},'出発'));group.append(shape('text',{x:last.x,y:last.z+unit*3,'font-size':unit*1.7,'text-anchor':'middle'},(record.name||'あなた')+' 到着'));}
   }else{
    const p=r.selection,key=p.x+':'+p.z,offset=(occupied.get(key)||0);occupied.set(key,offset+1);
@@ -53,7 +59,7 @@ export function drawLocationMap(layout,records=[],{compact=false,selected='',onR
  const firstReport=svg.querySelector('[data-report]');for(const label of labels)svg.insertBefore(label,firstReport||null);
  return svg;
 }
-export function createMeetingLocationMap({getContext,getLayout,sendReport,notify}){
+export function createMeetingLocationMap({getContext,getLayout,sendReport,notify,setToolsVisible}){
  let panel=null,mode='shared',draft=null,scope='',seenAuto=new Set(),zoom=1,focused='',drag=null,renderStamp='',frameTarget=null;
  const cached=new Map(),frameSent=new Set();let actions;
  const context=()=>getContext();
@@ -64,7 +70,13 @@ export function createMeetingLocationMap({getContext,getLayout,sendReport,notify
   if(scope!==key){scope=key;close();cached.clear();frameSent.clear();}
   if(!actions){actions=el('div',undefined);actions.id='meetingLocationActions';for(const[k,label]of [['body','死体の場所を報告'],['route','経路を説明']]){const b=button(label,()=>open(k));b.id='meetingLocation-'+k;actions.append(b);}document.getElementById('chatForm')?.before(actions);}
   actions.hidden=c.phase!=='meeting';for(const b of actions.children)b.disabled=!c.canSend;
-  const tools=document.getElementById('meetingMapTools'),position=document.getElementById('meetingPositionBtn');if(tools){tools.classList.toggle('hidden',c.phase!=='meeting');tools.hidden=c.phase!=='meeting';}if(position)position.disabled=!c.canSend;
+  const tools=document.getElementById('meetingMapTools'),position=document.getElementById('meetingPositionBtn');if(tools){
+   const visible=c.phase==='meeting',changed=tools.dataset.spaceUiVisible!==String(visible);setToolsVisible?.(visible);
+   if(!setToolsVisible)tools.classList.toggle('hidden',!visible);
+   tools.hidden=!visible;tools.dataset.spaceUiVisible=String(visible);
+   // An open report dialog owns background isolation until it closes.
+   if(changed||!visible){tools.inert=!visible;if(tools.getAttribute('aria-hidden')!==String(!visible))tools.setAttribute('aria-hidden',String(!visible));}
+  }if(position)position.disabled=!c.canSend;
   if(c.phase!=='meeting'){if(panel)close();return;}
   if(panel){if(draft&&mode!=='shared')draft.meetingId=c.meeting.id;panel.querySelector('.meetingLocationSend')?.toggleAttribute('disabled',!ready()||!c.canSend);if(mode==='shared'&&!drag)paint();}
   const autoKey=[c.room,c.round,c.meeting?.startedAt].join(':');
@@ -73,10 +85,10 @@ export function createMeetingLocationMap({getContext,getLayout,sendReport,notify
   }
  }
  function records(){const c=context(),latest=new Map();for(const row of c.reports||[]){const r=row.report;if(!r||r.mapMode!==c.mapMode)continue;latest.set(row.uid+':'+r.kind+':'+(r.victimId||''),row);}const list=[...latest.values()];if(focused&&cached.has(focused)&&!list.some(r=>r.id===focused))list.push(cached.get(focused).record);return list;}
- function ready(){return mode==='route'?draft?.stops?.length>=2:!!draft?.selection;}
+ function ready(){return mode==='route'?draft?.stops?.length>=2&&draft.stops.every((stop,i)=>!i||!!locationPath(getLayout(context().mapMode),draft.stops[i-1],stop)):!!draft?.selection;}
  function rawSelection(point){const room=locationRoom(getLayout(context().mapMode),point.x,point.z);return room?{roomId:room.id}:{x:point.x,z:point.z};}
  function addStop(selection){
-  if(draft.stops.length>=MAX_ROUTE_STOPS)return;const normalized=normalizeLocationSelection(selection,getLayout(context().mapMode));if(!normalized)return;
+  if(!selection.roomId||draft.stops.length>=MAX_ROUTE_STOPS)return;const normalized=normalizeLocationSelection(selection,getLayout(context().mapMode));if(!normalized)return;
   const last=draft.stops.at(-1);if(last&&(last.roomId&&last.roomId===normalized.roomId||Math.hypot(last.x-normalized.x,last.z-normalized.z)<1.5))return;
   draft.stops.push(normalized);paint();
  }
@@ -93,7 +105,8 @@ export function createMeetingLocationMap({getContext,getLayout,sendReport,notify
   if(drag){ // Keep the captured SVG alive until the drawing finger is released.
    previous?.querySelector('[data-draft-preview]')?.remove();const group=shape('g',{'data-draft-preview':'true'});for(const n of [...svg.querySelectorAll('[data-report],defs')])group.append(n);previous?.append(group);
   }else{previous?.remove();viewport.append(svg);}
-  const summary=panel.querySelector('.meetingLocationSelection');summary.textContent=mode==='shared'?(list.length?focused?cached.get(focused)?.text||'共有された報告':'名前と色で、報告された場所を確認できます。':'まだ場所の報告はありません。'):ready()?locationReportText(draft):mode==='route'?'出発地点からドラッグしてください。':'まだ場所を選んでいません。';
+  const summary=panel.querySelector('.meetingLocationSelection');summary.textContent=mode==='shared'?(list.length?focused?cached.get(focused)?.text||'共有された報告':'名前と色で、報告された場所を確認できます。':'まだ場所の報告はありません。'):ready()?locationReportText(draft):mode==='route'?'通った部屋を順番に選んでください。':'まだ場所を選んでいません。';
+  if(mode==='route'&&draft.stops.length>=2&&!ready())summary.textContent='通路がつながらない部屋があります。「一つ戻す」で経路を修正してください。';
   const send=panel.querySelector('.meetingLocationSend');if(send)send.disabled=!ready()||!c.canSend;
   syncRoomPicker();
   const undo=panel.querySelector('[data-route-undo]');if(undo)undo.disabled=!draft?.stops?.length;
@@ -103,7 +116,7 @@ export function createMeetingLocationMap({getContext,getLayout,sendReport,notify
   if(mode==='shared')return;
   svg.addEventListener('pointerdown',e=>{
    if(e.button!==0)return;
-   if(mode==='route'){e.preventDefault();const p=mapPoint(e,svg);drag={id:e.pointerId,svg};addStop(rawSelection(p));try{svg.setPointerCapture(e.pointerId);}catch{};}
+   if(mode==='route'){e.preventDefault();const p=mapPoint(e,svg),roomId=e.target.closest('[data-room]')?.dataset.room;drag={id:e.pointerId,svg};addStop(roomId?{roomId}:rawSelection(p));try{svg.setPointerCapture(e.pointerId);}catch{};}
   });
   svg.addEventListener('pointermove',e=>{if(mode==='route'&&drag?.id===e.pointerId){e.preventDefault();addStop(rawSelection(mapPoint(e,svg)));}});
   const end=e=>{if(drag?.id!==e.pointerId)return;drag=null;renderStamp='';paint();};svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
@@ -129,7 +142,7 @@ export function createMeetingLocationMap({getContext,getLayout,sendReport,notify
   }
   const zoomButton=button('拡大',()=>{zoom=zoom===1?1.7:zoom===1.7?2.5:1;zoomButton.textContent=zoom===1?'拡大':zoom+'倍';paint();});toolbar.append(zoomButton);
   if(kind==='route'){const undo=button('一つ戻す',()=>{draft.stops.pop();paint();});undo.dataset.routeUndo='true';toolbar.append(undo,button('描き直す',()=>{draft.stops=[];paint();}));}
-  card.append(toolbar,el('p',kind==='shared'?'会議で共有された場所と経路です。':kind==='route'?'出発地点からドラッグ。部屋名を順に押しても描けます。往復は別々の矢印で表示します。':'部屋のアイコン・名前で部屋全体、マップを直接押すと細かい位置を選べます。','meetingLocationHint'));
+  card.append(toolbar,el('p',kind==='shared'?'会議で共有された場所と経路です。':kind==='route'?'通った部屋を順に選択。通路は自動でつなぎ、部屋ごとに順番を表示します。':'部屋のアイコン・名前で部屋全体、マップを直接押すと細かい位置を選べます。','meetingLocationHint'));
   if(c.self?.alive===false||c.self?.observer)card.append(el('p','送信先：ゴーストチャット','meetingLocationHint'));
   const viewport=el('div',undefined,'meetingLocationViewport');viewport.dataset.route=String(kind==='route');card.append(viewport);
   if(kind==='shared')card.append(el('div',undefined,'meetingLocationLegend'));
