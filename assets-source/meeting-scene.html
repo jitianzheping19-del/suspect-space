@@ -27,6 +27,14 @@ button:enabled:active{scale:.97}
 @keyframes meetingConfirmArrival{from{opacity:.25;translate:0 10px}to{opacity:1;translate:0 0}}
 @keyframes meetingOutcomeArrival{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
 @media(prefers-reduced-motion:reduce){button{transition:none}button:enabled:active{scale:1}#meetingVoteConfirm,#meetingOutcome{animation:none}}
+</style><style id="vote-deadline-attention">
+#meetingVoteWarning{box-shadow:inset 0 0 70px 14px #ff385b99;animation:voteEdgeGlow 1.2s ease-in-out infinite alternate}
+body.voteUrgent #meetingTimerBar{background:#a10d2df5!important;color:#fff!important;border:2px solid #ffe67d;box-shadow:0 0 18px #ff385b,0 0 36px #ffb13b99;text-shadow:0 0 10px #ffcf65;animation:votePromptGlow 1.2s ease-in-out infinite alternate}
+body.voteUrgent #tSec{color:#fff49a}
+body.voteUrgent :is(#meetingSkipBtn,#meetingVoteConfirm button){box-shadow:0 0 16px #ffb13baa;outline:2px solid #ffe67d}
+@keyframes voteEdgeGlow{to{box-shadow:inset 0 0 110px 24px #ff385bcc}}
+@keyframes votePromptGlow{to{box-shadow:0 0 28px #ff385b,0 0 48px #ffb13bcc}}
+@media(prefers-reduced-motion:reduce){#meetingVoteWarning,body.voteUrgent #meetingTimerBar{animation:none!important}}
 </style></head><body>
 <div id="flash"></div><div id="title"><b>会議室</b><span></span></div><div id="caption"></div>
 
@@ -227,6 +235,7 @@ function showMeetingOutcome(text,r){
  if(details.length){for(const detail of details){const row=document.createElement("div"),person=byId(detail.id),name=person?.fullName||person?.name||"プレイヤー";appendRun(row,name+"は");appendRun(row,detail.label,detail.impostor===true||detail.label==="インポスター"?"#ff4e5e":"");appendRun(row,"だった");spoken.push(name+"は"+detail.label+"だった");title.append(row);}}
  else{appendRun(title,text);spoken.push(text);}
  title.setAttribute("aria-label",spoken.join('　'));meetingOutcome.append(title);
+ const abstentions=document.createElement("div");abstentions.textContent="無投票 "+(Number(r.noVoteCount)||0)+"人";abstentions.style.cssText="margin-top:8px;font-size:.65em;color:#d8e5f1";meetingOutcome.append(abstentions);
  let remaining=null;
  if(r.showImpostorCount){remaining=document.createElement("div");remaining.textContent="残り人狼 "+Math.max(0,Number(r.remainingImpostors)||0)+" 人";remaining.style.cssText="margin-top:15px;font-size:.75em;font-weight:800;color:#e04752;visibility:hidden";meetingOutcome.append(remaining);}
  meetingOutcome.style.display="block";
@@ -866,7 +875,7 @@ window.previewMeetingEjection=(mode,ids,result)=>mrStartEjection(ids,result,mode
 function playResult(r){
   if(meetingAbilityCleanups.size){pendingAbilityResult=r;return;}
   const resultKey=JSON.stringify([meetingId,r.counts||{},r.votes||{},r.ejected||null,r.ejecteds||[],r.remainingImpostors,r.showImpostorCount,r.revealMode,r.ejectedDisclosure||[]]);if(window.__authoredMeetingResultKey===resultKey)return;window.__authoredMeetingResultKey=resultKey;
-  resultPlayback=true;allVotedNow=true;voting=false;uiBase=0;pendingPick=null;setMode("");timerBar.style.display="none";voteWarning.style.display="none";hud.style.display="none";refreshTargetOutlines();
+  document.body.classList.remove("voteUrgent");resultPlayback=true;allVotedNow=true;voting=false;uiBase=0;pendingPick=null;setMode("");timerBar.style.display="none";voteWarning.style.display="none";hud.style.display="none";refreshTargetOutlines();
   clearBallEffects();if(busy){for(let i=tws.length-1;i>=0;i--)if(!tws[i].scale)tws.splice(i,1);busy=false;}busy=true;
   // Result snapshots also restore a scale when the live update arrived late.
   const resultTargets=Array.isArray(r.scalesTargets)?r.scalesTargets:[];
@@ -877,7 +886,7 @@ function playResult(r){
   const pairs=[];
   if(!anon&&Object.keys(votes).length){
     for(const [voter,ballot] of Object.entries(votes)){
-      const target=typeof ballot==="string"?ballot:String(ballot?.target||"");if(!target)continue;
+      const target=typeof ballot==="string"?ballot:String(ballot?.target||"");if(!target||ballot?.noVote)continue;
       const n=Math.max(1,Number(ballot?.weight)|| (byId(voter)?.boosted?5:1));
       for(let k=0;k<n;k++)pairs.push({v:voter,t:target});
     }
@@ -936,7 +945,7 @@ function playResult(r){
     for(const id of ejectedIds){const p=byId(id);if(p){p.ejectionStarted=true;p.dying=true;}}
     tween(landT+1.0,.01,()=>{},()=>mrStartEjection(ejectedIds,r));
   }else{
-    tween(landT+.8,.01,()=>{},()=>{busy=false;showMeetingOutcome(r.outcome==="skip"?"スキップ":"追放なし",r);});
+    tween(landT+.8,.01,()=>{},()=>{busy=false;showMeetingOutcome(r.outcome==="skip"?"スキップ":r.outcome==="no-votes"?"無投票":"追放なし",r);});
   }
 
 }
@@ -965,8 +974,10 @@ chatLog.addEventListener('click',e=>{if(performance.now()<quoteUntil)return;cons
 chatLog.addEventListener('pointerdown',e=>{const row=e.target.closest('[data-quote-text]');if(!row)return;quotePoint={x:e.clientX,y:e.clientY};clearTimeout(quoteTimer);quoteTimer=setTimeout(()=>{appendQuote(row.dataset.quoteName+'「'+row.dataset.quoteText.slice(0,65)+'」への返信：');quoteUntil=performance.now()+600;},500);});
 for(const name of ['pointerup','pointercancel'])chatLog.addEventListener(name,()=>clearTimeout(quoteTimer));chatLog.addEventListener('pointermove',e=>{if(quotePoint&&Math.hypot(e.clientX-quotePoint.x,e.clientY-quotePoint.y)>8)clearTimeout(quoteTimer);});
 chatLog.addEventListener('contextmenu',e=>{const row=e.target.closest('[data-quote-text]');if(!row)return;e.preventDefault();clearTimeout(quoteTimer);appendQuote(row.dataset.quoteName+'「'+row.dataset.quoteText.slice(0,65)+'」への返信：');});
+const meetingLocationsCache=new Map();
+const locationActions=document.createElement('div');locationActions.id='meetingLocationFrameActions';locationActions.style.cssText='display:flex;gap:4px;flex-wrap:wrap;padding:5px 8px';chatLog.before(locationActions);let locationActionsKey='';
 const statement=document.createElement('p');statement.style.cssText='margin:4px 8px;padding:5px;background:#234952;font:12px system-ui';statement.hidden=true;testimony.before(statement);
-const voteWarning=document.createElement("div");voteWarning.style.cssText="position:fixed;inset:0;z-index:4;pointer-events:none;background:#c9002355;display:none";document.body.append(voteWarning);
+const voteWarning=document.createElement("div");voteWarning.id="meetingVoteWarning";voteWarning.style.cssText="position:fixed;inset:0;z-index:4;pointer-events:none;display:none";document.body.append(voteWarning);
 const timerBar=document.createElement("div");timerBar.id="meetingTimerBar";timerBar.style.cssText="position:fixed;top:0;left:190px;right:174px;padding:8px 10px;box-sizing:border-box;background:#050b16e6;color:#eef6ff;font:800 14px sans-serif;z-index:5;pointer-events:none";
 timerBar.innerHTML='<div style="display:flex;justify-content:space-between;align-items:baseline"><span id="tPhase">会議</span><span id="tSec" style="font-size:22px;font-variant-numeric:tabular-nums">--</span></div><div style="height:8px;background:#ffffff22;border-radius:4px;margin-top:6px;overflow:hidden"><div id="tFill" style="height:100%;width:100%;background:linear-gradient(90deg,#43dfff,#d9fbff)"></div></div>';
 document.body.appendChild(timerBar);
@@ -1017,7 +1028,8 @@ function renderUi(d){
   const atBottom=chatLog.scrollTop+chatLog.clientHeight>=chatLog.scrollHeight-40;
   const reporter=chatPanel.querySelector("#chatReporter");
   if(reporter){const name=String(d.reporterName||"").trim();reporter.hidden=!name;reporter.textContent=name?(d.reason==="遺体を発見"?`📣 ${name} が死体を通報しました`:`🚨 ${name} が緊急会議を開きました`):"";}
-  const nextChatKey=JSON.stringify([d.chat,[...meetingPhotos].map(([id,p])=>[id,p.url])]);if(nextChatKey!==lastChatKey){lastChatKey=nextChatKey;chatLog.replaceChildren(...(d.chat||[]).map(m=>{
+  const locationKey=JSON.stringify(d.locationActions||[]);if(locationKey!==locationActionsKey){locationActionsKey=locationKey;locationActions.replaceChildren();for(const a of d.locationActions||[]){const b=document.createElement('button');b.type='button';b.textContent=a.text;b.dataset.locationAction=a.id;b.disabled=!!a.disabled;b.style.cssText='min-height:32px;padding:4px 6px;border:1px solid #7193a555;border-radius:7px;background:#203647;color:#edf6ff;font:11px system-ui';b.onclick=()=>parent.postMessage({type:'ss3d-btn',id:a.id},'*');locationActions.append(b);}}
+  const nextChatKey=JSON.stringify([d.chat,[...meetingLocationsCache],[...meetingPhotos].map(([id,p])=>[id,p.url])]);if(nextChatKey!==lastChatKey){lastChatKey=nextChatKey;chatLog.replaceChildren(...(d.chat||[]).map(m=>{
     const row=document.createElement("div");
     if(m.system){row.style.cssText="align-self:center;max-width:94%;padding:4px 9px;border-radius:999px;background:#ffffff16;color:#d4e3f2;font-size:11px;text-align:center;line-height:1.35";row.textContent=String(m.text||"");return row;}
     row.dataset.quoteName=String(m.name||"クルー");row.dataset.quoteText=String(m.text||"");
@@ -1031,6 +1043,8 @@ function renderUi(d){
       if(photo?.from===m.uid){const image=document.createElement("img");image.src=photo.url;image.alt="会議で共有された写真";image.style.cssText="display:block;width:min(240px,30vw);max-width:100%;height:auto;border-radius:6px";open.replaceChildren(image);}
       open.onclick=()=>parent.postMessage({type:"ss3d-photo-open",id:m.photoId,from:m.uid},"*");bubble.replaceChildren(open);
     }
+    const location=meetingLocationsCache.get(m.locationKey);
+    if(location){const open=document.createElement('button');open.type='button';open.className='meetingLocationThumb';open.dataset.locationKey=m.locationKey;open.setAttribute('aria-label','報告された場所をマップで見る');open.style.cssText='display:block;margin-top:5px;padding:4px;max-width:100%;background:#102332;border:1px solid #7fa9bc;border-radius:8px;cursor:zoom-in';const img=document.createElement('img');img.src=location.url;img.alt=location.text;img.style.cssText='display:block;width:160px;max-width:100%;height:auto';open.append(img);open.onclick=()=>parent.postMessage({type:'ss3d-location-open',key:m.locationKey},'*');bubble.replaceChildren(document.createTextNode(location.text),open);}
     stack.append(who,bubble);row.append(avatar,stack);return row;
   }));}
   if(atBottom)chatLog.scrollTop=chatLog.scrollHeight;
@@ -1094,6 +1108,7 @@ cv.addEventListener("pointerdown",e=>{
   let root=hit.object;while(root.parent&&!seats.some(p=>p.c.root===root))root=root.parent;
   const p=seats.find(s=>s.c.root===root);if(p&&!ownVoted&&!freeCam)askPick(p.id,`${p.name} に投票しますか？`);});
 addEventListener("message",e=>{const d=e.data||{};
+  if(e.source===parent&&d.type==='ss3d-location-cache'&&typeof d.key==='string'&&d.key.length<200&&typeof d.url==='string'&&d.url.length<100000&&d.url.startsWith('data:image/svg+xml;charset=utf-8,')){meetingLocationsCache.set(d.key,{url:d.url,text:String(d.text||'').slice(0,200)});while(meetingLocationsCache.size>160)meetingLocationsCache.delete(meetingLocationsCache.keys().next().value);if(lastPhotoUi)renderUi(lastPhotoUi);return;}
   if(e.source===parent&&d.type==="ss3d-photo-cache"&&/^[a-f0-9]{24}$/.test(d.id||"")&&typeof d.url==="string"&&d.url.length<=49152&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(d.url)){meetingPhotos.set(d.id,{url:d.url,from:d.from});while(meetingPhotos.size>12)meetingPhotos.delete(meetingPhotos.keys().next().value);if(lastPhotoUi)renderUi(lastPhotoUi);return;}
   if(e.source===parent&&d.type==="ss3d-close-keyboard"){document.activeElement?.blur?.();return;}
   if(d.type==="ss3d-state"){applyState(d);}
@@ -1107,7 +1122,7 @@ startLoop((dt,rdt,time)=>{
   NOW+=dt;updateMeetingAbilityView();updateRoomArrival();if(freeCam)updateFreeCam(dt);else orb.update();roof.visible=false;hatch.visible=false;mrUpdateScaleBreak(dt);if(scaleShown)mrUpdateScaleChains();
   skipBtn.style.display=(voting&&!busy&&!ownVoted&&!allVotedNow&&!mode)?"block":"none";
   timerBar.style.display=allVotedNow||resultPlayback?"none":"";
-  if(uiMeeting&&!allVotedNow&&!resultPlayback){const left=Math.max(0,uiBase-(performance.now()-uiAt));tSec.textContent=Math.ceil(left/1000)+"秒";tFill.style.width=(clamp(left/uiTotal,0,1)*100)+"%";const voteUrgent=votingOpenNow&&left>0&&left<=10000&&!ownVoted;voteWarning.style.display=voteUrgent?"block":"none";tFill.style.background=voteUrgent?"linear-gradient(90deg,#ff384f,#ff9a9a)":"linear-gradient(90deg,#43dfff,#d9fbff)";tPhase.textContent=votingOpenNow?"投票中":"議論中";}else voteWarning.style.display="none";
+  if(uiMeeting&&!allVotedNow&&!resultPlayback){const left=Math.max(0,uiBase-(performance.now()-uiAt));tSec.textContent=Math.ceil(left/1000)+"秒";tFill.style.width=(clamp(left/uiTotal,0,1)*100)+"%";const voteUrgent=voting&&votingOpenNow&&left>0&&left<=10000&&!ownVoted;document.body.classList.toggle("voteUrgent",voteUrgent);voteWarning.style.display=voteUrgent?"block":"none";tFill.style.background=voteUrgent?"linear-gradient(90deg,#ff384f,#ff9a9a)":"linear-gradient(90deg,#43dfff,#d9fbff)";tPhase.textContent=voteUrgent?"投票してください！":votingOpenNow?"投票中":"議論中";}else{voteWarning.style.display="none";document.body.classList.remove("voteUrgent");}
   if(!voting||ownVoted)hud.style.display=(hud.style.display==="flex"&&voting&&!ownVoted)?"flex":"none";
   for(const f of flights){if(f.done||NOW<f.start)continue;f.m.visible=true;const t=clamp((NOW-f.start)/f.dur,0,1),a=f.origin||(f.origin=f.from().clone()),b=f.to(),e=t*t*(3-2*t);
     if(roomMotionReduced.matches){f.m.position.copy(b);f.m.material.transparent=true;f.m.material.opacity=.25+.75*e;}else f.m.position.set(lerp(a.x,b.x,e),lerp(a.y,b.y,e)+4*e*(1-e)*f.arc,lerp(a.z,b.z,e));if(f.weighted&&!roomMotionReduced.matches){f.m.rotation.y+=dt*4;f.m.rotation.z=Math.sin(t*Math.PI*2)*.28;}if(t>=1){f.done=true;f.onDone&&f.onDone(f.m);}}

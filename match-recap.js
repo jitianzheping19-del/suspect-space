@@ -37,6 +37,7 @@ export function renderMatchRecapView({container, players, meetings, history, nam
       line.append(label,bar,node('b','',`${Number(count)||0}票`));tally.append(line);
     }
     if(counts.length)card.append(tally);
+    card.append(node('p','recapAbstentions',`無投票 ${Number(record.noVoteCount)||0}人`));
     const votes=Object.entries(record.votes||{});
     if(record.anonymousVotes)card.append(node('p','recapAnonymous','匿名投票'));
     else if(votes.length){

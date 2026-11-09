@@ -233,6 +233,10 @@ body[data-phase="play"] :is(#joystick,#buttons,#gameCanvas), body[data-phase="lo
 /* Keep both ghost-control rows inside the viewport when the tools are present. */
 html body #ghostHud{max-height:none!important}
 html body #ghostTools{grid-column:1/-1;grid-row:1;min-width:0}
+html body #ghostTaskProgress:not([hidden]){display:flex;align-items:center;gap:8px;margin-top:4px;width:100%;font-size:11px;color:#e5f7f0}
+html body #ghostTaskProgress progress{flex:1;min-width:40px;height:9px;accent-color:#73dfb1}
+html body #ghostTaskProgress progress::-webkit-progress-bar{background:#263c43;border-radius:5px}
+html body #ghostTaskProgress progress::-webkit-progress-value{background:#73dfb1;border-radius:5px}
 html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
 
 /* Phone lobby: use one layout for the roster and utilities, including wide
@@ -481,4 +485,15 @@ html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
  @media(pointer:coarse) and (max-width:700px) {
   html body[data-phase="lobby"] #lobbyMiniGameToggle,html body[data-phase="lobby"].voiceAvailable #voiceToggleBtn {top:calc(var(--lobby-phone-top) + 52px)!important;}
  }
+}
+
+/* Shared map and position report sit below the timer, in one fixed column. */
+@layer play-action-layout {
+ html body[data-phase="meeting"] #meetingMapTools:not(.hidden){display:grid!important;position:fixed!important;right:max(8px,env(safe-area-inset-right))!important;top:calc(max(8px,env(safe-area-inset-top)) + 68px)!important;width:104px!important;gap:6px!important;z-index:1404!important;pointer-events:auto!important}
+ html body[data-phase="meeting"] #meetingMapTools>#meetingMapBtn:not(.hidden),html body[data-phase="meeting"] #meetingMapTools>#meetingPositionBtn{display:flex!important;align-items:center!important;justify-content:center!important;position:static!important;inset:auto!important;transform:none!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:none!important;height:44px!important;min-height:44px!important;max-height:44px!important;margin:0!important;padding:5px!important;border:1px solid #8ab9ca!important;border-radius:10px!important;background:#102c40f5!important;color:#f1fbff!important;font-size:12px!important;line-height:1.2!important;touch-action:none!important}
+ html body[data-phase="meeting"] #roundRoleBtn{top:calc(max(8px,env(safe-area-inset-top)) + 168px)!important;bottom:auto!important}
+}
+
+@layer play-action-layout {
+ html body[data-phase="meeting"] #meeting[data-render-mode="3d"] .card>.row:first-child,html body[data-phase="meeting"] #meeting[data-render-mode="3d"] #meetingCountdown{display:none!important}
 }
