@@ -2677,7 +2677,7 @@ html body #buttons[data-ghost="true"]>#reportBtn{display:none!important;pointer-
 <div class="updateScroll"><div class="updateGrid">
 <section class="updateSection"><h3>新しい特別スキン</h3><p>金レア10体と伝説レア10体を追加。郵便士の革かばん、潜水士のボンベ、背負いオルガンなど、歩いたときや背中から見たときにも各衣装の違いがわかります。</p></section>
 <section class="updateSection"><h3>会議と投票</h3><p>参加者一覧とチャットを読みやすくし、2D会議に投票の進み具合を表示しました。3D会議でも発言と投票確認を見分けやすくしました。</p></section>
-<section class="updateSection"><h3>特別チケット10枚</h3><p>前回受け取った方も今回の対象です。オフラインだった方も、次にログインしてここから受け取れます。受け取りは1アカウントにつき1回です。</p></section>
+<section class="updateSection"><h3>特別チケット10枚</h3><p>前回受け取った方も今回の対象です。オフラインだった方も、次にログインしてここか設定の受信箱から受け取れます。受け取りは1アカウントにつき1回です。</p></section>
 <section class="updateSection"><h3>ギフト受信箱</h3><p>管理者から全員に届く特別チケットは、あとから設定の受信箱で受け取れます。</p></section>
 </div></div><p id="lobbyUpdateGiftStatus" role="status" aria-live="polite" style="margin:0;color:#ffe1a5;overflow-wrap:anywhere"></p><button id="lobbyUpdateInfoLater" type="button">あとで受け取る</button><p class="updateFoot">確認後は自動表示されません。ロビーのアップデート情報から見返せます。</p></div></section>
   <button id="startBtn" class="hidden">ゲーム開始</button>
@@ -3483,7 +3483,7 @@ import "./game-asset-cache.js";
 import {showRoomExitScreen} from "./room-exit-screen.js";
 import "./lobby-loading.css";
 import {hasCostumeInventory,shouldResetEmptyCostume} from "./costume-ownership.js";
-import {createRealtimeGacha,GACHA_UPDATE_RELEASE} from "./realtime-gacha.js";
+import {createRealtimeGacha,GACHA_UPDATE_RELEASE,GACHA_UPDATE_GIFT_COUNT} from "./realtime-gacha.js";
 import {motionPreference,installComfortSettings,setActionAvailability} from "./player-comfort.js";
 import "./optional-launchers.css";
 import {installGachaPreviewControls,fitGachaPreview,createGachaWearablePreview} from "./gacha-preview-controls.js";
@@ -27062,10 +27062,13 @@ function renderGiftReveal(gift,container,{manualRotation=false}={}){
 async function applyOwnedCostume(gift){const cat=Number(gift.category);if(!isSpaceSuspectAdmin()){const entry=GACHA_CATALOG.find(x=>x.category===cat&&x.id===gift.item);if(cat!==5&&(!entry||!(await get(ref(db,`economy/${uid}/owned/${entry.number}`))).val()))throw Error("この装備はまだ所持していません");}if(cat===5){if(!(await get(ref(db,`premiumOwnership/${uid}/${gift.item}`))).exists()){if(!gift.claimed||!gift.key)throw new Error("gift not owned");await set(ref(db,`premiumOwnership/${uid}/${gift.item}`),gift.key);}const next="premium-"+gift.item;if(validProfileCostume(next)!==next)throw new Error("invalid gift");await update(ref(db,`profiles/${uid}`),{costume:next,updatedAt:serverTimestamp()});accountCostume=next;saveStored("space-suspect-costume",next);profileCache={...(profileCache||{}),costume:next};if(code&&uid){await update(ref(db,`rooms/${code}/players/${uid}`),{costume:next});players[uid]={...(players[uid]||{}),costume:next};}$("lobbyAttachedFrame").contentWindow?.postMessage({type:"lobby-set-costume",costume:next},"*");return;}const entry=costumeCatalog[cat]?.items.find(v=>v[0]===gift.item&&v[0]!=="none");if(!entry)throw new Error("invalid gift");const current=accountCostume||"standard",parts=normalizeCostumeParts(current.startsWith("custom-")?current.slice(7).split("-"):legacyStudioCostumes[current]||["none","none","none"]);parts[studioCategoryParts[cat]]=entry[0];const next=validProfileCostume("custom-"+parts.join("-"));if(next==="standard")throw new Error("invalid costume");const name=(readStored("space-suspect-name")||"宇宙クルー").trim().slice(0,16)||"宇宙クルー",color=validProfileColor(readStored("space-suspect-color")||"#42c8f5");await update(ref(db,`profiles/${uid}`),{name,color,costume:next,updatedAt:serverTimestamp()});accountCostume=next;saveStored("space-suspect-costume",next);saveNamedProfile(name,{color,costume:next});profileCache={...(profileCache||{}),name,color,costume:next};if(code&&uid){players[uid]={...(players[uid]||{}),costume:next};await update(ref(db,`rooms/${code}/players/${uid}`),{costume:next});}$("lobbyAttachedFrame").contentWindow?.postMessage({type:"lobby-set-costume",costume:next},"*");}
 let gachaWallet=null,gachaWalletUid="",gachaWalletUnsubscribe=null;
 function broadcastInboxRows(broadcasts,receipts){
- return Object.entries(broadcasts||{}).map(([id,gift])=>({
+ const releaseKey="update_"+GACHA_UPDATE_RELEASE;
+ const releaseGift={key:releaseKey,release:GACHA_UPDATE_RELEASE,ticket:true,kind:"premium",count:GACHA_UPDATE_GIFT_COUNT,
+  createdAt:Date.UTC(2026,10,18),name:"更新記念 · 特別チケット ×"+GACHA_UPDATE_GIFT_COUNT,claimed:!!receipts[releaseKey]};
+ return [releaseGift,...Object.entries(broadcasts||{}).map(([id,gift])=>({
   key:"broadcast_"+id,broadcastId:id,ticket:true,kind:"premium",count:gift.count,
   createdAt:gift.createdAt,name:"全員配布 · 特別チケット ×"+gift.count,claimed:!!receipts["broadcast_"+id]
- }));
+ }))];
 }
 const realtimeGacha=createRealtimeGacha({get db(){return db;},ref,get,set,runTransaction,uid:()=>uid,isAdmin:isSpaceSuspectAdmin});
 async function gachaRequest(action,payload={}){if(rolePracticeMode)throw new Error("練習では報酬を変更できません。");const owner=uid,value=await realtimeGacha(action,payload);if(uid===owner&&value.bonusGranted&&readStored("gacha-bonus-notice:"+owner)!=="1"){saveStored("gacha-bonus-notice:"+owner,"1");toast("チケットを50枚もらいました","gift");}if(uid===owner&&value.updateBonusGranted)toast("特別ガチャチケットを10枚もらいました","gift");return value;}
@@ -27117,7 +27120,7 @@ const reviewUI=createReviewUI({
   return()=>{a();b();c();d();stopBroadcasts();};
  },
  getGifts:async(id)=>{const [g,c,t,w,broadcasts]=await Promise.all([get(ref(db,`reviewGifts/${id}`)),get(ref(db,`giftClaims/${id}`)),get(ref(db,`ticketGifts/${id}`)).catch(()=>({val:()=>null})),get(ref(db,`economy/${id}/receipts`)),get(ref(db,"ticketBroadcasts"))]);const claims=c.val()||{},receipts=w.val()||{};return [...broadcastInboxRows(broadcasts.val(),receipts),...Object.entries(g.val()||{}).map(([key,value])=>({...value,key,claimed:!!claims[key]})),...Object.entries(t.val()||{}).map(([key,value])=>({...value,key,ticket:true,name:(value.kind==="premium"?"特別装備チケット":"通常ガチャチケット")+" ×"+value.count,claimed:!!receipts["gift_"+key]}))];},
- claimGift:async gift=>{if(gift.ticket){const value=await gachaRequest(gift.broadcastId?"claimBroadcast":"claim",{giftId:gift.broadcastId||gift.key,requestId:crypto.randomUUID()});gachaUI.setWallet(value.wallet);return;}await set(ref(db,`giftClaims/${uid}/${gift.key}`),true);if(Number(gift.category)===5)await set(ref(db,`premiumOwnership/${uid}/${gift.item}`),gift.key);},
+ claimGift:async gift=>{if(gift.release===GACHA_UPDATE_RELEASE){const value=await gachaRequest("updateGift",{release:gift.release});gachaUI.setWallet(value.wallet);return;}if(gift.ticket){const value=await gachaRequest(gift.broadcastId?"claimBroadcast":"claim",{giftId:gift.broadcastId||gift.key,requestId:crypto.randomUUID()});gachaUI.setWallet(value.wallet);return;}await set(ref(db,`giftClaims/${uid}/${gift.key}`),true);if(Number(gift.category)===5)await set(ref(db,`premiumOwnership/${uid}/${gift.item}`),gift.key);},
  applyGift:applyOwnedCostume,
  markRead:at=>set(ref(db,`reviewRead/${uid}`),at)
 });
@@ -27670,9 +27673,9 @@ if (phase === "meeting" && game.meeting) {
           button.classList.toggle("neutralReveal",neutralVisible);
           const roleBadge=button.querySelector(".voteRole");if(roleBadge){roleBadge.textContent=revealRole?roleText:"";roleBadge.hidden=!revealRole;}
           const nameLabel=button.querySelector(".voteName");if(nameLabel){setPlayerNameWithMic(nameLabel,id,p.name,{maxChars:6});nameLabel.style.color=starVisible?"#ffd65c":isAlly?"#ff526b":"";}
-          button.classList.toggle("dead",!p.alive||p.disconnected);
+          button.classList.toggle("dead",!p.alive||!!p.disconnected);
           button.style.order=String(index);
-          button.classList.toggle("voted",!!voted[id]||(id===uid&&!!ownVoted));const scaleTargets=meeting.scalesVote?.targets||[],scaleBlocksVote=scaleTargets.length&&!scaleTargets.includes(id),guessTargetOK=guessMode&&canGuess&&!guessTargetRestriction(id),mayorTargetOK=canVote&&self()?.subrole==="mayor"&&self()?.mayorBoostMeeting===meeting.id;button.classList.toggle("ssx-guessable",guessTargetOK);button.classList.toggle("ssx-mayor-target",!!mayorTargetOK);const disabled=(!canVote||scaleBlocksVote)&&!guessTargetOK||!p.alive||p.disconnected;button.classList.toggle("disabled",disabled);button.setAttribute("aria-disabled",String(disabled));button.tabIndex=disabled?-1:0;button.hidden=scalesActive&&!scalePair.includes(id);
+          button.classList.toggle("voted",!!voted[id]||(id===uid&&!!ownVoted));const scaleTargets=meeting.scalesVote?.targets||[],scaleBlocksVote=scaleTargets.length&&!scaleTargets.includes(id),guessTargetOK=guessMode&&canGuess&&!guessTargetRestriction(id),mayorTargetOK=canVote&&self()?.subrole==="mayor"&&self()?.mayorBoostMeeting===meeting.id;button.classList.toggle("ssx-guessable",guessTargetOK);button.classList.toggle("ssx-mayor-target",!!mayorTargetOK);const disabled=(!canVote||scaleBlocksVote)&&!guessTargetOK||!p.alive||!!p.disconnected;button.classList.toggle("disabled",disabled);button.setAttribute("aria-disabled",String(disabled));button.tabIndex=disabled?-1:0;button.hidden=scalesActive&&!scalePair.includes(id);
         }
         if(scalesActive){
           if(scalesVisualId!==meeting.scalesVote.id){scalesVisual?.dispose?.();scalesVisual=null;scalesVisualId=meeting.scalesVote.id;}

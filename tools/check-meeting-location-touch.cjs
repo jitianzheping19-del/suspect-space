@@ -35,6 +35,13 @@ const checks=`
   await page.setViewportSize(size);await page.evaluate(three=>__locationQA.prepare({three}),three);await page.waitForTimeout(250);
   if(three){const f=await(await page.locator('#meeting3D').elementHandle()).contentFrame();await f.waitForFunction(()=>window.meetingScene,null,{timeout:60000});await page.evaluate(()=>__locationQA.refresh());await f.evaluate(()=>{window.requestAnimationFrame=()=>0;});}
   const rotate=page.getByRole('button',{name:'縦向きで続ける'});if(await rotate.isVisible())await rotate.click();
+  if(!three){
+   await page.evaluate(()=>__locationQA.refresh());
+   assert.equal(await page.locator('#votePlayers .voteCard.dead').count(),1,'only the eliminated player is marked dead');
+   const target=page.locator('#votePlayers [data-player="host"]');
+   assert.equal(await target.getAttribute('aria-disabled'),'false');
+   assert.equal(await target.evaluate(e=>e.classList.contains('disabled')),false);
+  }
   assert.equal(await page.locator('#meetingPositionBtn').count(),0);
   await page.locator('#meetingMapBtn').tap();await modal.waitFor({state:'visible'});
   assert.equal(await modal.getAttribute('aria-label'),'会議の共有マップ');

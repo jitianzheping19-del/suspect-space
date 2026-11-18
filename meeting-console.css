@@ -55,3 +55,50 @@
   #meeting #meetingChat {padding:4px !important}
   .meetingChatHeading {padding:1px 3px 3px;font-size:11px}
 }
+
+@layer play-action-layout {
+  html body[data-phase="meeting"]:has(#meeting[data-render-mode="2d"]:not(.hidden)) #lobbyChatToggleBtn {display:none!important}
+  html body #meeting[data-render-mode="2d"]>.card {
+    grid-template-columns: auto minmax(0,1fr) minmax(220px,.74fr)!important;
+    grid-template-rows: auto auto minmax(0,1fr) auto!important;
+    align-content:stretch!important;
+  }
+  html body #meeting[data-render-mode="2d"]>.card>.row {
+    grid-area:1 / 1 / 2 / -1!important; justify-content:flex-start!important;
+    align-items:center!important; gap:10px!important; flex-wrap:wrap;
+  }
+  html body #meeting[data-render-mode="2d"] #meetingTitle {
+    flex:0 1 auto!important; min-width:0!important; padding-right:0!important;
+  }
+  html body #meeting[data-render-mode="2d"] .meetingViewControls {grid-area:2 / 1!important}
+  html body #meeting[data-render-mode="2d"] #meetingActions {grid-area:2 / 2!important;align-self:center!important}
+  html body #meeting[data-render-mode="2d"] #votePlayers {grid-area:3 / 1 / 4 / 3!important;padding-top:0!important;align-self:stretch!important}
+  html body #meeting[data-render-mode="2d"] #meetingChat {grid-area:2 / 3 / 4 / 4!important;overflow:auto!important}
+  html body #meeting[data-render-mode="2d"] #meetingHeadline {grid-area:4 / 1 / 5 / -1!important}
+  html body #meeting[data-render-mode="2d"] #meetingTypingBar.hidden {display:none!important}
+  html body #meeting[data-render-mode="2d"] .meetingChatHeading {order:-1}
+  html body #meeting[data-render-mode="2d"] #chatMessages {min-height:38px!important;flex:1 1 60px!important}
+  @media(orientation:portrait) and (max-width:700px) {
+    html body #meeting[data-render-mode="2d"]>.card {
+      grid-template-columns:auto minmax(0,1fr)!important;
+      grid-template-rows:auto auto minmax(75px,1fr) minmax(150px,.86fr) auto!important;
+    }
+    html body #meeting[data-render-mode="2d"] #meetingChat {grid-area:4 / 1 / 5 / 3!important}
+    html body #meeting[data-render-mode="2d"] #meetingHeadline {grid-area:5 / 1 / 6 / 3!important}
+  }
+  @media(pointer:coarse), (max-height:600px) {
+    html body[data-phase="meeting"]:has(#meeting[data-render-mode="2d"]:not(.hidden)) #roundRoleBtn {
+      top:max(8px,env(safe-area-inset-top))!important;right:calc(max(8px,env(safe-area-inset-right)) + 50px)!important;
+      width:70px!important;min-width:0!important;height:44px!important;min-height:44px!important
+    }
+    html body[data-phase="meeting"]:has(#meeting[data-render-mode="2d"]:not(.hidden)) #meetingMapTools:not(.hidden) {
+      top:max(8px,env(safe-area-inset-top))!important;right:calc(max(8px,env(safe-area-inset-right)) + 126px)!important;width:58px!important;
+    }
+    html body[data-phase="meeting"]:has(#meetingMapTools:not(.hidden)) #meeting[data-render-mode="2d"] #meetingCountdown {
+      left:max(8px,env(safe-area-inset-left))!important;right:calc(max(8px,env(safe-area-inset-right)) + 190px)!important;
+      width:auto!important;top:max(8px,env(safe-area-inset-top))!important;position:fixed!important;height:44px!important;
+    }
+    html body[data-phase="meeting"]:has(#meetingMapTools:not(.hidden)) #meeting[data-render-mode="2d"]>.card {padding-top:calc(max(8px,env(safe-area-inset-top)) + 50px)!important;transform:none!important}
+    html body[data-phase="meeting"]:has(#meeting[data-render-mode="2d"]:not(.hidden)).voiceAvailable #voiceToggleBtn {right:max(8px,env(safe-area-inset-right))!important;top:max(8px,env(safe-area-inset-top))!important}
+  }
+}
