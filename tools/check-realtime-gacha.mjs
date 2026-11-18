@@ -48,3 +48,17 @@ activeUid='previous-update-recipient';write(`economy/${activeUid}`,{tickets:17,p
 result=await request('updateGift',{release:GACHA_UPDATE_RELEASE});assert.equal(result.wallet.premium,16);assert.equal(result.wallet.tickets,17);assert(result.wallet.owned[1001]);assert(result.wallet.receipts['update_2026-11-01-special-ticket-10']);
 for(let attempt=0;attempt<3;attempt++)assert.equal((await createRealtimeGacha(api)('updateGift',{release:GACHA_UPDATE_RELEASE})).wallet.premium,16);
 console.log('PASS previous gift recipients get the new 10 once, with balances and inventory preserved');
+
+const broadcastId='bulk-gift-20261118-test';
+activeUid='ordinary-user';
+await assert.rejects(()=>request('broadcast',{count:10,requestId:broadcastId}),/管理者/);
+activeUid='admin';
+for(let attempt=0;attempt<2;attempt++)await request('broadcast',{count:10,requestId:broadcastId});
+assert.equal(Object.keys(read('ticketBroadcasts')).length,1);
+for(const id of ['offline-on-send','second-recipient']){
+ activeUid=id;
+ assert.equal(read('onlineUsers/'+id),null);
+ const payload={giftId:broadcastId,requestId:'claim-after-later-login'};
+ for(let i=0;i<2;i++)assert.equal((await createRealtimeGacha(api)('claimBroadcast',payload)).wallet.premium,10);
+}
+console.log('PASS admin broadcast is persistent, visible after offline delivery, and redeemed once by each account');

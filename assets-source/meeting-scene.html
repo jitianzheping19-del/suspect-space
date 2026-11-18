@@ -35,6 +35,15 @@ body.voteUrgent :is(#meetingSkipBtn,#meetingVoteConfirm button){box-shadow:0 0 1
 @keyframes voteEdgeGlow{to{box-shadow:inset 0 0 110px 24px #ff385bcc}}
 @keyframes votePromptGlow{to{box-shadow:0 0 28px #ff385b,0 0 48px #ffb13bcc}}
 @media(prefers-reduced-motion:reduce){#meetingVoteWarning,body.voteUrgent #meetingTimerBar{animation:none!important}}
+</style><style>
+#meetingChatPanel{background:linear-gradient(155deg,#18353d,#101f2c 65%)!important;border-right:1px solid #526e76!important}
+#meetingChatPanel>div:first-child{color:#d9f0e5;border-top:3px solid #74ddce;border-bottom:1px solid #42616c!important;letter-spacing:.05em}
+#meetingChatPanel [data-chat-name]{color:#c3e0db!important}
+#meetingTimerBar{background:#10232df5!important;border:1px solid #46606b;border-radius:10px!important}
+#meetingTimerBar #tSec{color:#ffe0a2}#meetingTimerBar #tPhase{color:#d0e7e0}
+#meetingVoteConfirm{background:#102830fa!important;border-color:#8bcdbd!important}
+#meetingVoteConfirm button:first-of-type,#chatSend button{background:#9ae3ce!important;color:#092a29!important}
+#meetingChatPanel :focus-visible,#meetingVoteConfirm :focus-visible{outline:2px solid #ffda95;outline-offset:-2px}
 </style></head><body>
 <div id="flash"></div><div id="title"><b>会議室</b><span></span></div><div id="caption"></div>
 

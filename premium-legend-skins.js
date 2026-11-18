@@ -1,3 +1,4 @@
+import {addExpeditionCoat} from './expedition-tailoring.js';
 import {createCostumeBlock} from './costume-finishes.js';
 // Legend-tier outfits. All animation uses the caller's existing frame loop.
 export const LEGEND_AURA_SKINS=Object.freeze([
@@ -20,7 +21,17 @@ export const LEGEND_AURA_SKINS=Object.freeze([
  {id:'verdantdruid',name:'翠森賢者・ユグドラ',color:0x315044,accent:0xa4eeb0,trim:0xb3a477,aura:'venom',glyph:'❧',atelier:true},
  {id:'crystalmaestro',name:'水晶楽士・セレステ',color:0xb9c7e1,accent:0xbca5ff,trim:0xf1e5bf,aura:'prism',glyph:'♫',atelier:true},
  {id:'lunamasquerade',name:'月宴道化・アルレッキーノ',color:0x4b2a64,accent:0xf5b7ec,trim:0xd0b679,aura:'gravity',glyph:'♢',atelier:true},
- {id:'raveninquisitor',name:'黒羽執行・レイヴン',color:0x242735,accent:0x9cb5ff,trim:0xa6a9bd,aura:'snow',glyph:'♠',atelier:true}
+ {id:'raveninquisitor',name:'黒羽執行・レイヴン',color:0x242735,accent:0x9cb5ff,trim:0xa6a9bd,aura:'snow',glyph:'♠',atelier:true},
+ {expedition:true,id:'meteorpost',name:'流星郵便士・ステラ',color:0x233e71,accent:0x85d9ff,trim:0xd8ad75,glyph:'✉',aura:'stars'},
+ {expedition:true,id:'reefdiver',name:'珊瑚潜水士・マリノ',color:0x225e64,accent:0xff927e,trim:0xd8a977,glyph:'⚓',aura:'wisps'},
+ {expedition:true,id:'glacierguide',name:'氷壁案内人・リッカ',color:0x255279,accent:0xa1f3ff,trim:0xe9a44b,glyph:'❄',aura:'snow'},
+ {expedition:true,id:'sporekeeper',name:'茸森の番人・モリーユ',color:0x623950,accent:0xffaf88,trim:0xf6d7ac,glyph:'🍄',aura:'venom'},
+ {expedition:true,id:'nightconductor',name:'夜行車掌・ノクターン',color:0x25334d,accent:0xffca69,trim:0xc99d5a,glyph:'🚂',aura:'embers'},
+ {expedition:true,id:'cloudsurveyor',name:'雲海測量士・シエル',color:0x457477,accent:0xb7f9ea,trim:0xeed19d,glyph:'🧭',aura:'gravity'},
+ {expedition:true,id:'emberpotter',name:'宵窯陶工・ホムラ',color:0x8b483b,accent:0xffba65,trim:0xc9a881,glyph:'🏺',aura:'embers'},
+ {expedition:true,id:'polarradio',name:'極光通信士・ポラリス',color:0x4a527a,accent:0xa6ffcb,trim:0xc9bbdc,glyph:'📡',aura:'lightning'},
+ {expedition:true,id:'windmillwright',name:'風車技師・ピニョン',color:0x2d6573,accent:0xffd474,trim:0xcb9461,glyph:'✥',aura:'reactor'},
+ {expedition:true,id:'amberapiarist',name:'琥珀養蜂士・メリッサ',color:0x6d532c,accent:0xffe49b,trim:0xe9ad42,glyph:'⬡',aura:'petals'}
 ].map(s=>Object.freeze({...s,access:'gift',rarity:4,effect:s.aura})));
 
 export function createLegendAuraSkin(T,spec,{mobile=false}={}){
@@ -43,7 +54,7 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
  function jewel(x,y,z,w=.08,h=.14,p=sculpt,m=glow){return mesh(gem,m,x,y,z,w,h,.065,p);}
  function feather(side,j,p,m=ivory){const n=plate([[0,0],[side*.15,.25],[side*.13,.72],[0,.97],[-side*.07,.23]],m,side*(.07+j*.14),j*.025,0,.055,p);n.rotation.z=-side*(.38+j*.32);return n;}
  function cape(width=1.1,m=shell){const n=rig(0,1.30,-.46);plate([[-.31,.18],[.31,.18],[width/2,-.82],[.16,-.70],[0,-.88],[-.16,-.70],[-width/2,-.82]],m,0,0,0,.045,n);for(const s of[-1,1])rod([s*.28,.1,-.035],[s*width/2,-.8,-.035],.014,trim,n);motions.push((t,moving)=>n.rotation.x=.04+Math.sin(t*1.7)*(.025+moving*.045));return n;}
- function coat(){orb(shell,0,1.0,-.02,.49,.64,.485);for(const s of[-1,1]){const lapel=plate([[0,.22],[s*.25,.10],[s*.10,-.30]],trim,s*.055,.99,.475);lapel.rotation.y=s*.30;for(let j=0;j<3;j++)orb(trim,s*.17,.69+j*.13,.48,.022,.022,.014);}}
+ function coat(){if(spec.expedition){addExpeditionCoat(T,spec,mobile,own,mat,mesh,sculpt);return;}orb(shell,0,1.0,-.02,.49,.64,.485);for(const s of[-1,1]){const lapel=plate([[0,.22],[s*.25,.10],[s*.10,-.30]],trim,s*.055,.99,.475);lapel.rotation.y=s*.30;for(let j=0;j<3;j++)orb(trim,s*.17,.69+j*.13,.48,.022,.022,.014);}}
  function helmet(){orb(shell,0,1.48,-.04,.49,.32,.46);for(const s of[-1,1])plate([[-.08,-.20],[.08,-.18],[.09,.15],[0,.24],[-.10,.12]],trim,s*.35,1.39,.30,.055);}
  function armour(){coat();helmet();plate([[-.29,.13],[0,.23],[.29,.13],[.21,-.18],[0,-.27],[-.21,-.18]],shell,0,.84,.46,.07);jewel(0,.91,.515,.07,.12);for(const s of[-1,1]){orb(shell,s*.48,1.25,0,.23,.19,.27);block(trim,s*.48,1.27,.23,.29,.035,.025);}}
  // Curved seams and inset panels give the new collection detail at game scale.
@@ -51,7 +62,7 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
  function panel(points,m,x,y,z,p=sculpt){plate(points,trim,x,y,z,.065,p);const inset=plate(points,m,x,y,z+.042,.035,p);inset.scale.set(.86,.86,1);return inset;}
  function cog(x,y,z,r,p=sculpt){ring(trim,x,y,z,r,p);ring(dark,x,y,z+.015,r*.66,p);for(let j=0;j<12;j++){const a=j*Math.PI/6;const tooth=block(trim,x+Math.sin(a)*r,y+Math.cos(a)*r,z,r*.22,r*.22,.065,p);tooth.rotation.z=-a;}jewel(x,y,z+.025,r*.22,r*.22,p);}
  function leaf(x,y,z,s,a,p=sculpt,m=shell){const n=plate([[0,0],[-.15,.12],[-.17,.32],[0,.64],[.16,.32],[.14,.12]],m,x,y,z,.035,p);n.scale.setScalar(s);n.rotation.z=a;rod([x-Math.sin(a)*s*.05,y+Math.cos(a)*s*.05,z+.025],[x-Math.sin(a)*s*.53,y+Math.cos(a)*s*.53,z+.025],.009,trim,p);return n;}
- function tailoredCoat(){coat();shell.roughness=.65;shell.metalness=.22;for(const s of[-1,1]){seam([[s*.32,1.17,.38],[s*.29,.94,.445],[s*.33,.68,.36]]);panel([[0,.14],[s*.23,.12],[s*.31,-.25],[s*.13,-.34]],shell,s*.11,.64,.30);for(let j=0;j<3;j++)block(trim,s*.14,.93-j*.11,.50,.04,.012,.012);}}
+ function tailoredCoat(){coat();if(spec.expedition)return;shell.roughness=.65;shell.metalness=.22;for(const s of[-1,1]){seam([[s*.32,1.17,.38],[s*.29,.94,.445],[s*.33,.68,.36]]);panel([[0,.14],[s*.23,.12],[s*.31,-.25],[s*.13,-.34]],shell,s*.11,.64,.30);for(let j=0;j<3;j++)block(trim,s*.14,.93-j*.11,.50,.04,.012,.012);}}
  function medallion(x,y,z,r,p=sculpt){ring(trim,x,y,z,r,p);orb(dark,x,y,z,r*.8,r*.8,.025,p);jewel(x,y,z+.035,r*.38,r*.55,p);}
  const id=spec.id;
  switch(id){
@@ -183,6 +194,201 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
   for(const s of[-1,1]){const wing=rig(s*.35,1.26,-.47);for(let j=0;j<5;j++){const f=feather(s,j,wing,j%2?dark:shell);f.scale.set(.72,.83-j*.035,.7);f.rotation.z=-s*(.43+j*.23);const spine=feather(s,j,wing,trim);spine.scale.set(.055,.65-j*.035,.2);spine.position.z=.04;spine.rotation.z=f.rotation.z;}motions.push(t=>wing.rotation.y=s*(.12+Math.sin(t*1.1)*.05));}
   const crossbow=rig(.75,.78,.10);crossbow.rotation.z=.27;panel([[-.08,-.34],[.08,-.34],[.07,.46],[-.07,.46]],shell,0,0,0,crossbow);seam([[-.35,.22,0],[-.18,.34,0],[0,.30,0],[.18,.34,0],[.35,.22,0]],trim,.022,crossbow);rod([-.35,.22,.03],[0,-.06,.04],.006,ivory,crossbow);rod([.35,.22,.03],[0,-.06,.04],.006,ivory,crossbow);rod([0,-.16,.06],[0,.56,.06],.012,trim,crossbow);jewel(0,.56,.06,.035,.08,crossbow);
   medallion(-.19,1.02,.49,.07);for(let j=0;j<3;j++)panel([[-.10,.09],[.10,.09],[.09,-.13],[-.09,-.13]],dark,-.35+j*.27,.63,.36);break;
+ }
+ case 'meteorpost': {
+  tailoredCoat();
+  orb(shell,0,1.71,-.04,.46,.20,.39);
+  orb(trim,0,1.64,.25,.35,.045,.22);
+  const leather=mat(0x704733,.07,.68);
+  leather.userData.costumeFinish='leather';
+  const bag=rig(-.53,.73,.14);
+  // The satchel hangs between two ears on the cross-body strap.
+  seam([[.34,1.32,.28],[.28,1.41,-.10],[.04,1.11,-.46],[-.43,.88,-.20],[-.61,.87,.06]],leather,.046);
+  for(const x of [-.13,.13]){
+   block(trim,x,.15,0,.085,.09,.12,bag);
+   block(leather,x,-.045,.114,.068,.23,.033,bag);
+  }
+  block(leather,0,0,0,.42,.37,.20,bag);
+  panel([[-.20,.14],[.20,.14],[0,-.055]],ivory,0,0,.12,bag);
+  jewel(0,-.035,.17,.035,.035,bag);
+  seam([[-.43,.78,.35],[-.08,1.05,.49],[.34,1.32,.28]],trim,.035);
+  for(const side of [-1,1]) for(let j=0;j<3;j++){
+   const quill=feather(side,j,sculpt,ivory);
+   quill.position.set(side*(.32+j*.05),1.71+j*.025,-.03);
+   quill.rotation.z=-side*(.78+j*.16);quill.scale.setScalar(.40-j*.045);
+  }
+  motions.push((t,moving)=>bag.rotation.z=-.13+Math.sin(t*2.0)*(.025+moving*.08));
+  break;
+ }
+ case 'reefdiver': {
+  armour();
+  const rim=ring(trim,0,1.36,.41,.33);rim.scale.y=.22;
+  for(const side of [-1,1]){
+   orb(trim,side*.45,1.40,0,.12,.19,.17);
+   orb(glow,side*.50,1.40,.10,.066,.11,.08);
+   rod([side*.23,.55,-.49],[side*.23,1.43,-.49],.145,trim);
+   orb(shell,side*.23,1.43,-.49,.15,.13,.15);
+   seam([[side*.39,1.36,.15],[side*.59,1.13,-.04],[side*.50,.94,-.36],[side*.23,1.39,-.49]],dark,.036);
+  }
+  for(const y of [.73,1.23]){
+   block(dark,0,y,-.49,.61,.083,.18);
+   for(const side of [-1,1]){
+    rod([side*.23,y-.045,-.49],[side*.23,y+.045,-.49],.151,dark);
+    block(trim,side*.23,y,-.646,.095,.092,.042);
+   }
+  }
+  rod([.40,.75,-.06],[.70,.65,.06],.062,dark);
+  const coral=rig(.70,.65,.06);
+  rod([0,-.09,0],[0,.075,0],.079,trim,coral);
+  for(const [endX,endY] of [[-.19,.32],[.17,.48],[-.11,.57]]){
+   rod([0,0,0],[0,endY*.55,0],.036,glow,coral);
+   rod([0,endY*.55,0],[endX,endY,0],.032,glow,coral,.018);
+  }
+  motions.push(t=>coral.rotation.z=Math.sin(t*1.2)*.09);
+  break;
+ }
+ case 'glacierguide': {
+  coat();helmet();
+  for(const side of [-1,1]){
+   const lens=ring(trim,side*.16,1.65,.29,.12);lens.scale.y=.09;
+   orb(dark,side*.16,1.65,.30,.107,.077,.032);
+  }
+  block(trim,0,1.66,.30,.12,.035,.035);
+  for(let j=0;j<3;j++){
+   const coil=ring(trim,-.44,.8,-.10+j*.055,.22);coil.scale.y=.30;
+  }
+  rod([.42,.89,0],[.69,.85,.06],.051,dark);
+  block(trim,-.44,1.04,-.045,.12,.115,.25);
+  const pick=rig(.69,.85,.06);
+  rod([0,-.11,0],[0,.11,0],.063,dark,pick);
+  rod([0,-.57,0],[0,.55,0],.04,shell,pick);
+  rod([0,-.57,0],[0,-.34,0],.047,trim,pick);
+  plate([[-.31,.06],[-.11,.13],[.17,.10],[.31,-.01],[.09,.031],[-.12,.028],[-.31,-.02]],ivory,0,.50,0,.075,pick);
+  motions.push((t,moving)=>pick.rotation.z=-.27+Math.sin(t*1.9)*(.025+moving*.09));
+  break;
+ }
+ case 'sporekeeper': {
+  coat();cape(.92);
+  const spot=geo('mushroom-spot',()=>new T.SphereGeometry(1,8,5));
+  function mushroom(parent,x,y,z,size){
+   orb(ivory,x,y,z,size*.22,size*.48,size*.22,parent);
+   orb(trim,x,y+size*.35,z,size*.90,size*.10,size*.77,parent);
+   orb(shell,x,y+size*.46,z,size*.92,size*.39,size*.78,parent);
+   for(const [dx,dy,dz,r] of [[-.46,.67,.34,.13],[.18,.79,.28,.14],[.52,.62,.38,.095],[-.16,.74,-.40,.11]])
+    mesh(spot,glow,x+dx*size,y+dy*size,z+dz*size,r*size,.035*size,r*size,parent);
+  }
+  mushroom(sculpt,0,1.57,-.07,.74);
+  rod([-.39,.88,-.12],[-.57,.88,-.11],.061,trim);
+  const sprouts=rig(-.57,.88,-.11);
+  block(shell,0,-.056,-.046,.35,.19,.27,sprouts);
+  block(trim,0,.025,-.046,.37,.048,.29,sprouts);
+  mushroom(sprouts,-.10,0,0,.23);mushroom(sprouts,.09,.13,-.14,.17);
+  motions.push(t=>sprouts.rotation.z=Math.sin(t*1.65)*.08);
+  break;
+ }
+ case 'nightconductor': {
+  tailoredCoat();
+  block(shell,0,1.78,-.04,.70,.24,.55);
+  orb(dark,0,1.64,.19,.41,.046,.23);
+  block(trim,0,1.72,.25,.60,.047,.035);medallion(0,1.80,.25,.08);
+  // Hinge cap is centred on the top of the lantern handle.
+  rod([.40,1.08,.10],[.67,1.16,.10],.051,dark);
+  rod([.67,1.16,.046],[.67,1.16,.157],.046,trim);
+  const lamp=rig(.67,1.16,.10);
+  ring(trim,0,-.11,0,.11,lamp);
+  block(dark,0,-.23,0,.29,.065,.25,lamp);block(trim,0,-.57,0,.30,.065,.26,lamp);
+  orb(glow,0,-.39,0,.105,.15,.095,lamp);
+  for(const x of [-.12,.12])for(const z of [-.09,.09])rod([x,-.25,z],[x,-.55,z],.015,trim,lamp);
+  motions.push((t,moving)=>lamp.rotation.z=Math.sin(t*1.8)*(.055+moving*.16));
+  break;
+ }
+ case 'cloudsurveyor': {
+  tailoredCoat();
+  orb(shell,0,1.70,-.04,.39,.19,.35);
+  orb(trim,0,1.64,-.04,.55,.045,.46);
+  for(const side of [-1,1]){
+   const x=side*.22;rod([x*.6,.62,-.43],[x*2,1.67,-.48],.09,ivory);
+   rod([x*1.3,1.05,-.45],[x*1.45,1.12,-.46],.097,trim);
+  }
+  block(dark,0,.89,-.45,.57,.115,.16);
+  rod([.38,.87,.16],[.65,.91,.15],.061,trim);
+  const compass=rig(.65,.91,.15);
+  orb(dark,0,0,0,.22,.22,.055,compass);ring(trim,0,0,.055,.22,compass);
+  const needle=rig(.65,.91,.22);
+  plate([[0,.17],[.04,0],[0,-.17],[-.04,0]],glow,0,0,0,.025,needle);
+  motions.push(t=>needle.rotation.z=.56+Math.sin(t*1.35)*.31);
+  break;
+ }
+ case 'emberpotter': {
+  coat();
+  panel([[-.22,.30],[.22,.30],[.28,-.24],[-.28,-.24]],dark,0,.84,.48);
+  orb(trim,0,1.68,-.05,.45,.08,.40);
+  const urn=rig(.68,.84,.10);
+  const profile=[[.11,-.31],[.16,-.26],[.23,-.06],[.21,.08],[.12,.19],[.095,.26],[.14,.29],[.14,.32],[.09,.32],[.08,.26]];
+  const clay=own(new T.LatheGeometry(profile.map(([r,y])=>new T.Vector2(r,y)),mobile?14:22));
+  const terracotta=mat(0xb75738,.025,.68);
+  terracotta.userData.costumeFinish='enamel';
+  mesh(clay,terracotta,0,0,0,1,1,1,urn);
+  rod([.33,.68,.10],[.68,.55,.10],.055,dark);
+  rod([0,-.35,0],[0,-.28,0],.145,dark,urn);
+  for(const [y,r] of [[-.19,.19],[.035,.22],[.29,.14]])ring(trim,0,y,0,r,urn).rotation.x=Math.PI/2;
+  ring(trim,-.20,.055,0,.10,urn);ring(trim,.20,.055,0,.10,urn);
+  for(let j=0;j<7;j++){const a=j*Math.PI*2/7;orb(glow,.222*Math.sin(a),-.06,.222*Math.cos(a),.025,.039,.025,urn);}
+  motions.push((t,moving,jump)=>urn.rotation.y=.16*Math.sin(t*1.4+movingTime*2)*(1+moving*.5)+jump*.08);
+  break;
+ }
+ case 'polarradio': {
+  coat();helmet();
+  for(const side of [-1,1]){orb(dark,side*.44,1.45,0,.13,.18,.14);jewel(side*.47,1.46,.09,.05,.08);}
+  block(shell,.05,1.05,-.46,.49,.65,.23);
+  rod([-.12,1.27,-.47],[-.51,1.68,-.40],.054,dark);
+  orb(trim,-.51,1.68,-.40,.086,.086,.086);
+  for(const y of [.91,1.12])block(dark,.05,y,-.586,.39,.058,.038);
+  const dish=rig(-.51,1.68,-.40);
+  const curve=[[.02,-.12],[.15,-.095],[.31,0],[.32,.045],[.28,.026],[.14,-.051],[.02,-.078]];
+  mesh(own(new T.LatheGeometry(curve.map(([r,y])=>new T.Vector2(r,y)),mobile?16:24)),ivory,0,0,0,1,1,1,dish);
+  for(const x of [-.27,.27])rod([x,0,0],[0,.22,0],.014,trim,dish);
+  orb(glow,0,.22,0,.056,.056,.056,dish);dish.rotation.z=.73;
+  rod([.18,1.30,-.42],[.32,2.0,-.44],.018,trim);jewel(.32,2.0,-.44,.034,.052);
+  motions.push(t=>dish.rotation.x=.49+Math.sin(t*.9)*.22);
+  break;
+ }
+ case 'windmillwright': {
+  tailoredCoat();
+  orb(shell,0,1.67,-.05,.46,.16,.39);orb(dark,0,1.58,.20,.32,.04,.22);
+  rod([-.35,.63,-.45],[-.35,1.74,-.45],.048,trim);
+  block(shell,-.25,.93,-.40,.31,.39,.23);
+  block(trim,-.25,.96,-.524,.31,.075,.033);
+  rod([-.35,1.74,-.45],[-.36,1.79,-.39],.078,dark);
+  const sails=rig(-.36,1.79,-.39);
+  for(let j=0;j<4;j++){
+   const a=j*Math.PI/2;
+   plate([[.03,0],[.15,.19],[.20,.53],[-.07,.43]],j%2?ivory:trim,0,0,0,.04,sails).rotation.z=a;
+  }
+  orb(glow,0,0,.055,.075,.075,.045,sails);
+  motions.push(t=>sails.rotation.z=t*.8+movingTime*.62);
+  break;
+ }
+ case 'amberapiarist': {
+  coat();
+  orb(ivory,0,1.73,-.03,.35,.20,.33);orb(trim,0,1.65,-.03,.51,.044,.44);
+  for(const side of [-1,1]){
+   for(let j=0;j<3;j++)rod([side*(.34+j*.04),1.64,.14-j*.08],[side*(.35+j*.04),1.22,.14-j*.08],.012,trim);
+  }
+  rod([.39,.83,.07],[.66,.91,.07],.046,trim);
+  const comb=rig(.66,.91,.07);
+  block(dark,.11,0,-.045,.45,.09,.075,comb);
+  motions.push((t,moving,jump)=>comb.rotation.y=.12*Math.sin(t*1.6)*(.25+moving)+.12*jump);
+  const hexagon=Array.from({length:6},(_,j)=>[.13*Math.sin(j*Math.PI/3),.13*Math.cos(j*Math.PI/3)]);
+  for(const [x,y] of [[0,0],[.22,0],[.11,.19],[.11,-.19]]){
+   plate(hexagon,trim,x,y,0,.065,comb);
+   plate(hexagon,glow,x,y,.043,.016,comb).scale.setScalar(.77);
+  }
+  const bee=rig(-.65,1.57,.07);orb(trim,0,0,0,.105,.072,.068,bee);
+  block(dark,0,0,0,.035,.145,.115,bee);
+  for(const side of [-1,1])orb(ivory,side*.061,.074,-.01,.064,.051,.033,bee);
+  motions.push(t=>{bee.position.y=1.57+Math.sin(t*2)*.065;bee.position.x=-.65+Math.cos(t*1.45)*.075;});
+  break;
  }
  }
  // Batch static pieces by material within each independently moving assembly.

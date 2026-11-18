@@ -1,0 +1,57 @@
+/* Keep the ballot, map controls and 3D viewport on their existing input layers. */
+#meeting[data-render-mode="2d"] > .card {
+  --console-line: #42636f;
+  --console-ink: #eff6ef;
+  background: linear-gradient(118deg,#132b34,#101d2b 68%) !important;
+  border: 1px solid var(--console-line) !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 3px #74ddce, 0 18px 54px #02081180 !important;
+  color: var(--console-ink);
+}
+#meeting[data-render-mode="2d"] #meetingTitle {
+  color: #f3f7ec !important; text-shadow: none !important;
+  font-weight: 800 !important; letter-spacing: .035em !important;
+}
+#meeting #meetingRosterStatus {
+  font-size: clamp(11px,1.1vw,14px); font-weight: 650; color: #b5dacf;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+#meeting[data-render-mode="3d"] #meetingRosterStatus {display:none}
+#meeting[data-render-mode="2d"] #votePlayers:not([data-scales="true"]) {
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,142px),1fr)) !important;
+  align-content: start; gap: 8px !important;
+}
+#meeting #votePlayers:not([data-scales="true"]) > .voteCard {
+  border-radius: 10px !important; border-color: #42616d !important;
+  background: linear-gradient(120deg,#25434d,#182f3a) !important;
+  box-shadow: inset 3px 0 var(--crew-stripe,#86aeb3) !important;
+}
+#meeting #votePlayers:not([data-scales="true"]) > .voteCard.dead {
+  background: #192731 !important; border-style: dashed !important;
+}
+#meeting #votePlayers:not([data-scales="true"]) > .voteCard.ssx-vote-selected {
+  background: #304043 !important; outline: 2px solid #ffcb7c !important;
+}
+#meeting .voteCard:focus-visible, #meeting button:focus-visible, #meeting input:focus-visible {
+  outline: 3px solid #ffe0a2 !important; outline-offset: -3px;
+}
+#meeting #meetingChat {
+  border: 1px solid #476471 !important; border-radius: 12px !important;
+  background: #0e202b !important; padding: 8px !important; gap: 4px;
+}
+.meetingChatHeading {
+  flex: none; margin: 0; padding: 3px 4px 6px; border-bottom: 1px solid #354e5c;
+  color: #d1e7e1; font: 700 13px/1.2 system-ui,sans-serif;
+}
+#meeting #chatMessages .chatBubble {background:#223e4b !important;color:#edf6f4 !important;border-radius:10px 10px 10px 3px !important;}
+#meeting #chatMessages .chatBubble.mine {background:#1d514c !important;border-radius:10px 10px 3px 10px !important;}
+#meeting #chatForm input {min-width:0; border-color:#4a6872 !important; background:#091b25 !important;color:#f3f8f3 !important}
+#meeting #chatForm button, #meeting #voteConfirmYes {background:#9ae3ce !important;color:#092a29 !important;border-color:#a3efdc !important;}
+@media (max-width:700px) {
+  #meeting[data-render-mode="2d"] #votePlayers:not([data-scales="true"]) {grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:5px !important}
+}
+@media (max-height:480px) {
+  #meeting #meetingRosterStatus {font-size:10px}
+  #meeting #meetingChat {padding:4px !important}
+  .meetingChatHeading {padding:1px 3px 3px;font-size:11px}
+}

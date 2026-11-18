@@ -1,3 +1,4 @@
+import {addExpeditionCoat,addExpeditionCape} from './expedition-tailoring.js';
 import {createCostumeBlock} from './costume-finishes.js';
 // Authored golden silhouettes. Equipment only; no lights, physics or extra loops.
 export const GOLDEN_GIFT_SKINS=Object.freeze([
@@ -30,7 +31,17 @@ export const GOLDEN_GIFT_SKINS=Object.freeze([
  {id:'auricalchemist',name:'黄金錬成・アルケミア',color:0x304644,accent:0xb7ffbe,trim:0xddbd6d,glyph:'⚗',theme:'clock'},
  {id:'saturnregent',name:'金環星王・サトゥルノ',color:0x342e58,accent:0xc1b7ff,trim:0xedcc80,glyph:'🪐',theme:'stars'},
  {id:'leonidasregalia',name:'金獅子王・レオニス',color:0x593127,accent:0xffe4a3,trim:0xe8b956,glyph:'🦁',theme:'sun'},
- {id:'prismmorpho',name:'金晶蝶姫・モルフォ',color:0x42366c,accent:0xe0aaff,trim:0xefcd87,glyph:'🦋',theme:'frost'}
+ {id:'prismmorpho',name:'金晶蝶姫・モルフォ',color:0x42366c,accent:0xe0aaff,trim:0xefcd87,glyph:'🦋',theme:'frost'},
+ {expedition:true,id:'auriclighthouse',name:'金灯航主・ファロス',color:0x284860,accent:0xfff1aa,trim:0xe9b758,glyph:'⛯',theme:'sun'},
+ {expedition:true,id:'gildedorgan',name:'黄金聖奏・オルガノ',color:0x532747,accent:0xffaadc,trim:0xe7bf66,glyph:'♫',theme:'stars'},
+ {expedition:true,id:'gildednautilus',name:'金螺海皇・ノーチラス',color:0x22515b,accent:0xa6fff0,trim:0xdbb966,glyph:'🐚',theme:'tide'},
+ {expedition:true,id:'aurichourglass',name:'金沙時守・サブリエ',color:0x333553,accent:0xffc57e,trim:0xe8c581,glyph:'⌛',theme:'clock'},
+ {expedition:true,id:'twingoldkoi',name:'双錦金鯉・キンラン',color:0x68332e,accent:0xffd6a0,trim:0xefbe66,glyph:'🐟',theme:'tide'},
+ {expedition:true,id:'origamicrane',name:'金折天鶴・オリハ',color:0x7a3537,accent:0xfff2d5,trim:0xeccf91,glyph:'🕊',theme:'angel'},
+ {expedition:true,id:'dawngoldharp',name:'暁金竪琴・リュミエル',color:0x385149,accent:0xfff4af,trim:0xebc26a,glyph:'♬',theme:'sun'},
+ {expedition:true,id:'auriclotus',name:'金蓮華后・パドマ',color:0x713d61,accent:0xffb9de,trim:0xeac27d,glyph:'🪷',theme:'moon'},
+ {expedition:true,id:'gildedskyship',name:'黄金空艇・アルゴ',color:0x294962,accent:0xb0e3ff,trim:0xe3b368,glyph:'⛵',theme:'storm'},
+ {expedition:true,id:'aurickeywarden',name:'金鍵門主・クラヴィス',color:0x343e4c,accent:0x9debe6,trim:0xecc678,glyph:'⚿',theme:'void'}
 ].map(s=>Object.freeze({...s,access:'gift',rarity:5,effect:'golden'})));
 
 export function createGoldenGiftSkin(T,spec,{mobile=false}={}){
@@ -55,29 +66,49 @@ export function createGoldenGiftSkin(T,spec,{mobile=false}={}){
  function blade(x,y,z,h,a,p=group,m=trim){const n=plate([[-.065,0],[.065,0],[.11,.65],[0,1],[-.11,.65]],m,x,y,z,p,.05,a);n.scale.y=h;return n;}
  function crown(tall=.35){ring(trim,0,1.70,0,.35).rotation.x=Math.PI/2;for(let i=0;i<5;i++)spike((i-2)*.14,1.84+(i===2?.10:0),-.04,tall,(2-i)*.16);}
  function mantle(width=1.05){
+  if(spec.expedition){
+   const pivot=rig(0,1.40,-.37);
+   addExpeditionCape(T,spec,width,own,mat,mesh,pivot);
+   for(const side of [-1,1]){
+    rod([side*.24,1.41,-.24],[side*width*.30,1.43,-.32],.052,trim);
+   }
+   motions.push(t=>pivot.rotation.x=.035+Math.sin(t*1.5+movingTime*3)*.04+jumpWeight*.085);
+   return;
+  }
   const uniforms={time:{value:0},ink:{value:new T.Color(spec.color)},edge:{value:new T.Color(spec.trim)}};
   const m=new T.ShaderMaterial({uniforms,side:T.DoubleSide,vertexShader:'uniform float time;varying vec2 v;void main(){v=uv;vec3 p=position;p.x*=1.2-.45*uv.y;p.z+=sin(uv.y*6.+time*1.8+uv.x*3.)*.035*(1.-uv.y);gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}',fragmentShader:'uniform vec3 ink,edge;varying vec2 v;void main(){float border=step(v.x,.025)+step(.975,v.x)+step(v.y,.035);float crest=pow(max(0.,1.-abs(v.x-.5)*12.-abs(v.y-.55)*4.),2.);gl_FragColor=vec4(ink*(.65+.28*sin(v.x*22.))+edge*(border*.7+crest*.6),1.);}'});materials.add(m);
   const n=mesh(own(new T.PlaneGeometry(width,1.25,4,6)),m,0,.94,-.55);n.userData.dynamic=true;motions.push(t=>uniforms.time.value=t);
  }
  // Layered torso armour and an open visor frame shared by the collection.
- mesh(ball,shell,0,.94,-.06,.48,.60,.44);
- mesh(ball,shell,0,1.44,-.07,.475,.36,.43);
- shell.emissive.set(spec.color);shell.emissiveIntensity=.16;
- const chest=[[-.31,.17],[0,.24],[.31,.17],[.25,-.13],[0,-.29],[-.25,-.13]];
- plate(chest,trim,0,.84,.435);plate(chest,shell,0,.85,.485).scale.setScalar(.83);
- mesh(gem,glow,0,.91,.54,.075,.12,.025);
- const visor=ring(trim,0,1.23,.39,.4);visor.scale.set(.41,.265,.12);
- for(const s of[-1,1]){
-  plate([[-.2,-.13],[.2,-.14],[.28,.08],[.08,.23],[-.22,.15]],shell,s*.48,1.32,0,group,.25,-s*.15);
-  block(trim,s*.49,1.34,.15,.29,.035,.03,group,-s*.15);
-  plate([[-.07,-.18],[.08,-.17],[.11,.10],[0,.21],[-.09,.11]],trim,s*.36,1.42,.27,group,.05,-s*.16);
-  rod([s*.25,1.62,.28],[s*.34,1.48,.33],.014,glow);
-  for(let i=0;i<3;i++){
-   block(dark,s*.49,1.27-i*.045,.16,.22,.012,.025,group,-s*.15);
-   plate([[-.12,-.05],[.12,-.05],[.16,.04],[0,.10],[-.16,.04]],i%2?shell:trim,s*.25,.57-i*.09,.29+i*.018,group,.08,s*.12);
-   mesh(gem,trim,s*(.13+i*.065),.79-i*.035,.51,.014,.018,.012);
+ if(spec.expedition){
+  addExpeditionCoat(T,spec,mobile,own,mat,mesh,group);
+  mesh(ball,shell,0,1.49,-.075,.474,.32,.42);
+  for(const side of [-1,1]){
+   const shoulder=plate([[-.14,.09],[0,.17],[.15,.09],[.18,-.02],[0,-.15],[-.17,-.03]],trim,side*.46,1.23,.03,group,.20,-side*.19);
+   shoulder.rotation.y=side*.42;
+   const enamel=plate([[-.13,.07],[0,.125],[.13,.07],[.14,-.01],[0,-.11],[-.14,-.02]],shell,side*.47,1.23,.135,group,.035,-side*.19);
+   enamel.rotation.y=side*.42;
   }
-  rod([s*.10,.96,.53],[s*.24,.88,.51],.012,glow);
+ }else{
+  mesh(ball,shell,0,.94,-.06,.48,.60,.44);
+  mesh(ball,shell,0,1.44,-.07,.475,.36,.43);
+  shell.emissive.set(spec.color);shell.emissiveIntensity=.16;
+  const chest=[[-.31,.17],[0,.24],[.31,.17],[.25,-.13],[0,-.29],[-.25,-.13]];
+  plate(chest,trim,0,.84,.435);plate(chest,shell,0,.85,.485).scale.setScalar(.83);
+  mesh(gem,glow,0,.91,.54,.075,.12,.025);
+  const visor=ring(trim,0,1.23,.39,.4);visor.scale.set(.41,.265,.12);
+  for(const s of[-1,1]){
+   plate([[-.2,-.13],[.2,-.14],[.28,.08],[.08,.23],[-.22,.15]],shell,s*.48,1.32,0,group,.25,-s*.15);
+   block(trim,s*.49,1.34,.15,.29,.035,.03,group,-s*.15);
+   plate([[-.07,-.18],[.08,-.17],[.11,.10],[0,.21],[-.09,.11]],trim,s*.36,1.42,.27,group,.05,-s*.16);
+   rod([s*.25,1.62,.28],[s*.34,1.48,.33],.014,glow);
+   for(let i=0;i<3;i++){
+    block(dark,s*.49,1.27-i*.045,.16,.22,.012,.025,group,-s*.15);
+    plate([[-.12,-.05],[.12,-.05],[.16,.04],[0,.10],[-.16,.04]],i%2?shell:trim,s*.25,.57-i*.09,.29+i*.018,group,.08,s*.12);
+    mesh(gem,trim,s*(.13+i*.065),.79-i*.035,.51,.014,.018,.012);
+   }
+   rod([s*.10,.96,.53],[s*.24,.88,.51],.012,glow);
+  }
  }
  const id=spec.id;
  if(id==='obsidianwyrm'){
@@ -311,6 +342,178 @@ export function createGoldenGiftSkin(T,spec,{mobile=false}={}){
    rod([s*.16,1.66,0],[s*.30,2.01,0],.018,trim);mesh(gem,glow,s*.30,2.03,0,.035,.055,.025);
   }
  }
+ if(id==='auriclighthouse'){
+  mantle(1.00);
+  rod([0,1.62,-.12],[0,2.02,-.12],.29,shell,group,.21);
+  rod([0,1.82,-.12],[0,1.89,-.12],.265,trim,group,.25);
+  // The lantern turns inside a stationary cage with a recessed bearing.
+  rod([0,1.98,-.12],[0,2.07,-.12],.185,dark);
+  const beacon=rig(0,2.14,-.12);
+  mesh(gem,glow,0,0,0,.145,.15,.145,beacon);
+  block(trim,0,0,-.10,.27,.18,.035,beacon);
+  for(let j=0;j<6;j++){
+   const a=j*Math.PI/3,x=Math.cos(a)*.21,z=-.12+Math.sin(a)*.21;
+   rod([x,2.01,z],[x,2.28,z],.014,trim);
+  }
+  ring(trim,0,2.01,-.12,.26).rotation.x=Math.PI/2;
+  mesh(cone,trim,0,2.37,-.12,.32,.21,.32);
+  motions.push(t=>beacon.rotation.y=t*1.45);
+ }
+ if(id==='gildedorgan'){
+  for(const side of [-1,1]){
+   rod([side*.28,1.29,-.26],[side*.38,1.07,-.55],.052,dark);
+  }
+  const organ=rig(0,1.12,-.54);
+  block(dark,0,.18,0,1.24,.105,.19,organ);
+  block(shell,0,-.18,0,1.26,.34,.22,organ);
+  for(let j=-3;j<=3;j++){
+   const x=j*.185,h=.71+Math.abs(j)*.19;
+   rod([x,-.11,0],[x,h,0],.074,trim,organ);
+   mesh(ball,dark,x,h,.002,.065,.012,.065,organ);
+   block(dark,x,h-.17,.068,.06,.07,.019,organ);
+   block(glow,x,h-.21,.079,.061,.014,.011,organ);
+   block(dark,x,h-.16,-.071,.084,.11,.025,organ);
+  }
+  const keys=rig(0,.83,.52);
+  for(let j=0;j<7;j++){
+   block(trim,(j-3)*.067,0,0,.061,.16,.052,keys);
+   if(j!==2&&j!==6)block(dark,(j-2.5)*.067,.043,.035,.031,.083,.025,keys);
+  }
+  motions.push(t=>organ.rotation.y=Math.sin(t*.78)*.10);
+ }
+ if(id==='gildednautilus'){
+  rod([-.22,1.17,-.34],[-.33,1.34,-.51],.105,trim);
+  rod([.40,1.02,.05],[.60,1.05,.06],.075,shell);
+  const shellFan=rig(-.33,1.34,-.47);
+  mesh(ball,shell,0,0,0,.61,.60,.20,shellFan);
+  const rearDepth=r=>-.20*Math.sqrt(Math.max(0,1-(r/.60)**2))-.012;
+  for(let j=0;j<26;j++){
+   const a=j*.31,b=(j+1)*.31,r=.055+j*.019,q=r+.019;
+   rod([Math.cos(a)*r,Math.sin(a)*r,.20],[Math.cos(b)*q,Math.sin(b)*q,.20],.018,trim,shellFan);
+   // Rear relief follows the shell instead of disappearing against the coat.
+   rod([Math.cos(a)*r,Math.sin(a)*r,rearDepth(r)],[Math.cos(b)*q,Math.sin(b)*q,rearDepth(q)],.034,trim,shellFan);
+   if(j>8&&j%2===0)rod([Math.cos(a)*r,Math.sin(a)*r,.18],[Math.cos(a-.16)*(r+.09),Math.sin(a-.16)*(r+.09),.10],.013,glow,shellFan);
+  }
+  const lip=rig(.60,1.05,.06);
+  for(let j=0;j<4;j++){
+   const x=j*.055;rod([x,0,0],[x+.13,.21-j*.05,0],.032,trim,lip,.021);
+   rod([x+.13,.21-j*.05,0],[x+.24,.18-j*.08,.035],.021,trim,lip,.008);
+  }
+  motions.push(t=>{shellFan.rotation.z=-.22+Math.sin(t*.86)*.075;lip.rotation.z=Math.sin(t*1.6)*.12;});
+ }
+ if(id==='aurichourglass'){
+  mantle(.93);
+  // Turn around the horizontal axle; both ends stay outboard during the flip.
+  rod([.39,1.17,.02],[.78,1.17,.02],.055,dark);
+  const glass=rig(.75,1.17,.02);
+  const crystal=mat(0xffdfa4,.08,.16);
+  crystal.transparent=true;crystal.opacity=.32;crystal.depthWrite=false;
+  for(const side of [-1,1]){
+   const y=side*.47;rod([0,y-.035,0],[0,y+.035,0],.255,trim,glass);
+   mesh(cone,crystal,0,side*.22,0,.192,.42,.192,glass,side>0?Math.PI:0);
+   mesh(cone,glow,0,side*.23,.05,.14,.32,.14,glass,side>0?Math.PI:0);
+  }
+  for(const x of [-.22,.22])rod([x,-.47,0],[x,.47,0],.019,trim,glass);
+  const sand=mesh(gem,glow,0,0,.09,.023,.13,.023,glass);
+  sand.userData.dynamic=true;
+  motions.push(t=>{glass.rotation.x=Math.PI*(1-Math.cos(t*.66))*.5;sand.scale.y=.09+.04*Math.cos(t*2.7);});
+ }
+ if(id==='twingoldkoi'){
+  for(const side of [-1,1]){
+   const koi=rig(side*.72,1.29,-.26);
+   mesh(ball,side===1?trim:shell,0,0,0,.16,.35,.13,koi);
+   mesh(ball,trim,0,.25,0,.135,.14,.115,koi);
+   for(const face of [-1,1]){
+    mesh(ball,dark,side*.076,.28,face*.099,.035,.029,.023,koi);
+    mesh(gem,side===1?shell:trim,0,.035,face*.124,.092,.105,.024,koi);
+   }
+   plate([[-.035,0],[-.21,-.10],[-.17,.14],[0,.10],[.18,.15],[.22,-.08],[.04,-.02]],trim,0,-.40,0,koi);
+   for(const s of [-1,1])plate([[0,0],[s*.17,-.08],[s*.10,.09]],glow,s*.10,.02,0,koi);
+   for(const [x,y] of [[-.04,.12],[.045,-.025],[-.022,-.17]])mesh(ball,side===1?shell:glow,x,y,.117,.060,.079,.019,koi);
+   motions.push(t=>{koi.rotation.z=-side*(.48+.12*Math.cos(t*1.5));koi.position.y=1.29+side*.115*Math.sin(t*1.5);koi.rotation.y=side*(.32+.28*Math.sin(t*1.25+movingTime));});
+  }
+ }
+ if(id==='origamicrane'){
+  rod([0,1.34,-.30],[0,1.78,-.46],.067,dark);
+  const bird=rig(0,1.78,-.46);
+  mesh(gem,trim,0,.06,0,.22,.19,.24,bird);
+  for(const side of [-1,1]){
+   plate([[0,0],[side*.88,.45],[side*.46,-.10],[side*.20,-.16]],trim,side*.10,.01,0,bird,.032);
+   for(const face of [-1,1])
+    plate([[0,0],[side*.76,.37],[side*.25,-.06]],shell,side*.13,.025,face*.037,bird,.018);
+  }
+  plate([[0,0],[.14,.04],[.23,.38],[.40,.33],[.23,.51],[.13,.44]],trim,0,.10,.085,bird,.045);
+  plate([[0,0],[-.48,.34],[-.18,-.04]],glow,-.08,.10,-.09,bird,.035);
+  motions.push(t=>{bird.rotation.x=.11*Math.sin(t*1.2+movingTime*1.6);bird.rotation.y=.16+Math.sin(t*.83)*.20;});
+ }
+ if(id==='dawngoldharp'){
+  mantle(.94);
+  rod([-.41,1.07,.04],[-.72,1.05,.04],.050,dark);
+  const harp=rig(-.72,1.05,.04);
+  rod([0,0,0],[.14,0,0],.057,trim,harp);
+  plate([[-.27,-.50],[-.10,-.50],[.25,.40],[.19,.55],[.10,.45]],shell,0,0,0,harp,.14);
+  rod([-.26,-.49,0],[-.26,.56,0],.046,trim,harp);
+  rod([-.26,.56,0],[-.05,.46,0],.047,trim,harp);
+  rod([-.05,.46,0],[.18,.59,0],.041,trim,harp);
+  mesh(gem,glow,-.26,.63,0,.065,.094,.06,harp);
+  for(let j=0;j<6;j++){
+   const x=-.20+j*.059;
+   rod([x,-.38+j*.132,.042],[x,.48+Math.abs(j-2)*.020,.042],.014,glow,harp);
+  }
+  motions.push(t=>harp.rotation.z=-.07+.042*Math.sin(t*1.65));
+ }
+ if(id==='auriclotus'){
+  rod([0,1.44,-.34],[0,1.65,-.37],.16,shell);
+  rod([0,1.59,-.37],[0,1.67,-.37],.21,trim);
+  const blossom=rig(0,1.66,-.37);
+  const petal=[[0,0],[-.21,.27],[-.20,.53],[0,.83],[.20,.53],[.21,.27]];
+  for(let j=0;j<8;j++){
+   const a=j*Math.PI/4,petalMesh=plate(petal,j%2?trim:shell,Math.sin(a)*.18,0,Math.cos(a)*.18,blossom,.037);
+   petalMesh.rotation.order='YXZ';petalMesh.rotation.y=a;petalMesh.rotation.x=1.06;
+   const vein=plate([[0,.10],[-.045,.35],[0,.69],[.045,.35]],glow,petalMesh.position.x,.02,petalMesh.position.z,blossom,.02);
+   vein.rotation.copy(petalMesh.rotation);
+  }
+  mesh(gem,glow,0,.42,0,.14,.25,.14,blossom);
+  motions.push(t=>{blossom.rotation.y=t*.18;blossom.position.y=1.66+.035*Math.sin(t*1.3);});
+ }
+ if(id==='gildedskyship'){
+  for(const side of [-1,1]){
+   rod([side*.24,1.36,-.30],[0,1.78,-.45],.044,trim);
+  }
+  const ship=rig(0,1.98,-.45);
+  block(trim,0,-.19,0,.30,.11,.24,ship);
+  plate([[-.59,.045],[.56,.13],[.44,-.12],[.26,-.22],[-.34,-.22],[-.50,-.10]],shell,0,0,0,ship,.23);
+  rod([-.55,.055,.13],[.56,.14,.13],.019,trim,ship);
+  const sailcloth=mat(0xffeed1,.035,.76);
+  for(const [x,h] of [[-.20,.46],[.15,.63]]){
+   rod([x,.035,0],[x,h,0],.024,trim,ship);
+   const sail=plate([[0,0],[0,h*.75],[-.23,.08]],sailcloth,x,h*.14,.02,ship,.022);
+   sail.rotation.y=-.32;
+   plate([[0,0],[0,h*.70],[.16,.09]],trim,x+.026,h*.17,.03,ship,.02);
+  }
+  for(const x of [-.30,-.10,.10,.30])mesh(gem,glow,x,-.068,.13,.036,.034,.017,ship);
+  motions.push(t=>{ship.rotation.x=.09*Math.sin(t*1.15);ship.rotation.z=.075*Math.sin(t*1.4+movingTime*1.3);});
+ }
+ if(id==='aurickeywarden'){
+  const arch=rig(0,1.41,-.54);
+  ring(trim,0,.17,0,.59,arch,Math.PI);
+  for(const side of [-1,1]){
+   rod([side*.59,-.49,0],[side*.59,.17,0],.050,trim,arch);
+   block(shell,side*.59,-.49,0,.19,.13,.18,arch);
+  }
+  for(const side of [-1,1]){
+   rod([side*.27,1.13,-.31],[side*.58,1.02,-.54],.045,dark);
+  }
+  rod([.39,1.11,.12],[.75,1.17,.14],.05,dark);
+  const key=rig(.75,1.17,.14);
+  rod([0,-.075,0],[0,.075,0],.067,shell,key);
+  const bow=ring(trim,0,.32,0,.15,key);bow.scale.x=.18;
+  mesh(gem,glow,0,.32,0,.070,.093,.048,key);
+  rod([0,-.40,0],[0,.20,0],.042,trim,key);
+  block(trim,.085,-.32,0,.18,.075,.077,key);
+  block(trim,.14,-.24,0,.056,.12,.08,key);
+  motions.push(t=>{key.rotation.z=-.38+.075*Math.sin(t*1.1);key.rotation.y=.24*Math.sin(t*1.4);});
+ }
  // Merge each rigid assembly by material. Animation only moves these assemblies.
  for(const parent of assemblies){
   const batches=new Map();for(const n of [...parent.children]){if(!n.isMesh||n.userData.dynamic)continue;n.updateMatrix();if(!batches.has(n.material))batches.set(n.material,[]);batches.get(n.material).push(n);}
@@ -350,7 +553,7 @@ export function upgradeGoldenGiftSkin(T,skin,{mobile=false}={}){
  function contour(points,m=gold,r=.012){for(let j=1;j<points.length;j++)line(points[j-1],points[j],m,r);}
  function leaf(x,y,z,w,h,angle=0,m=enamel){const shape=new T.Shape();shape.moveTo(0,-.52);shape.lineTo(-.48,-.18);shape.lineTo(-.35,.26);shape.lineTo(0,.55);shape.lineTo(.35,.26);shape.lineTo(.48,-.18);shape.closePath();const g=own(new T.ExtrudeGeometry(shape,{depth:.035,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.012,bevelThickness:.009}));return add(g,m,x,y,z,w,h,1,angle);}
  // Engraved gorget, gem settings and linked waist chains sit below the visor.
- for(const s of[-1,1]){
+ if(!spec.expedition)for(const s of[-1,1]){
   contour([[s*.055,1.02,.51],[s*.18,.98,.52],[s*.29,.88,.52],[s*.24,.72,.53]],gold,.013);
   for(let j=0;j<4;j++){const x=s*(.12+j*.064),y=.69-Math.sin(j/3*Math.PI)*.055;add(gem,gold,x,y,.49,.028,.037,.016);add(gem,glow,x,y,.51,.011,.018,.009);}
   for(let j=0;j<3;j++){
@@ -359,7 +562,13 @@ export function upgradeGoldenGiftSkin(T,skin,{mobile=false}={}){
   }
  }
  // Each silhouette gets its own large accessory, with enamel insets and trim.
- if(['storm','digital'].includes(theme)){
+ if(spec.expedition){
+  // These ten have their own moving instruments, wings or companions.
+  for(const side of [-1,1]){
+   contour([[side*.29,1.29,.29],[side*.42,1.18,.18],[side*.46,.91,.08],[side*.37,.71,.29]],gold,.018);
+   add(gem,enamel,side*.39,.82,.22,.05,.085,.03,side*.22);
+  }
+ }else if(['storm','digital'].includes(theme)){
   for(const s of[-1,1]){
    for(let j=0;j<3;j++){
     const x=s*(.65+j*.16),y=1.20+j*.16;

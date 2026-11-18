@@ -62,10 +62,38 @@ export function createReviewUI(api){
   api.onlineForGift().then(users=>{status.textContent=users.length?'送り先を選択してください':'オンラインのプレイヤーはいません';for(const user of users){const label=document.createElement('label');label.className='ssGiftPlayer';const box=document.createElement('input');box.type='checkbox';box.value=user.id;const playerName=document.createElement('span');playerName.textContent=user.name;label.append(box,playerName);list.append(label);}send.disabled=users.length===0;}).catch(()=>{status.textContent='オンライン一覧を取得できませんでした';});
   const requests=new Map();send.onclick=async()=>{const selected=[...list.querySelectorAll('input:checked')],amount=Number(count.value);if(!selected.length||!Number.isInteger(amount)||amount<1||amount>999){status.textContent='送り先と1〜999枚の枚数を指定してください';return;}send.disabled=true;status.textContent='送信中…';const results=await Promise.allSettled(selected.map(el=>{const key=el.value+':'+kind.value+':'+amount;if(!requests.has(key))requests.set(key,crypto.randomUUID());return api.sendTickets(el.value,kind.value,amount,requests.get(key));}));results.forEach((r,i)=>{if(r.status==='fulfilled'){requests.delete(selected[i].value+':'+kind.value+':'+amount);selected[i].checked=false;}});const failed=results.filter(r=>r.status==='rejected');status.textContent=failed.length?`${results.length-failed.length}人に送信。${failed[0].reason.message}`:`${results.length}人に送りました`;send.disabled=false;};
  }
+ function openBroadcastSender(){
+  const account=api.context();
+  if(!account.admin)return;
+  const pendingKey='space-ticket-broadcast:'+account.uid;
+  host.classList.add('ssGiftDialog');formOpen=false;host.hidden=false;
+  host.querySelector('.reviewClose').hidden=false;host.setAttribute('aria-label','特別チケットを全員に配布');
+  body.innerHTML='<h2>特別チケットを全員に配布</h2><p>オフラインの人も次のログインで受け取れます。</p><label>1人あたりの枚数 <input type="number" min="1" max="999" value="10"></label><button class="reviewSend" type="button">内容を確認</button><p role="status"></p>';
+  const count=body.querySelector('input'),send=body.querySelector('button'),status=body.querySelector('[role=status]');
+  let draft=null,confirmed=false,busy=false;
+  try{draft=JSON.parse(localStorage.getItem(pendingKey));}catch{}
+  if(draft){count.value=draft.count;count.disabled=true;confirmed=true;send.textContent='配布結果を確認・再試行';}
+  count.oninput=()=>{confirmed=false;send.textContent='内容を確認';status.textContent='';};
+  send.onclick=async()=>{
+   if(busy||api.context().uid!==account.uid||!api.context().admin)return;
+   const amount=Number(count.value);
+   if(!Number.isInteger(amount)||amount<1||amount>999){status.textContent='1〜999枚で入力してください。';return;}
+   if(!confirmed){confirmed=true;status.textContent='全員に特別チケットを'+amount+'枚ずつ配布します。';send.textContent='この内容で配布';return;}
+   busy=true;send.disabled=true;count.disabled=true;
+   try{
+    draft||={id:crypto.randomUUID(),count:amount};
+    localStorage.setItem(pendingKey,JSON.stringify(draft));
+    await api.sendBroadcast(amount,draft.id);
+    localStorage.removeItem(pendingKey);status.textContent=amount+'枚ずつ配布しました。';send.textContent='配布済み';
+   }catch(error){status.textContent='配布結果を確認できません。'+(error.message||'再試行してください。');send.textContent='同じ配布を再試行';send.disabled=false;}
+   finally{busy=false;}
+  };
+  (draft?send:count).focus();
+ }
  let adminBuilt=false;
  function syncAdmin(c){const section=window.__spaceAdminSettings?.();if(!section||adminBuilt||!c.admin)return;adminBuilt=true;
  const title=document.createElement('h3');title.textContent='管理者';section.append(title);
- for(const [text,action]of [['メッセージ',()=>inbox.click()],['ギフト',openGiftSender],['部屋の管理',()=>{window.__closeSpaceInputSettings?.();document.getElementById('titleJoin')?.click();}],['通信・描画の状態',()=>{const output=section.querySelector('pre');output.hidden=!output.hidden;if(!output.hidden)output.textContent=JSON.stringify(window.__spaceDiagnostics?.()||{},null,2);}]]){const b=document.createElement('button');b.type='button';b.textContent=text;b.style.cssText='display:block;width:100%;min-height:44px;margin:8px 0';b.onclick=()=>{if(api.context().admin)action();};section.append(b);}
+ for(const [text,action]of [['メッセージ',()=>inbox.click()],['ギフト',openGiftSender],['特別チケットを全員に配布',openBroadcastSender],['部屋の管理',()=>{window.__closeSpaceInputSettings?.();document.getElementById('titleJoin')?.click();}],['通信・描画の状態',()=>{const output=section.querySelector('pre');output.hidden=!output.hidden;if(!output.hidden)output.textContent=JSON.stringify(window.__spaceDiagnostics?.()||{},null,2);}]]){const b=document.createElement('button');b.type='button';b.textContent=text;b.style.cssText='display:block;width:100%;min-height:44px;margin:8px 0';b.onclick=()=>{if(api.context().admin)action();};section.append(b);}
  const output=document.createElement('pre');output.hidden=true;output.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere';section.append(output);
  }
  const timer=setInterval(sync,1500);return{sync,openForm,close,dispose(){disposed=true;clearInterval(timer);unsubscribe?.();giftUnsubscribe?.();document.removeEventListener('pointerdown',onInput);document.removeEventListener('keydown',onInput);window.removeEventListener('spacesuspect:room-leave',close);giftToast?.remove();host.remove();inbox.remove();style.remove();}};

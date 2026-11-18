@@ -1,7 +1,7 @@
 import {chooseGachaItem} from './gacha-rarity.js';
 import {GACHA_CATALOG as catalog} from './gacha-catalog.js';
 export const GACHA_RELEASE='2026-10-27-gacha';
-export const GACHA_UPDATE_RELEASE='2026-11-08-special-ticket-10';
+export const GACHA_UPDATE_RELEASE='2026-11-18-expedition-ticket-10';
 export const GACHA_UPDATE_GIFT_COUNT=10;
 const updateGiftReceipt='update_'+GACHA_UPDATE_RELEASE;
 const validId=x=>/^[A-Za-z0-9_-]{16,80}$/.test(String(x||''));
@@ -36,6 +36,26 @@ export function createRealtimeGacha(api){
  const draw=['draw','waveDraw'].includes(g.winner),won=g.winner==='mini-loss'?g.miniLoss===uid:g.winner==='jester'?g.jesterWinner===uid:g.winner==='waveSolo'?g.waveWinnerId===uid:g.winner==='waveTeam'?player.waveTeam===g.waveWinnerTeam:g.winner==='lovers'?!!player.lover:g.winner==='impostor'?player.role==='impostor'||['madmate','blackCat'].includes(player.subrole):player.role===g.winner;
  return await transact(uid,null,w=>{if(humans.length>=5&&!w.rewards[key]){const amount=draw?3:won?10:5;w.tickets+=amount;w.rewards[key]=amount;}return null;});}
  if(!validId(p.requestId))fail('リクエストIDが不正です');
+ if(action==='broadcast'){
+  if(!api.isAdmin())fail('管理者のみ配布できます');
+  const count=Number(p.count);
+  if(!Number.isInteger(count)||count<1||count>999)fail('枚数は1〜999で指定してください');
+  const location=refFor(null,'ticketBroadcasts/'+p.requestId);
+  await get(location);
+  const result=await runTransaction(location,old=>old||{count,kind:'premium',sender:uid,createdAt:Date.now()},{applyLocally:false});
+  const gift=result.snapshot.val();
+  if(!result.committed||gift?.sender!==uid||gift?.count!==count)fail('配布の記録を確認できませんでした');
+  return {sent:true};
+ }
+ if(action==='claimBroadcast'){
+  if(!validId(p.giftId))fail('配布の番号が不正です');
+  const gift=(await get(refFor(null,'ticketBroadcasts/'+p.giftId))).val();
+  if(gift?.kind!=='premium'||!Number.isInteger(gift.count)||gift.count<1||gift.count>999)fail('配布が見つかりません');
+  return transact(uid,'broadcast_'+p.giftId,w=>{
+   w.premium+=gift.count;
+   return {claimed:true,at:Date.now(),count:gift.count,kind:'premium'};
+  });
+ }
  if(action==='gift'){
  if(!api.isAdmin())fail('管理者のみ送れます');const count=Number(p.count),target=String(p.target||'');if(!/^[A-Za-z0-9_-]{1,128}$/.test(target)||!Number.isInteger(count)||count<1||count>999)fail('送り先または枚数が不正です');if((await get(refFor(null,`onlineUsers/${target}`))).val()?.online!==true)fail('送り先はオフラインです');
  const location=refFor(null,`ticketGifts/${target}/${p.requestId}`),gift={count,kind:p.kind==='premium'?'premium':'normal',sender:uid,createdAt:Date.now()};

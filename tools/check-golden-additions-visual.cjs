@@ -11,8 +11,8 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'verification/golden-
    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.text().includes('404'))errors.push(m.text());});
    await page.route(/https:\/\/cdn.jsdelivr.net\/npm\/three@[^/]+\/build\/three.module.js/,r=>r.fulfill({path:path.join(root,'node_modules/three/build/three.module.js'),contentType:'application/javascript'}));
    await page.goto(base+'/gift-skins-preview.html?skin=auroraphoenix');await page.waitForFunction(()=>window.giftSkinPreview);
-   specs=await page.evaluate(async()=>{const {GOLDEN_GIFT_SKINS}=await import('./premium-golden-skins.js');return GOLDEN_GIFT_SKINS.slice(-10).map(s=>({id:s.id,name:s.name}));});
-   assert.equal(await page.locator('#skin option').count(),98);
+   specs=await page.evaluate(async()=>{const {GOLDEN_GIFT_SKINS}=await import('./premium-golden-skins.js');return GOLDEN_GIFT_SKINS.filter(s=>['auroraphoenix','celestialkirin','imperialpeacock','oathpaladin','starwhalesovereign','ninetailtenko','auricalchemist','saturnregent','leonidasregalia','prismmorpho'].includes(s.id)).map(s=>({id:s.id,name:s.name}));});
+   assert.equal(specs.length,10);assert.equal(await page.locator('#skin option').count(),await page.evaluate(async()=>(await import('./premium-skins.js')).GIFT_SKINS.length));
    let warm;
    for(let round=0;round<2;round++){
     for(const {id}of specs){
