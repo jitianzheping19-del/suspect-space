@@ -84,3 +84,58 @@ export class SightPolygonSolver {
     return this.result;
   }
 }
+
+// Rasterize the same ordered sight rays directly into the texture sampled by
+// the world composite. Only the fan vertices cross from JS to the GPU.
+export function createSightMask(THREE, renderer) {
+  const target = new THREE.WebGLRenderTarget(512, 512, {
+    depthBuffer: false, stencilBuffer: false,
+    samples: Math.min(4, renderer.capabilities.maxSamples || 0)
+  });
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0);
+  const material = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide, depthTest: false, depthWrite: false,
+    vertexShader: 'void main(){gl_Position=vec4(position.xy,0.,1.);}',
+    fragmentShader: 'void main(){gl_FragColor=vec4(1.);}'
+  });
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  const camera = new THREE.Camera();
+  let capacity = 0;
+  function draw({points, count}, radius) {
+    if (count > capacity) {
+      capacity = Math.max(512, count, capacity * 2);
+      const geometry = new THREE.BufferGeometry();
+      geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), Math.SQRT2);
+      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array((capacity + 2) * 2), 2).setUsage(THREE.DynamicDrawUsage));
+      const indices = capacity + 1 > 65535 ? new Uint32Array(capacity * 3) : new Uint16Array(capacity * 3);
+      for (let i = 0; i < capacity; i++) {
+        indices[i * 3 + 1] = i + 1;
+        indices[i * 3 + 2] = i + 2;
+      }
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+      mesh.geometry.dispose();
+      mesh.geometry = geometry;
+    }
+    if (count) {
+      const attribute = mesh.geometry.getAttribute('position');
+      for (let i = 0; i < count * 2; i++) attribute.array[2 + i] = points[i] / radius;
+      attribute.array[2 + count * 2] = attribute.array[2];
+      attribute.array[3 + count * 2] = attribute.array[3];
+      attribute.clearUpdateRanges();
+      attribute.addUpdateRange(0, (count + 2) * 2);
+      attribute.needsUpdate = true;
+    }
+    mesh.geometry.setDrawRange(0, count * 3);
+    const previous = renderer.getRenderTarget();
+    try {
+      renderer.setRenderTarget(target);
+      renderer.render(scene, camera);
+    } finally {
+      renderer.setRenderTarget(previous);
+    }
+  }
+  return {target, draw, dispose() {mesh.geometry.dispose(); material.dispose(); target.dispose();}};
+}

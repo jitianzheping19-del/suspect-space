@@ -1,8 +1,10 @@
+import {setStudioLighting} from './studio-lighting.js';
 import {createRenderBudget} from './render-performance.js';
 export function spawnChoiceIndices(count,seed){let hash=2166136261;for(const c of String(seed))hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;const ids=Array.from({length:count},(_,i)=>i);for(let i=ids.length-1;i>0;i--){hash=(Math.imul(hash,1664525)+1013904223)>>>0;const j=hash%(i+1);[ids[i],ids[j]]=[ids[j],ids[i]];}return ids.slice(0,Math.min(3,count));}
 export function createSpawnChoiceView(THREE,host){
  const budget=createRenderBudget(),gate=budget.gate();
  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(38,1,.1,80),renderer=new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:'low-power'}),root=new THREE.Group(),ownedG=new Set(),ownedM=new Set();scene.add(root);budget.syncRenderer(renderer,1);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0x000000,0);renderer.domElement.className='spawnChoiceCanvas';renderer.domElement.setAttribute('aria-hidden','true');host.prepend(renderer.domElement);scene.add(new THREE.HemisphereLight(0xd3f5ff,0x203847,2.6));const sun=new THREE.DirectionalLight(0xffedce,3);sun.position.set(4,8,6);scene.add(sun);camera.position.set(0,7.3,12.4);camera.lookAt(0,.3,0);
+ setStudioLighting(THREE,renderer,scene);
  const beacons=[];let raf=0,key='',active=false,disposed=false;
  function mesh(g,m,p=root){ownedG.add(g);ownedM.add(m);const o=new THREE.Mesh(g,m);p.add(o);return o;}
  const steel=new THREE.MeshStandardMaterial({color:0x506879,metalness:.65,roughness:.4}),floor=new THREE.MeshStandardMaterial({color:0x143445,metalness:.35,roughness:.6}),edge=new THREE.MeshStandardMaterial({color:0xa4c3c8,metalness:.75,roughness:.3});

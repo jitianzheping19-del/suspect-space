@@ -80,8 +80,9 @@ export function createSelectedRoleCinematic(T,{renderer,data,art,buildCostume,cu
    killer.arms[1].rotation.x=-.7-riposte*.9+phase(t,1.05,1.6)*1.1;killer.torso.rotation.y=-.28+phase(t,.62,.85)*.55;killer.root.position.x=-1.25+riposte*.45;
    if(t>=.88)fall(victim,t,.88,1.5,mix(.1,1.05,phase(t,.88,1.5)));burst(t,t<.65?.39:.86,t<.65?-.35:.65);wave(t,.86,1.2);once('parry',t>=.39,1800,800,.09,'triangle');once('counter',t>=.86,280,70,.18,'sawtooth');
   }else if(role==='evolver'){
-   const approach=phase(t,.08,.35);killer.root.position.x=mix(-1.65,-.55,approach);for(let i=0;i<2;i++)killer.arms[i].rotation.x=-1.3+Math.sin(t*19+i*2)*.65*(t>.4&&t<.95?1:0);
-   killer.torso.rotation.y=Math.sin(t*17)*.18*(t>.4&&t<.95?1:0);if(t>.9)fall(victim,t,.9,1.35,mix(.65,.9,phase(t,.9,1.35)));
+   const approach=phase(t,.08,.35);killer.root.position.x=mix(-1.65,-.55,approach);const strike=phase(t,.37,.46)*(1-phase(t,.86,.96));
+   for(let i=0;i<2;i++)killer.arms[i].rotation.x=-1.3+Math.sin(t*19+i*2)*.65*strike;
+   killer.torso.rotation.y=Math.sin(t*17)*.18*strike;if(t>.9)fall(victim,t,.9,1.35,mix(.65,.9,phase(t,.9,1.35)));
    const feeding=phase(t,1.15,1.9);scanner.material.opacity=.2+feeding*.65;scanner.scale.setScalar(.17+feeding*.07);
    if(t>1.1&&t<2){particles.visible=true;particles.material.opacity=.7;for(let i=0;i<particleCount;i++){const f=((t-1.1)*1.4+i/particleCount)%1,a=i*2.4;particleArray[i*3]=mix(.9,-.55,f);particleArray[i*3+1]=mix(.30,.82,f)+Math.sin(a+t*8)*.12;particleArray[i*3+2]=Math.cos(a+t*4)*.15*(1-f);}particleGeo.attributes.position.needsUpdate=true;}else burst(t,.72);
    wave(t,.72,1.1);for(const beat of[.47,.64,.81])once('claw'+beat,t>=beat,650,110,.1,'sawtooth');once('evolve',t>=1.4,210,620,.35);
@@ -98,7 +99,7 @@ export function createSelectedRoleCinematic(T,{renderer,data,art,buildCostume,cu
    fragments.visible=t>=1.04&&t<2;for(let i=0;i<fragments.count;i++){const age=Math.max(0,t-1.04),a=i*2.4;dummy.position.set(2.9-age*(.5+i%5*.2),1.05+Math.sin(a)*age*.9-age*age*2,Math.cos(a)*age*.9);dummy.rotation.set(age*i,age*2,i);dummy.scale.setScalar(Math.max(.001,1-age));dummy.updateMatrix();fragments.setMatrixAt(i,dummy.matrix);}fragments.instanceMatrix.needsUpdate=true;
    burst(t,t<.9?.57:1.04,t<.9?.65:2.8);wave(t,.57,1.2);once('punch',t>=.57,150,45,.14,'triangle');once('wall',t>=1.04,80,27,.25,'sawtooth');
   }else if(role==='bait'){
-   victim.root.position.set(.95,.48,0);victim.root.rotation.z=-Math.PI/2;const walk=phase(t,.05,.70);killer.root.position.x=mix(-1.8,-.55,walk);killer.legs.forEach((l,i)=>l.rotation.x=Math.sin(t*12+i*Math.PI)*.3*(1-walk));
+   victim.root.position.set(.95,.48,0);victim.root.rotation.z=-Math.PI/2;const walk=phase(t,.05,.70);killer.root.position.x=mix(-1.8,-.55,walk);killer.legs.forEach((l,i)=>l.rotation.x=Math.sin(walk*Math.PI*2+i*Math.PI)*.35*phase(t,.05,.18)*(1-phase(t,.53,.70)));
    alert.visible=t>.70&&t<1.65;alert.position.set(-.55,2.15+Math.sin(t*8)*.06,0);alert.scale.setScalar(.7+phase(t,.70,.8)*.3);
    killer.torso.rotation.x=-phase(t,.65,.85)*.1;killer.arms[0].rotation.x=-phase(t,.82,1.1)*1.3;killer.arms[1].rotation.x=-phase(t,1.05,1.25)*1.5+phase(t,1.25,1.45)*.4;
    wave(t,1.25,1.8,-.55);once('notice',t>=.73,700,1050,.10);once('report',t>=1.25,1100,1650,.2,'square');
@@ -110,7 +111,7 @@ export function createSelectedRoleCinematic(T,{renderer,data,art,buildCostume,cu
   scene.updateMatrixWorld(true);
  }
  function render(){
-  bodyBounds.makeEmpty();for(const a of actors)if(a.root.visible)a.root.traverseVisible(n=>{if(!n.isMesh||!n.geometry)return;for(let p=n;p&&p!==a.root;p=p.parent)if(p.name==='signature-aura')return;n.geometry.computeBoundingBox();partBounds.copy(n.geometry.boundingBox).applyMatrix4(n.matrixWorld);if(partBounds.min.length()<20&&partBounds.max.length()<20)bodyBounds.union(partBounds);});
+  bodyBounds.makeEmpty();for(const a of actors)if(a.root.visible)a.root.traverseVisible(n=>{if(!n.isMesh||!n.geometry)return;for(let p=n;p&&p!==a.root;p=p.parent)if(p.name==='signature-aura')return;if(!n.geometry.boundingBox)n.geometry.computeBoundingBox();partBounds.copy(n.geometry.boundingBox).applyMatrix4(n.matrixWorld);if(partBounds.min.length()<20&&partBounds.max.length()<20)bodyBounds.union(partBounds);});
   if(wall)bodyBounds.expandByPoint(V(3.45,2.9,.8));if(bodyBounds.isEmpty())bodyBounds.set(V(-2,0,-1),V(2,2.5,1));bodyBounds.getCenter(focus);focus.y=Math.max(.9,focus.y);camera.position.copy(focus).add(V(.3,.5,8));camera.lookAt(focus);camera.updateMatrixWorld(true);
   let extent=1;for(let i=0;i<8;i++){corner.set(i&1?bodyBounds.max.x:bodyBounds.min.x,i&2?bodyBounds.max.y:bodyBounds.min.y,i&4?bodyBounds.max.z:bodyBounds.min.z).project(camera);extent=Math.max(extent,Math.abs(corner.x)/.86,Math.abs(corner.y)/.82);}eye.copy(camera.position).sub(focus).multiplyScalar(extent);camera.position.copy(focus).add(eye);
   const hit=role==='boxer'?1.04:role==='bomber'?.9:role==='fencer'?.86:.72,jolt=lastTime>=hit?Math.exp(-(lastTime-hit)*18)*.025:0;camera.position.x+=Math.sin(lastTime*95)*jolt;camera.lookAt(focus);renderer.render(scene,camera);

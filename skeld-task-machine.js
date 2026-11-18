@@ -1,5 +1,7 @@
+import {createRenderBudget} from './render-performance.js';
 import {SKELD_EXTRA_HINTS,SKELD_COURSE} from './skeld-task-rules.js';
 export function createSkeldTaskMachine(host,run){
+ const gate=createRenderBudget().gate();
  const s=run.state,root=document.createElement('div');root.className='skeldTaskMachine';root.tabIndex=0;root.setAttribute('aria-label',SKELD_EXTRA_HINTS[s.mode]);
  root.dataset.mode=s.mode;root.innerHTML=`<style>
 .skeldTaskMachine{position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;padding:clamp(8px,2vw,24px);box-sizing:border-box;background:radial-gradient(ellipse at 50% 0,#264452,#091723 70%);border:8px ridge #637d8c;border-radius:16px;color:#e5f9ff;overflow:auto;touch-action:none;font-family:system-ui}
@@ -30,6 +32,10 @@ export function createSkeldTaskMachine(host,run){
 .skeldTaskMachine .skTaskProgress{height:10px;min-height:10px;flex:none;border:1px solid #678f9c;border-radius:6px;background:#142c3b;overflow:hidden}
 .skeldTaskMachine .skTaskProgress::before{content:"";display:block;height:100%;width:var(--task-progress,0%);background:#7de8c7}
 @media(max-height:500px){.skeldTaskMachine[data-mode=reactor-memory]{gap:5px}.skeldTaskMachine[data-mode=reactor-memory] .skMemoryBank{gap:6px}.skeldTaskMachine[data-mode=reactor-memory] .skTaskStatus{min-height:26px;padding:2px}}
+@media (prefers-reduced-motion:no-preference){
+ :root:not([data-reduced-motion="true"]) .skeldTaskMachine button:not(.skRock):not(:disabled){transition:translate 100ms ease-out,box-shadow 100ms ease-out}
+ :root:not([data-reduced-motion="true"]) .skeldTaskMachine button:not(.skRock):not(:disabled):active{translate:0 2px;box-shadow:0 1px #07121b}
+}
 </style><div class="skInstrument"><b>SHIP SYSTEMS</b><span>● ONLINE</span></div><p class="skTaskHint"></p><div class="skTaskBoard"></div><div class="skTaskStatus" role="status" aria-live="polite"></div>`;
  root.querySelector('.skInstrument b').textContent=({manifolds:'MANIFOLD ACCESS',garbage:'WASTE AIRLOCK',asteroids:'ASTEROID DEFENSE','prime-shields':'SHIELD MATRIX','inspect-sample':'SPECIMEN ANALYZER',steering:'FLIGHT STABILIZER','reactor-memory':'REACTOR SEQUENCE','chart-course':'NAVIGATION CHART'})[s.mode];
  root.querySelector('.skTaskHint').textContent=SKELD_EXTRA_HINTS[s.mode];const board=root.querySelector('.skTaskBoard'),status=root.querySelector('.skTaskStatus');host.replaceChildren(root);
@@ -78,7 +84,7 @@ export function createSkeldTaskMachine(host,run){
   if(s.finished)buttons.forEach(b=>b.disabled=true);
  }
  run.tick(0);
- function frame(ms){if(disposed)return;raf=requestAnimationFrame(frame);if(ms-last<33)return;const dt=(ms-last)/1000;last=ms;if(document.hidden)return;run.tick(dt);render();}
+ function frame(ms){if(disposed)return;raf=requestAnimationFrame(frame);if(document.hidden){last=ms;return;}if(!gate.due(ms))return;const dt=(ms-last)/1000;last=ms;run.tick(dt);render();}
  render();raf=requestAnimationFrame(frame);
  return{canvas:root,dispose(){if(disposed)return;disposed=true;cancelAnimationFrame(raf);window.removeEventListener('blur',release);document.removeEventListener('visibilitychange',release);run.cancel();root.remove();}};
 }

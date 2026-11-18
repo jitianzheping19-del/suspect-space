@@ -1,3 +1,4 @@
+import {createCostumeBlock} from './costume-finishes.js';
 // Twenty original outfits. Parts use shared geometries and the existing animation loop.
 const ARENA_SKIN_ROWS=[
  ['cometstriker','彗星ストライカー',0x243959,0x69e5ff,'comet',4],
@@ -27,7 +28,7 @@ export function createArenaGiftSkin(T,spec,{mobile=false}={}){
  const geometries=new Set(),materials=new Set(),motions=[],golden=spec.rarity===5;
  const own=g=>(geometries.add(g),g),mat=(color,metal=.6,rough=.32,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness:metal,roughness:rough,emissive:color,emissiveIntensity:emission});materials.add(m);return m;};
  const shell=mat(spec.color),trim=mat(golden?0xe6ba61:0xa1b9cc,.85,.23),dark=mat(0x111d2c,.35,.5),glow=mat(spec.accent,.45,.25,.8),pale=mat(0xebf1ec,.45,.3);
- const box=own(new T.BoxGeometry(1,1,1)),sphere=own(new T.SphereGeometry(1,mobile?12:20,12)),gem=own(new T.OctahedronGeometry(1)),cone=own(new T.ConeGeometry(1,1,6)),torus=own(new T.TorusGeometry(1,.028,6,mobile?32:56));
+ const box=own(createCostumeBlock(T)),sphere=own(new T.SphereGeometry(1,mobile?12:20,12)),gem=own(new T.OctahedronGeometry(1)),cone=own(new T.ConeGeometry(1,1,6)),torus=own(new T.TorusGeometry(1,.028,6,mobile?32:56));
  function part(g,m,x,y,z,sx,sy,sz,parent=group){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.userData.lightCostume=true;parent.add(n);return n;}
  const block=(m,x,y,z,w,h,d,p)=>part(box,m,x,y,z,w,h,d,p);
  const orb=(m,x,y,z,w,h=w,d=w,p)=>part(sphere,m,x,y,z,w,h,d,p);
@@ -40,7 +41,7 @@ export function createArenaGiftSkin(T,spec,{mobile=false}={}){
  orb(shell,0,.83,-.025,.47,.48,.44);block(trim,0,.82,.414,.5,.25,.06);block(shell,0,.84,.452,.43,.18,.025);jewel(glow,0,.84,.49,.065,.085,.02);
  for(const side of [-1,1]){orb(trim,side*.46,1.15,-.03,.18,.17,.23);orb(shell,side*.47,1.17,.01,.145,.13,.21);for(let i=0;i<3;i++)block(trim,side*.2,.64-i*.07,.36,.2,.025,.06);rod([side*.32,.67,.36],[side*.41,1.1,.28],.012,glow);}
  const collar=ring(trim,0,1.25,-.16,.42);collar.rotation.x=Math.PI/2;
- const cape=rig(0,1.2,-.44);for(let i=0;i<5;i++){const n=block(i%2?shell:dark,(i-2)*.16,-.28,-.04,.17,.76,.045,cape);n.rotation.x=-.12;block(trim,(i-2)*.16,-.66,-.015,.16,.025,.025,cape);}motions.push((t,m)=>cape.rotation.x=Math.sin(t*(m?5:1.6))*(m?.12:.025));
+ const cape=rig(0,1.2,-.44);for(let i=0;i<5;i++){const n=block(i%2?shell:dark,(i-2)*.16,-.28,-.04,.17,.76,.045,cape);n.rotation.x=-.12;block(trim,(i-2)*.16,-.66,-.015,.16,.025,.025,cape);}motions.push((t,m)=>cape.rotation.x=Math.sin(t*1.6+movingTime*3.4)*(.025+m*.095));
  const shape=spec.shape;
  if(['wing','seraph','dragon','comet'].includes(shape)){
   for(const side of [-1,1]){const wing=rig(0,0,0);const count=shape==='seraph'?7:shape==='dragon'?5:3;for(let j=0;j<count;j++)blade(side,j,wing,shape==='dragon'?1.2:1);motions.push(t=>wing.rotation.y=side*(.12+Math.sin(t*1.7)*.06));}
@@ -72,7 +73,11 @@ export function createArenaGiftSkin(T,spec,{mobile=false}={}){
   const orbit=rig(0,1.2,-.1);for(let i=0;i<6;i++){const a=i*Math.PI/3;jewel(glow,Math.sin(a)*.95,.4*Math.cos(a),Math.cos(a)*.65,.035,.06,.035,orbit);}motions.push(t=>orbit.rotation.y=t*.2);
  }
  let disposed=false;const reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
- function update(t,{moving=false}={}){if(disposed)return;t=reduced?0:Number.isFinite(t)?t:0;for(const f of motions)f(t,moving);glow.emissiveIntensity=.75+(reduced?0:Math.sin(t*1.8)*.1);}
+ let lastClock=0,movingTime=0,moveWeight=0;
+ function update(t,{moving=false}={}){if(disposed)return;t=reduced?0:Number.isFinite(t)?t:0;if(t<lastClock){movingTime=0;moveWeight=0;}
+  const dt=Math.max(0,Math.min(.25,t-lastClock));lastClock=t;if(moving)movingTime+=dt;
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-dt*12));
+  for(const f of motions)f(t,moveWeight);glow.emissiveIntensity=.75+(reduced?0:Math.sin(t*1.8)*.1);}
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
  update(0);return{group,spec,update,dispose};
 }

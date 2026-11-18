@@ -8,6 +8,26 @@ for(let i=0;i<32;i++){const yaw=i*Math.PI/16,w={...wave,yaw};for(const side of[-
 const reflected={...wave,reflection:{x:2,z:9,yaw:Math.PI/2}};assert.equal(waveCannonSegments(reflected)[0].length,10);assert.deepEqual(waveCannonVisibleSegments(reflected,.25).map(s=>s.length),[10,10]);assert(waveCannonTargetOnBeam(reflected,{x:11,z:9},.25));assert(!waveCannonTargetOnBeam(reflected,{x:13,z:9},.25));
 for(const subrole of['waveCannon','waveCannonJackal','jackalWaveCannon']){const g={phase:'play',players:{a:{alive:true,subrole,waveStationaryUntil:6000,waveStationaryX:2,waveStationaryZ:-1}},waveEvents:{w:wave}};for(const t of[1000,2999,3000,5999,6001,7999])assert(waveCannonMovementLock(g,'a',t),'lock missing '+subrole+' '+t);assert(!waveCannonMovementLock(g,'a',8000));g.players.a.alive=false;assert(!waveCannonMovementLock(g,'a',4000));g.players.a.alive=true;g.phase='meeting';assert(!waveCannonMovementLock(g,'a',4000));}
 const scene=new THREE.Scene(),avatar=new THREE.Group(),arms=[new THREE.Group(),new THREE.Group()];avatar.userData.arms=arms;scene.add(avatar);let current=wave;const fx=createWaveCannonEffect({THREE,scene,event:wave,currentEvent:()=>current,getAvatar:()=>avatar});
-for(const stamp of[1000,2000,2999,3001,3100,3450,7000,7999]){assert(fx.update(stamp));scene.updateMatrixWorld(true);const group=fx.group,charging=stamp<3000,visible=waveCannonVisibleSegments(wave,charging?1:Math.min(1,(stamp-3000)/450))[0].length;const floor=group.children.find(o=>o.isMesh&&o.geometry.type==='PlaneGeometry');if(!group.visible){assert(visible<=START);continue;}assert.equal(floor.scale.x,H*2,'visible corridor width drift');assert(Math.abs(floor.scale.y-Math.max(0,visible-START))<1e-10);assert.equal(floor.material.opacity,charging?.055:.18);const muzzle=fx.muzzle.getWorldPosition(new THREE.Vector3());assert(Math.abs(muzzle.x-wave.x)<1e-10&&Math.abs(muzzle.z-(wave.z+START))<1e-10);}
+for(const stamp of[1000,2000,2999,3001,3100,3450,7000,7999]){
+ assert(fx.update(stamp));scene.updateMatrixWorld(true);
+ const length=waveCannonVisibleSegments(wave,Math.max(0,Math.min(1,(stamp-wave.fireAt)/450)))[0].length;
+ assert.equal(fx.group.visible,stamp>=wave.fireAt&&length>START);
+ if(fx.group.visible){
+  const beam=fx.group.getObjectByName('plasma-sheath');assert.equal(beam.position.z,START);assert.equal(beam.scale.x,H);
+  assert(Math.abs(beam.scale.z-(length-START))<1e-10);
+ }
+ fx.group.traverse(o=>{assert.notEqual(o.geometry?.type,'PlaneGeometry');assert(!o.isLineSegments);});
+ const muzzle=fx.muzzle.getWorldPosition(new THREE.Vector3());
+ assert(Math.abs(muzzle.x-wave.x)<1e-10&&Math.abs(muzzle.z-(wave.z+START))<1e-10);
+}
+current=reflected;fx.update(3030);assert(!fx.bounceGroup.visible);
+fx.update(3300);assert(fx.bounceGroup.visible);assert(fx.root.getObjectByName('plasma-reflection-flare').visible);
+assert.equal(fx.bounceGroup.rotation.y,Math.PI/2);
+const outgoing=fx.bounceGroup.getObjectByName('plasma-sheath').material.uniforms;
+assert.equal(outgoing.inlet.value,1,'the reflected shaft starts at full width');
+assert.equal(outgoing.distanceAtInlet.value,10.5,'light travels the incoming distance before the reflected branch');
+
+current=wave;fx.update(3400);assert(!fx.bounceGroup.visible);assert(!fx.root.getObjectByName('plasma-reflection-flare').visible);
+assert(!fx.root.getObjectByProperty('isLight',true),'firing must not invalidate map lighting shaders');
 assert(!fx.update(8000));let weaponDraws=0;fx.gun.traverse(o=>{if(o.isMesh||o.isPoints||o.isSprite)weaponDraws++});assert(weaponDraws<=27,'cannon draw budget '+weaponDraws);fx.dispose();assert(!scene.getObjectByName('wave-cannon-effect'));assert(!avatar.userData.waveCannonPose);assert(arms.every(a=>a.rotation.x===0));
-console.log('PASS 32 directions, exact hit/visual width, growing front, reflection, full 5s fire lock for all roles, legacy snapshot recovery, phase/death release, muzzle, '+weaponDraws+' weapon draws, cleanup');
+console.log('PASS 32 directions, hit edges, no floor hitboxes, growing front, reflection, full 5s fire lock for all roles, legacy snapshot recovery, phase/death release, muzzle, '+weaponDraws+' weapon draws, cleanup');

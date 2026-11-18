@@ -117,12 +117,15 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
  let riding=false,speed=0,steer=0,verticalSpeed=0,actionKey='',lastSent=-Infinity,cameraWasDriving=false,disposed=false;
  const halfWidth=.91,halfLength=1.72;
  const hud=document.createElement('div');hud.id='lobbyRaceCarHud';hud.hidden=true;hud.style.cssText='position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);padding:8px 14px;border:1px solid #8ac7d26b;border-radius:12px;background:#091b29e8;color:#e8faff;font:700 13px system-ui;text-align:center;pointer-events:none;z-index:20';document.body.append(hud);
- const rig=root=>({root,wheels:root.children.filter(n=>n.name.startsWith('race-wheel-')),wheel:root.getObjectByName('race-steering'),previous:null,phase:0});
+ const rig=root=>({root,wheels:root.children.filter(n=>n.name.startsWith('race-wheel-')),wheel:root.getObjectByName('race-steering'),previous:null,phase:0,steering:0});
  const ownRig=rig(parked),outPosition=new THREE.Vector3(),camTarget=new THREE.Vector3();
  const others=()=>[...rows()].filter(([id,p])=>id!==self()&&p.online!==false&&p.lobbyVehicle===true);
  const parkedVisible=()=>!riding&&others().length===0;
  function setCollider(visible){const i=obstacles.indexOf(parkedObstacle);if(visible&&i<0)obstacles.push(parkedObstacle);if(!visible&&i>=0)obstacles.splice(i,1);}
- function near(){const p=player.root.position;return parkedVisible()&&p.x> -8.3&&p.z>10.4&&Math.hypot(p.x+9.45,p.z-11.95)<3&&p.y<.5&&!locked();}
+ function near(){
+  const p=player.root.position;
+  return parkedVisible()&&p.x>=-10&&p.z>=10.25&&Math.hypot(p.x+7.65,p.z-11.95)<=2.85&&p.y<.5&&!locked();
+ }
  function announce(notice){const state={near:near(),riding},key=JSON.stringify(state);if(key!==actionKey||notice){actionKey=key;parent.postMessage({type:'lobby-car-state',...state,...(notice?{notice}:{})},'*');}}
  function send(force=false){const time=performance.now();if(!force&&time-lastSent<1000/60)return;lastSent=time;const p=player.root.position;parent.postMessage({type:'lobby-position',gameArea:'lobby',x:p.x,z:p.z,lobbyY:Math.max(0,p.y),yaw:player.root.rotation.y,walking:riding&&Math.abs(speed)>.08,lobbyVehicle:riding},'*');}
  function canOccupy(x,z,y,yaw){
@@ -155,9 +158,23 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
  }
  function toggle(){
   if(riding)return leave();if(!near()){announce('occupied');return false;}
-  parked.getWorldPosition(outPosition);const yaw=Math.PI/2;
-  if(!canOccupy(outPosition.x,outPosition.z,0,yaw)){announce('blocked');return false;}
-  clearInput();riding=true;speed=steer=verticalSpeed=0;scene.add(parked);parked.matrixAutoUpdate=true;player.root.position.set(outPosition.x,0,outPosition.z);player.root.rotation.y=yaw;player.root.userData.lobbyHeightInitialized=true;
+  parked.getWorldPosition(outPosition);
+  const exits=[
+   {x:outPosition.x+3,z:outPosition.z,yaw:Math.PI},
+   {x:outPosition.x+2.25,z:outPosition.z-.25,yaw:Math.PI},
+   {x:outPosition.x+1,z:outPosition.z,yaw:Math.PI/2},
+   {x:outPosition.x,z:outPosition.z,yaw:Math.PI/2}
+  ];
+  const clearExit=exits.find(({x,z,yaw})=>{
+    for(let ahead=0;ahead<=2.4;ahead+=.3){
+      if(!canOccupy(x+Math.sin(yaw)*ahead,z+Math.cos(yaw)*ahead,0,yaw))return false;
+    }
+    return true;
+  });
+  const exit=clearExit||exits.find(({x,z,yaw})=>canOccupy(x,z,0,yaw));
+  if(!exit){announce('blocked');return false;}
+  clearInput();riding=true;speed=steer=verticalSpeed=0;scene.add(parked);parked.matrixAutoUpdate=true;
+  player.root.position.set(exit.x,0,exit.z);player.root.rotation.y=exit.yaw;player.root.userData.lobbyHeightInitialized=true;
   const state=rows().get(self());if(state){state.seated=false;state.sitting=false;state.seatId=null;}setCollider(false);send(true);announce();return true;
  }
  function jump(){if(!riding)return false;if(locked())return true;const p=player.root.position,support=groundAt(p.x,p.z,p.y+.05);if(Math.abs(verticalSpeed)<.01&&p.y<=support+.06)verticalSpeed=8.2;return true;}
@@ -189,8 +206,25 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
   const active=others(),wanted=new Set(active.map(([id])=>id));setCollider(parkedVisible());
   parked.visible=riding||active.length===0;
   if(riding){parked.position.copy(player.root.position);parked.rotation.set(Math.max(-.09,Math.min(.09,-verticalSpeed*.009)),player.root.rotation.y,steer*speed*.012,'YXZ');updateRig(ownRig,dt,speed,steer,player.root.position.y);}
-  for(const [id,p]of active){const crew=crews().get(id);if(!crew||!crew.root.visible)continue;let r=remote.get(id);if(!r){r=rig(template.clone(true));r.root.name='remote-race-car-'+id;scene.add(r.root);remote.set(id,r);}r.root.visible=true;r.root.position.copy(crew.root.position);r.root.rotation.set(0,crew.root.rotation.y,0);const previous=r.previous,distance=previous?Math.hypot(r.root.position.x-previous.x,r.root.position.z-previous.z):0;updateRig(r,dt,Math.min(10,distance/Math.max(.001,dt)),0,r.root.position.y);r.previous={x:r.root.position.x,z:r.root.position.z};}
-  for(const [id,r]of remote)if(!wanted.has(id)||!crews().has(id)){r.root.removeFromParent();remote.delete(id);}
+  for(const [id,row]of active){
+   const crew=crews().get(id);
+   let r=remote.get(id);
+   if(!r){r=rig(template.clone(true));r.root.name='remote-race-car-'+id;r.root.matrixAutoUpdate=true;scene.add(r.root);remote.set(id,r);}
+   const followCrew=crew?.root.visible&&Math.hypot(crew.root.position.x-row.x,crew.root.position.z-row.z)<2;
+   const p=r.root.position;
+   if(followCrew)p.copy(crew.root.position);
+   else p.set(row.x,Number(row.lobbyY)||0,row.z);
+   const yaw=followCrew?crew.root.rotation.y:(Number(row.yaw)||0),previous=r.previous;
+   r.root.visible=true;
+   const dx=previous?p.x-previous.x:0,dz=previous?p.z-previous.z:0;
+   const forward=dx*Math.sin(yaw)+dz*Math.cos(yaw);
+   const velocity=Math.hypot(dx,dz)<1.5?Math.max(-3.2,Math.min(8.5,forward/Math.max(.001,dt))):0;
+   const yawChange=previous?Math.atan2(Math.sin(yaw-previous.yaw),Math.cos(yaw-previous.yaw)):0;
+   const turning=Math.abs(velocity)>.2?-yawChange/(Math.max(.001,dt)*Math.min(1.6,Math.abs(velocity)*.5)*Math.sign(velocity)):0;
+   r.steering+=(Math.max(-.5,Math.min(.5,turning))-r.steering)*(1-Math.exp(-dt*12));
+   r.root.rotation.set(0,yaw,r.steering*velocity*.012,'YXZ');
+   updateRig(r,dt,velocity,r.steering,p.y);r.previous={x:p.x,z:p.z,yaw};}
+  for(const [id,r]of remote)if(!wanted.has(id)){r.root.removeFromParent();remote.delete(id);}
  }
  function beforeRender(){
   const saved=[];for(const [id,crew]of [[self(),player],...crews()]){
@@ -211,7 +245,17 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
   outPosition.x=Math.max(-11.32,Math.min(11.65,outPosition.x));outPosition.z=Math.max(-5.6,Math.min(13.65,outPosition.z));
   camera.position.lerp(outPosition,cameraWasDriving?1-Math.exp(-7*dt):1);camTarget.set(p.x+Math.sin(yaw)*1.9,p.y+.8,p.z+Math.cos(yaw)*1.9);camera.up.set(0,1,0);camera.lookAt(camTarget);player.root.visible=!first;cameraWasDriving=true;return true;
  }
- function onMessage(event){if(event.source!==parent)return;const d=event.data;if(d?.type==='lobby-car-toggle')toggle();if(['lobby-reset','lobby-return-reset'].includes(d?.type)||d?.type==='lobby-render-state'&&!d.active){const p=player.root.position.clone();leave(true,false);player.root.position.copy(p);hud.hidden=true;for(const r of remote.values())r.root.removeFromParent();remote.clear();actionKey='';}}
+ function onMessage(event){
+  if(event.source!==parent)return;
+  const d=event.data;
+  if(d?.type==='lobby-car-toggle')toggle();
+  if(d?.type==='lobby-render-state'&&!d.active&&document.hidden){speed=steer=0;return;}
+  if(['lobby-reset','lobby-return-reset'].includes(d?.type)||d?.type==='lobby-render-state'&&!d.active){
+   const p=player.root.position.clone();leave(true,false);player.root.position.copy(p);hud.hidden=true;
+   for(const r of remote.values())r.root.removeFromParent();
+   remote.clear();actionKey='';
+  }
+ }
  const pause=()=>{speed=0;clearInput();};window.addEventListener('message',onMessage);window.addEventListener('blur',pause);document.addEventListener('visibilitychange',pause);
  return{tick,jump,toggle,leave,near,visuals,beforeRender,updateCamera,canOccupy,get riding(){return riding;},get speed(){return speed;},dispose(){if(disposed)return;disposed=true;leave(true,false);window.removeEventListener('message',onMessage);window.removeEventListener('blur',pause);document.removeEventListener('visibilitychange',pause);hud.remove();for(const r of remote.values())r.root.removeFromParent();remote.clear();}};
 }

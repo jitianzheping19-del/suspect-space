@@ -30,12 +30,13 @@ function sync() {
   const cards = [...players.querySelectorAll('.voteCard')].filter(card => !card.hidden);
   if (entering) {
     cancel();
+    // Reveal pairs together to keep the last seats in a large meeting easy to find.
     cards.forEach((card, index) => {
       const opacity = getComputedStyle(card).opacity;
       animate(card, [
         {opacity: .2, translate: '0 14px', scale: '.975'},
         {opacity, translate: '0 0', scale: '1'}
-      ], 440, Math.min(index * 28, 224));
+      ], 330, Math.min(Math.floor(index / 2) * 22, 110));
     });
     animate(document.getElementById('meetingChat'), [{opacity: .5, translate: '0 8px'}, {opacity: 1, translate: '0 0'}], 440, 90);
   }

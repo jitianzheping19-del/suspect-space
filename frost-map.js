@@ -35,7 +35,9 @@ function floorTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;
   const context = canvas.getContext('2d');
-  context.fillStyle = '#e0e7e9';
+  const enamel = context.createLinearGradient(0, 0, 256, 256);
+  enamel.addColorStop(0, '#eef2f3'); enamel.addColorStop(.55, '#e0e7e9'); enamel.addColorStop(1, '#d4dfe2');
+  context.fillStyle = enamel;
   context.fillRect(0, 0, 256, 256);
   context.strokeStyle = '#8399a5';
   context.lineWidth = 2;
@@ -72,6 +74,8 @@ function wallTexture() {
   context.fillRect(4, 0, 1, 256);
   context.strokeStyle = '#bdcdd7'; context.lineWidth = 2;
   context.strokeRect(12, 22, 232, 206);
+  context.fillStyle = '#f1f5f7'; context.fillRect(14, 24, 228, 2);
+  context.fillStyle = '#adbdc8'; context.fillRect(14, 225, 228, 2);
   context.fillStyle = '#a8bdca';
   for (let i = 0; i < 6; i++) context.fillRect(28 + i * 7, 186, 3, 18);
   const texture = new THREE.CanvasTexture(canvas);

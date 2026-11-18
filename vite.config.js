@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { createHash } from "node:crypto";
+import {splitMeetingLibraries} from './tools/bundle-meeting-libraries.mjs';
 import { legacyGameEntries, canonicalGameEntryPlugin } from './tools/game-entrypoints.mjs';
 
 const input = Object.fromEntries(
@@ -33,6 +34,7 @@ export default defineConfig({
   base: "/suspect-space/",
   plugins: [
     canonicalGameEntryPlugin(),
+    splitMeetingLibraries(),
     {name:'persistent-game-assets',generateBundle(_options,bundle){
       const version=createHash('sha256').update(Object.keys(bundle).sort().join('\n')).digest('hex').slice(0,16);
       const source=readFileSync(resolve(process.cwd(),'game-cache-worker.js'),'utf8').replace('__ASSET_VERSION__',version);
@@ -71,7 +73,7 @@ export default defineConfig({
     target: "esnext",
     rollupOptions: {
       input,
-      output:{manualChunks(id){if(['/skeld-task-machine.js','/skeld-task-rules.js','/task-terminal-document.js','/frost-task-rules.js'].some(name=>id.endsWith(name)))return 'task-tools';}},
+      output:{manualChunks(id){if(['/studio-lighting.js','/render-performance.js','/motion-preference.js'].some(name=>id.endsWith(name)))return 'scene-rendering';if(['/skeld-task-machine.js','/skeld-task-rules.js','/task-terminal-document.js','/frost-task-rules.js'].some(name=>id.endsWith(name)))return 'task-tools';}},
       external: [/^three(?:\/.*)?$/],
     },
   },

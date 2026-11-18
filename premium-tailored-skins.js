@@ -1,3 +1,4 @@
+import {createCostumeBlock} from './costume-finishes.js';
 import {addTailoredDesign,addTailoredMotif} from './premium-tailored-designs.js';
 import {createRemainingAura} from './premium-couture.js';
 // Fitted to the shipped capsule avatar, with the original face and limbs exposed.
@@ -12,7 +13,8 @@ export function createTailoredGiftSkin(T,spec,{mobile=false}={}){
  const surface=(color,metalness=.15,roughness=.5,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness,roughness,emissive:emission?color:0,emissiveIntensity:emission,envMapIntensity:.8});materials.add(m);return m;};
  const colors={abyssdiver:[0x123f46,0xc39455,0x5dffe1],sakurakimono:[0x842a50,0xe4bd79,0xff9ac5],chronokeeper:[0x2d3040,0xc39752,0xffd78c],starchef:[0xf0e7d4,0xb77c42,0xffc274],piratecaptain:[0x152e40,0xcfaa64,0x5ff2dc]}[id]||[spec.color,spec.trim,spec.accent];
  const cloth=surface(colors[0],id==='abyssdiver'?.47:.1,id==='abyssdiver'?.38:.68),gold=surface(colors[1],.78,.27),lining=surface(id==='sakurakimono'?0xedc8bb:id==='piratecaptain'?0x7d2745:0xddd6bf,.1,.7),dark=surface(0x111e2b,.18,.5),leather=surface(0x453027,.12,.65),ivory=surface(0xf2ead9,.1,.61),glow=surface(colors[2],.25,.3,1.45),silver=surface(0x839ca5,.8,.29);
- const ball=cached('ball',()=>new T.SphereGeometry(1,mobile?12:20,mobile?8:12)),box=cached('box',()=>new T.BoxGeometry(1,1,1)),gem=cached('gem',()=>new T.OctahedronGeometry(1)),torus=cached('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
+ leather.userData.costumeFinish='leather';
+ const ball=cached('ball',()=>new T.SphereGeometry(1,mobile?12:20,mobile?8:12)),box=cached('box',()=>createCostumeBlock(T)),gem=cached('gem',()=>new T.OctahedronGeometry(1)),torus=cached('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,p=sculpt){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.castShadow=false;n.userData.lightCostume=true;p.add(n);return n;}
  const orb=(m,x,y,z,sx,sy,sz,p=sculpt)=>mesh(ball,m,x,y,z,sx,sy,sz,p);
  const block=(m,x,y,z,w,h,d,p=sculpt)=>mesh(box,m,x,y,z,w,h,d,p);

@@ -162,9 +162,12 @@ body:has(#ssSecurityModal.open) :is(#roundRoleBtn,#mapBtn,.unifiedSettingsTrigge
   }
   html body[data-phase="lobby"] #lobbyRoster {
    position:fixed!important;left:max(8px,env(safe-area-inset-left))!important;right:auto!important;
-   top:var(--lobby-phone-top)!important;bottom:auto!important;transform:none!important;
+   --lobby-roster-top:var(--lobby-phone-top);
+   --lobby-roster-limit:min(calc(34dvh + 64px),244px);
+   top:var(--lobby-roster-top)!important;bottom:auto!important;transform:none!important;
    box-sizing:border-box!important;width:var(--lobby-roster-width)!important;max-width:180px!important;
-   height:auto!important;min-height:0!important;max-height:min(34dvh,180px)!important;
+   height:auto!important;min-height:0!important;
+   max-height:min(var(--lobby-roster-limit),max(64px,calc(100dvh - var(--lobby-roster-top) - env(safe-area-inset-bottom) - var(--stick-bottom,4%) - min(var(--stick-size,150px),29vw,118px) - 8px)))!important;
    padding:6px!important;border-radius:10px!important;overflow:hidden!important;
   }
   html body[data-phase="lobby"] #lobbyRoster h3 {
@@ -250,9 +253,12 @@ html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
   }
   html body[data-phase="lobby"] #lobbyRoster {
    position:fixed!important;left:max(8px,env(safe-area-inset-left))!important;right:auto!important;
-   top:var(--lobby-phone-top)!important;bottom:auto!important;transform:none!important;
+   --lobby-roster-top:var(--lobby-phone-top);
+   --lobby-roster-limit:min(calc(34dvh + 64px),244px);
+   top:var(--lobby-roster-top)!important;bottom:auto!important;transform:none!important;
    box-sizing:border-box!important;width:var(--lobby-roster-width)!important;max-width:180px!important;
-   height:auto!important;min-height:0!important;max-height:min(34dvh,180px)!important;
+   height:auto!important;min-height:0!important;
+   max-height:min(var(--lobby-roster-limit),max(64px,calc(100dvh - var(--lobby-roster-top) - env(safe-area-inset-bottom) - var(--stick-bottom,4%) - min(var(--stick-size,150px),29vw,118px) - 8px)))!important;
    padding:6px!important;border-radius:10px!important;overflow:hidden!important;
   }
   html body[data-phase="lobby"] #lobbyRoster h3 {
@@ -455,7 +461,7 @@ html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
  }
  @media(pointer:coarse) and (max-width:700px) {
   html body[data-phase="lobby"] #lobbyRoomCode {left:max(8px,env(safe-area-inset-left))!important;transform:none!important;}
-  html body[data-phase="lobby"] #lobbyRoster {top:calc(var(--lobby-phone-top) + 52px)!important;max-height:min(28dvh,128px)!important;}
+  html body[data-phase="lobby"] #lobbyRoster {--lobby-roster-top:calc(var(--lobby-phone-top) + 52px);--lobby-roster-limit:min(calc(28dvh + 64px),192px);}
   html body[data-phase="lobby"] :is(#voiceToggleBtn,#lobbyMiniGameToggle) {top:calc(var(--lobby-phone-top) + 52px)!important;}
   html body[data-phase="lobby"] #lobbyMiniGamePanel {left:auto!important;right:max(8px,env(safe-area-inset-right))!important;top:calc(var(--lobby-phone-top) + 104px)!important;bottom:auto!important;transform:none!important;width:calc(100vw - var(--lobby-roster-width) - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))!important;overflow:auto!important;}
  }
@@ -490,7 +496,8 @@ html body #ghostPrev,html body #ghostHudList,html body #ghostNext{grid-row:2}
 /* Shared map and position report sit below the timer, in one fixed column. */
 @layer play-action-layout {
  html body[data-phase="meeting"] #meetingMapTools:not(.hidden){display:grid!important;position:fixed!important;right:max(8px,env(safe-area-inset-right))!important;top:calc(max(8px,env(safe-area-inset-top)) + 68px)!important;width:104px!important;gap:6px!important;z-index:1404!important;pointer-events:auto!important}
- html body[data-phase="meeting"] #meetingMapTools>#meetingMapBtn:not(.hidden),html body[data-phase="meeting"] #meetingMapTools>#meetingPositionBtn{display:flex!important;align-items:center!important;justify-content:center!important;position:static!important;inset:auto!important;transform:none!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:none!important;height:44px!important;min-height:44px!important;max-height:44px!important;margin:0!important;padding:5px!important;border:1px solid #8ab9ca!important;border-radius:10px!important;background:#102c40f5!important;color:#f1fbff!important;font-size:12px!important;line-height:1.2!important;touch-action:none!important}
+ html body[data-phase="meeting"]:has(#meetingIntro:not(.hidden)) #meetingMapTools{display:none!important;pointer-events:none!important}
+ html body[data-phase="meeting"] #meetingMapTools>#meetingMapBtn:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;position:static!important;inset:auto!important;transform:none!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:none!important;height:44px!important;min-height:44px!important;max-height:44px!important;margin:0!important;padding:5px!important;border:1px solid #8ab9ca!important;border-radius:10px!important;background:#102c40f5!important;color:#f1fbff!important;font-size:12px!important;line-height:1.2!important;touch-action:none!important}
  html body[data-phase="meeting"] #roundRoleBtn{top:calc(max(8px,env(safe-area-inset-top)) + 168px)!important;bottom:auto!important}
 }
 

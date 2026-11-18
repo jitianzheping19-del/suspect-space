@@ -1,3 +1,4 @@
+import {createCostumeBlock} from './costume-finishes.js';
 // Legend-tier outfits. All animation uses the caller's existing frame loop.
 export const LEGEND_AURA_SKINS=Object.freeze([
  {id:'infernophoenix',name:'炎翼騎士・フェニックス',color:0x712a30,accent:0xff8b39,trim:0xe2ae62,aura:'embers',glyph:'🔥'},
@@ -27,11 +28,11 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
  const sculpt=new T.Group(),aura=new T.Group();aura.name='signature-aura';aura.userData.variant=spec.aura;group.add(sculpt,aura);
  const geometries=new Set(),materials=new Set(),cache=new Map(),assemblies=[sculpt],motions=[];
  const reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
- let disposed=false;
+ let disposed=false,lastClock=0,movingTime=0,moveWeight=0,jumpWeight=0;
  const own=g=>(geometries.add(g),g),geo=(key,make)=>{if(!cache.has(key))cache.set(key,own(make()));return cache.get(key);};
  const mat=(color,metal=.5,rough=.4,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness:metal,roughness:rough,emissive:emission?color:0,emissiveIntensity:emission});materials.add(m);return m;};
  const shell=mat(spec.color,.65,.35),trim=mat(spec.trim,.8,.28),dark=mat(0x111b29,.35,.6),ivory=mat(0xe4e7e4,.35,.4),glow=mat(spec.accent,.3,.3,.9);
- const box=geo('box',()=>new T.BoxGeometry(1,1,1)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:18,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1));
+ const box=geo('box',()=>createCostumeBlock(T)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:18,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,p=sculpt){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.castShadow=false;n.userData.lightCostume=true;p.add(n);return n;}
  const block=(m,x,y,z,w,h,d,p=sculpt)=>mesh(box,m,x,y,z,w,h,d,p);
  const orb=(m,x,y,z,w,h,d,p=sculpt)=>mesh(ball,m,x,y,z,w,h,d,p);
@@ -41,7 +42,7 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
  function ring(m,x,y,z,r,p=sculpt,arc=Math.PI*2){return mesh(geo('ring'+arc,()=>new T.TorusGeometry(1,.028,5,mobile?32:48,arc)),m,x,y,z,r,r,r,p);}
  function jewel(x,y,z,w=.08,h=.14,p=sculpt,m=glow){return mesh(gem,m,x,y,z,w,h,.065,p);}
  function feather(side,j,p,m=ivory){const n=plate([[0,0],[side*.15,.25],[side*.13,.72],[0,.97],[-side*.07,.23]],m,side*(.07+j*.14),j*.025,0,.055,p);n.rotation.z=-side*(.38+j*.32);return n;}
- function cape(width=1.1,m=shell){const n=rig(0,1.30,-.46);plate([[-.31,.18],[.31,.18],[width/2,-.82],[.16,-.70],[0,-.88],[-.16,-.70],[-width/2,-.82]],m,0,0,0,.045,n);for(const s of[-1,1])rod([s*.28,.1,-.035],[s*width/2,-.8,-.035],.014,trim,n);motions.push((t,moving)=>n.rotation.x=.04+Math.sin(t*1.7)*(moving?.07:.025));return n;}
+ function cape(width=1.1,m=shell){const n=rig(0,1.30,-.46);plate([[-.31,.18],[.31,.18],[width/2,-.82],[.16,-.70],[0,-.88],[-.16,-.70],[-width/2,-.82]],m,0,0,0,.045,n);for(const s of[-1,1])rod([s*.28,.1,-.035],[s*width/2,-.8,-.035],.014,trim,n);motions.push((t,moving)=>n.rotation.x=.04+Math.sin(t*1.7)*(.025+moving*.045));return n;}
  function coat(){orb(shell,0,1.0,-.02,.49,.64,.485);for(const s of[-1,1]){const lapel=plate([[0,.22],[s*.25,.10],[s*.10,-.30]],trim,s*.055,.99,.475);lapel.rotation.y=s*.30;for(let j=0;j<3;j++)orb(trim,s*.17,.69+j*.13,.48,.022,.022,.014);}}
  function helmet(){orb(shell,0,1.48,-.04,.49,.32,.46);for(const s of[-1,1])plate([[-.08,-.20],[.08,-.18],[.09,.15],[0,.24],[-.10,.12]],trim,s*.35,1.39,.30,.055);}
  function armour(){coat();helmet();plate([[-.29,.13],[0,.23],[.29,.13],[.21,-.18],[0,-.27],[-.21,-.18]],shell,0,.84,.46,.07);jewel(0,.91,.515,.07,.12);for(const s of[-1,1]){orb(shell,s*.48,1.25,0,.23,.19,.27);block(trim,s*.48,1.27,.23,.29,.035,.025);}}
@@ -151,7 +152,7 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
   panel([[-.18,.06],[0,.19],[.18,.06],[0,-.06]],trim,0,1.55,.30);medallion(0,.87,.55,.09);
   for(const s of[-1,1]){const wing=rig(s*.34,1.30,-.47);panel([[0,-.08],[s*.32,.52],[s*1.02,.83],[s*.82,.20],[s*.30,-.18]],shell,0,0,0,wing);
    for(let j=0;j<4;j++){const f=feather(s,j,wing,j%2?trim:ivory);f.position.set(s*(.27+j*.18),.20+j*.10,.06);f.scale.set(.70,.58,.65);f.rotation.z=-s*(1.25+j*.12);rod([s*(.21+j*.15),.13+j*.09,.10],[s*(.35+j*.16),.48+j*.08,.10],.011,glow,wing);}
-   const turbine=rig(s*.52,.96,-.42);ring(trim,0,0,0,.20,turbine);ring(glow,0,0,.025,.14,turbine);for(let j=0;j<5;j++){const a=j*Math.PI*2/5;const fin=block(dark,Math.sin(a)*.09,Math.cos(a)*.09,.03,.10,.05,.025,turbine);fin.rotation.z=-a+.5;}motions.push((t,moving,jumping)=>{wing.rotation.y=s*(.17+Math.sin(t*1.4)*.045+(jumping?.15:0));turbine.rotation.z=s*t*(moving?1.2:.45);});}
+   const turbine=rig(s*.52,.96,-.42);ring(trim,0,0,0,.20,turbine);ring(glow,0,0,.025,.14,turbine);for(let j=0;j<5;j++){const a=j*Math.PI*2/5;const fin=block(dark,Math.sin(a)*.09,Math.cos(a)*.09,.03,.10,.05,.025,turbine);fin.rotation.z=-a+.5;}motions.push((t,moving,jumping)=>{wing.rotation.y=s*(.17+Math.sin(t*1.4)*.045+jumping*.15);turbine.rotation.z=s*(t*.45+movingTime*.75);});}
   break;
  }
  case 'verdantdruid':{
@@ -165,7 +166,7 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
   tailoredCoat();cape(1.02,ivory);shell.metalness=.42;shell.roughness=.26;
   for(const s of[-1,1]){panel([[-.22,.06],[0,.24],[.23,.02],[.16,-.11],[-.18,-.12]],ivory,s*.48,1.28,.02);for(let j=0;j<3;j++){const gem=jewel(s*(.18+j*.13),1.73+j*.06,-.05,.055,.18,sculpt,j%2?trim:glow);gem.rotation.z=-s*(.15+j*.22);}seam([[s*.14,1.08,.49],[s*.27,.90,.45],[s*.19,.69,.43]],trim,.012);}
   const harp=rig(-.76,.57,.04);seam([[0,0,0],[-.31,.27,0],[-.28,.85,0],[-.09,1.15,0],[.21,1.23,0],[.24,.09,0],[0,0,0]],trim,.034,harp);for(let j=0;j<6;j++){const x=-.20+j*.075;rod([x,.16+Math.abs(x)*.35,.015],[x,1.07+(x+.2)*.18,.015],.006,j%2?ivory:glow,harp);}jewel(.21,1.23,0,.065,.12,harp);
-  const baton=rig(.73,.72,.12);rod([0,0,0],[-.17,.66,0],.015,ivory,baton);jewel(-.17,.66,0,.035,.08,baton);motions.push((t,moving)=>baton.rotation.z=Math.sin(t*(moving?2.4:1.2))*.07);
+  const baton=rig(.73,.72,.12);rod([0,0,0],[-.17,.66,0],.015,ivory,baton);jewel(-.17,.66,0,.035,.08,baton);motions.push((t,moving)=>baton.rotation.z=Math.sin(t*1.2+movingTime*1.2)*.07);
   const score=rig(.68,1.54,-.40);for(let j=0;j<3;j++){const n=jewel((j-1)*.19,j*.20,0,.055,.10,score,j%2?trim:glow);n.rotation.z=.3;rod([(j-1)*.19+.04,j*.20,0],[(j-1)*.19+.04,j*.20+.23,0],.012,trim,score);}motions.push(t=>score.position.y=1.54+Math.sin(t*1.1)*.045);break;
  }
  case 'lunamasquerade':{
@@ -232,7 +233,13 @@ export function createLegendAuraSkin(T,spec,{mobile=false}={}){
    else if(mode>8.5)alpha=(1.-smoothstep(.035,.08,abs(p.y)))*(1.-smoothstep(.20,.48,abs(p.x)));
    alpha*=max(.15,life)*strength*.82;if(alpha<.01)discard;gl_FragColor=vec4(c,alpha);}`});
  const particles=new T.Points(pg,particleMaterial);particles.frustumCulled=false;particles.userData.count=count;aura.add(particles);
- function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0,clock=reduced?0:t;time.value=clock;strength.value=reduced?.48:jumping?1.12:1;for(const motion of motions)motion(clock,moving,jumping);glow.emissiveIntensity=.85+(reduced?0:Math.sin(t*1.8)*.08);}
+ function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0,clock=reduced?0:t;
+  if(clock<lastClock){movingTime=0;moveWeight=0;jumpWeight=0;}
+  const dt=Math.min(.25,Math.max(0,clock-lastClock));lastClock=clock;
+  if(moving)movingTime+=dt;
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-dt*12));
+  jumpWeight+=(Number(!!jumping)-jumpWeight)*(1-Math.exp(-dt*16));
+  time.value=clock;strength.value=reduced?.48:1+jumpWeight*.12;for(const motion of motions)motion(clock,moveWeight,jumpWeight);glow.emissiveIntensity=.85+(reduced?0:Math.sin(t*1.8)*.08);}
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
  update(0);return{group,spec,update,dispose};
 }

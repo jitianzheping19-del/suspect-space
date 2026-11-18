@@ -1,3 +1,4 @@
+import {setStudioLighting} from './studio-lighting.js';
 import * as THREE from 'three';
 
 // One lazy renderer shared by the three round controls. The existing UI tick drives it.
@@ -24,6 +25,7 @@ export function createSoccerAction3D(button){
  function init(){
   renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'low-power'});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));renderer.setSize(100,100,false);renderer.outputColorSpace=THREE.SRGBColorSpace;
   scene=new THREE.Scene();camera=new THREE.OrthographicCamera(-1.16,1.16,1.16,-1.16,.1,20);camera.position.set(0,0,6);
+ setStudioLighting(THREE,renderer,scene);
   scene.add(new THREE.HemisphereLight(0xe7f8ff,0x163047,2));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(-3,4,5);scene.add(light);
   root=new THREE.Group();root.rotation.set(.1,-.12,0);scene.add(root);
   face=mesh(root,new THREE.CylinderGeometry(.94,.98,.15,64),material('#164f64'));face.rotation.x=Math.PI/2;

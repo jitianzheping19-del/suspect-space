@@ -1,3 +1,4 @@
+import {createCostumeBlock,finishCostumeMaterials} from './costume-finishes.js';
 import {ARENA_GIFT_SKINS,createArenaGiftSkin} from './premium-arena-skins.js';
 import {LEGEND_AURA_SKINS,createLegendAuraSkin} from './premium-legend-skins.js';
 import {GOLDEN_GIFT_SKINS,createGoldenGiftSkin,upgradeGoldenGiftSkin} from './premium-golden-skins.js';
@@ -17,7 +18,13 @@ export const GIFT_SKINS=Object.freeze([
  ...LEGEND_AURA_SKINS,
  ...ARENA_GIFT_SKINS
 ]);
-export function createGiftSkin(T,id,{mobile=false}={}){
+export function createGiftSkin(T,id,options={}){
+ const skin=buildGiftSkin(T,id,options);
+ finishCostumeMaterials(T,skin.group);
+ return skin;
+}
+
+function buildGiftSkin(T,id,{mobile=false}={}){
  const spec=GIFT_SKINS.find(s=>s.id===id);if(!spec)throw new Error('Unknown gift skin');
  if(ARENA_GIFT_SKINS.some(s=>s.id===id))return createArenaGiftSkin(T,spec,{mobile});
  if(LEGEND_AURA_SKINS.some(s=>s.id===id))return createLegendAuraSkin(T,spec,{mobile});
@@ -25,13 +32,14 @@ export function createGiftSkin(T,id,{mobile=false}={}){
  if(EXPANDED_GIFT_SKINS.some(s=>s.id===id))return createExpandedGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),containers=[group],animated=[],uniforms=[];
- let disposed=false,lastTime=0;
+ let disposed=false,lastTime=0,airWeight=0,moveWeight=0;
  const keep=g=>{geometries.add(g);return g;};
  const geo=(key,fn)=>{if(!cache.has(key))cache.set(key,keep(fn()));return cache.get(key);};
  const material=(color,glow=0,metal=.65,rough=.32)=>{const m=new T.MeshStandardMaterial({color,emissive:glow?color:0,emissiveIntensity:glow,metalness:metal,roughness:rough});materials.add(m);return m;};
  const shell=material(spec.color,0,.60,.32),edge=material(id==='celestial'?0xcaa764:id==='boxgod'?0x795332:0x74829b,0,.78,.27),dark=material(0x111625,0,.45,.46),light=material(id==='boxgod'?0xddba83:0xe1eaf0,0,.42,.34),glow=material(spec.accent,1.4,.48,.24);
+ if(id==='boxgod'){shell.userData.costumeFinish='cloth';shell.metalness=.035;shell.roughness=.83;edge.userData.costumeFinish='leather';edge.metalness=.08;edge.roughness=.69;}
  const gold=material(0xd8b15d,0,.82,.25),red=material(0xff3863,1.3),blue=material(0x4d82ff,1.3);
- const box=geo('box',()=>new T.BoxGeometry(1,1,1)),orb=geo('orb',()=>new T.SphereGeometry(1,16,12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),ring=geo('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
+ const box=geo('box',()=>createCostumeBlock(T)),orb=geo('orb',()=>new T.SphereGeometry(1,16,12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),ring=geo('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,parent=group,rz=0){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.rotation.z=rz;o.castShadow=false;o.userData.lightCostume=true;parent.add(o);return o;}
  const block=(m,x,y,z,w,h,d,parent=group,rz=0)=>mesh(box,m,x,y,z,w,h,d,parent,rz);
  function branch(x,y,z){const o=new T.Group();o.position.set(x,y,z);group.add(o);containers.push(o);return o;}
@@ -165,16 +173,19 @@ export function createGiftSkin(T,id,{mobile=false}={}){
   for(const [mat,objects]of batches){if(objects.length<2)continue;const positions=[],normals=[],uvs=[];for(const o of objects){const temp=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();temp.applyMatrix4(o.matrix);for(const name of ['position','normal','uv']){const a=temp.getAttribute(name);const dest=name==='position'?positions:name==='normal'?normals:uvs;if(a)for(let i=0;i<a.array.length;i++)dest.push(a.array[i]);else for(let i=0;i<temp.getAttribute('position').count*(name==='uv'?2:3);i++)dest.push(0);}temp.dispose();parent.remove(o);}const g=keep(new T.BufferGeometry());g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.computeBoundingSphere();mesh(g,mat,0,0,0,1,1,1,parent);}
  }
  function update(seconds,{moving=false,jumping=false}={}){
-  if(disposed)return;const t=Number(seconds)||0;lastTime=t;for(const u of uniforms){u.time.value=t;if(u.strength)u.strength.value=jumping?1.7:1;}
+  if(disposed)return;const t=Number(seconds)||0,dt=Math.max(0,Math.min(.2,t-lastTime));lastTime=t;
+  airWeight+=(Number(!!jumping)-airWeight)*(1-Math.exp(-dt*(jumping?18:11)));
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-dt*12));
+  for(const u of uniforms){u.time.value=t;if(u.strength)u.strength.value=1+.7*airWeight;}
   glow.emissiveIntensity=1.25+.25*Math.sin(t*2.5);if(halo)halo.rotation.z=t*.28;if(emblem)emblem.rotation.z=Math.sin(t*.4)*.08;
-  for(const {node,side}of wings)node.rotation.y=side*(.08+Math.sin(t*1.7)*.05+(moving?.06:0));
+  for(const {node,side}of wings)node.rotation.y=side*(.08+Math.sin(t*1.7)*.05+moveWeight*.06);
   for(const f of floaters){if(f.fixed)f.node.position.set(f.x,f.y+Math.sin(t*2+f.a)*.05,f.z);else{const a=f.a+t*.45;f.node.position.set(Math.cos(a)*f.r,f.y+Math.sin(t*1.7+f.a)*.10,Math.sin(a)*f.r);f.node.rotation.y=-a;}}
-  for(const f of flaps)f.node.rotation.z=f.side*(jumping?1.05:.10+.025*Math.sin(t*2));
+  for(const f of flaps)f.node.rotation.z=f.side*(airWeight*1.05+(1-airWeight)*(.10+.025*Math.sin(t*2)));
   for(const g of glitches){const pulse=Math.sin(Math.floor(t*12+g.seed)*78.23+g.seed*20)>.75;g.node.position.x=g.x+(pulse?.10:0);g.node.position.y=g.y+(pulse?.035:0);g.node.visible=!pulse||Math.sin(t*33+g.seed)>-.15;}
   for(let i=0;i<count;i++){const a=i*2.39996+t*(id==='galaxylord'?.50:.22),r=.53+(i%4)*.1,k=i*3;let y=(i/count*2.35+t*(id==='celestial'||id==='frostemperor'?-.24:.30)+100)%2.35;pos[k]=Math.cos(a)*r;pos[k+1]=y;pos[k+2]=Math.sin(a)*r;}pg.attributes.position.needsUpdate=true;
-  group.updateWorldMatrix(true,false);group.getWorldPosition(world);if(jumping&&!wasJumping)jumpAt=t;wasJumping=jumping;
+  group.updateWorldMatrix(true,false);group.getWorldPosition(world);const takeoff=jumping&&!wasJumping;if(takeoff)jumpAt=t;wasJumping=jumping;
   const j=t-jumpAt;jump.visible=j>=0&&j<.55;if(jump.visible){jump.scale.setScalar(.65+j*.8);jump.rotation.z=t*.7;}
-  if((moving&&t-spawnAt>.1)||(jumping&&j<.06)){spawnAt=t;const s=trailSlots[cursor++%n];s.x=world.x;s.y=world.y+.04;s.z=world.z;s.until=t+.85;if(echoes&&moving){const e=echoSlots[echoCursor++%echoSlots.length];e.world.copy(group.matrixWorld);e.until=t+.42;}}
+  if((moving&&t-spawnAt>=.1)||takeoff){spawnAt=t;const s=trailSlots[cursor++%n];s.x=world.x;s.y=world.y+.04;s.z=world.z;s.until=t+.85;if(echoes&&moving){const e=echoSlots[echoCursor++%echoSlots.length];e.world.copy(group.matrixWorld);e.until=t+.42;}}
   for(let i=0;i<n;i++){const s=trailSlots[i],k=i*3;if(s.until>t){local.set(s.x,s.y,s.z);group.worldToLocal(local);tp[k]=local.x;tp[k+1]=local.y;tp[k+2]=local.z;}else{tp[k]=0;tp[k+1]=-999;tp[k+2]=0;}}tg.attributes.position.needsUpdate=true;
   if(echoes){inverse.copy(group.matrixWorld).invert();for(let i=0;i<echoSlots.length;i++){const e=echoSlots[i],fade=Math.max(0,(e.until-t)/.42);if(fade>0)echoMatrix.multiplyMatrices(inverse,e.world).multiply(bodyOffset);else echoMatrix.makeScale(0,0,0);echoes.setMatrixAt(i,echoMatrix);echoColor.setRGB(fade,fade,fade);echoes.setColorAt(i,echoColor);}echoes.instanceMatrix.needsUpdate=true;echoes.instanceColor.needsUpdate=true;}
  }

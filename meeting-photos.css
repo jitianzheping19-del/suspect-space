@@ -10,3 +10,12 @@ html body #meetingPhotoViewer{z-index:2147483647;grid-template-rows:minmax(0,1fr
 #meetingPhotoViewer>img{display:block;max-width:96vw;max-height:calc(100dvh - 80px);width:auto;height:auto;object-fit:contain;border-radius:10px}
 .meetingPhotoThumb{display:block;max-width:100%;border:1px solid #86bbc8;border-radius:10px;background:#173d4c;color:#e7faff;padding:4px;cursor:zoom-in;min-height:42px;touch-action:manipulation}
 .meetingPhotoThumb img{display:block;width:min(260px,40vw);max-width:100%;height:auto;border-radius:7px}
+
+/* Show only the clean game frame during the shutter interval. */
+html body[data-phase="play"][data-photo-shutter] > :not(#rolePhotoShutter):not(#viewport){
+ opacity:0!important;pointer-events:none!important;
+}
+#rolePhotoShutter{
+ position:fixed;inset:0;width:100%;height:100%;z-index:2147483647;
+ display:block;background:#000;touch-action:none;
+}

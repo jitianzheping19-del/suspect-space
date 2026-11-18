@@ -41,11 +41,40 @@ export function createWorldRoleEffect({THREE,scene,event,avatars,roster,currentR
   }
   const erased=[];
   if(type==='conjurer')for(const c of copies){const u={uEraseHeight:{value:-1}};c.root.traverse(o=>{if(o.isMesh)o.material=art.eraseFromFeetMaterial(o.material,u);});erased.push(u);}
-  const flash=new THREE.PointLight(type==='waveCannonVictim'?0x57e8ff:0xff9c52,0,7,2);flash.position.set(origin.x,.9,origin.z);root.add(flash);
+  const flash=type==='suicideBomber'?new THREE.PointLight(0xff9c52,0,7,2):null;
+  if(flash){flash.position.set(origin.x,.9,origin.z);root.add(flash);}
   if(type==='suicideBomber')for(let i=0;i<3;i++){const b=art.newBurst(root,{count:45,color:i?0xffd997:0xff6c30,speed:3.2+i,life:.8,gravity:2});b.fire(.22+i*.035,V(origin.x,.7,origin.z));bursts.push(b);}
   if(type==='samuraiSlash')for(const t of [.08,.22,.36,.5,.64]){const b=art.newBurst(root,{count:24,color:0xc6f3ff,speed:2.5,life:.3});b.fire(t,V(origin.x+Math.sin(Number(event.yaw)||0)*.6,.85,origin.z+Math.cos(Number(event.yaw)||0)*.6));bursts.push(b);}
   if(type==='sluggerSwing'||type==='penguinFinish')for(const c of copies){const b=art.newBurst(root,{count:28,color:type==='sluggerSwing'?0xffdc92:0xa4e8ff,speed:2.1,life:.55});b.fire(.12,V(c.at.x,.8,c.at.z));bursts.push(b);}
-  if(type==='waveCannonVictim')for(const c of copies){const b=art.newBurst(root,{count:70,color:c.base,shards:true,speed:2.4,life:.8});b.fire(.42,V(c.at.x,.8,c.at.z));bursts.push(b);}
+  const impactHeat=type==='waveCannonVictim'?new THREE.Color(0xffcd8d):null;
+  if(type==='waveCannonVictim')for(const c of copies){
+    const b=art.newBurst(root,{count:48,color:c.base,shards:true,speed:2.6,life:.72});b.fire(.42,V(c.at.x,.8,c.at.z));bursts.push(b);
+    // A single camera-facing sheet follows the contact point in either world camera.
+    const material=new THREE.ShaderMaterial({
+      transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,
+      uniforms:{age:{value:0}},vertexShader:`
+        varying vec2 p;
+        void main(){p=uv*2.-1.;vec4 center=modelViewMatrix*vec4(0.,0.,0.,1.);
+          center.xy+=position.xy*2.8;gl_Position=projectionMatrix*center;}`,
+      fragmentShader:`
+        varying vec2 p;uniform float age;
+        void main(){
+          float r=length(p),a=atan(p.y,p.x+.00001);
+          float front=.09+.85*(1.-pow(1.-age,1.4));
+          float ripple=sin(a*7.+age*6.)*.016+sin(a*13.-age*4.)*.009;
+          float distanceToFront=abs(r-front-ripple*age);
+          float shell=1.-smoothstep(.012,.067,distanceToFront);
+          float afterglow=1.-smoothstep(.016,.12,abs(r-.76*front));
+          float rays=pow(.5+.5*cos(11.*a+1.8*sin(a*4.)),16.)*(1.-smoothstep(.04,front,r));
+          float hot=exp(-r*r*88.)*(1.-age);
+          vec3 color=mix(vec3(.10,.53,1.),vec3(1.,.86,.59),clamp(hot+.55*rays+.18*shell,0.,1.));
+          gl_FragColor=vec4(color,(hot+.44*shell+.16*afterglow+.72*rays)*(1.-age));
+          #include <colorspace_fragment>
+        }`
+    });
+    c.contact=new THREE.Mesh(new THREE.PlaneGeometry(1,1),material);c.contact.frustumCulled=false;
+    c.contact.position.set(c.at.x,.83,c.at.z);root.add(c.contact);
+  }
   let field=null;
   if(type==='conjurer'&&event.markers?.length===3){
     const pts=event.markers.map(p=>V(Number(p.x),.035,Number(p.z)));const g=new THREE.BufferGeometry().setFromPoints([...pts,pts[0]]);field=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xb99aff,transparent:true,opacity:.7}));root.add(field);
@@ -77,7 +106,10 @@ export function createWorldRoleEffect({THREE,scene,event,avatars,roster,currentR
       if(type==='conjurer'){
         erased[i].uEraseHeight.value=2.2*smooth((t-.12)/1.65);c.root.visible=t<1.9&&observable(c.at);end=1.9;
       }else if(type==='waveCannonVictim'){
-        const heat=smooth(t/.38);c.suit.color.copy(c.base).lerp(new THREE.Color(0xf04f23),heat);c.suit.emissive.set(0xd2300a);c.suit.emissiveIntensity=heat*.65;c.root.visible=t<.43&&observable(c.at);end=.95;
+        const heat=smooth(t/.38),inSight=observable(c.at);c.suit.color.copy(c.base).lerp(impactHeat,heat);
+        c.suit.emissive.setHex(0x85d9ff);c.suit.emissiveIntensity=heat*.82;
+        c.rig.rotation.x=-.15*heat;c.root.visible=t<.43&&inSight;end=.95;
+        c.contact.visible=t>=.26&&t<.88&&inSight;c.contact.material.uniforms.age.value=clamp((t-.26)/.62);
       }else{
         const begin=type==='samuraiSlash'?.55:type==='suicideBomber'?.24:.12,fall=smooth((t-begin)/.6);
         c.rig.rotation.x=(c===own?1:-1)*fall*Math.PI/2;c.rig.position.y=fall*.43;

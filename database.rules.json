@@ -132,6 +132,18 @@
         }
       }
     },
+    "meetingPhotos": {
+      "$room": {
+        "$scope": {
+          ".write": "auth != null && !newData.exists() && root.child('rooms').child($room).child('hostId').val() === auth.uid",
+          "$photo": {
+            ".read": "auth != null && root.child('rooms').child($room).child('createdAt').val() + '_' + root.child('rooms').child($room).child('game').child('round').val() === $scope && root.child('rooms').child($room).child('game').child('phase').val() === 'meeting' && root.child('rooms').child($room).child('game').child('players').child(auth.uid).exists() && root.child('rooms').child($room).child('game').child('players').child(auth.uid).child('disconnected').val() !== true",
+            ".write": "auth != null && root.child('rooms').child($room).child('createdAt').val() + '_' + root.child('rooms').child($room).child('game').child('round').val() === $scope && root.child('rooms').child($room).child('game').child('phase').val() === 'meeting' && root.child('rooms').child($room).child('game').child('players').child(auth.uid).exists() && root.child('rooms').child($room).child('game').child('players').child(auth.uid).child('disconnected').val() !== true && root.child('rooms').child($room).child('game').child('players').child(auth.uid).child('alive').val() === true && root.child('rooms').child($room).child('game').child('players').child(auth.uid).child('observer').val() !== true && root.child('rooms').child($room).child('game').child('players').child(auth.uid).child('photoEvent').exists() && newData.exists() && (!data.exists() || newData.val() === data.val())",
+            ".validate": "$photo.matches(/^[a-f0-9]{24}$/) && newData.isString() && newData.val().length <= 49152 && newData.val().matches(/^data:image\\/jpeg;base64,[A-Za-z0-9+\\/=]+$/)"
+          }
+        }
+      }
+    },
     "ballots": {
       "$room": {
         "$round": {

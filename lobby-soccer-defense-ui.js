@@ -1,10 +1,14 @@
+import {setActionCaption} from './lobby-action-caption.js';
+import {paintSoccerIcon} from './lobby-soccer-icons.js';
 import {SOCCER_PRESS} from './lobby-soccer-press.js';
 import './lobby-soccer-defense.css';
 
 export function createSoccerDefenseControls({document,window,context,sendPress,sendSlide,sendDash=()=>{},clock=()=>window.performance.now()}){
  const zone=document.createElement('div');zone.id='soccerDefenseZone';zone.hidden=true;zone.setAttribute('role','group');zone.setAttribute('aria-label','サッカー守備操作');
- zone.innerHTML='<button type="button" id="soccerPressBtn" data-space-pointer-action="direct"><svg viewBox="0 0 48 42" aria-hidden="true"><circle cx="24" cy="24" r="7"/><path d="M3 9L14 20M3 20H14V9M45 9L34 20M34 9V20H45"/></svg><span>プレス</span><small>長押し＋スティック</small></button><button type="button" id="soccerSlideBtn" data-space-pointer-action="direct"><svg viewBox="0 0 48 42" aria-hidden="true"><path d="M8 29L19 19L29 26L42 26M19 19L22 11M5 35H39M4 29H10"/><circle cx="24" cy="6" r="4"/></svg><span>スライディング</span><small>フリックした方向へ</small></button>';
+ zone.innerHTML='<button type="button" id="soccerPressBtn" data-space-pointer-action="direct"><svg aria-hidden="true" focusable="false"></svg><span>プレス</span><small>長押し＋スティック</small></button><button type="button" id="soccerSlideBtn" data-space-pointer-action="direct"><svg aria-hidden="true" focusable="false"></svg><span>スライディング</span><small>フリックした方向へ</small></button>';
  document.body.append(zone);const press=zone.querySelector('#soccerPressBtn'),slide=zone.querySelector('#soccerSlideBtn');let held=null,flick=null,raf=0;
+ setActionCaption(slide.querySelector('span'),'スライディング');
+ setActionCaption(slide.querySelector('small'),'方向をフリック');
  function capture(b,e){b.setPointerCapture?.(e.pointerId);b.classList.add('holding');b.setAttribute('aria-pressed','true');}
  function release(b,id){b.classList.remove('holding');b.setAttribute('aria-pressed','false');if(id!==undefined&&b.hasPointerCapture?.(id))b.releasePointerCapture(id);}
  function stopPress(){const h=held;held=null;if(h?.sent){if(h.mode==='dash')sendDash(false);else sendPress(false);}release(h?.button||press,h?.id);}
@@ -32,8 +36,10 @@ export function createSoccerDefenseControls({document,window,context,sendPress,s
   if(held&&!dashHeld&&(!c.defending||!c.canPress))stopPress();
   if(flick&&!c.canSlide)stopSlide();
   const pressing=!dashHeld&&c.defending;
+  paintSoccerIcon(press,pressing?'press':'dash');
+  paintSoccerIcon(slide,'slide');
   press.disabled=!dashHeld&&!(pressing?c.canPress:c.canDash||c.dashing);
-  press.querySelector('span').textContent=pressing?'プレス':'ダッシュ';press.querySelector('small').textContent=pressing?'長押しで寄せる':'長押しで走る';
+  setActionCaption(press.querySelector('span'),pressing?'プレス':'ダッシュ');setActionCaption(press.querySelector('small'),pressing?'長押しで寄せる':'長押しで走る');
   slide.hidden=!!attacking;slide.disabled=!c.canSlide;
  }};
 }

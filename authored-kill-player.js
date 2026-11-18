@@ -1,3 +1,4 @@
+import {setStudioLighting} from './studio-lighting.js';
 import {createCinematicArt} from './kill-cinematic-art.js';
 import {createRenderBudget} from './render-performance.js';
 import {createSelectedRoleCinematic} from './selected-role-cinematics.js';
@@ -43,7 +44,7 @@ export function authoredKillDurationMs(role){
 
 // This function is serialized into one preloaded iframe. A single WebGL context
 // serves every original scene, without fetching modules again at the death event.
-function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt,makeRenderBudget,makeSelectedScene) {
+function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,createArt,makeRenderBudget,makeSelectedScene,lightScene) {
   const budget=makeRenderBudget(),gate=budget.gate();let frameRequest=0;
   const renderer=new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:budget.mobile?'default':'high-performance'});
   budget.syncRenderer(renderer,budget.mobile?1:2);
@@ -167,6 +168,7 @@ function authoredRuntime(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputP
     }catch{}
   }
   function finishInitialization(data){
+    lightScene(THREE,renderer,controller.scene,.6);
     for(const [index,actor] of controller.actors.entries()){
       const name=index===0?data.payload?.killerName:data.payload?.victims?.[index-1]?.name||data.payload?.victimName;
       if(!name)continue;
@@ -263,7 +265,7 @@ export function createAuthoredKillPlayer({mount,cdnBase='https://cdn.jsdelivr.ne
   };
   window.addEventListener('message',receive);
   const base=cdnBase.replace(/\/$/,'');
-  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}),(${createRenderBudget.toString()}),(${createSelectedRoleCinematic.toString()}));<\/script></body></html>`
+  frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><style>html,body{color-scheme:dark;margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}#originalControls{display:none!important}#actorNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}.actorName{position:absolute;width:max-content;transform:translate(-50%,-100%);max-width:min(42vw,300px);color:#f8fdff;font:900 clamp(12px,2.3vw,23px)/1.2 system-ui,sans-serif;-webkit-text-stroke:3px #06101b;paint-order:stroke fill;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.actorName[hidden]{display:none}</style></head><body><div id="originalControls"></div><script type="module">import * as THREE from '${base}/build/three.module.js';import {EffectComposer} from '${base}/examples/jsm/postprocessing/EffectComposer.js';import {RenderPass} from '${base}/examples/jsm/postprocessing/RenderPass.js';import {UnrealBloomPass} from '${base}/examples/jsm/postprocessing/UnrealBloomPass.js';import {OutputPass} from '${base}/examples/jsm/postprocessing/OutputPass.js';(${authoredRuntime.toString()})(THREE,EffectComposer,RenderPass,UnrealBloomPass,OutputPass,(${createCinematicArt.toString()}),(${createRenderBudget.toString()}),(${createSelectedRoleCinematic.toString()}),(${setStudioLighting.toString()}));<\/script></body></html>`
     .replace('<script type="module">',`<script type="importmap">${JSON.stringify({imports:{three:base+'/build/three.module.js','three/addons/':base+'/examples/jsm/'}})}<\/script><script type="module">`);
   // Keep the running map visible through the transparent cinematic canvas.
   mount.append(frame);

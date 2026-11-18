@@ -156,8 +156,8 @@ async function play(page, task, touch = false) {
         assert(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= width + 1 && bounds.y + bounds.height <= height + 1);
         assert((await page.locator('#taskStage').boundingBox()).height > height * .7);
         const close = await page.locator('#taskClose').boundingBox(), stage = await page.locator('#taskStage').boundingBox();
-        assert(close.width <= 68 && close.height <= 34, 'Task close button is still too large');
-        assert(close.y >= stage.y + stage.height && close.y + close.height <= height, 'Close button overlaps the task');
+        assert(close.width >= 44 && close.height >= 44, 'Task close button must remain touchable');
+        assert(close.x >= bounds.x && close.x + close.width <= bounds.x + bounds.width && close.y >= bounds.y && close.y + close.height <= stage.y + 1, 'Close button must fit above the task');
         await page.screenshot({ path: path.join(out, `${width}-${task.mode}.png`) });
         try { await play(page, task, touch); }
         catch (error) { await page.screenshot({ path: path.join(out, `${width}-${task.mode}-failure.png`) }); throw error; }

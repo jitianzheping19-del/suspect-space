@@ -37,7 +37,19 @@ export function installGachaPreviewControls(canvas, model) {
  };
 }
 
-export function fitGachaPreview(THREE, renderer, camera, model, container) {
+export function createGachaWearablePreview(T,item,buildCostume){
+ const slot=[0,1,2,4,5][Number(item.category)];
+ if(slot===undefined||!buildCostume)return null;
+ const parts=Array(6).fill('none');parts[slot]=item.id;
+ const group=buildCostume(T,'custom-'+parts.join('-'));
+ return {group,update(){},dispose(){
+  group.removeFromParent();const materials=new Set(),geometries=new Set();
+  group.traverse(node=>{if(node.geometry)geometries.add(node.geometry);for(const material of [].concat(node.material||[]))materials.add(material);});
+  for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();
+ }};
+}
+
+export function gachaModelBounds(THREE,model) {
  // Particle trails park inactive points far below the floor; frame the clothing,
  // not those effect buffers or transparent glow shells.
  model.updateWorldMatrix(true,true);
@@ -49,6 +61,11 @@ export function fitGachaPreview(THREE, renderer, camera, model, container) {
   node.geometry.computeBoundingBox();part.copy(node.geometry.boundingBox).applyMatrix4(node.matrixWorld);box.union(part);
  });
  if (box.isEmpty()) box.setFromCenterAndSize(new THREE.Vector3(0,1,0),new THREE.Vector3(1,2,1));
+ return box;
+}
+
+export function fitGachaPreview(THREE,renderer,camera,model,container){
+ const box=gachaModelBounds(THREE,model);
  const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
  // Include the depth so a side view still fits after a manual turn.
  const width = Math.max(size.x, size.z), depth = Math.max(size.x, size.z) / 2;

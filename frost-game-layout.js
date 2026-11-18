@@ -14,7 +14,7 @@ function region(source, id, label = '') {
 
 export function createFrostGameLayout(data) {
   const rooms = data.rooms.map((room) => region(room, room.id, room.name));
-  const corridors = data.routes.map((route) => region(route.floor, route.id));
+  const corridors = data.routes.map((route) => ({...region(route.floor, route.id), roomIds: route.rooms}));
   const walls = [];
   for (const ring of [data.floor.outline, ...data.floor.holes]) {
     ring.forEach((a, i) => {

@@ -17,7 +17,8 @@ function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials,cl
   function mat(c,finish='cloth'){
     const k='wear:'+c+':'+finish;
     if(materials[k])return materials[k];
-    return materials[k]=new THREE.MeshStandardMaterial({color:c,roughness:finish==='metal'?.29:finish==='enamel'?.26:finish==='glass'?.12:finish==='leather'?.58:.85,metalness:finish==='metal'?.67:finish==='enamel'?.12:.015,transparent:finish==='glass',opacity:finish==='glass'?.22:1,depthWrite:finish!=='glass',side:THREE.DoubleSide});
+    const material=new THREE.MeshStandardMaterial({color:c,roughness:finish==='metal'?.29:finish==='enamel'?.26:finish==='glass'?.12:finish==='leather'?.58:.85,metalness:finish==='metal'?.67:finish==='enamel'?.12:.015,transparent:finish==='glass',opacity:finish==='glass'?.22:1,depthWrite:finish!=='glass',side:THREE.DoubleSide});
+    material.userData.costumeFinish=finish;return materials[k]=material;
   }
   function shared(type){
     const key='wear:primitive:'+type;if(geometry[key])return geometry[key];

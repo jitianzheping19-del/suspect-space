@@ -1,3 +1,4 @@
+import {setStudioLighting} from './studio-lighting.js';
 import * as THREE from 'three';
 import {createRenderBudget} from './render-performance.js';
 import { taskInstructions, circuitPorts, tubeClips, starPoints, frostPixels, crackPoints, clamp, angleDelta } from './frost-task-rules.js';
@@ -33,6 +34,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   const camera = new THREE.OrthographicCamera(-5.4, 5.4, 2.65, -2.65, .1, 50);
   camera.position.set(0, .4, 16); camera.lookAt(0, 0, 0);
   const renderer = prepareFrostTaskRenderer(); idleTaskRenderer = null;
+ setStudioLighting(THREE,renderer,scene);
   const canvas = renderer.domElement;
   canvas.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;user-select:none;outline:none';
   canvas.tabIndex = 0; canvas.setAttribute('role', 'application');
@@ -110,10 +112,18 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     o.userData.taskControl = { id, drag: kind === 'tap' ? '' : kind, index: controls.length };
     controls.push(o); return o;
   }
+  const pressedAt = new Map();
   function button(text, id, x, y, w = 1.3, m = metal) {
     plate(w, .62, .15, rubber, x, y, .25); const cap = plate(w - .13, .48, .12, m, x, y + .02, .42);
-    label(text, x, y + .02, .68, w - .18); hit(id, x, y, w + .08, .8);
-    updates.push(() => { cap.position.z = s.hold === id ? .36 : .42; });
+    const caption = label(text, x, y + .02, .68, w - .18);
+    hit(id, x, y, w + .08, .8);
+    let depth = 0;
+    updates.push((dt, now) => {
+      const down = s.hold === id || now - (pressedAt.get(id) ?? -Infinity) < 75;
+      depth += (Number(down) - depth) * (1 - Math.exp(-dt * (down ? 55 : 24)));
+      cap.position.z = .42 - depth * .07;
+      caption.position.z = .68 - depth * .07;
+    });
     return cap;
   }
   function gauge(x, y, w, value, target = null) {
@@ -197,7 +207,8 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
       const control = hit('cargo:' + i, 0, 0, size + .18, 1.1, 'drag', g, .7); return { g, control };
     });
     plate(5,.22,.06,rubber,0,1.2,.3);box(.4,.28,.03,green,0,1.2,.39);const balanceNeedle=box(.06,.38,.05,amber,0,1.2,.5);updates.push(()=>{balanceNeedle.position.x=clamp(s.torque/4,-1,1)*2.5;balanceNeedle.material=Math.abs(s.torque)<.32?green:amber;});label('左',-2.85,1.2,.5,.5);label('右',2.85,1.2,.5,.5);label('緑の中央に合わせる',0,1.65,.5,3.4);
-    updates.push(() => { platform.rotation.z = clamp(-s.torque * .025, -.18, .18); crates.forEach(({ g }, i) => { g.position.x = s.cargo[i]; g.position.y = -.12 + s.cargo[i] * platform.rotation.z; g.rotation.z = platform.rotation.z; }); });
+    platform.rotation.z = clamp(-s.torque * .025, -.18, .18);
+    updates.push((dt) => { platform.rotation.z += (clamp(-s.torque * .025, -.18, .18)-platform.rotation.z)*(1-Math.exp(-dt*18)); crates.forEach(({ g }, i) => { g.position.x = s.cargo[i]; g.position.y = -.12 + s.cargo[i] * platform.rotation.z; g.rotation.z = platform.rotation.z; }); });
   } else if (mode === 'drone') {
     grid(-.85, .05, 5.4, 3.2); ring(.48, .045, green, .65, -.85, .1); box(.5, .035, .02, green, .65, -.85, .13);
     const drone = group(s.x, s.y, .55); const body = ball(.24, white, 0, 0, 0, drone); body.scale.set(1, .65, 1);
@@ -356,7 +367,13 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
       const reading=screen(x,.35,1,.35,false);updates.push(()=>reading(String(s.switches[i]),(ctx,w,h)=>{ctx.fillStyle=s.switches[i]&&i===s.fault?'#ff8a90':'#98edd1';ctx.font='600 44px monospace';ctx.textAlign='center';ctx.fillText((s.switches[i]?s.amps[i]:0)+'A',w/2,h*.72);}));
       const lever = group(x, -.6, .5); plate(.32, .65, .16, trim, 0, 0, 0, lever); box(.52, .14, .2, rubber, 0, .2, .12, lever);
       hit('breaker:' + i, x, -.4, 1.45, 2.2); label('0' + (i + 1), x, -1.42, .6, .75);
-      updates.push(()=>{lever.rotation.x=s.switches[i]?-.35:.65;needle.rotation.z=s.switches[i]?a:Math.PI*.85;needle.position.set(x+Math.cos(needle.rotation.z)*.14,.65+Math.sin(needle.rotation.z)*.14,.45);});
+      lever.rotation.x=s.switches[i]?-.35:.65;
+      needle.rotation.z=s.switches[i]?a:Math.PI*.85;
+      updates.push((dt)=>{
+        lever.rotation.x+=((s.switches[i]?-.35:.65)-lever.rotation.x)*(1-Math.exp(-dt*32));
+        needle.rotation.z+=((s.switches[i]?a:Math.PI*.85)-needle.rotation.z)*(1-Math.exp(-dt*18));
+        needle.position.set(x+Math.cos(needle.rotation.z)*.14,.65+Math.sin(needle.rotation.z)*.14,.45);
+      });
     }
   } else if (mode === 'battery') {
     plate(3.45, 2.7, .35, metal, 0, 0, 0); plate(2.6, 2.25, .15, rubber, 0, 0, .4);
@@ -420,6 +437,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     event.preventDefault(); event.stopPropagation(); canvas.focus({ preventScroll: true }); canvas.setPointerCapture(event.pointerId);
     const c = object.userData.taskControl, center = object.getWorldPosition(new THREE.Vector3()); keyboardIndex = c.index;
     dragging = { pointer: event.pointerId, id: c.id, kind: c.drag, center, offset: c.drag === 'drag' ? [p.x - center.x, p.y - center.y] : [0, 0], angle: Math.hypot(p.x-center.x,p.y-center.y)>.15?Math.atan2(p.y-center.y,p.x-center.x):null };
+    pressedAt.set(c.id, performance.now());
     run.dispatch({ type: 'press', id: c.id, x: p.x - dragging.offset[0], y: p.y - dragging.offset[1] });
     update(0); // Make a moved control's next hit test match its visible position.
   }
@@ -442,7 +460,7 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
     if (event.key === 'Tab') { event.preventDefault(); const visible = controls.filter(enabled); const index = visible.indexOf(controls[keyboardIndex]); keyboardIndex = visible[(index + (event.shiftKey ? visible.length - 1 : 1)) % visible.length]?.userData.taskControl.index ?? 0; return; }
     const object = controls[keyboardIndex]; if (!object || !enabled(object)) return;
     const c = object.userData.taskControl, p = object.getWorldPosition(new THREE.Vector3());
-    if (['Enter', ' '].includes(event.key)) { event.preventDefault(); event.stopPropagation(); if (!event.repeat) run.dispatch({ type: 'press', id: c.id, x: p.x, y: p.y }); return; }
+    if (['Enter', ' '].includes(event.key)) { event.preventDefault(); event.stopPropagation(); if (!event.repeat) { pressedAt.set(c.id, performance.now()); run.dispatch({ type: 'press', id: c.id, x: p.x, y: p.y }); } return; }
     if (!event.key.startsWith('Arrow')) return;
     event.preventDefault(); event.stopPropagation(); const dx = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0, dy = event.key === 'ArrowUp' ? 1 : event.key === 'ArrowDown' ? -1 : 0;
     if (c.drag === 'rotate') run.dispatch({ type: 'rotate', id: c.id, delta: (dx || dy) * .12 });
@@ -460,26 +478,33 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   let completedShown=false;
   function update(dt) {
     if(s.finished&&!completedShown){completedShown=true;host.classList.add('task-complete');host.dispatchEvent(new CustomEvent('spacesuspect:task-completed',{bubbles:true}));}
-    // Keep the mechanisms' timing consistent on a slower renderer. Substeps
-    // preserve collision/temperature stability instead of slowing the task.
-    for (let remaining = dt; remaining > 0; remaining -= .02) run.step(Math.min(.02, remaining));
-    for (const fn of updates) fn();
+    const now = performance.now();
+    for (const fn of updates) fn(dt, now);
     const roverPrompt = mode === 'rover' ? s.snagged ? '引っ掛かり！「緩める」を長押し' : s.tension > .95 ? '張りすぎ！「緩める」を長押し' : '「巻く」を長押しで回収' : '';
     const batterySteps=['−端子を外す','＋端子を外す','固定具を外す','古い電池を左へ引き出す','新しい電池を中央へ動かす','「回す」で端子の向きを合わせる','固定具を締める','＋端子を接続する','−端子を接続する'];const taskPrompt=mode==='battery'?(s.stage+1)+' / 9 · '+(batterySteps[s.stage]||'完了'):mode==='cargo'?Math.abs(s.torque)<.32?'水平です。手を離してください':s.torque>0?'右が重い → 貨物を左へ動かす':'左が重い → 貨物を右へ動かす':mode==='waveform'?'接続 '+(s.connections||0)+' / 5 · 端の波形をつなぐ':mode==='triangulate'?'目標へ向ける · 3本とも90%以上で完了':mode==='overcurrent'?'10Aを超える回線だけOFFにする':'';
     const message = s.finished ? 'タスク完了' : s.feedback || taskPrompt || roverPrompt;
     statusScreen.setVisible(!!message);
     statusScreen(message, (ctx, w, h) => { ctx.fillStyle = s.errorUntil > s.elapsed ? '#ff9ba5' : '#8df1c7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 30px system-ui,sans-serif'; ctx.fillText(message, w / 2, h / 2, w - 10); });
     progressLight.scale.x = Math.max(.3, Math.min(1, s.progress) * 18); progressLight.material = s.finished ? green : cyan;
-    scene.updateMatrixWorld(true);
   }
+  let previousPaint=previous;
   function tick(now) {
-    if (disposed) return; raf = requestAnimationFrame(tick);
-    const dt = Math.min(.2, Math.max(0, (now - previous) / 1000)); previous = now;
-    if (document.hidden) return;
+    raf=0;if(disposed||document.hidden)return;
+    raf=requestAnimationFrame(tick);
+    const dt=Math.min(.2,Math.max(0,(now-previous)/1000));previous=now;
+    // Keep the mechanisms' timing consistent on a slower renderer. Substeps
+    // preserve collision/temperature stability instead of slowing the task.
+    for (let remaining = dt; remaining > 0; remaining -= .02) run.step(Math.min(.02, remaining));
+    if(!frameGate.due(now))return;
+    const paintDt=Math.min(.2,Math.max(0,(now-previousPaint)/1000));previousPaint=now;
     const ratio=Math.min(window.devicePixelRatio||1,budget.ultraLight ? .65 : 1.6);
     if(renderer.getPixelRatio()!==ratio)renderer.setPixelRatio(ratio);
-    resize(); update(dt);
-    if(!budget.ultraLight||frameGate.due(now))renderer.render(scene, camera);
+    resize();update(paintDt);renderer.render(scene,camera);
+  }
+  function visibilityChanged(){
+    pause();previousPaint=previous;frameGate.reset();
+    if(document.hidden){cancelAnimationFrame(raf);raf=0;}
+    else if(!disposed&&!raf)raf=requestAnimationFrame(tick);
   }
   function lost(event) { event.preventDefault(); dispose(); onUnavailable?.(); }
   const observer = new ResizeObserver(resize); observer.observe(host);
@@ -487,12 +512,12 @@ export function createFrostTaskMachine(host, run, { onUnavailable, onClose } = {
   for (const [name, fn] of handlers) canvas.addEventListener(name, fn);
   const outsideMove=event=>{if(dragging&&event.pointerId===dragging.pointer&&!canvas.hasPointerCapture(event.pointerId))move(event);};
   window.addEventListener('pointermove',outsideMove,{passive:false});window.addEventListener('pointerup',release);window.addEventListener('pointercancel',release);
-  document.addEventListener('visibilitychange', pause);
+  document.addEventListener('visibilitychange', visibilityChanged);
   function dispose() {
     if (disposed) return; disposed = true; pause(); cancelAnimationFrame(raf); observer.disconnect();
     for (const [name, fn] of handlers) canvas.removeEventListener(name, fn);
     window.removeEventListener('pointermove',outsideMove);window.removeEventListener('pointerup',release);window.removeEventListener('pointercancel',release);
-    document.removeEventListener('visibilitychange', pause);
+    document.removeEventListener('visibilitychange', visibilityChanged);
     for (const g of geometries) g.dispose(); for (const m of materials) m.dispose(); for (const t of textures) t.dispose();
     renderer.setRenderTarget(null); renderer.clear(); renderer.renderLists.dispose(); canvas.remove();
     if (renderer.getContext().isContextLost() || idleTaskRenderer) {

@@ -223,7 +223,7 @@ window.addEventListener("message",event=>{
 
   <div id="status" class="panel">
     <div class="eyebrow">乗員</div>
-    <strong>1 / 20</strong>
+    <strong>1人</strong>
     <div class="sub">LOCAL DEMO</div>
   </div>
 
@@ -478,10 +478,12 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
     const stoneTexture=loungeTexture(512,512,(g,w,h)=>{
       const base=g.createLinearGradient(0,0,w,h);base.addColorStop(0,'#1c2b38');base.addColorStop(.5,'#243340');base.addColorStop(1,'#182635');g.fillStyle=base;g.fillRect(0,0,w,h);
       for(let n=0;n<28;n++){g.beginPath();const x=n*67%w;g.moveTo(x-120,-20);g.bezierCurveTo(x+80,140,x-180,290,x+180,h+20);g.strokeStyle=n%4===0?'#80949d16':'#a3a69d09';g.lineWidth=n%4===0?1.3:3;g.stroke();}
-      g.strokeStyle='#c9ba932c';g.lineWidth=1;g.strokeRect(.5,.5,w-1,h-1);
+      // Opposite edges catch different amounts of light at each stone joint.
+      g.fillStyle='#0f1a25';g.fillRect(0,0,w,3);g.fillRect(0,0,3,h);
+      g.fillStyle='#79939b';g.globalAlpha=.43;g.fillRect(3,3,w-6,1);g.fillRect(3,3,1,h-6);g.globalAlpha=1;
     });
     stoneTexture.wrapS=stoneTexture.wrapT=THREE.RepeatWrapping;stoneTexture.repeat.set(8,7);
-    const floorMat = material(0xffffff,{map:stoneTexture,roughness:.26,metalness:.24});
+    const floorMat = material(0xffffff,{map:stoneTexture,roughness:.38,metalness:.12});
     const wallMat = material(0x152433,{roughness:.42,metalness:.48});
     const darkMat = material(0x101c28,{roughness:.34,metalness:.5});
     const metalMat = material(0xbba678,{roughness:.27,metalness:.78});
@@ -789,7 +791,11 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
       if (event.data?.type !== "lobby-config") return;
       if (event.data.color) player.body.material.color.set(event.data.color); if(Number.isFinite(Number(event.data.sensitivity)))lobbySensitivity=THREE.MathUtils.clamp(Number(event.data.sensitivity),.05,1);
       if (typeof event.data.name === "string") { const infoSub=document.querySelector("#info .sub"), help=document.createElement("span"); help.className="desktop-help"; help.textContent="ジョイスティック：移動"; infoSub.replaceChildren(document.createTextNode(`あなた：${event.data.name.slice(0,16)}`),document.createElement("br"),help); }
-      if (typeof event.data.crewCount === "number") document.querySelector("#status strong").textContent = `${event.data.crewCount} / 20`;
+      const crewStatus=document.getElementById("status");
+      crewStatus.hidden=event.data.rosterInParent===true;
+      if(!crewStatus.hidden&&Number.isFinite(event.data.crewCount)){
+        crewStatus.querySelector("strong").textContent=event.data.crewCount+"人";
+      }
       document.querySelector("#status .sub").textContent = "";
       waitingButton.textContent = event.data.isHost ? "▶ ゲーム開始" : "ホストの開始を待っています"; const customizeArrow=scene.getObjectByName("lobbyCustomizeArrow"); if(customizeArrow)customizeArrow.visible=event.data.showCustomizeHint!==false;
       waitingButton.classList.toggle("startable", !!event.data.isHost);
@@ -844,6 +850,17 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
     window.addEventListener('keydown',event=>{if(['KeyF','KeyE'].includes(event.code)&&!event.repeat&&!['INPUT','TEXTAREA','SELECT'].includes(event.target?.tagName)&&!event.target?.isContentEditable){event.preventDefault();parent.postMessage({type:'lobby-use-request'},'*');}});
     // キーボード入力
     const keyboardKeys = new Set();
+    let footDashHeld=false;
+    const clearFootDash=()=>{footDashHeld=false;keyboardKeys.delete("ShiftLeft");keyboardKeys.delete("ShiftRight");};
+    window.addEventListener("message",event=>{
+      if(event.source!==parent)return;
+      const msg=event.data;
+      if(msg?.type==="lobby-foot-dash")footDashHeld=msg.held===true;
+      if(["lobby-reset","lobby-return-reset","lobby-input-release","lobby-car-toggle"].includes(msg?.type)||
+         (msg?.type==="lobby-render-state"&&!msg.active))clearFootDash();
+    });
+    window.addEventListener("blur",clearFootDash);
+    document.addEventListener("visibilitychange",()=>{if(document.hidden)clearFootDash();});
     const touchKeys = new Map();
     window.addEventListener('message',event=>{if(event.source!==parent||event.data?.type!=='lobby-pet-reaction')return;const pet=player.root.userData.petFollower;if(pet)pet.userData.happyUntil=performance.now()+2200;});
     const lobbyStick = {x:0,z:0,set(x,z){this.x=x;this.z=z;}}; let lobbySensitivity=.21;let lobbyTouchLookYaw=null,lobbyTouchLookPitch=0,lobbyTouchLookPointer=null,lobbyTouchLookX=0,lobbyTouchLookY=0;
@@ -857,7 +874,7 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
     });
 
     window.addEventListener("blur",()=>{keyboardKeys.clear();lobbyStick.set(0,0);}); document.addEventListener("visibilitychange",()=>{if(document.hidden){keyboardKeys.clear();lobbyStick.set(0,0);}}); const movementKeys = new Set([
-      "KeyW", "KeyA", "KeyS", "KeyD",
+      "KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight",
       "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"
     ]);
 
@@ -1007,18 +1024,20 @@ function suitColor(h,s=.72,l=.52){const n=Number(h)||0;return Math.abs(n-.999)<1
           const weight=Math.min(1,Math.abs(delta)/Math.PI);moveDirection.multiplyScalar(1-.72*weight);
           player.root.userData.soccerTurnLean=Math.max(-.18,Math.min(.18,-next*.035));
         }
-        const speed = 15 * lobbySensitivity * (window.__lobbyGames?.speedMultiplier()||1);
+        const games=window.__lobbyGames,tag=games?.state?.tag?.status;
+        const footDash=(!games||games.area==="lobby")&&!["countdown","playing"].includes(tag)&&
+          (footDashHeld||pressed("ShiftLeft","ShiftRight"));
+        const speed=15*lobbySensitivity*(games?.speedMultiplier()||1)*(footDash?1.6:1);
         const dx = moveDirection.x * speed * dt;
         const dz = moveDirection.z * speed * dt;
         const position = player.root.position;
 
         // 軸ごとに判定し、障害物に沿って滑るように移動
-        if (canMoveTo(position.x + dx, position.z)) {
-          position.x += dx;
-        }
-
-        if (canMoveTo(position.x, position.z + dz)) {
-          position.z += dz;
+        const steps=footDash?Math.max(1,Math.ceil(Math.hypot(dx,dz)/.18)):1;
+        const stepX=dx/steps,stepZ=dz/steps;
+        for(let i=0;i<steps;i++){
+          if(canMoveTo(position.x+stepX,position.z))position.x+=stepX;
+          if(canMoveTo(position.x,position.z+stepZ))position.z+=stepZ;
         }
 
         // 移動方向へなめらかに回転
@@ -1447,7 +1466,8 @@ function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials,cl
   function mat(c,finish='cloth'){
     const k='wear:'+c+':'+finish;
     if(materials[k])return materials[k];
-    return materials[k]=new THREE.MeshStandardMaterial({color:c,roughness:finish==='metal'?.29:finish==='enamel'?.26:finish==='glass'?.12:finish==='leather'?.58:.85,metalness:finish==='metal'?.67:finish==='enamel'?.12:.015,transparent:finish==='glass',opacity:finish==='glass'?.22:1,depthWrite:finish!=='glass',side:THREE.DoubleSide});
+    const material=new THREE.MeshStandardMaterial({color:c,roughness:finish==='metal'?.29:finish==='enamel'?.26:finish==='glass'?.12:finish==='leather'?.58:.85,metalness:finish==='metal'?.67:finish==='enamel'?.12:.015,transparent:finish==='glass',opacity:finish==='glass'?.22:1,depthWrite:finish!=='glass',side:THREE.DoubleSide});
+    material.userData.costumeFinish=finish;return materials[k]=material;
   }
   function shared(type){
     const key='wear:primitive:'+type;if(geometry[key])return geometry[key];
@@ -1842,6 +1862,123 @@ function buildDetailedWearable(THREE,category,kind,parent,{geometry,materials,cl
 /* DETAILED_WEARABLES_V1_END */
 
 /* GIFT_SKIN_V1_BEGIN */
+// One mipmapped sample carries the colour variation, surface slope and roughness.
+// UVs and authored prints stay attached to the garment as its limbs move.
+const outfitFinishPixels=new Map(),outfitFinishTextures=new WeakMap();
+function outfitFinishMap(T,finish){
+ let maps=outfitFinishTextures.get(T.DataTexture);
+ if(!maps){maps=new Map();outfitFinishTextures.set(T.DataTexture,maps);}
+ let entry=maps.get(finish);
+ if(entry)return entry;
+ const size=128,tau=2*Math.PI;
+ let pixels=outfitFinishPixels.get(finish);
+ if(!pixels){
+  const heights=new Float32Array(size*size);
+  const hash=(x,y)=>{const h=Math.imul((x&127)+1,73856093)^Math.imul((y&127)+1,19349663);return ((Math.imul(h^(h>>>13),1597334677)>>>0)/4294967296);};
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+   const u=x/size,v=y/size,grain=hash(x,y);
+   let h;
+   if(finish==='cloth'){
+    const warp=Math.cos(tau*(u*16+.12*Math.sin(tau*v*8))),weft=Math.cos(tau*(v*16+.12*Math.sin(tau*u*8)));
+    const twill=.5+.5*Math.cos(tau*(u-v)*4);
+    h=.48+.23*(warp*twill+weft*(1-twill))+.09*twill+.05*(grain-.5);
+   }else if(finish==='metal'){
+    h=.5+.18*Math.sin(tau*(v*32+.18*Math.sin(tau*2*u)))+.14*Math.sin(tau*(v*13+u))+.12*(hash(0,y)-.5)+.07*(grain-.5);
+   }else{
+    const cellX=Math.floor(x/8),cellY=Math.floor(y/8);let nearest=4,next=4;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+     const cx=cellX+dx,cy=cellY+dy,jx=hash(cx&15,cy&15),jy=hash((cx&15)+37,(cy&15)+19);
+     const distance=(cx+.2+.6*jx-x/8)**2+(cy+.2+.6*jy-y/8)**2;
+     if(distance<nearest){next=nearest;nearest=distance;}else next=Math.min(next,distance);
+    }
+    h=.27+.44*Math.min(1,(next-nearest)*3)+.09*(grain-.5);
+   }
+   heights[y*size+x]=h;
+  }
+  pixels=new Uint8Array(size*size*4);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+   const i=y*size+x,h=heights[i],dx=heights[y*size+(x+1)%size]-heights[y*size+(x+size-1)%size],dy=heights[((y+1)%size)*size+x]-heights[((y+size-1)%size)*size+x];
+   pixels[4*i]=Math.round(255*h);
+   pixels[4*i+1]=Math.round(127.5+120*dx);pixels[4*i+2]=Math.round(127.5+120*dy);pixels[4*i+3]=255;
+  }
+  outfitFinishPixels.set(finish,pixels);
+ }
+ const texture=new T.DataTexture(pixels,size,size);texture.name='Outfit '+finish;texture.wrapS=texture.wrapT=T.RepeatWrapping;
+ texture.generateMipmaps=true;texture.minFilter=T.LinearMipmapLinearFilter;texture.magFilter=T.LinearFilter;texture.needsUpdate=true;
+ entry={texture,users:0};maps.set(finish,entry);return entry;
+}
+
+function finishCostumeMaterials(T,group){
+ const seen=new Set();
+ group.traverse(node=>{
+  if(!node.isMesh||!node.geometry?.attributes.uv)return;
+  for(const m of [].concat(node.material||[])){
+   if(seen.has(m)||!m.isMeshStandardMaterial||m.transparent||m.wireframe||m.normalMap||m.bumpMap||m.userData.outfitSurface||m.onBeforeCompile!==T.Material.prototype.onBeforeCompile)continue;
+   seen.add(m);
+   if(m.emissive?.getHex()&&m.emissiveIntensity>.18)continue;
+   const requested=m.userData.costumeFinish;
+   const finish=requested==='fabric'?'cloth':requested||(m.metalness>=.45?'metal':m.roughness>=.48?'cloth':'enamel');
+   if(finish==='enamel'){m.envMapIntensity*=1.13;continue;}
+   if(!['cloth','metal','leather'].includes(finish))continue;
+   const entry=outfitFinishMap(T,finish);entry.users++;
+   m.userData.outfitSurface=finish;
+   const tuning=finish==='metal'?[1.25,.12,.32,.11]:finish==='leather'?[1.8,.30,.24,.20]:[2.1,.34,.18,.16];
+   m.onBeforeCompile=shader=>{
+    shader.uniforms.outfitFinish={value:entry.texture};shader.uniforms.outfitTuning={value:tuning};
+    shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 outfitUV;')
+     .replace('#include <uv_vertex>','#include <uv_vertex>\noutfitUV=uv;');
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D outfitFinish;uniform vec4 outfitTuning;varying vec2 outfitUV;')
+     .replace('#include <color_fragment>',`#include <color_fragment>
+       vec3 outfitSample=texture2D(outfitFinish,outfitUV*outfitTuning.x).rgb;
+       diffuseColor.rgb*=1.+(outfitSample.r-.5)*outfitTuning.y;`)
+     .replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+       roughnessFactor=clamp(roughnessFactor+(outfitSample.r-.5)*outfitTuning.z,.055,1.);`)
+     .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+       vec3 dpX=dFdx(vViewPosition),dpY=dFdy(vViewPosition);
+       vec3 rowX=cross(normal,dpY),rowY=cross(dpX,normal);
+       vec2 uvX=dFdx(outfitUV),uvY=dFdy(outfitUV);
+       vec3 threadU=rowX*uvX.x+rowY*uvY.x,threadV=rowX*uvX.y+rowY*uvY.y;
+       float invScale=inversesqrt(max(max(dot(threadU,threadU),dot(threadV,threadV)),1e-12));
+       vec2 slope=(outfitSample.gb*2.-1.)*outfitTuning.w;
+       normal=normalize(normal+(threadU*slope.x+threadV*slope.y)*invScale);`);
+   };
+   m.customProgramCacheKey=()=> 'space-outfit-surface-v1';
+   const release=()=>{m.removeEventListener('dispose',release);if(--entry.users===0){entry.texture.dispose();outfitFinishTextures.get(T.DataTexture).delete(finish);}};
+   m.addEventListener('dispose',release);
+  }
+ });
+}
+
+// Flat faces, narrow bevels and clipped corners keep plates and buckles legible at small sizes.
+function createCostumeBlock(T){
+ const positions=[],normals=[],uvs=[],indices=[],half=.5,inset=.455;
+ function face(points,normal){
+  const n=new T.Vector3(...normal).normalize(),a=new T.Vector3(...points[0]);
+  const cross=new T.Vector3(...points[1]).sub(a).cross(new T.Vector3(...points[2]).sub(a));
+  if(cross.dot(n)<0)points.reverse();
+  const base=positions.length/3,axis=Math.abs(n.z)>.5?2:Math.abs(n.y)>.5?1:0;
+  for(const point of points){positions.push(...point);normals.push(n.x,n.y,n.z);uvs.push(.5+point[axis===0?2:0],.5+point[axis===1?2:1]);}
+  for(let i=1;i+1<points.length;i++)indices.push(base,base+i,base+i+1);
+ }
+ for(let axis=0;axis<3;axis++){
+  const a=(axis+1)%3,b=(axis+2)%3;
+  for(const sign of [-1,1]){
+   const normal=[0,0,0];normal[axis]=sign;
+   const corners=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>{const p=[0,0,0];p[axis]=sign*half;p[a]=x*inset;p[b]=y*inset;return p;});
+   face(corners,normal);
+  }
+  for(const x of [-1,1])for(const y of [-1,1]){
+   const normal=[0,0,0];normal[a]=x;normal[b]=y;
+   const points=[[-1,0],[1,0],[1,1],[-1,1]].map(([end,side])=>{const p=[0,0,0];p[axis]=end*inset;p[a]=x*(side?inset:half);p[b]=y*(side?half:inset);return p;});
+   face(points,normal);
+  }
+ }
+ for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1]){
+  face([[x*half,y*inset,z*inset],[x*inset,y*half,z*inset],[x*inset,y*inset,z*half]],[x,y,z]);
+ }
+ const geometry=new T.BufferGeometry();geometry.setIndex(indices);geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geometry.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));return geometry;
+}
+
 // Finishing work for the fifteen remaining outfits. Uses the owner's resources and clock.
 const REMAINING_COUTURE_IDS=['streetdj','honeykeeper','mushroomoracle','jellyveil','origamitsuru','patisserie','scarabpharaoh','rainwalker','railconductor','inkmonk','carnivaljoker','rescueworker','cactusmariachi','bathduck','retroarcade'];
 
@@ -2268,7 +2405,8 @@ function createTailoredGiftSkin(T,spec,{mobile=false}={}){
  const surface=(color,metalness=.15,roughness=.5,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness,roughness,emissive:emission?color:0,emissiveIntensity:emission,envMapIntensity:.8});materials.add(m);return m;};
  const colors={abyssdiver:[0x123f46,0xc39455,0x5dffe1],sakurakimono:[0x842a50,0xe4bd79,0xff9ac5],chronokeeper:[0x2d3040,0xc39752,0xffd78c],starchef:[0xf0e7d4,0xb77c42,0xffc274],piratecaptain:[0x152e40,0xcfaa64,0x5ff2dc]}[id]||[spec.color,spec.trim,spec.accent];
  const cloth=surface(colors[0],id==='abyssdiver'?.47:.1,id==='abyssdiver'?.38:.68),gold=surface(colors[1],.78,.27),lining=surface(id==='sakurakimono'?0xedc8bb:id==='piratecaptain'?0x7d2745:0xddd6bf,.1,.7),dark=surface(0x111e2b,.18,.5),leather=surface(0x453027,.12,.65),ivory=surface(0xf2ead9,.1,.61),glow=surface(colors[2],.25,.3,1.45),silver=surface(0x839ca5,.8,.29);
- const ball=cached('ball',()=>new T.SphereGeometry(1,mobile?12:20,mobile?8:12)),box=cached('box',()=>new T.BoxGeometry(1,1,1)),gem=cached('gem',()=>new T.OctahedronGeometry(1)),torus=cached('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
+ leather.userData.costumeFinish='leather';
+ const ball=cached('ball',()=>new T.SphereGeometry(1,mobile?12:20,mobile?8:12)),box=cached('box',()=>createCostumeBlock(T)),gem=cached('gem',()=>new T.OctahedronGeometry(1)),torus=cached('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,p=sculpt){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.castShadow=false;n.userData.lightCostume=true;p.add(n);return n;}
  const orb=(m,x,y,z,sx,sy,sz,p=sculpt)=>mesh(ball,m,x,y,z,sx,sy,sz,p);
  const block=(m,x,y,z,w,h,d,p=sculpt)=>mesh(box,m,x,y,z,w,h,d,p);
@@ -2458,13 +2596,14 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  if(TAILORED_GIFT_IDS.includes(spec.id))return createTailoredGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+spec.id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),assemblies=[group],motions=[];
+ let moveWeight=0,jumpWeight=0,movingTime=0;
  let disposed=false,previous=-1,wasJumping=false,jumpAt=-100,trailAt=-1,trailCursor=0;
  const own=g=>(geometries.add(g),g);
  const geometry=(key,make)=>{if(!cache.has(key))cache.set(key,own(make()));return cache.get(key);};
  const mat=(color,metalness=.15,roughness=.6,emissive=0)=>{const m=new T.MeshStandardMaterial({color,metalness,roughness,emissive:emissive?color:0,emissiveIntensity:emissive});materials.add(m);return m;};
  const fabric=mat(spec.color),trim=mat(spec.trim,.65,.3),dark=mat(0x17232d,.3,.5),ivory=mat(0xefe8d7,.1,.65),glow=mat(spec.accent,.3,.28,1.2);
  const wood=mat(0x704734,.05,.8),silver=mat(0xa1b9bf,.8,.27),rose=mat(0xca697f,.1,.5);
- const box=geometry('box',()=>new T.BoxGeometry(1,1,1)),ball=geometry('ball',()=>new T.SphereGeometry(1,mobile?14:20,mobile?10:14));
+ const box=geometry('box',()=>createCostumeBlock(T)),ball=geometry('ball',()=>new T.SphereGeometry(1,mobile?14:20,mobile?10:14));
  const torus=geometry('torus',()=>new T.TorusGeometry(1,.045,6,mobile?36:56));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,parent=group){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=false;o.userData.lightCostume=true;parent.add(o);return o;}
  const block=(m,x,y,z,w,h,d,p=group)=>mesh(box,m,x,y,z,w,h,d,p);
@@ -2500,13 +2639,13 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'sakurakimono': {
   garment();const skirt=cylinder(fabric,0,.61,-.02,.53,.47,group,.40);const sash=mat(0xe6bf8d,.2,.55);cylinder(sash,0,.88,-.03,.50,.19);
-  for(const s of[-1,1]){const sleeve=node(s*.48,1.06,0);plate([[-.2,.23],[.2,.23],[.25,-.42],[-.20,-.34]],.36,fabric,0,0,0,sleeve);plate([[-.16,.18],[.16,.18],[.19,-.34],[-.16,-.29]],.02,ivory,0,0,.2,sleeve);flower(sleeve,0,-.17,.22,.075);animate(sleeve,(n,t,m,j)=>n.rotation.z=s*(.06+Math.sin(t*1.8)*.035+(j?.12:0)));seam([[s*.03,1.5,.29],[s*.18,1.07,.41],[s*.35,.62,.40]],ivory);}
+  for(const s of[-1,1]){const sleeve=node(s*.48,1.06,0);plate([[-.2,.23],[.2,.23],[.25,-.42],[-.20,-.34]],.36,fabric,0,0,0,sleeve);plate([[-.16,.18],[.16,.18],[.19,-.34],[-.16,-.29]],.02,ivory,0,0,.2,sleeve);flower(sleeve,0,-.17,.22,.075);animate(sleeve,(n,t,m,j)=>n.rotation.z=s*(.06+Math.sin(t*1.8)*.035+(j*.12)));seam([[s*.03,1.5,.29],[s*.18,1.07,.41],[s*.35,.62,.40]],ivory);}
   block(sash,0,.88,-.48,.62,.27,.16);for(const s of[-1,1])plate([[0,0],[s*.3,.17],[s*.36,-.11]],.12,rose,s*.04,.90,-.55);
   const fan=node(.06,1.28,-.58);for(let j=0;j<9;j++){const a=(j-4)*.21;const p=plate([[-.06,0],[.06,0],[.14,.75],[-.14,.75]],.025,j%2?rose:fabric,0,0,0,fan);p.rotation.z=a;const b=block(sash,Math.sin(-a)*.38,Math.cos(a)*.38,.02,.015,.77,.015,fan);b.rotation.z=a;}animate(fan,(n,t)=>n.rotation.y=Math.sin(t*.7)*.1);
   for(let j=0;j<6;j++)flower(group,Math.sin(j*2)*.29,.58+j*.13,.43,.045);flower(group,-.30,1.67,.13,.16);break;
  }
  case 'chronokeeper': {
-  garment();lapels();boots(dark);for(const s of[-1,1]){const tail=node(s*.24,.72,-.3);plate([[-.18,.15],[.18,.15],[.20,-.44],[0,-.53],[-.20,-.44]],.06,fabric,0,0,0,tail);animate(tail,(n,t,m)=>n.rotation.x=(m?.17:.03)*Math.sin(t*3));}
+  garment();lapels();boots(dark);for(const s of[-1,1]){const tail=node(s*.24,.72,-.3);plate([[-.18,.15],[.18,.15],[.20,-.44],[0,-.53],[-.20,-.44]],.06,fabric,0,0,0,tail);animate(tail,(n,t,m)=>n.rotation.x=(.03+m*.14)*Math.sin(t*3));}
   const clock=node(0,1.20,-.56);ring(trim,0,0,0,.49,0,0,clock);ellipsoid(dark,0,0,0,.45,.45,.06,clock);for(let j=0;j<12;j++){const a=j*Math.PI/6;const b=block(ivory,Math.sin(a)*.39,Math.cos(a)*.39,-.07,.014,.055,.015,clock);b.rotation.z=-a;}const hand=block(glow,0,.12,-.09,.025,.27,.02,clock);hand.userData.dynamic=true;animate(clock,(n,t)=>hand.rotation.z=t*.18);
   for(const [s,y,r]of[[-1,1.60,.24],[1,.88,.22]]){const g=node(s*.45,y,-.52);gear(g,0,0,0,r);animate(g,(n,t)=>n.rotation.z=t*s*.4);}
   tube([[-.20,1.02,.45],[-.1,.74,.50],[.2,.80,.47]],.014,trim);ring(trim,.24,1.48,.30,.13);block(trim,0,1.71,-.02,.58,.08,.5);label('XII',.20,.08,0,.77,.45);break;
@@ -2514,7 +2653,7 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  case 'starchef': {
   garment(ivory);boots(dark);block(fabric,0,.74,.43,.52,.55,.08);for(const s of[-1,1])for(let j=0;j<3;j++)button(s*.13,.78+j*.12,.49,dark,.022);
   cylinder(ivory,0,1.78,-.02,.32,.30);for(let j=0;j<5;j++)ellipsoid(ivory,Math.sin(j*2.4)*.20,1.99+(j===0?.08:0),Math.cos(j*2.4)*.14,.22,.21,.22);ring(rose,0,1.66,0,.35,Math.PI/2);
-  const pan=node(.62,.83,.09);cylinder(dark,0,0,0,.30,.07,pan);ring(silver,0,.04,0,.29,Math.PI/2,0,pan);block(wood,0,0,-.37,.09,.08,.43,pan);ellipsoid(ivory,0,.06,0,.18,.025,.16,pan);ellipsoid(glow,.01,.08,0,.07,.04,.07,pan);animate(pan,(n,t,m,j)=>{n.rotation.z=Math.sin(t*2)*.1+(j?.3:0);});
+  const pan=node(.62,.83,.09);cylinder(dark,0,0,0,.30,.07,pan);ring(silver,0,.04,0,.29,Math.PI/2,0,pan);block(wood,0,0,-.37,.09,.08,.43,pan);ellipsoid(ivory,0,.06,0,.18,.025,.16,pan);ellipsoid(glow,.01,.08,0,.07,.04,.07,pan);animate(pan,(n,t,m,j)=>{n.rotation.z=Math.sin(t*2)*.1+(j*.3);});
   const spoon=node(-.60,.96,.10);cylinder(wood,0,.15,0,.025,.69,spoon);ellipsoid(trim,0,.52,0,.10,.16,.035,spoon);spoon.rotation.z=.25;animate(spoon,(n,t)=>n.rotation.z=.25+Math.sin(t*1.5)*.06);
   for(const s of[-1,1])tube([[s*.30,1.36,-.12],[s*.32,.94,-.43],[s*.20,.62,-.46]],.025,rose);label('CHEF',.28,.09,0,.55,.48);break;
  }
@@ -2522,7 +2661,7 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
   garment();lapels();boots(dark);for(const s of[-1,1]){block(trim,s*.47,1.28,.02,.24,.10,.36);for(let j=0;j<5;j++)cylinder(trim,s*(.39+j*.035),1.21,.10,.012,.12);}
   const hat=node(0,1.70,-.08);plate([[-.66,0],[-.55,.28],[-.24,.18],[0,.4],[.24,.18],[.55,.28],[.66,0],[0,-.08]],.35,dark,0,0,0,hat);seam([[-.59,.07,.19],[-.5,.21,.19],[0,.32,.19],[.5,.21,.19],[.59,.07,.19]],trim,hat);ellipsoid(ivory,0,.15,.20,.075,.07,.025,hat);for(const s of[-1,1])block(ivory,s*.04,.08,.2,.016,.08,.02,hat).rotation.z=s*.7;
   const wheel=node(0,1.03,-.57);ring(wood,0,0,0,.43,0,0,wheel);ring(trim,0,0,0,.39,0,0,wheel);for(let j=0;j<8;j++){const b=block(wood,0,0,0,.025,1.04,.045,wheel);b.rotation.z=j*Math.PI/4;}animate(wheel,(n,t)=>n.rotation.z=Math.sin(t*.6)*.13);
-  const coat=node(0,.79,-.36);plate([[-.4,.32],[.4,.32],[.49,-.4],[0,-.27],[-.49,-.4]],.045,fabric,0,0,0,coat);animate(coat,(n,t,m)=>n.rotation.x=Math.sin(t*2)*(m?.11:.04));break;
+  const coat=node(0,.79,-.36);plate([[-.4,.32],[.4,.32],[.49,-.4],[0,-.27],[-.49,-.4]],.045,fabric,0,0,0,coat);animate(coat,(n,t,m)=>n.rotation.x=Math.sin(t*2)*(.04+m*.07));break;
  }
  case 'streetdj': {
   garment();boots(ivory);for(const s of[-1,1]){block(rose,s*.22,.83,.42,.22,.34,.05);block(trim,s*.47,1.48,0,.13,.33,.23);ring(dark,s*.53,1.49,0,.12,0,Math.PI/2);ring(glow,s*.54,1.49,0,.08,0,Math.PI/2);}
@@ -2533,17 +2672,17 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'honeykeeper': {
   garment();boots(trim);for(let j=0;j<3;j++){const b=ring(trim,0,.64+j*.21,-.02,.46,Math.PI/2);b.scale.set(.46,.46,.15);}
-  for(const s of[-1,1]){tube([[s*.15,1.55,-.04],[s*.29,1.83,-.02],[s*.38,1.87,0]],.024,trim);ellipsoid(glow,s*.38,1.87,0,.07,.07,.07);const wing=node(s*.29,1.18,-.39);ellipsoid(ivory,s*.22,.12,-.08,.24,.37,.045,wing).rotation.z=-s*.4;seam([[0,0,-.13],[s*.25,.35,-.13],[s*.37,.18,-.13]],trim,wing);animate(wing,(n,t,m)=>n.rotation.y=s*(.2+Math.sin(t*(m?13:5))*.13));}
+  for(const s of[-1,1]){tube([[s*.15,1.55,-.04],[s*.29,1.83,-.02],[s*.38,1.87,0]],.024,trim);ellipsoid(glow,s*.38,1.87,0,.07,.07,.07);const wing=node(s*.29,1.18,-.39);ellipsoid(ivory,s*.22,.12,-.08,.24,.37,.045,wing).rotation.z=-s*.4;seam([[0,0,-.13],[s*.25,.35,-.13],[s*.37,.18,-.13]],trim,wing);animate(wing,(n,t,m)=>n.rotation.y=s*(.2+Math.sin(t*5+movingTime*8)*.13));}
   cylinder(wood,0,.91,-.57,.26,.63);ring(trim,0,1.18,-.57,.28,Math.PI/2);ring(trim,0,.64,-.57,.28,Math.PI/2);label('HONEY',.35,.13,0,.90,-.84).rotation.y=Math.PI;for(let j=0;j<3;j++)flower(group,-.35+j*.35,1.61,-.15,.08);break;
  }
  case 'mushroomoracle': {
-  garment();boots(wood);const cap=node(0,1.69,-.03);const dome=geometry('mushroom-cap',()=>new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI/2));mesh(dome,fabric,0,0,0,.80,.40,.72,cap);cylinder(ivory,0,-.015,0,.74,.055,cap,.78);for(let j=0;j<18;j++){const a=j*2.39996,r=.3+(j%3)*.15;ellipsoid(glow,Math.cos(a)*r,.37*Math.sqrt(1-r*r/.64)+.015,Math.sin(a)*r,.035+(j%3)*.016,.014,.035,cap);}for(let j=0;j<20;j++){const a=j*Math.PI/10;seam([[Math.sin(a)*.19,-.05,Math.cos(a)*.19],[Math.sin(a)*.7,-.05,Math.cos(a)*.7]],trim,cap);}animate(cap,(n,t,m)=>n.rotation.z=Math.sin(t*1.2)*(m?.035:.016));
-  const cape=node(0,1.03,-.35);plate([[-.35,.28],[.35,.28],[.58,-.51],[.3,-.42],[0,-.57],[-.3,-.42],[-.58,-.51]],.06,ivory,0,0,0,cape);animate(cape,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(m?.09:.035));for(let j=0;j<4;j++){cylinder(wood,-.28+j*.18,.56,-.50,.04,.24);ellipsoid(glow,-.28+j*.18,.70,-.50,.12,.07,.11);}break;
+  garment();boots(wood);const cap=node(0,1.69,-.03);const dome=geometry('mushroom-cap',()=>new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI/2));mesh(dome,fabric,0,0,0,.80,.40,.72,cap);cylinder(ivory,0,-.015,0,.74,.055,cap,.78);for(let j=0;j<18;j++){const a=j*2.39996,r=.3+(j%3)*.15;ellipsoid(glow,Math.cos(a)*r,.37*Math.sqrt(1-r*r/.64)+.015,Math.sin(a)*r,.035+(j%3)*.016,.014,.035,cap);}for(let j=0;j<20;j++){const a=j*Math.PI/10;seam([[Math.sin(a)*.19,-.05,Math.cos(a)*.19],[Math.sin(a)*.7,-.05,Math.cos(a)*.7]],trim,cap);}animate(cap,(n,t,m)=>n.rotation.z=Math.sin(t*1.2)*(.016+m*.019));
+  const cape=node(0,1.03,-.35);plate([[-.35,.28],[.35,.28],[.58,-.51],[.3,-.42],[0,-.57],[-.3,-.42],[-.58,-.51]],.06,ivory,0,0,0,cape);animate(cape,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(.035+m*.055));for(let j=0;j<4;j++){cylinder(wood,-.28+j*.18,.56,-.50,.04,.24);ellipsoid(glow,-.28+j*.18,.70,-.50,.12,.07,.11);}break;
  }
  case 'jellyveil': {
   garment();fabric.metalness=.55;fabric.roughness=.23;const pearl=mat(0xb5d8e4,.35,.24);
   const dome=geometry('jelly-dome',()=>new T.SphereGeometry(1,28,16,0,Math.PI*2,0,Math.PI/2));mesh(dome,pearl,0,1.68,-.05,.68,.44,.62);ring(glow,0,1.68,-.05,.63,Math.PI/2);for(let j=0;j<10;j++){const a=j*Math.PI/5;ellipsoid(glow,Math.sin(a)*.60,1.65,Math.cos(a)*.57-.05,.035,.04,.035);}
-  for(let j=0;j<8;j++){const a=j*Math.PI/4;const n=node(Math.sin(a)*.52,1.65,-.12-Math.abs(Math.cos(a))*.3);const pts=[];for(let k=0;k<7;k++)pts.push([Math.sin(k*1.8+j)*.045,-k*.19,Math.cos(k*1.2+j)*.055]);tube(pts,.025,j%2?glow:pearl,n);animate(n,(o,t,m)=>{o.rotation.z=Math.sin(t*1.6+j)*.07;o.rotation.x=Math.cos(t*1.2+j)*.08+(m?.1:0);});}
+  for(let j=0;j<8;j++){const a=j*Math.PI/4;const n=node(Math.sin(a)*.52,1.65,-.12-Math.abs(Math.cos(a))*.3);const pts=[];for(let k=0;k<7;k++)pts.push([Math.sin(k*1.8+j)*.045,-k*.19,Math.cos(k*1.2+j)*.055]);tube(pts,.025,j%2?glow:pearl,n);animate(n,(o,t,m)=>{o.rotation.z=Math.sin(t*1.6+j)*.07;o.rotation.x=Math.cos(t*1.2+j)*.08+(m*.1);});}
   const pearlOrb=node(0,.8,-.6);ellipsoid(pearl,0,0,0,.21,.25,.18,pearlOrb);ring(glow,0,0,0,.25,Math.PI/2,0,pearlOrb);animate(pearlOrb,(n,t)=>n.position.y=.85+Math.sin(t)*.08);break;
  }
  case 'origamitsuru': {
@@ -2567,16 +2706,16 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  case 'rainwalker': {
   garment();fabric.roughness=.25;boots(trim);cylinder(fabric,0,.62,0,.53,.40,group,.44);ellipsoid(fabric,0,1.53,-.05,.47,.36,.46);ring(trim,0,1.37,.35,.32);for(let j=0;j<5;j++)button(0,.65+j*.12,.47,ivory,.019);
   for(const s of[-1,1]){block(fabric,s*.25,.78,.45,.17,.16,.045);block(ivory,s*.25,.86,.47,.20,.035,.025);tube([[s*.12,1.48,.35],[s*.15,1.20,.47]],.012,trim);}
-  const umbrella=node(0,1.02,-.55);cylinder(wood,0,.20,0,.022,1.5,umbrella);const canopy=geometry('folded-umbrella',()=>new T.ConeGeometry(.19,1.10,8));mesh(canopy,trim,0,.32,0,1,1,1,umbrella);for(let j=0;j<8;j++){const a=j*Math.PI/4;tube([[0,.86,0],[Math.sin(a)*.18,-.20,Math.cos(a)*.18]],.009,fabric,umbrella);}umbrella.rotation.z=-.25;animate(umbrella,(n,t,m)=>n.rotation.z=-.25+Math.sin(t*2)*(m?.04:.01));break;
+  const umbrella=node(0,1.02,-.55);cylinder(wood,0,.20,0,.022,1.5,umbrella);const canopy=geometry('folded-umbrella',()=>new T.ConeGeometry(.19,1.10,8));mesh(canopy,trim,0,.32,0,1,1,1,umbrella);for(let j=0;j<8;j++){const a=j*Math.PI/4;tube([[0,.86,0],[Math.sin(a)*.18,-.20,Math.cos(a)*.18]],.009,fabric,umbrella);}umbrella.rotation.z=-.25;animate(umbrella,(n,t,m)=>n.rotation.z=-.25+Math.sin(t*2)*(.01+m*.03));break;
  }
  case 'railconductor': {
   garment();lapels();boots(dark);cylinder(fabric,0,1.76,-.01,.41,.19,group,.36);cylinder(trim,0,1.67,-.01,.42,.04);ellipsoid(dark,0,1.64,.27,.40,.055,.30);plate([[-.07,0],[.07,0],[.1,.08],[0,.13],[-.1,.08]],.025,trim,0,1.76,.37);
   const train=node(0,.99,-.56);block(fabric,0,0,0,.68,.67,.40,train);block(trim,0,.38,0,.76,.07,.49,train);for(const s of[-1,1]){block(ivory,s*.18,.12,-.22,.20,.23,.025,train);ellipsoid(dark,s*.25,-.35,-.14,.12,.12,.06,train);button(s*.25,-.35,-.21,trim,.045,train);}cylinder(dark,0,.51,0,.09,.22,train);ring(trim,0,.61,0,.10,Math.PI/2,0,train);label('EXPRESS',.55,.1,0,-.14,-.23,train).rotation.y=Math.PI;
-  const lantern=node(.60,.79,.13);cylinder(trim,0,0,0,.13,.30,lantern);ellipsoid(glow,0,0,0,.10,.13,.10,lantern);for(const s of[-1,1])block(dark,s*.1,0,0,.02,.28,.02,lantern);ring(trim,0,.23,0,.11,0,0,lantern);animate(lantern,(n,t,m)=>n.rotation.z=Math.sin(t*(m?4:1.5))*(m?.13:.04));break;
+  const lantern=node(.60,.79,.13);cylinder(trim,0,0,0,.13,.30,lantern);ellipsoid(glow,0,0,0,.10,.13,.10,lantern);for(const s of[-1,1])block(dark,s*.1,0,0,.02,.28,.02,lantern);ring(trim,0,.23,0,.11,0,0,lantern);animate(lantern,(n,t,m)=>n.rotation.z=Math.sin(t*1.5+movingTime*2.5)*(.04+m*.09));break;
  }
  case 'inkmonk': {
   garment();boots(trim);for(const s of[-1,1]){plate([[0,.2],[s*.43,.06],[s*.38,-.42],[0,-.32]],.24,ivory,s*.30,1.02,0);seam([[s*.03,1.5,.28],[s*.20,1.05,.40],[s*.29,.64,.40]],dark);}cylinder(dark,0,.85,0,.50,.14);cylinder(ivory,0,.53,0,.51,.37,group,.40);
-  const paper=scroll(0,1.13,-.59);paper.rotation.y=Math.PI;animate(paper,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(m?.07:.02));
+  const paper=scroll(0,1.13,-.59);paper.rotation.y=Math.PI;animate(paper,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(.02+m*.05));
   const brush=node(.58,1.0,.07);cylinder(wood,0,.24,0,.045,.91,brush);cylinder(trim,0,-.25,0,.065,.10,brush);cone(dark,0,-.45,0,.07,.30,brush).rotation.z=Math.PI;brush.rotation.z=-.28;animate(brush,(n,t)=>n.rotation.z=-.28+Math.sin(t*1.3)*.06);
   const knot=node(-.2,1.71,-.01);ellipsoid(dark,0,0,0,.18,.12,.16,knot);block(trim,0,0,.1,.37,.035,.035,knot);break;
  }
@@ -2587,7 +2726,7 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'rescueworker': {
   garment();boots(dark);for(const s of[-1,1]){block(trim,s*.50,1.17,-.03,.20,.54,.30);cylinder(silver,s*.52,1.20,-.03,.055,.35);block(fabric,s*.5,1.44,-.04,.31,.14,.40);block(ivory,s*.26,.73,.43,.29,.08,.035);for(let j=0;j<4;j++)block(dark,s*.27+Math.sin(j)*.02,.74,.453,.025,.09,.01).rotation.z=-.5;}
-  const frame=node(0,1.02,-.58);block(trim,0,0,0,.69,.88,.24,frame);block(fabric,0,.02,-.16,.52,.64,.08,frame);for(let j=0;j<6;j++)block(dark,0,-.2+j*.075,-.21,.37,.025,.02,frame);for(const s of[-1,1]){const arm=node(s*.53,1.21,-.42);block(trim,s*.12,.1,0,.35,.12,.12,arm);ellipsoid(silver,s*.30,.09,0,.11,.11,.11,arm);block(fabric,s*.34,-.10,0,.13,.39,.17,arm);for(const k of[-1,1])block(silver,s*.34+k*.065,-.34,0,.04,.17,.07,arm);animate(arm,(n,t,m)=>n.rotation.z=s*(.13+Math.sin(t*1.6)*.05+(m?.08:0)));}
+  const frame=node(0,1.02,-.58);block(trim,0,0,0,.69,.88,.24,frame);block(fabric,0,.02,-.16,.52,.64,.08,frame);for(let j=0;j<6;j++)block(dark,0,-.2+j*.075,-.21,.37,.025,.02,frame);for(const s of[-1,1]){const arm=node(s*.53,1.21,-.42);block(trim,s*.12,.1,0,.35,.12,.12,arm);ellipsoid(silver,s*.30,.09,0,.11,.11,.11,arm);block(fabric,s*.34,-.10,0,.13,.39,.17,arm);for(const k of[-1,1])block(silver,s*.34+k*.065,-.34,0,.04,.17,.07,arm);animate(arm,(n,t,m)=>n.rotation.z=s*(.13+Math.sin(t*1.6)*.05+(m*.08)));}
   const beacon=node(0,1.79,-.04);cylinder(trim,0,-.04,0,.22,.09,beacon);ellipsoid(glow,0,.08,0,.16,.17,.16,beacon);const beam=block(ivory,0,.08,0,.32,.03,.04,beacon);beam.userData.dynamic=true;animate(beacon,(n,t)=>beam.rotation.y=t*2);label('RESCUE',.32,.08,0,.97,.47);break;
  }
  case 'cactusmariachi': {
@@ -2597,7 +2736,7 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'bathduck': {
   garment();fabric.roughness=.95;boots(ivory);for(const s of[-1,1]){plate([[0,.22],[s*.27,.06],[s*.17,-.28]],.04,ivory,s*.09,1.00,.42);block(ivory,s*.27,.76,.43,.18,.17,.05);}cylinder(ivory,0,.85,0,.50,.08);
-  const tub=node(0,.50,-.04);cylinder(wood,0,0,0,.57,.23,tub,.60);for(const y of[-.10,.10])ring(silver,0,y,0,.58,Math.PI/2,0,tub);for(let j=0;j<16;j++){const a=j*Math.PI/8;seam([[Math.sin(a)*.57,-.1,Math.cos(a)*.57],[Math.sin(a)*.60,.1,Math.cos(a)*.60]],trim,tub);}animate(tub,(n,t,m)=>n.rotation.z=Math.sin(t*2)*(m?.035:.01));
+  const tub=node(0,.50,-.04);cylinder(wood,0,0,0,.57,.23,tub,.60);for(const y of[-.10,.10])ring(silver,0,y,0,.58,Math.PI/2,0,tub);for(let j=0;j<16;j++){const a=j*Math.PI/8;seam([[Math.sin(a)*.57,-.1,Math.cos(a)*.57],[Math.sin(a)*.60,.1,Math.cos(a)*.60]],trim,tub);}animate(tub,(n,t,m)=>n.rotation.z=Math.sin(t*2)*(.01+m*.025));
   function duck(n,s){ellipsoid(trim,0,0,0,.23*s,.17*s,.26*s,n);ellipsoid(trim,0,.22*s,.12*s,.14*s,.15*s,.14*s,n);ellipsoid(rose,0,.20*s,.26*s,.10*s,.04*s,.10*s,n);for(const side of[-1,1])ellipsoid(dark,side*.09*s,.26*s,.21*s,.018*s,.018*s,.018*s,n);}
   const head=node(0,1.74,-.02);duck(head,.9);animate(head,(n,t)=>n.rotation.y=Math.sin(t)*.12);const towel=node(0,1.54,-.48);block(ivory,0,0,0,.43,.13,.20,towel);for(let j=0;j<4;j++)block(trim,-.16+j*.10,.07,0,.025,.015,.18,towel);break;
  }
@@ -2631,8 +2770,13 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  const world=new T.Vector3(),local=new T.Vector3(),inverse=new T.Matrix4();
  function update(seconds,{moving=false,jumping=false}={}){
-  if(disposed)return;const t=Number(seconds)||0;if(t===previous)return;previous=t;
-  glow.emissiveIntensity=1.08+.20*Math.sin(t*2);for(const {node:n,fn}of motions)fn(n,t,moving,jumping);
+  if(disposed)return;const t=Number(seconds)||0;if(t===previous)return;
+  if(t<previous){movingTime=0;moveWeight=0;jumpWeight=0;}
+  const dt=previous<0?0:Math.max(0,Math.min(.25,t-previous));previous=t;
+  if(moving)movingTime+=dt;
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-12*dt));
+  jumpWeight+=(Number(!!jumping)-jumpWeight)*(1-Math.exp(-16*dt));
+  glow.emissiveIntensity=1.08+.20*Math.sin(t*2);for(const {node:n,fn}of motions)fn(n,t,moveWeight,jumpWeight);
   for(let j=0;j<count;j++){const a=j*2.39996+t*.27,r=.53+(j%4)*.1,k=j*3;let y=(j/count*2.25+t*.26)%2.25;let x=Math.cos(a)*r,z=Math.sin(a)*r;
    if(['rain','sand','petal','paper','cards','ticket'].includes(effect)){y=2.3-(j/count*2.3+t*(effect==='rain'?.9:.28))%2.3;x+=Math.sin(t*1.3+j)*.12;}
    if(['foam','bubble','steam','spore'].includes(effect)){x=Math.sin(a+t*.1)*r;y=(j/count*2.1+t*.38)%2.1;z=Math.cos(a)*r;}
@@ -2640,8 +2784,8 @@ function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
    if(effect==='ink'){y=.65+Math.sin(a*.7)*.48;z=Math.cos(a)*.62;x=Math.sin(a)*.68;}
    positions[k]=x;positions[k+1]=y;positions[k+2]=z;
   }pg.attributes.position.needsUpdate=true;
-  if(jumping&&!wasJumping)jumpAt=t;wasJumping=jumping;const elapsed=t-jumpAt;pulse.visible=elapsed>=0&&elapsed<.6;if(pulse.visible){pulse.scale.setScalar(.61+elapsed*1.15);pulseMat.opacity=(1-elapsed/.6)*.42;}
-  group.updateWorldMatrix(true,false);group.getWorldPosition(world);inverse.copy(group.matrixWorld).invert();if((moving&&t-trailAt>.085)||(jumping&&elapsed<.08)){trailAt=t;const s=slots[trailCursor++%tn];s.x=world.x;s.y=world.y+.07;s.z=world.z;s.until=t+.7;}
+  const takeoff=jumping&&!wasJumping;if(takeoff)jumpAt=t;wasJumping=jumping;const elapsed=t-jumpAt;pulse.visible=elapsed>=0&&elapsed<.6;if(pulse.visible){pulse.scale.setScalar(.61+elapsed*1.15);pulseMat.opacity=(1-elapsed/.6)*.42;}
+  group.updateWorldMatrix(true,false);group.getWorldPosition(world);inverse.copy(group.matrixWorld).invert();if((moving&&t-trailAt>.085)||takeoff){trailAt=t;const s=slots[trailCursor++%tn];s.x=world.x;s.y=world.y+.07;s.z=world.z;s.until=t+.7;}
   for(let j=0;j<tn;j++){const s=slots[j],k=j*3;if(s.until>t){local.set(s.x,s.y,s.z).applyMatrix4(inverse);trailPositions[k]=local.x;trailPositions[k+1]=local.y;trailPositions[k+2]=local.z;}else{trailPositions[k]=0;trailPositions[k+1]=-999;trailPositions[k+2]=0;}}tg.attributes.position.needsUpdate=true;
  }
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();}
@@ -2685,11 +2829,11 @@ const GOLDEN_GIFT_SKINS=Object.freeze([
 function createGoldenGiftSkin(T,spec,{mobile=false}={}){
  const group=new T.Group();group.name='gift-skin-'+spec.id;group.userData.goldenLegend=true;
  const geometries=new Set(),materials=new Set(),cache=new Map(),assemblies=[group],motions=[];
- let disposed=false;
+ let disposed=false,lastClock=0,movingTime=0,jumpWeight=0;
  const own=g=>(geometries.add(g),g),geo=(key,make)=>{if(!cache.has(key))cache.set(key,own(make()));return cache.get(key);};
  const mat=(color,metalness,roughness,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness,roughness,emissive:emission?color:0,emissiveIntensity:emission});materials.add(m);return m;};
  const shell=mat(spec.color,.72,.32),trim=mat(spec.trim,.87,.26),dark=mat(0x101522,.45,.5),glow=mat(spec.accent,.48,.25,1.25);
- const box=geo('box',()=>new T.BoxGeometry(1,1,1)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:16,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),cone=geo('cone',()=>new T.ConeGeometry(1,1,6));
+ const box=geo('box',()=>createCostumeBlock(T)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:16,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),cone=geo('cone',()=>new T.ConeGeometry(1,1,6));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,parent=group,rz=0){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.rotation.z=rz;n.castShadow=false;n.userData.lightCostume=true;parent.add(n);return n;}
  const block=(m,x,y,z,w,h,d,p=group,a=0)=>mesh(box,m,x,y,z,w,h,d,p,a);
  function rig(x=0,y=0,z=0){const n=new T.Group();n.position.set(x,y,z);group.add(n);assemblies.push(n);return n;}
@@ -2972,7 +3116,12 @@ function createGoldenGiftSkin(T,spec,{mobile=false}={}){
  const count=mobile?14:22,positions=new Float32Array(count*3),pg=own(new T.BufferGeometry());pg.setAttribute('position',new T.BufferAttribute(positions,3));
  const pm=new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{tint:{value:new T.Color(spec.accent)}},vertexShader:'void main(){vec4 p=modelViewMatrix*vec4(position,1.);gl_PointSize=clamp(30./-p.z,1.,4.);gl_Position=projectionMatrix*p;}',fragmentShader:'uniform vec3 tint;void main(){float a=1.-smoothstep(.15,.5,length(gl_PointCoord-.5));if(a<.02)discard;gl_FragColor=vec4(tint,a*.65);}'});materials.add(pm);
  const aura=new T.Points(pg,pm);aura.name='signature-aura';aura.frustumCulled=false;group.add(aura);
- function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0;for(const motion of motions)motion(t);glow.emissiveIntensity=1.15+Math.sin(t*2)*.12+(jumping?.18:0);for(let i=0;i<count;i++){const a=i*2.39996+t*.2,r=.58+(i%3)*.08;positions[i*3]=Math.cos(a)*r;positions[i*3+1]=(i/count*2.1+t*(moving?.32:.16))%2.1;positions[i*3+2]=Math.sin(a)*r;}pg.attributes.position.needsUpdate=true;}
+ function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0;
+  if(t<lastClock){movingTime=0;jumpWeight=0;}
+  const dt=Math.min(.25,Math.max(0,t-lastClock));lastClock=t;
+  if(moving)movingTime+=dt;
+  jumpWeight+=(Number(!!jumping)-jumpWeight)*(1-Math.exp(-16*dt));
+  for(const motion of motions)motion(t);glow.emissiveIntensity=1.15+Math.sin(t*2)*.12+.18*jumpWeight;for(let i=0;i<count;i++){const a=i*2.39996+t*.2,r=.58+(i%3)*.08;positions[i*3]=Math.cos(a)*r;positions[i*3+1]=(i/count*2.1+t*.16+movingTime*.16)%2.1;positions[i*3+2]=Math.sin(a)*r;}pg.attributes.position.needsUpdate=true;}
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
  update(0);aura.removeFromParent();return upgradeGoldenGiftSkin(T,{group,spec,update,dispose},{mobile});
 }
@@ -2988,7 +3137,7 @@ function upgradeGoldenGiftSkin(T,skin,{mobile=false}={}){
  group.userData.goldenCouture=2;
  const own=g=>(geometries.add(g),g),material=(color,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness:.78,roughness:.28,emissive:emission?color:0,emissiveIntensity:emission});materials.add(m);return m;};
  const gold=material(spec.trim??0xe1bd75),enamel=material(spec.color),glow=material(spec.accent,.65);
- const box=own(new T.BoxGeometry(1,1,1)),gem=own(new T.OctahedronGeometry(1)),rodGeo=own(new T.CylinderGeometry(1,1,1,5));
+ const box=own(createCostumeBlock(T)),gem=own(new T.OctahedronGeometry(1)),rodGeo=own(new T.CylinderGeometry(1,1,1,5));
  function add(g,m,x,y,z,sx=1,sy=1,sz=1,angle=0){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.rotation.z=angle;parts.push(n);return n;}
  function line(a,b,m=gold,r=.012){const n=add(rodGeo,m,...a.map((v,i)=>(v+b[i])/2),r,Math.hypot(...a.map((v,i)=>b[i]-v)),r);n.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(...a.map((v,i)=>b[i]-v)).normalize());return n;}
  function contour(points,m=gold,r=.012){for(let j=1;j<points.length;j++)line(points[j-1],points[j],m,r);}
@@ -3101,11 +3250,11 @@ function createLegendAuraSkin(T,spec,{mobile=false}={}){
  const sculpt=new T.Group(),aura=new T.Group();aura.name='signature-aura';aura.userData.variant=spec.aura;group.add(sculpt,aura);
  const geometries=new Set(),materials=new Set(),cache=new Map(),assemblies=[sculpt],motions=[];
  const reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
- let disposed=false;
+ let disposed=false,lastClock=0,movingTime=0,moveWeight=0,jumpWeight=0;
  const own=g=>(geometries.add(g),g),geo=(key,make)=>{if(!cache.has(key))cache.set(key,own(make()));return cache.get(key);};
  const mat=(color,metal=.5,rough=.4,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness:metal,roughness:rough,emissive:emission?color:0,emissiveIntensity:emission});materials.add(m);return m;};
  const shell=mat(spec.color,.65,.35),trim=mat(spec.trim,.8,.28),dark=mat(0x111b29,.35,.6),ivory=mat(0xe4e7e4,.35,.4),glow=mat(spec.accent,.3,.3,.9);
- const box=geo('box',()=>new T.BoxGeometry(1,1,1)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:18,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1));
+ const box=geo('box',()=>createCostumeBlock(T)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:18,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,p=sculpt){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.castShadow=false;n.userData.lightCostume=true;p.add(n);return n;}
  const block=(m,x,y,z,w,h,d,p=sculpt)=>mesh(box,m,x,y,z,w,h,d,p);
  const orb=(m,x,y,z,w,h,d,p=sculpt)=>mesh(ball,m,x,y,z,w,h,d,p);
@@ -3115,7 +3264,7 @@ function createLegendAuraSkin(T,spec,{mobile=false}={}){
  function ring(m,x,y,z,r,p=sculpt,arc=Math.PI*2){return mesh(geo('ring'+arc,()=>new T.TorusGeometry(1,.028,5,mobile?32:48,arc)),m,x,y,z,r,r,r,p);}
  function jewel(x,y,z,w=.08,h=.14,p=sculpt,m=glow){return mesh(gem,m,x,y,z,w,h,.065,p);}
  function feather(side,j,p,m=ivory){const n=plate([[0,0],[side*.15,.25],[side*.13,.72],[0,.97],[-side*.07,.23]],m,side*(.07+j*.14),j*.025,0,.055,p);n.rotation.z=-side*(.38+j*.32);return n;}
- function cape(width=1.1,m=shell){const n=rig(0,1.30,-.46);plate([[-.31,.18],[.31,.18],[width/2,-.82],[.16,-.70],[0,-.88],[-.16,-.70],[-width/2,-.82]],m,0,0,0,.045,n);for(const s of[-1,1])rod([s*.28,.1,-.035],[s*width/2,-.8,-.035],.014,trim,n);motions.push((t,moving)=>n.rotation.x=.04+Math.sin(t*1.7)*(moving?.07:.025));return n;}
+ function cape(width=1.1,m=shell){const n=rig(0,1.30,-.46);plate([[-.31,.18],[.31,.18],[width/2,-.82],[.16,-.70],[0,-.88],[-.16,-.70],[-width/2,-.82]],m,0,0,0,.045,n);for(const s of[-1,1])rod([s*.28,.1,-.035],[s*width/2,-.8,-.035],.014,trim,n);motions.push((t,moving)=>n.rotation.x=.04+Math.sin(t*1.7)*(.025+moving*.045));return n;}
  function coat(){orb(shell,0,1.0,-.02,.49,.64,.485);for(const s of[-1,1]){const lapel=plate([[0,.22],[s*.25,.10],[s*.10,-.30]],trim,s*.055,.99,.475);lapel.rotation.y=s*.30;for(let j=0;j<3;j++)orb(trim,s*.17,.69+j*.13,.48,.022,.022,.014);}}
  function helmet(){orb(shell,0,1.48,-.04,.49,.32,.46);for(const s of[-1,1])plate([[-.08,-.20],[.08,-.18],[.09,.15],[0,.24],[-.10,.12]],trim,s*.35,1.39,.30,.055);}
  function armour(){coat();helmet();plate([[-.29,.13],[0,.23],[.29,.13],[.21,-.18],[0,-.27],[-.21,-.18]],shell,0,.84,.46,.07);jewel(0,.91,.515,.07,.12);for(const s of[-1,1]){orb(shell,s*.48,1.25,0,.23,.19,.27);block(trim,s*.48,1.27,.23,.29,.035,.025);}}
@@ -3225,7 +3374,7 @@ function createLegendAuraSkin(T,spec,{mobile=false}={}){
   panel([[-.18,.06],[0,.19],[.18,.06],[0,-.06]],trim,0,1.55,.30);medallion(0,.87,.55,.09);
   for(const s of[-1,1]){const wing=rig(s*.34,1.30,-.47);panel([[0,-.08],[s*.32,.52],[s*1.02,.83],[s*.82,.20],[s*.30,-.18]],shell,0,0,0,wing);
    for(let j=0;j<4;j++){const f=feather(s,j,wing,j%2?trim:ivory);f.position.set(s*(.27+j*.18),.20+j*.10,.06);f.scale.set(.70,.58,.65);f.rotation.z=-s*(1.25+j*.12);rod([s*(.21+j*.15),.13+j*.09,.10],[s*(.35+j*.16),.48+j*.08,.10],.011,glow,wing);}
-   const turbine=rig(s*.52,.96,-.42);ring(trim,0,0,0,.20,turbine);ring(glow,0,0,.025,.14,turbine);for(let j=0;j<5;j++){const a=j*Math.PI*2/5;const fin=block(dark,Math.sin(a)*.09,Math.cos(a)*.09,.03,.10,.05,.025,turbine);fin.rotation.z=-a+.5;}motions.push((t,moving,jumping)=>{wing.rotation.y=s*(.17+Math.sin(t*1.4)*.045+(jumping?.15:0));turbine.rotation.z=s*t*(moving?1.2:.45);});}
+   const turbine=rig(s*.52,.96,-.42);ring(trim,0,0,0,.20,turbine);ring(glow,0,0,.025,.14,turbine);for(let j=0;j<5;j++){const a=j*Math.PI*2/5;const fin=block(dark,Math.sin(a)*.09,Math.cos(a)*.09,.03,.10,.05,.025,turbine);fin.rotation.z=-a+.5;}motions.push((t,moving,jumping)=>{wing.rotation.y=s*(.17+Math.sin(t*1.4)*.045+jumping*.15);turbine.rotation.z=s*(t*.45+movingTime*.75);});}
   break;
  }
  case 'verdantdruid':{
@@ -3239,7 +3388,7 @@ function createLegendAuraSkin(T,spec,{mobile=false}={}){
   tailoredCoat();cape(1.02,ivory);shell.metalness=.42;shell.roughness=.26;
   for(const s of[-1,1]){panel([[-.22,.06],[0,.24],[.23,.02],[.16,-.11],[-.18,-.12]],ivory,s*.48,1.28,.02);for(let j=0;j<3;j++){const gem=jewel(s*(.18+j*.13),1.73+j*.06,-.05,.055,.18,sculpt,j%2?trim:glow);gem.rotation.z=-s*(.15+j*.22);}seam([[s*.14,1.08,.49],[s*.27,.90,.45],[s*.19,.69,.43]],trim,.012);}
   const harp=rig(-.76,.57,.04);seam([[0,0,0],[-.31,.27,0],[-.28,.85,0],[-.09,1.15,0],[.21,1.23,0],[.24,.09,0],[0,0,0]],trim,.034,harp);for(let j=0;j<6;j++){const x=-.20+j*.075;rod([x,.16+Math.abs(x)*.35,.015],[x,1.07+(x+.2)*.18,.015],.006,j%2?ivory:glow,harp);}jewel(.21,1.23,0,.065,.12,harp);
-  const baton=rig(.73,.72,.12);rod([0,0,0],[-.17,.66,0],.015,ivory,baton);jewel(-.17,.66,0,.035,.08,baton);motions.push((t,moving)=>baton.rotation.z=Math.sin(t*(moving?2.4:1.2))*.07);
+  const baton=rig(.73,.72,.12);rod([0,0,0],[-.17,.66,0],.015,ivory,baton);jewel(-.17,.66,0,.035,.08,baton);motions.push((t,moving)=>baton.rotation.z=Math.sin(t*1.2+movingTime*1.2)*.07);
   const score=rig(.68,1.54,-.40);for(let j=0;j<3;j++){const n=jewel((j-1)*.19,j*.20,0,.055,.10,score,j%2?trim:glow);n.rotation.z=.3;rod([(j-1)*.19+.04,j*.20,0],[(j-1)*.19+.04,j*.20+.23,0],.012,trim,score);}motions.push(t=>score.position.y=1.54+Math.sin(t*1.1)*.045);break;
  }
  case 'lunamasquerade':{
@@ -3306,7 +3455,13 @@ function createLegendAuraSkin(T,spec,{mobile=false}={}){
    else if(mode>8.5)alpha=(1.-smoothstep(.035,.08,abs(p.y)))*(1.-smoothstep(.20,.48,abs(p.x)));
    alpha*=max(.15,life)*strength*.82;if(alpha<.01)discard;gl_FragColor=vec4(c,alpha);}`});
  const particles=new T.Points(pg,particleMaterial);particles.frustumCulled=false;particles.userData.count=count;aura.add(particles);
- function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0,clock=reduced?0:t;time.value=clock;strength.value=reduced?.48:jumping?1.12:1;for(const motion of motions)motion(clock,moving,jumping);glow.emissiveIntensity=.85+(reduced?0:Math.sin(t*1.8)*.08);}
+ function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0,clock=reduced?0:t;
+  if(clock<lastClock){movingTime=0;moveWeight=0;jumpWeight=0;}
+  const dt=Math.min(.25,Math.max(0,clock-lastClock));lastClock=clock;
+  if(moving)movingTime+=dt;
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-dt*12));
+  jumpWeight+=(Number(!!jumping)-jumpWeight)*(1-Math.exp(-dt*16));
+  time.value=clock;strength.value=reduced?.48:1+jumpWeight*.12;for(const motion of motions)motion(clock,moveWeight,jumpWeight);glow.emissiveIntensity=.85+(reduced?0:Math.sin(t*1.8)*.08);}
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
  update(0);return{group,spec,update,dispose};
 }
@@ -3340,7 +3495,7 @@ function createArenaGiftSkin(T,spec,{mobile=false}={}){
  const geometries=new Set(),materials=new Set(),motions=[],golden=spec.rarity===5;
  const own=g=>(geometries.add(g),g),mat=(color,metal=.6,rough=.32,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness:metal,roughness:rough,emissive:color,emissiveIntensity:emission});materials.add(m);return m;};
  const shell=mat(spec.color),trim=mat(golden?0xe6ba61:0xa1b9cc,.85,.23),dark=mat(0x111d2c,.35,.5),glow=mat(spec.accent,.45,.25,.8),pale=mat(0xebf1ec,.45,.3);
- const box=own(new T.BoxGeometry(1,1,1)),sphere=own(new T.SphereGeometry(1,mobile?12:20,12)),gem=own(new T.OctahedronGeometry(1)),cone=own(new T.ConeGeometry(1,1,6)),torus=own(new T.TorusGeometry(1,.028,6,mobile?32:56));
+ const box=own(createCostumeBlock(T)),sphere=own(new T.SphereGeometry(1,mobile?12:20,12)),gem=own(new T.OctahedronGeometry(1)),cone=own(new T.ConeGeometry(1,1,6)),torus=own(new T.TorusGeometry(1,.028,6,mobile?32:56));
  function part(g,m,x,y,z,sx,sy,sz,parent=group){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.userData.lightCostume=true;parent.add(n);return n;}
  const block=(m,x,y,z,w,h,d,p)=>part(box,m,x,y,z,w,h,d,p);
  const orb=(m,x,y,z,w,h=w,d=w,p)=>part(sphere,m,x,y,z,w,h,d,p);
@@ -3353,7 +3508,7 @@ function createArenaGiftSkin(T,spec,{mobile=false}={}){
  orb(shell,0,.83,-.025,.47,.48,.44);block(trim,0,.82,.414,.5,.25,.06);block(shell,0,.84,.452,.43,.18,.025);jewel(glow,0,.84,.49,.065,.085,.02);
  for(const side of [-1,1]){orb(trim,side*.46,1.15,-.03,.18,.17,.23);orb(shell,side*.47,1.17,.01,.145,.13,.21);for(let i=0;i<3;i++)block(trim,side*.2,.64-i*.07,.36,.2,.025,.06);rod([side*.32,.67,.36],[side*.41,1.1,.28],.012,glow);}
  const collar=ring(trim,0,1.25,-.16,.42);collar.rotation.x=Math.PI/2;
- const cape=rig(0,1.2,-.44);for(let i=0;i<5;i++){const n=block(i%2?shell:dark,(i-2)*.16,-.28,-.04,.17,.76,.045,cape);n.rotation.x=-.12;block(trim,(i-2)*.16,-.66,-.015,.16,.025,.025,cape);}motions.push((t,m)=>cape.rotation.x=Math.sin(t*(m?5:1.6))*(m?.12:.025));
+ const cape=rig(0,1.2,-.44);for(let i=0;i<5;i++){const n=block(i%2?shell:dark,(i-2)*.16,-.28,-.04,.17,.76,.045,cape);n.rotation.x=-.12;block(trim,(i-2)*.16,-.66,-.015,.16,.025,.025,cape);}motions.push((t,m)=>cape.rotation.x=Math.sin(t*1.6+movingTime*3.4)*(.025+m*.095));
  const shape=spec.shape;
  if(['wing','seraph','dragon','comet'].includes(shape)){
   for(const side of [-1,1]){const wing=rig(0,0,0);const count=shape==='seraph'?7:shape==='dragon'?5:3;for(let j=0;j<count;j++)blade(side,j,wing,shape==='dragon'?1.2:1);motions.push(t=>wing.rotation.y=side*(.12+Math.sin(t*1.7)*.06));}
@@ -3385,7 +3540,11 @@ function createArenaGiftSkin(T,spec,{mobile=false}={}){
   const orbit=rig(0,1.2,-.1);for(let i=0;i<6;i++){const a=i*Math.PI/3;jewel(glow,Math.sin(a)*.95,.4*Math.cos(a),Math.cos(a)*.65,.035,.06,.035,orbit);}motions.push(t=>orbit.rotation.y=t*.2);
  }
  let disposed=false;const reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true;
- function update(t,{moving=false}={}){if(disposed)return;t=reduced?0:Number.isFinite(t)?t:0;for(const f of motions)f(t,moving);glow.emissiveIntensity=.75+(reduced?0:Math.sin(t*1.8)*.1);}
+ let lastClock=0,movingTime=0,moveWeight=0;
+ function update(t,{moving=false}={}){if(disposed)return;t=reduced?0:Number.isFinite(t)?t:0;if(t<lastClock){movingTime=0;moveWeight=0;}
+  const dt=Math.max(0,Math.min(.25,t-lastClock));lastClock=t;if(moving)movingTime+=dt;
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-dt*12));
+  for(const f of motions)f(t,moveWeight);glow.emissiveIntensity=.75+(reduced?0:Math.sin(t*1.8)*.1);}
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
  update(0);return{group,spec,update,dispose};
 }
@@ -3405,7 +3564,13 @@ const GIFT_SKINS=Object.freeze([
  ...LEGEND_AURA_SKINS,
  ...ARENA_GIFT_SKINS
 ]);
-function createGiftSkin(T,id,{mobile=false}={}){
+function createGiftSkin(T,id,options={}){
+ const skin=buildGiftSkin(T,id,options);
+ finishCostumeMaterials(T,skin.group);
+ return skin;
+}
+
+function buildGiftSkin(T,id,{mobile=false}={}){
  const spec=GIFT_SKINS.find(s=>s.id===id);if(!spec)throw new Error('Unknown gift skin');
  if(ARENA_GIFT_SKINS.some(s=>s.id===id))return createArenaGiftSkin(T,spec,{mobile});
  if(LEGEND_AURA_SKINS.some(s=>s.id===id))return createLegendAuraSkin(T,spec,{mobile});
@@ -3413,13 +3578,14 @@ function createGiftSkin(T,id,{mobile=false}={}){
  if(EXPANDED_GIFT_SKINS.some(s=>s.id===id))return createExpandedGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),containers=[group],animated=[],uniforms=[];
- let disposed=false,lastTime=0;
+ let disposed=false,lastTime=0,airWeight=0,moveWeight=0;
  const keep=g=>{geometries.add(g);return g;};
  const geo=(key,fn)=>{if(!cache.has(key))cache.set(key,keep(fn()));return cache.get(key);};
  const material=(color,glow=0,metal=.65,rough=.32)=>{const m=new T.MeshStandardMaterial({color,emissive:glow?color:0,emissiveIntensity:glow,metalness:metal,roughness:rough});materials.add(m);return m;};
  const shell=material(spec.color,0,.60,.32),edge=material(id==='celestial'?0xcaa764:id==='boxgod'?0x795332:0x74829b,0,.78,.27),dark=material(0x111625,0,.45,.46),light=material(id==='boxgod'?0xddba83:0xe1eaf0,0,.42,.34),glow=material(spec.accent,1.4,.48,.24);
+ if(id==='boxgod'){shell.userData.costumeFinish='cloth';shell.metalness=.035;shell.roughness=.83;edge.userData.costumeFinish='leather';edge.metalness=.08;edge.roughness=.69;}
  const gold=material(0xd8b15d,0,.82,.25),red=material(0xff3863,1.3),blue=material(0x4d82ff,1.3);
- const box=geo('box',()=>new T.BoxGeometry(1,1,1)),orb=geo('orb',()=>new T.SphereGeometry(1,16,12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),ring=geo('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
+ const box=geo('box',()=>createCostumeBlock(T)),orb=geo('orb',()=>new T.SphereGeometry(1,16,12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),ring=geo('ring',()=>new T.TorusGeometry(1,.025,6,mobile?40:64));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,parent=group,rz=0){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.rotation.z=rz;o.castShadow=false;o.userData.lightCostume=true;parent.add(o);return o;}
  const block=(m,x,y,z,w,h,d,parent=group,rz=0)=>mesh(box,m,x,y,z,w,h,d,parent,rz);
  function branch(x,y,z){const o=new T.Group();o.position.set(x,y,z);group.add(o);containers.push(o);return o;}
@@ -3553,16 +3719,19 @@ function createGiftSkin(T,id,{mobile=false}={}){
   for(const [mat,objects]of batches){if(objects.length<2)continue;const positions=[],normals=[],uvs=[];for(const o of objects){const temp=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();temp.applyMatrix4(o.matrix);for(const name of ['position','normal','uv']){const a=temp.getAttribute(name);const dest=name==='position'?positions:name==='normal'?normals:uvs;if(a)for(let i=0;i<a.array.length;i++)dest.push(a.array[i]);else for(let i=0;i<temp.getAttribute('position').count*(name==='uv'?2:3);i++)dest.push(0);}temp.dispose();parent.remove(o);}const g=keep(new T.BufferGeometry());g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.computeBoundingSphere();mesh(g,mat,0,0,0,1,1,1,parent);}
  }
  function update(seconds,{moving=false,jumping=false}={}){
-  if(disposed)return;const t=Number(seconds)||0;lastTime=t;for(const u of uniforms){u.time.value=t;if(u.strength)u.strength.value=jumping?1.7:1;}
+  if(disposed)return;const t=Number(seconds)||0,dt=Math.max(0,Math.min(.2,t-lastTime));lastTime=t;
+  airWeight+=(Number(!!jumping)-airWeight)*(1-Math.exp(-dt*(jumping?18:11)));
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-dt*12));
+  for(const u of uniforms){u.time.value=t;if(u.strength)u.strength.value=1+.7*airWeight;}
   glow.emissiveIntensity=1.25+.25*Math.sin(t*2.5);if(halo)halo.rotation.z=t*.28;if(emblem)emblem.rotation.z=Math.sin(t*.4)*.08;
-  for(const {node,side}of wings)node.rotation.y=side*(.08+Math.sin(t*1.7)*.05+(moving?.06:0));
+  for(const {node,side}of wings)node.rotation.y=side*(.08+Math.sin(t*1.7)*.05+moveWeight*.06);
   for(const f of floaters){if(f.fixed)f.node.position.set(f.x,f.y+Math.sin(t*2+f.a)*.05,f.z);else{const a=f.a+t*.45;f.node.position.set(Math.cos(a)*f.r,f.y+Math.sin(t*1.7+f.a)*.10,Math.sin(a)*f.r);f.node.rotation.y=-a;}}
-  for(const f of flaps)f.node.rotation.z=f.side*(jumping?1.05:.10+.025*Math.sin(t*2));
+  for(const f of flaps)f.node.rotation.z=f.side*(airWeight*1.05+(1-airWeight)*(.10+.025*Math.sin(t*2)));
   for(const g of glitches){const pulse=Math.sin(Math.floor(t*12+g.seed)*78.23+g.seed*20)>.75;g.node.position.x=g.x+(pulse?.10:0);g.node.position.y=g.y+(pulse?.035:0);g.node.visible=!pulse||Math.sin(t*33+g.seed)>-.15;}
   for(let i=0;i<count;i++){const a=i*2.39996+t*(id==='galaxylord'?.50:.22),r=.53+(i%4)*.1,k=i*3;let y=(i/count*2.35+t*(id==='celestial'||id==='frostemperor'?-.24:.30)+100)%2.35;pos[k]=Math.cos(a)*r;pos[k+1]=y;pos[k+2]=Math.sin(a)*r;}pg.attributes.position.needsUpdate=true;
-  group.updateWorldMatrix(true,false);group.getWorldPosition(world);if(jumping&&!wasJumping)jumpAt=t;wasJumping=jumping;
+  group.updateWorldMatrix(true,false);group.getWorldPosition(world);const takeoff=jumping&&!wasJumping;if(takeoff)jumpAt=t;wasJumping=jumping;
   const j=t-jumpAt;jump.visible=j>=0&&j<.55;if(jump.visible){jump.scale.setScalar(.65+j*.8);jump.rotation.z=t*.7;}
-  if((moving&&t-spawnAt>.1)||(jumping&&j<.06)){spawnAt=t;const s=trailSlots[cursor++%n];s.x=world.x;s.y=world.y+.04;s.z=world.z;s.until=t+.85;if(echoes&&moving){const e=echoSlots[echoCursor++%echoSlots.length];e.world.copy(group.matrixWorld);e.until=t+.42;}}
+  if((moving&&t-spawnAt>=.1)||takeoff){spawnAt=t;const s=trailSlots[cursor++%n];s.x=world.x;s.y=world.y+.04;s.z=world.z;s.until=t+.85;if(echoes&&moving){const e=echoSlots[echoCursor++%echoSlots.length];e.world.copy(group.matrixWorld);e.until=t+.42;}}
   for(let i=0;i<n;i++){const s=trailSlots[i],k=i*3;if(s.until>t){local.set(s.x,s.y,s.z);group.worldToLocal(local);tp[k]=local.x;tp[k+1]=local.y;tp[k+2]=local.z;}else{tp[k]=0;tp[k+1]=-999;tp[k+2]=0;}}tg.attributes.position.needsUpdate=true;
   if(echoes){inverse.copy(group.matrixWorld).invert();for(let i=0;i<echoSlots.length;i++){const e=echoSlots[i],fade=Math.max(0,(e.until-t)/.42);if(fade>0)echoMatrix.multiplyMatrices(inverse,e.world).multiply(bodyOffset);else echoMatrix.makeScale(0,0,0);echoes.setMatrixAt(i,echoMatrix);echoColor.setRGB(fade,fade,fade);echoes.setColorAt(i,echoColor);}echoes.instanceMatrix.needsUpdate=true;echoes.instanceColor.needsUpdate=true;}
  }
@@ -3599,7 +3768,9 @@ function buildLightCostume(THREE,code){
   const material=(c,finish='auto')=>{
     if(finish==='auto')finish=metalColors.has(c)?'metal':(c===0x65e0ec||c===0x9deafa||c===0xbfeeff?'enamel':'fabric');
     const key=c+':'+finish;
-    return materials[key]||(materials[key]=new THREE.MeshStandardMaterial({color:c,roughness:finish==='metal'?.29:finish==='enamel'?.25:finish==='leather'?.58:.87,metalness:finish==='metal'?.7:finish==='enamel'?.22:.015}));
+    if(materials[key])return materials[key];
+    const material=new THREE.MeshStandardMaterial({color:c,roughness:finish==='metal'?.29:finish==='enamel'?.25:finish==='leather'?.58:.87,metalness:finish==='metal'?.7:finish==='enamel'?.22:.015});
+    material.userData.costumeFinish=finish;return materials[key]=material;
   };
   const add=(k,c,x,y,z,sx,sy,sz,parent=root,finish='auto')=>{const m=new THREE.Mesh(shape(k),material(c,finish));m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=false;m.userData.lightCostume=true;parent.add(m);return m;};
   const wear=(k,c,x,y,z,sx,sy,sz,finish='fabric')=>add(k,c,x,y,z,sx,sy,sz,root,finish);
@@ -3915,6 +4086,7 @@ function buildLightCostume(THREE,code){
     }
   };
   batch(root);const used=new Set(),usedMaterials=new Set();root.traverse(m=>{if(m.isMesh){used.add(m.geometry);usedMaterials.add(m.material);}});for(const g of Object.values(geometry))retired.add(g);for(const g of retired)if(!used.has(g))g.dispose();for(const m of Object.values(materials))if(!usedMaterials.has(m))m.dispose();
+  finishCostumeMaterials(THREE,root);
   return root;
 }
 function applyLightJump(root,legs,startedAt,stamp,allowed,applyRootLift=true){
@@ -3948,15 +4120,17 @@ function updateWalkCycle(root,legs,body,travel,dt,walking,allowed=true){
  data.walkLegRest??=legs.map(leg=>({x:leg.position.x,y:leg.position.y,z:leg.position.z,rx:leg.rotation.x,ry:leg.rotation.y,rz:leg.rotation.z,sy:leg.scale.y,half:(Number(leg.geometry?.parameters?.radius)||.17)+(Number(leg.geometry?.parameters?.length)||.24)/2}));
  legs.forEach((leg,index)=>{
   const rest=data.walkLegRest[index],u=(phase/(Math.PI*2)+index*.5)%1,swing=Math.max(0,(u-stance)/(1-stance));
-  const offset=(u<stance?stride*(stance/2-u):stride*stance*(-.5+swing*swing*(3-2*swing)))*w;
-  const lift=Math.sin(swing*Math.PI)*.10*w,dx=(data.footDirectionX||0)*offset,dz=(data.footDirectionZ??1)*offset,vertical=rest.half*2-lift;
+  // Match the planted foot's velocity at both ends of the swing.
+  const swingEase=swing*swing*(3-2*swing);
+  const offset=stride*(u<stance?stance/2-u:swingEase-stance/2-(1-stance)*swing)*w;
+  const lift=Math.sin(swing*Math.PI)**2*.11*w,dx=(data.footDirectionX||0)*offset,dz=(data.footDirectionZ??1)*offset,vertical=rest.half*2-lift;
   leg.position.set(rest.x+dx/2,rest.y+lift/2,rest.z+dz/2);
   leg.rotation.set(rest.rx-Math.atan2(dz,vertical),rest.ry,rest.rz+Math.atan2(dx,Math.hypot(vertical,dz)));
   leg.scale.y=rest.sy*Math.hypot(dx,dz,vertical)/(rest.half*2);
  });
  const arms=data.walkArms||data.arms||[];
  data.walkArmRest??=arms.map(arm=>arm.rotation.clone());
- arms.forEach((arm,index)=>{arm.rotation.copy(data.walkArmRest[index]);arm.rotation.x-=Math.sin(phase+index*Math.PI)*.035*w;});
+ arms.forEach((arm,index)=>{arm.rotation.copy(data.walkArmRest[index]);arm.rotation.x+=Math.cos(phase+index*Math.PI)*.095*w*(data.footDirectionZ??1);});
  if(body){data.walkBodyY??=body.position.y;data.walkBodyRotX??=body.rotation.x;data.walkBodyRotY??=body.rotation.y;data.walkBodyRotZ??=body.rotation.z;body.position.y=data.walkBodyY;body.rotation.set(data.walkBodyRotX,data.walkBodyRotY,data.walkBodyRotZ);}
  for(const [part,key]of [[data.walkPack,"pack"],[data.walkVisor,"visor"]])if(part){const restKey="walkFixed"+key;data[restKey]??=part.rotation.clone();part.rotation.copy(data[restKey]);}
  if(data.walkShine&&data.walkVisor)data.walkShine.rotation.copy(data.walkVisor.rotation);
@@ -3972,7 +4146,7 @@ function animateCompanionGait(pet,travel,dt,moving,stamp){
  const rig=pet.userData.motionRig;if(!rig)return 0;const step=Math.min(.05,Math.max(0,dt));
  rig.weight+=(Number(moving)-rig.weight)*(1-Math.exp(-step*13));const w=rig.weight;
  rig.phase+=Math.max(0,travel)*16;const phase=rig.phase;
- for(const [i,part] of rig.legs.entries()){const p=phase+(part.side<0?Math.PI:0)+(rig.kind==="crab"?i*.8:0),swing=Math.sin(p),lift=Math.max(0,swing);part.node.rotation[part.axis]=part.rotation[part.axis]+swing*(rig.kind==="crab"?.24:.5)*w;part.node.position.y=part.node.userData.groundRestY??part.node.position.y;part.node.userData.groundRestY??=part.node.position.y;part.node.position.y+=lift*.027*w;}
+ for(const [i,part] of rig.legs.entries()){const p=phase+(part.side<0?Math.PI:0)+(rig.kind==="crab"?i*.8:0),swing=Math.sin(p),lift=Math.max(0,swing)**2;part.node.rotation[part.axis]=part.rotation[part.axis]+swing*(rig.kind==="crab"?.24:.5)*w;part.node.position.y=part.node.userData.groundRestY??part.node.position.y;part.node.userData.groundRestY??=part.node.position.y;part.node.position.y+=lift*.027*w;}
  const airborne=["bee","parrot","owl","pbat"].includes(rig.kind),wingTime=stamp*(rig.kind==="bee"?.055:.018);
  for(const part of rig.wings){const idle=part.idle??(airborne?.22:0),cycle=part.idle!==undefined?stamp*(part.speed||.004)+(part.phase||0):(airborne?wingTime:phase);part.node.rotation[part.axis]=part.rotation[part.axis]+Math.sin(cycle)*part.side*(part.amplitude??(airborne?.45:.25))*(idle+(1-idle)*w);}
  for(const part of rig.wheels)part.node.rotation[part.axis]+=Math.max(0,travel)/.075;
@@ -3982,8 +4156,10 @@ function animateCompanionGait(pet,travel,dt,moving,stamp){
  for(const part of rig.heads||[]){part.node.rotation[part.axis]=part.rotation[part.axis]+idleLook*.16*(1-w)+Math.sin(phase*.5)*.05*w;part.node.rotation.x=part.rotation.x+(sniff*.13+Math.sin(idleTime*1.9)*.016)*(1-w)+Math.sin(phase)*.025*w;}
  for(const part of rig.rotors||[])part.node.rotation[part.axis]=part.rotation[part.axis]+stamp*.032*part.side;
  for(const part of rig.bodies||[]){const breath=Math.sin(stamp*.0025)*.015*(1-w),squish=rig.softBody?Math.sin(phase)*.06*w:0;part.node.scale.set(part.scale.x*(1-squish*.4),part.scale.y*(1+breath+squish),part.scale.z*(1-squish*.4));}
- const blink=(stamp+personality*380)%4700,blinkU=Math.max(0,1-Math.abs(blink-4565)/95),eyeScale=1-.93*Math.sin(blinkU*Math.PI/2);for(const eye of rig.eyes)eye.node.scale.y=eye.scaleY*eyeScale;
- const soft=["slime","pjel","pfrg","rabbit"].includes(rig.kind),bounce=soft?Math.max(0,Math.sin(phase))*.055*w:Math.abs(Math.sin(phase))*.012*w;
+ const blink=(stamp+personality*380)%4700;
+ const blinkU=Math.max(0,Math.min(1,(blink-4480)/65,(4670-blink)/125));
+ const eyeScale=1-.93*blinkU*blinkU*(3-2*blinkU);for(const eye of rig.eyes)eye.node.scale.y=eye.scaleY*eyeScale;
+ const soft=["slime","pjel","pfrg","rabbit"].includes(rig.kind),bounce=soft?Math.max(0,Math.sin(phase))**2*.055*w:Math.sin(phase)**2*.012*w;
  const happyLeft=(Number(pet.userData.happyUntil)||0)-stamp,happy=happyLeft>0?Math.sin(Math.min(1,happyLeft/2200)*Math.PI):0;
  if(happy){for(const part of rig.tails)part.node.rotation[part.axis]+=Math.sin(stamp*.025)*.55*happy;for(const part of rig.ears)part.node.rotation[part.axis]+=part.side*.22*happy;for(const part of rig.heads||[])part.node.rotation.x-=.14*happy;}
  return Math.max(0,Math.sin(stamp*.013))*.16*happy+bounce+(rig.floating?Math.sin(stamp*.0022)*.012:0);
@@ -4041,11 +4217,14 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
     const lobbyLivePoseFields=['x','z','yaw','lobbyY','walking','lobbyVehicle'];
     function mergeLobbyVisualState(id,incoming){
       const current=lobbyVisualStates.get(id),live=lobbyLivePoseStamps.get(id),stamp=Number(incoming?.updatedAt)||0;
-      if(current&&live&&stamp<live){
+      if(current&&live&&stamp<=live){
         const merged={...current,...incoming};
         for(const field of lobbyLivePoseFields)if(Object.prototype.hasOwnProperty.call(current,field))merged[field]=current[field];
         merged.updatedAt=current.updatedAt;lobbyVisualStates.set(id,merged);
-      }else lobbyVisualStates.set(id,incoming);
+      }else{
+        const row={...current,...incoming};
+        lobbyVisualStates.set(id,row);
+      }
     }
     function applyLobbyLivePoses(rows){
       if(!rows||typeof rows!=='object'||Array.isArray(rows))return;
@@ -4053,8 +4232,9 @@ function advanceCompanionFollower(owner,pet,dt,stamp,visible=true){
         const current=lobbyVisualStates.get(id);
         if(id===visualSelfUid||!current||current.online===false||!pose||typeof pose!=='object')continue;
         const stamp=Number(pose.updatedAt),x=Number(pose.x),z=Number(pose.z),yaw=Number(pose.yaw),height=Number(pose.lobbyY);
-        if(!Number.isFinite(stamp)||stamp<=0||stamp<(lobbyLivePoseStamps.get(id)||0)||![x,z,yaw,height].every(Number.isFinite)||Math.abs(x)>4096||Math.abs(z)>4096||height< -2||height>60)continue;
-        const patch={x,z,yaw,lobbyY:height,walking:pose.walking===true,lobbyVehicle:pose.lobbyVehicle===true,updatedAt:stamp};
+        if(!Number.isFinite(stamp)||stamp<=0||stamp<Math.max(lobbyLivePoseStamps.get(id)||0,Number(current.updatedAt)||0)||![x,z,yaw,height].every(Number.isFinite)||Math.abs(x)>4096||Math.abs(z)>4096||height< -2||height>60)continue;
+        const patch={x,z,yaw,lobbyY:height,walking:pose.walking===true,updatedAt:stamp};
+        if(typeof pose.lobbyVehicle==='boolean')patch.lobbyVehicle=pose.lobbyVehicle;
         Object.assign(current,patch);lobbyLivePoseStamps.set(id,stamp);
       }
     }
@@ -4775,12 +4955,15 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
  let riding=false,speed=0,steer=0,verticalSpeed=0,actionKey='',lastSent=-Infinity,cameraWasDriving=false,disposed=false;
  const halfWidth=.91,halfLength=1.72;
  const hud=document.createElement('div');hud.id='lobbyRaceCarHud';hud.hidden=true;hud.style.cssText='position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);padding:8px 14px;border:1px solid #8ac7d26b;border-radius:12px;background:#091b29e8;color:#e8faff;font:700 13px system-ui;text-align:center;pointer-events:none;z-index:20';document.body.append(hud);
- const rig=root=>({root,wheels:root.children.filter(n=>n.name.startsWith('race-wheel-')),wheel:root.getObjectByName('race-steering'),previous:null,phase:0});
+ const rig=root=>({root,wheels:root.children.filter(n=>n.name.startsWith('race-wheel-')),wheel:root.getObjectByName('race-steering'),previous:null,phase:0,steering:0});
  const ownRig=rig(parked),outPosition=new THREE.Vector3(),camTarget=new THREE.Vector3();
  const others=()=>[...rows()].filter(([id,p])=>id!==self()&&p.online!==false&&p.lobbyVehicle===true);
  const parkedVisible=()=>!riding&&others().length===0;
  function setCollider(visible){const i=obstacles.indexOf(parkedObstacle);if(visible&&i<0)obstacles.push(parkedObstacle);if(!visible&&i>=0)obstacles.splice(i,1);}
- function near(){const p=player.root.position;return parkedVisible()&&p.x> -8.3&&p.z>10.4&&Math.hypot(p.x+9.45,p.z-11.95)<3&&p.y<.5&&!locked();}
+ function near(){
+  const p=player.root.position;
+  return parkedVisible()&&p.x>=-10&&p.z>=10.25&&Math.hypot(p.x+7.65,p.z-11.95)<=2.85&&p.y<.5&&!locked();
+ }
  function announce(notice){const state={near:near(),riding},key=JSON.stringify(state);if(key!==actionKey||notice){actionKey=key;parent.postMessage({type:'lobby-car-state',...state,...(notice?{notice}:{})},'*');}}
  function send(force=false){const time=performance.now();if(!force&&time-lastSent<1000/60)return;lastSent=time;const p=player.root.position;parent.postMessage({type:'lobby-position',gameArea:'lobby',x:p.x,z:p.z,lobbyY:Math.max(0,p.y),yaw:player.root.rotation.y,walking:riding&&Math.abs(speed)>.08,lobbyVehicle:riding},'*');}
  function canOccupy(x,z,y,yaw){
@@ -4813,9 +4996,23 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
  }
  function toggle(){
   if(riding)return leave();if(!near()){announce('occupied');return false;}
-  parked.getWorldPosition(outPosition);const yaw=Math.PI/2;
-  if(!canOccupy(outPosition.x,outPosition.z,0,yaw)){announce('blocked');return false;}
-  clearInput();riding=true;speed=steer=verticalSpeed=0;scene.add(parked);parked.matrixAutoUpdate=true;player.root.position.set(outPosition.x,0,outPosition.z);player.root.rotation.y=yaw;player.root.userData.lobbyHeightInitialized=true;
+  parked.getWorldPosition(outPosition);
+  const exits=[
+   {x:outPosition.x+3,z:outPosition.z,yaw:Math.PI},
+   {x:outPosition.x+2.25,z:outPosition.z-.25,yaw:Math.PI},
+   {x:outPosition.x+1,z:outPosition.z,yaw:Math.PI/2},
+   {x:outPosition.x,z:outPosition.z,yaw:Math.PI/2}
+  ];
+  const clearExit=exits.find(({x,z,yaw})=>{
+    for(let ahead=0;ahead<=2.4;ahead+=.3){
+      if(!canOccupy(x+Math.sin(yaw)*ahead,z+Math.cos(yaw)*ahead,0,yaw))return false;
+    }
+    return true;
+  });
+  const exit=clearExit||exits.find(({x,z,yaw})=>canOccupy(x,z,0,yaw));
+  if(!exit){announce('blocked');return false;}
+  clearInput();riding=true;speed=steer=verticalSpeed=0;scene.add(parked);parked.matrixAutoUpdate=true;
+  player.root.position.set(exit.x,0,exit.z);player.root.rotation.y=exit.yaw;player.root.userData.lobbyHeightInitialized=true;
   const state=rows().get(self());if(state){state.seated=false;state.sitting=false;state.seatId=null;}setCollider(false);send(true);announce();return true;
  }
  function jump(){if(!riding)return false;if(locked())return true;const p=player.root.position,support=groundAt(p.x,p.z,p.y+.05);if(Math.abs(verticalSpeed)<.01&&p.y<=support+.06)verticalSpeed=8.2;return true;}
@@ -4847,8 +5044,25 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
   const active=others(),wanted=new Set(active.map(([id])=>id));setCollider(parkedVisible());
   parked.visible=riding||active.length===0;
   if(riding){parked.position.copy(player.root.position);parked.rotation.set(Math.max(-.09,Math.min(.09,-verticalSpeed*.009)),player.root.rotation.y,steer*speed*.012,'YXZ');updateRig(ownRig,dt,speed,steer,player.root.position.y);}
-  for(const [id,p]of active){const crew=crews().get(id);if(!crew||!crew.root.visible)continue;let r=remote.get(id);if(!r){r=rig(template.clone(true));r.root.name='remote-race-car-'+id;scene.add(r.root);remote.set(id,r);}r.root.visible=true;r.root.position.copy(crew.root.position);r.root.rotation.set(0,crew.root.rotation.y,0);const previous=r.previous,distance=previous?Math.hypot(r.root.position.x-previous.x,r.root.position.z-previous.z):0;updateRig(r,dt,Math.min(10,distance/Math.max(.001,dt)),0,r.root.position.y);r.previous={x:r.root.position.x,z:r.root.position.z};}
-  for(const [id,r]of remote)if(!wanted.has(id)||!crews().has(id)){r.root.removeFromParent();remote.delete(id);}
+  for(const [id,row]of active){
+   const crew=crews().get(id);
+   let r=remote.get(id);
+   if(!r){r=rig(template.clone(true));r.root.name='remote-race-car-'+id;r.root.matrixAutoUpdate=true;scene.add(r.root);remote.set(id,r);}
+   const followCrew=crew?.root.visible&&Math.hypot(crew.root.position.x-row.x,crew.root.position.z-row.z)<2;
+   const p=r.root.position;
+   if(followCrew)p.copy(crew.root.position);
+   else p.set(row.x,Number(row.lobbyY)||0,row.z);
+   const yaw=followCrew?crew.root.rotation.y:(Number(row.yaw)||0),previous=r.previous;
+   r.root.visible=true;
+   const dx=previous?p.x-previous.x:0,dz=previous?p.z-previous.z:0;
+   const forward=dx*Math.sin(yaw)+dz*Math.cos(yaw);
+   const velocity=Math.hypot(dx,dz)<1.5?Math.max(-3.2,Math.min(8.5,forward/Math.max(.001,dt))):0;
+   const yawChange=previous?Math.atan2(Math.sin(yaw-previous.yaw),Math.cos(yaw-previous.yaw)):0;
+   const turning=Math.abs(velocity)>.2?-yawChange/(Math.max(.001,dt)*Math.min(1.6,Math.abs(velocity)*.5)*Math.sign(velocity)):0;
+   r.steering+=(Math.max(-.5,Math.min(.5,turning))-r.steering)*(1-Math.exp(-dt*12));
+   r.root.rotation.set(0,yaw,r.steering*velocity*.012,'YXZ');
+   updateRig(r,dt,velocity,r.steering,p.y);r.previous={x:p.x,z:p.z,yaw};}
+  for(const [id,r]of remote)if(!wanted.has(id)){r.root.removeFromParent();remote.delete(id);}
  }
  function beforeRender(){
   const saved=[];for(const [id,crew]of [[self(),player],...crews()]){
@@ -4869,7 +5083,17 @@ function installLobbyRaceCar({THREE,scene,garage,parked,obstacles,parkedObstacle
   outPosition.x=Math.max(-11.32,Math.min(11.65,outPosition.x));outPosition.z=Math.max(-5.6,Math.min(13.65,outPosition.z));
   camera.position.lerp(outPosition,cameraWasDriving?1-Math.exp(-7*dt):1);camTarget.set(p.x+Math.sin(yaw)*1.9,p.y+.8,p.z+Math.cos(yaw)*1.9);camera.up.set(0,1,0);camera.lookAt(camTarget);player.root.visible=!first;cameraWasDriving=true;return true;
  }
- function onMessage(event){if(event.source!==parent)return;const d=event.data;if(d?.type==='lobby-car-toggle')toggle();if(['lobby-reset','lobby-return-reset'].includes(d?.type)||d?.type==='lobby-render-state'&&!d.active){const p=player.root.position.clone();leave(true,false);player.root.position.copy(p);hud.hidden=true;for(const r of remote.values())r.root.removeFromParent();remote.clear();actionKey='';}}
+ function onMessage(event){
+  if(event.source!==parent)return;
+  const d=event.data;
+  if(d?.type==='lobby-car-toggle')toggle();
+  if(d?.type==='lobby-render-state'&&!d.active&&document.hidden){speed=steer=0;return;}
+  if(['lobby-reset','lobby-return-reset'].includes(d?.type)||d?.type==='lobby-render-state'&&!d.active){
+   const p=player.root.position.clone();leave(true,false);player.root.position.copy(p);hud.hidden=true;
+   for(const r of remote.values())r.root.removeFromParent();
+   remote.clear();actionKey='';
+  }
+ }
  const pause=()=>{speed=0;clearInput();};window.addEventListener('message',onMessage);window.addEventListener('blur',pause);document.addEventListener('visibilitychange',pause);
  return{tick,jump,toggle,leave,near,visuals,beforeRender,updateCamera,canOccupy,get riding(){return riding;},get speed(){return speed;},dispose(){if(disposed)return;disposed=true;leave(true,false);window.removeEventListener('message',onMessage);window.removeEventListener('blur',pause);document.removeEventListener('visibilitychange',pause);hud.remove();for(const r of remote.values())r.root.removeFromParent();remote.clear();}};
 }
@@ -7019,7 +7243,11 @@ function createSoccerSecretFX(THREE,root){
  }
  return {update(g,players,time,ball){
   if(disposed)return;
-  group.visible=soccerSecretActive(g);if(!group.visible){clear();match='';return;}
+  if(!soccerSecretActive(g)){
+   if(group.visible){group.visible=false;clear();match='';}
+   return;
+  }
+  group.visible=true;
   const identity=g.id||g.startAt||'';if(identity!==match){clear();match=identity;}
   updateTrail(g,time,ball);ultimateFX.update(g,players,time,ball);
   for(const e of effects.values())e.node.visible=false;
@@ -7115,9 +7343,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   const staminaFill=document.createElement('div');staminaFill.style.cssText='height:100%;border-radius:4px;transform-origin:left;background:linear-gradient(90deg,#39bcac,#b8ffe3)';staminaGauge.append(staminaFill);document.body.append(staminaGauge);
   const staminaPoint=new THREE.Vector3();
   function updateStaminaGauge(){
+    if(!enabled||area()!=='soccer'){if(!staminaGauge.hidden)staminaGauge.hidden=true;return;}
     const energy=rules.dashStatus(state,uid,now()),g=state?.soccer;
     staminaPoint.copy(player.root.position).project(camera);
-    staminaGauge.hidden=!enabled||area()!=='soccer'||rules.active(state?.tag)||!['idle','playing'].includes(g?.status)||!rules.live(roster[uid])||g?.status==='playing'&&g.members?.[uid]===undefined||!energy.running&&energy.fraction>=1||Math.abs(staminaPoint.x)>1||Math.abs(staminaPoint.y)>1||Math.abs(staminaPoint.z)>1;
+    staminaGauge.hidden=rules.active(state?.tag)||!['idle','playing'].includes(g?.status)||!rules.live(roster[uid])||g?.status==='playing'&&g.members?.[uid]===undefined||!energy.running&&energy.fraction>=1||Math.abs(staminaPoint.x)>1||Math.abs(staminaPoint.y)>1||Math.abs(staminaPoint.z)>1;
     if(staminaGauge.hidden)return;
     staminaGauge.style.left=((staminaPoint.x+1)*innerWidth/2)+'px';staminaGauge.style.top=((1-staminaPoint.y)*innerHeight/2+10)+'px';
     staminaGauge.dataset.mode=energy.exhausted?'empty':energy.running?'running':'recovering';
@@ -7159,8 +7388,26 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   for(const x of [-17.9,-13.1]){const rail=box(survival,x,4.5,7,.08,.08,10.65,'#d6be91');rail.rotation.x=-Math.atan2(7,8);}
   sign(survival,'観戦席 · 階段 →',-25,7.025,12.6,5).rotation.x=-Math.PI/2;
   const soccer=roots.soccer;
-  box(soccer,24.5,-.14,10.25,25,.28,35.5,'#183340');box(soccer,23,.012,10,F.right-F.left,.025,F.far-F.near,'#26744d');
-  for(let i=0;i<15;i++)box(soccer,23,.026,F.near+1+i*2,F.right-F.left,.012,1,'#2b8056');
+  box(soccer,24.5,-.14,10.25,25,.28,35.5,'#183340');
+  // Bake the mowing lanes and blades into one repeating patch of turf.
+  const turfCanvas=document.createElement('canvas');turfCanvas.width=256;turfCanvas.height=128;
+  const turfCtx=turfCanvas.getContext('2d');
+  for(let row=0;row<2;row++){
+    const fill=turfCtx.createLinearGradient(0,row*64,0,(row+1)*64);
+    fill.addColorStop(0,row?'#317d57':'#296e4b');fill.addColorStop(1,row?'#36865d':'#2c754e');
+    turfCtx.fillStyle=fill;turfCtx.fillRect(0,row*64,256,64);
+  }
+  let grassSeed=37;
+  const grassRandom=()=>((grassSeed=Math.imul(grassSeed,1664525)+1013904223>>>0)/4294967296);
+  for(let i=0;i<3800;i++){
+    const x=grassRandom()*256,y=grassRandom()*128;
+    turfCtx.strokeStyle=i%2?'#d0eca329':'#153e332b';turfCtx.beginPath();turfCtx.moveTo(x,y);
+    turfCtx.lineTo(x+(y<64?1:-1),y-1.5-grassRandom()*2.5);turfCtx.stroke();
+  }
+  const turfMap=new THREE.CanvasTexture(turfCanvas);turfMap.colorSpace=THREE.SRGBColorSpace;
+  turfMap.wrapS=turfMap.wrapT=THREE.RepeatWrapping;turfMap.repeat.set(5,15);turfMap.anisotropy=4;
+  const turf=new THREE.Mesh(unitBox,new THREE.MeshStandardMaterial({map:turfMap,roughness:.94,metalness:0}));
+  turf.name='soccer-turf';turf.position.set(23,.012,10);turf.scale.set(F.right-F.left,.025,F.far-F.near);turf.receiveShadow=true;soccer.add(turf);
   const line=(x,z,w,d)=>box(soccer,x,.043,z,w,.014,d,'#e8f4df');
   for(const x of [F.left,F.right])line(x,10,.08,F.far-F.near);for(const z of [F.near,F.far,10])line(23,z,F.right-F.left,.08);
   const circle=new THREE.Mesh(new THREE.TorusGeometry(2,.035,5,48),material('#eef8e8'));circle.rotation.x=-Math.PI/2;circle.position.set(23,.055,10);soccer.add(circle);
@@ -7170,6 +7417,8 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     const post=new THREE.Mesh(new THREE.CylinderGeometry(F.postRadius,F.postRadius,delta.length(),10),material('#f3f4ed'));
     post.name='soccer-goal-frame';post.userData.goalTeam=segment[2]<10?0:1;post.position.copy(from).add(to).multiplyScalar(.5);post.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());post.userData.goalRestX=post.position.x;soccer.add(post);
   }
+  const tilePoints=Array.from({length:tiles.count},(_,i)=>rules.tilePoint(i));
+  const tileFalls=new Float64Array(tiles.count).fill(-1),tileWarnings=new Int8Array(tiles.count).fill(-1);
   const goalNets=[];
   for(const z of [F.near,F.far]){
     const dir=z===F.near?-1:1,back=z+dir*F.goalDepth,l=23-F.goal/2,r=23+F.goal/2,h=F.goalHeight,vertices=[];
@@ -7185,18 +7434,33 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     goalNets.push({net,rest:new Float32Array(vertices),dir,z,back,l,r,h});
     line(19,z===F.near?F.near+2.5:F.far-2.5,.06,5);line(27,z===F.near?F.near+2.5:F.far-2.5,.06,5);line(23,z===F.near?F.near+5:F.far-5,8,.06);
   }
+  const goalParts=soccer.children.filter(n=>n.userData.goalTeam!==undefined);
   function animateGoalNets(t){
     const goal=state?.soccer?.lastGoal;
-    for(const {net,rest,dir,l,r,h}of goalNets){
-      const age=goal?(t-goal.at)/1000-(F.goalDepth-F.radius)/Math.max(4,goal.speed||10):-1;
-      const hit=goal&&(goal.team===0?1:-1)===dir&&age>=0&&age<2,positions=net.geometry.attributes.position;
-      if(!hit&&!net.userData.moving)continue;
-      for(let i=0;i<rest.length;i+=3){
-        const x=rest[i],y=rest[i+1],z=rest[i+2],edge=Math.max(0,Math.sin(Math.PI*(x-l)/(r-l))*Math.sin(Math.PI*y/h));
-        const distance=Math.hypot(x+net.position.x-(goal?.x??23),y-(goal?.y??1)),wave=hit?.62*Math.exp(-age*3.2)*Math.sin(age*18-distance*1.4)*Math.exp(-distance*.45)*edge:0;
-        positions.array[i]=x;positions.array[i+1]=y;positions.array[i+2]=z+dir*wave;
+    const age=goal?(t-goal.at)/1000-(F.goalDepth-F.radius)/Math.max(4,goal.speed||10):-1;
+    for(const entry of goalNets){
+      const {net,rest,dir,l,r,h}=entry,positions=net.geometry.attributes.position;
+      const hit=goal&&(goal.team===0?1:-1)===dir&&age>=0&&age<2;
+      if(!hit){
+        if(net.userData.moving){positions.array.set(rest);positions.needsUpdate=true;net.userData.moving=false;}
+        continue;
       }
-      positions.needsUpdate=true;net.userData.moving=hit;
+      const hitX=(goal.x??23)-net.position.x,hitY=goal.y??1;
+      if(hitX!==entry.hitX||hitY!==entry.hitY){
+        entry.hitX=hitX;entry.hitY=hitY;
+        const wave=entry.wave??=new Float32Array(positions.count*2);
+        for(let i=0;i<positions.count;i++){
+          const x=rest[i*3],y=rest[i*3+1],d=Math.hypot(x-hitX,y-hitY);
+          const edge=Math.max(0,Math.sin(Math.PI*(x-l)/(r-l))*Math.sin(Math.PI*y/h));
+          const amplitude=dir*.62*Math.exp(-d*.45)*edge;
+          wave[i*2]=amplitude*Math.cos(d*1.4);wave[i*2+1]=amplitude*Math.sin(d*1.4);
+        }
+      }
+      const decay=Math.exp(-age*3.2),sine=decay*Math.sin(age*18),cosine=decay*Math.cos(age*18);
+      for(let i=0;i<positions.count;i++){
+        positions.array[i*3+2]=rest[i*3+2]+entry.wave[i*2]*sine-entry.wave[i*2+1]*cosine;
+      }
+      positions.needsUpdate=true;net.userData.moving=true;
     }
   }
   box(soccer,36.8,.55,10.25,.16,1.1,35.5,'#385a68');
@@ -7204,7 +7468,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   for(const z of [-7.4,27.8])box(soccer,24.5,.55,z,24.6,1.1,.16,'#385a68');
   sign(soccer,'FUTSAL ARENA',23,3,-7.35,9);
   const pitchObjects=[...soccer.children].map(n=>({n,p:n.position.clone(),s:n.scale.clone()}));
+  let lastPitchWidth=0,lastPitchLength=0;
   function resizePitch(){
+    if(F.width===lastPitchWidth&&F.length===lastPitchLength)return;
+    lastPitchWidth=F.width;lastPitchLength=F.length;
    const sx=F.width/20,sz=F.length/30;
    for(const {n,p,s}of pitchObjects){
     if(n.name==='soccer-wall-before-door'){n.position.z=(F.minZ+.1+.6)/2;n.scale.z=.6-(F.minZ+.1);continue;}
@@ -7249,6 +7516,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     if(Math.hypot(player.root.position.x-item.x,player.root.position.z-item.z)>3||!info.stationEnabled)return;
     event.preventDefault();event.stopPropagation();parent.postMessage({type:'lobby-games-station',station:info.station},'*');
   },{passive:false});
+  let stationsDirty=true;
   function updateStations(){const playing=rules.active(state?.soccer),options=state?.soccer?.botOptions||{blue:1,red:1};
     const bots=Object.values(state?.soccer?.bots||{}),counts=playing?[0,1].map(team=>bots.filter(p=>p.online!==false&&p.team===team).length):[options.enabled===false?0:options.blue,options.enabled===false?0:options.red];
     botDisplayCounts.forEach((label,i)=>label.userData.setText(String(counts[i])));
@@ -7264,6 +7532,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
   function teleport(x,y,z){player.root.position.set(x,y,z);player.root.userData.lobbyHeightInitialized=true;clearMotion();parent.postMessage({type:'lobby-position',gameArea:localArea,x,z,lobbyY:y,yaw:player.root.rotation.y,walking:false},'*');}
   function exit(){staminaGauge.hidden=true;const a=area();localArea='lobby';if(a==='survival')teleport(-9.5,0,-2.3);else if(a==='soccer')teleport(9.5,0,2.1);previousX=player.root.position.x;}
   let pressIntent=false,dashIntent=null,aimIntent={active:false},soccerCamera='length',cameraChanged=false;
+  const cameraFocus=new THREE.Vector3(),rollAxis=new THREE.Vector3(),spinAxis=new THREE.Vector3(0,1,0);
   function setSoccerCamera(mode){if(['length','side','third'].includes(mode)&&soccerCamera!==mode){soccerCamera=mode;cameraChanged=true;}}
   window.addEventListener('message',event=>{
     if(event.source!==parent)return;const data=event.data;
@@ -7277,7 +7546,7 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     if(data?.type!=='lobby-games-state')return;
     enabled=data.enabled===true;
     if(!enabled){staminaGauge.hidden=true;pressIntent=false;dashIntent=null;aimIntent={active:false};exit();state=null;roots.survival.visible=roots.soccer.visible=false;return;}
-    setSoccerCamera(data.soccerCamera);state=data.state;rules.setSoccerPitch(state?.soccer);resizePitch();uid=data.uid||uid;host=data.host||'';roster=soccerRoster(state?.soccer,data.players||{});offset=Number(data.serverNow)-Date.now();
+    setSoccerCamera(data.soccerCamera);stationsDirty=true;state=data.state;rules.setSoccerPitch(state?.soccer);resizePitch();uid=data.uid||uid;host=data.host||'';roster=soccerRoster(state?.soccer,data.players||{});offset=Number(data.serverNow)-Date.now();
     const a=area(),g=state?.[a];
     if(g?.id&&rules.active(g)&&g.members?.[uid]!==undefined&&roundSeen!==g.id){
       roundSeen=g.id;eliminatedSeen=finishedSeen='';
@@ -7527,11 +7796,33 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
     }
     camera.updateMatrixWorld();updateStaminaGauge();
     if(roots.survival.visible){
-      for(let i=0;i<56;i++){const p=rules.tilePoint(i),until=state?.survival?.tiles?.[i],drop=rules.active(state?.survival)&&until&&until<=t;dummy.position.set(p.x,drop?-10:2.85,p.z);dummy.scale.setScalar(drop?.001:1);dummy.updateMatrix();tiles.setMatrixAt(i,dummy.matrix);tileColor.set(until&&rules.active(state?.survival)?'#e99745':(i+Math.floor(i/8))%2?'#3b9399':'#64b7ac');tiles.setColorAt(i,tileColor);}tiles.instanceMatrix.needsUpdate=true;if(tiles.instanceColor)tiles.instanceColor.needsUpdate=true;tiles.computeBoundingSphere();
+      const active=rules.active(state?.survival),reduced=window.__spaceMotionPreference?.matches;
+      let matricesChanged=false,colorsChanged=false;
+      for(let i=0;i<tilePoints.length;i++){
+        const until=active&&state.survival.tiles?.[i],warning=Number(!!until);
+        const fall=until?(reduced?Number(t>=until):Math.max(0,Math.min(1,(t-until)/560))):0;
+        if(tileFalls[i]!==fall){
+          const p=tilePoints[i];
+          dummy.position.set(p.x,2.85-12*fall*fall,p.z);
+          dummy.rotation.z=fall*fall*((i%2?1:-1)*.26);
+          dummy.scale.setScalar(fall>=1?.001:1);
+          dummy.updateMatrix();tiles.setMatrixAt(i,dummy.matrix);
+          tileFalls[i]=fall;matricesChanged=true;
+        }
+        if(tileWarnings[i]!==warning){
+          tileColor.set(warning?'#e99745':(i+Math.floor(i/8))%2?'#3b9399':'#64b7ac');
+          tiles.setColorAt(i,tileColor);tileWarnings[i]=warning;colorsChanged=true;
+        }
+      }
+      if(matricesChanged){tiles.instanceMatrix.needsUpdate=true;tiles.computeBoundingSphere();}
+      if(colorsChanged)tiles.instanceColor.needsUpdate=true;
     }
-    for(const n of soccer.children)if(n.userData.goalTeam!==undefined)n.position.x=n.userData.goalRestX+(soccerSecretActive(state?.soccer)?state.soccer.secretGoalOffsets?.[n.userData.goalTeam]||0:0);
-    animateGoalNets(t);stadium.update(state?.soccer,t);updateStations();
-    drawTrapDirection();drawGuidance(t);
+    if(roots.soccer.visible){
+      for(const n of goalParts)n.position.x=n.userData.goalRestX+(soccerSecretActive(state?.soccer)?state.soccer.secretGoalOffsets?.[n.userData.goalTeam]||0:0);
+      animateGoalNets(t);stadium.update(state?.soccer,t);
+      if(stationsDirty){updateStations();stationsDirty=false;}
+      drawTrapDirection();drawGuidance(t);
+    }
     const duel=Object.values(state?.soccer?.presses||{}).filter(p=>p.contact&&t-p.contact.at>=0&&t-p.contact.at<430).sort((a,b)=>b.contact.at-a.contact.at)[0];
     contactRing.visible=!!duel;
     if(duel){const progress=(t-duel.contact.at)/430;contactRing.position.set(duel.contact.x,.065,duel.contact.z);contactRing.scale.setScalar(1+progress*2);contactRing.material.opacity=(1-progress)*.7;contactRing.material.color.set(duel.result==='won'?'#9affdd':duel.result==='evaded'?'#b6c3ff':'#ffdb9b');}
@@ -7541,8 +7832,15 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       const goal=state.soccer.lastGoal,goalAge=goal?(t-goal.at)/1000:99;
       if(goalAge>=0&&goalAge<1.25&&t<b.resetUntil){const dir=goal.team===0?1:-1;target.set(goal.x??23,Math.max(.3,(goal.y??.3)-goalAge*goalAge*2),(goal.z??(dir>0?F.far:F.near))+dir*Math.min(F.goalDepth-F.radius*2,goalAge*Math.max(4,goal.speed||10)));}
       if(b.handOwner&&soccerSecretMember(state.soccer,b.handOwner)){const p=b.handOwner===uid?{x:player.root.position.x,z:player.root.position.z,yaw:player.root.rotation.y}:roster[b.handOwner];if(p){const h=soccerSecretHandPoint(p,b.bellyOwner===b.handOwner);target.set(h.x,h.y,h.z);}}
-      const travel=target.clone().sub(ballMesh.position);ballMesh.rotation.x+=travel.z/.3;ballMesh.rotation.z-=travel.x/.3;ballMesh.position.copy(target);
-      ballMesh.rotation.y+=(b.spin||0)*dt*12;lastBall=b;
+      const dx=target.x-ballMesh.position.x,dz=target.z-ballMesh.position.z,roll=Math.hypot(dx,dz);
+      if(lastBall&&b.resetUntil===lastBall.resetUntil&&!b.handOwner&&roll<3){
+        if(roll>.00001){
+          rollAxis.set(dz/roll,0,-dx/roll);
+          ballMesh.rotateOnWorldAxis(rollAxis,roll/F.radius);
+        }
+        ballMesh.rotateOnWorldAxis(spinAxis,(b.spin||0)*dt*12);
+      }
+      ballMesh.position.copy(target);lastBall=b;
       const height=Math.max(0,ballMesh.position.y-.3);ballShadow.position.set(ballMesh.position.x,.055,ballMesh.position.z);ballShadow.scale.setScalar(1+Math.min(2,height)*.4);ballShadow.material.opacity=.8/(1+height*1.5);
     }
     for(const [id,badge]of badges){badge.visible=false;if(id!==uid&&!remoteCrews.has(id)&&!soccerBots.has(id)){badge.removeFromParent();badge.geometry.dispose();badge.material.dispose();badges.delete(id);}}
@@ -7559,7 +7857,10 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       if(own&&enabled&&other==='soccer'&&!state?.soccer?.slides?.[id]){const lean=player.root.userData.soccerTurnLean||0;if(lean){pose(crew.root);crew.root.rotation.z+=lean;}}
       const nutmeg=state?.soccer?.nutmegs?.[id];if(enabled&&other==='soccer'&&nutmeg&&t>=nutmeg.at&&t<nutmeg.until){const w=Math.sin(Math.PI*(t-nutmeg.at)/(nutmeg.until-nutmeg.at));for(const [i,leg]of (crew.legs||[]).entries()){pose(leg);leg.position.x+=(i?1:-1)*.42*w;leg.rotation.z+=(i?-1:1)*.45*w;}pose(crew.body);crew.body.position.y-=.13*w;continue;}
       const celebration=state?.soccer?.lastGoal,celebrationAge=t-Number(celebration?.at||0);
-      if(enabled&&other==='soccer'&&celebration&&team===celebration.team&&celebrationAge>=0&&celebrationAge<2200){const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];for(const [i,arm]of arms.entries()){pose(arm);arm.rotation.x=-2.3;arm.rotation.z=(i?-1:1)*.45;}if(!window.__spaceMotionPreference?.matches){pose(crew.root);crew.root.position.y+=Math.abs(Math.sin(celebrationAge/230))*.16;}continue;}
+      if(enabled&&other==='soccer'&&celebration&&team===celebration.team&&celebrationAge>=0&&celebrationAge<2200){const rig=crew.root.userData.tailoredAvatar||crew.root.userData,arms=rig.arms||rig.walkArms||crew.root.userData.walkArms||[];const blend=Math.min(1,celebrationAge/170,(2200-celebrationAge)/260);
+        const weight=blend*blend*(3-2*blend);
+        for(const [i,arm]of arms.entries()){pose(arm);arm.rotation.x+=(-2.3-arm.rotation.x)*weight;arm.rotation.z+=((i?-1:1)*.45-arm.rotation.z)*weight;}
+        if(!window.__spaceMotionPreference?.matches){pose(crew.root);crew.root.position.y+=Math.sin(celebrationAge/230)**2*.16*weight;}continue;}
       const down=state?.soccer?.knockdowns?.[id];if(enabled&&other==='soccer'&&down&&t>=down.at&&t<down.until){applySoccerKnockdownPose(crew,down,t,pose);continue;}
       const slide=state?.soccer?.slides?.[id],slideMotion=enabled&&other==='soccer'?sampleSoccerSlide(slide,t):null;
       if(slideMotion&&crew.legs?.length){
@@ -7684,7 +7985,9 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
         }
       }
     }
-    updateSecretTrails(t);secretFX.update(state?.soccer,{...roster,[uid]:{x:player.root.position.x,z:player.root.position.z}},t,ballMesh.position);
+    if(roots.soccer.visible||secretTrails.size)updateSecretTrails(t);
+    if(roots.soccer.visible)secretFX.update(state?.soccer,{...roster,[uid]:{x:player.root.position.x,z:player.root.position.z}},t,ballMesh.position);
+    else if(lastBall){secretFX.update(null,roster,t,ballMesh.position);lastBall=null;}
   }
   // Snapshot only the avatar meshes, in world space. A small ring buffer bounds
   // draw calls and shared geometry is never disposed by the trail effect.
@@ -7721,11 +8024,14 @@ function createLobbyGamesScene({THREE,scene,player,camera,remoteCrews,clearMotio
       destination.set(p.x-Math.sin(yaw)*7*zoom,p.y+4.8*zoom,p.z-Math.cos(yaw)*7*zoom);
     }
     if(soccerSecretActive(state?.soccer)&&b.y>3){focus.y=Math.max(focus.y,b.y*.55);destination.y+=b.y*.75;}
-    camera.position.lerp(destination,!cameraChanged&&window.__lastLobbyCameraMode==='soccer'?1-Math.exp(-6*dt):1);cameraChanged=false;camera.lookAt(focus);
+    const tracking=!cameraChanged&&window.__lastLobbyCameraMode==='soccer'&&cameraFocus.distanceToSquared(focus)<225;
+    camera.position.lerp(destination,tracking?1-Math.exp(-6*dt):1);
+    cameraFocus.lerp(focus,tracking?1-Math.exp(-15*dt):1);
+    cameraChanged=false;camera.lookAt(cameraFocus);
     // Keep the local player inside safe margins even when the ball is out of reach.
     camera.updateMatrixWorld();const projected=p.clone().add(new THREE.Vector3(0,1,0)).project(camera);
-    if(Math.abs(projected.x)>.7||Math.abs(projected.y)>.65){camera.position.copy(destination);camera.lookAt(focus);}
-    controls.target.copy(focus);return true;
+    if(Math.abs(projected.x)>.7||Math.abs(projected.y)>.65){camera.position.copy(destination);cameraFocus.copy(focus);camera.lookAt(cameraFocus);}
+    controls.target.copy(cameraFocus);return true;
   }
   function afterRender(){for(const [node,position,rotation]of poses){node.position.copy(position);node.rotation.copy(rotation);}poses=[];posedNodes.clear();for(const [root,visible]of hiddenRoots)root.visible=visible;hiddenRoots=[];if(savedFov!==null){camera.fov=savedFov;camera.updateProjectionMatrix();savedFov=null;}}
   return {updateCamera,backDribble,get area(){return enabled?area():'lobby';},get state(){return state;},roots,ballMesh,teamColor,canMove,groundAt,motionLocked,speedMultiplier,update,beforeRender,afterRender,exit};

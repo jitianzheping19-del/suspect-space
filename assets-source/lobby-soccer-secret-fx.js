@@ -64,7 +64,11 @@ function createSoccerSecretFX(THREE,root){
  }
  return {update(g,players,time,ball){
   if(disposed)return;
-  group.visible=soccerSecretActive(g);if(!group.visible){clear();match='';return;}
+  if(!soccerSecretActive(g)){
+   if(group.visible){group.visible=false;clear();match='';}
+   return;
+  }
+  group.visible=true;
   const identity=g.id||g.startAt||'';if(identity!==match){clear();match=identity;}
   updateTrail(g,time,ball);ultimateFX.update(g,players,time,ball);
   for(const e of effects.values())e.node.visible=false;

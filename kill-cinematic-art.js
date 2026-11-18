@@ -7,7 +7,26 @@ export function createCinematicArt(THREE) {
   const smooth=n=>{n=clamp(n);return n*n*(3-2*n);};
   const mix=(a,b,n)=>a+(b-a)*n;
   const pulse=(t,start,span)=>t<start?0:Math.exp(-(t-start)/span);
-  const eased=(t,keys)=>{for(let i=1;i<keys.length;i++)if(t<keys[i][0])return mix(keys[i-1][1],keys[i][1],smooth((t-keys[i-1][0])/(keys[i][0]-keys[i-1][0])));return keys.at(-1)[1];};
+  // Carry velocity through an intermediate pose. Holds and reversals land at rest.
+  function keyVelocity(keys,i){
+    if(i===0||i===keys.length-1)return 0;
+    const [time,value]=keys[i],previous=keys[i-1],next=keys[i+1];
+    const before=time-previous[0],after=next[0]-time;
+    if(before<=0||after<=0)return 0;
+    const left=(value-previous[1])/before,right=(next[1]-value)/after;
+    if(left*right<=0)return 0;
+    return 3*(before+after)/((2*after+before)/left+(after+2*before)/right);
+  }
+  function eased(t,keys){
+    if(t<=keys[0][0])return keys[0][1];
+    for(let i=1;i<keys.length;i++){
+      const [end,b]=keys[i];
+      if(t>=end)continue;
+      const [start,a]=keys[i-1],span=end-start,u=(t-start)/span,v=1-u;
+      return mix(a,b,u*u*(3-2*u))+span*u*v*(v*keyVelocity(keys,i-1)-u*keyVelocity(keys,i));
+    }
+    return keys.at(-1)[1];
+  }
   let seed=721;
   const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const metal=(color=0x556476,roughness=.29,metalness=.75)=>new THREE.MeshStandardMaterial({color,roughness,metalness});

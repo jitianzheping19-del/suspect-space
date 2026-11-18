@@ -47,7 +47,10 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['cat','rocket','collapse'
   assert.equal(longName.name,'ものすごく長いプレイヤーの名前1234567890','meeting scene must keep the full long name');
   assert(longName.font<shortName.font,'long meeting names must shrink to fit instead of being truncated');
   await page.evaluate(mode=>{window.__meetingQA.pause();window.__meetingQA.start(mode,mode==='balance'||mode==='cat'?['p2','p5']:['p2']);},mode);
-  for(const t of [0,1.35,2.25,3.5,4.4,5.9,8.0]){
+  const finishAt=await page.evaluate(()=>window.__meetingQA.state().finishAt);
+  assert(Number.isFinite(finishAt)&&finishAt>0&&finishAt<9,mode+' must have a bounded runtime');
+  const finalSample=Math.max(6,finishAt+.05);
+  for(const t of [0,1.35,2.25,3.5,4.4,5.9,finalSample]){
    const s=await page.evaluate(t=>window.__meetingQA.at(t),t);await page.waitForTimeout(35);
    assert.equal(s.iframe,0,mode+' cannot replace the room with an iframe');
    assert.equal(s.actors.find(p=>p.id==='p2').voteCheckVisible,false,mode+' must hide the ejected player vote check throughout the animation');
@@ -62,7 +65,7 @@ const modes=process.env.MEETING_QA_MODES?.split(',')||['cat','rocket','collapse'
    for(let a=0;a<s.nameRects.length;a++)for(let b=a+1;b<s.nameRects.length;b++){const x=s.nameRects[a],y=s.nameRects[b];assert(Math.abs(x.x-y.x)>=(x.w+y.w)/2||Math.abs(x.y-y.y)>=(x.h+y.h)/2,mode+' overlapping names '+x.id+' / '+y.id); }
    for(const p of s.actors.filter(p=>p.id!=='p2'&&(!['balance','cat'].includes(mode)||p.id!=='p5')))assert(p.alive&&p.visible,'witness disappeared');
    if(shots&&[1.35,3.5,4.4,5.9].includes(t))await page.screenshot({path:path.join(shots,mode+'-'+t+'.png')});
-   if(t===8.0){assert(s.dead&&!s.active,mode+' did not finish');assert(s.outcome.includes('レモンかすは侍だった')&&s.outcome.includes('残り人狼 1 人'));console.log('PASS',mode,'identity/camera-follow/names/outcome');}
+   if(t===finalSample){assert(s.dead&&!s.active,mode+' did not finish');assert(s.outcome.includes('レモンかすは侍だった')&&s.outcome.includes('残り人狼 1 人'));console.log('PASS',mode,'identity/camera-follow/names/outcome');}
   }
  }
  await page.evaluate(src=>{window.__meetingQA.init(src,12,true);window.__meetingQA.pause();window.__meetingQA.start('balance',['p2']);},assets.COSTUME_LIB_SRC);

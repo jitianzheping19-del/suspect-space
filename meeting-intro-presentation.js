@@ -1,3 +1,4 @@
+import {setStudioLighting} from './studio-lighting.js';
 import {createRenderBudget} from './render-performance.js';
 import './meeting-intro-presentation.css';
 import {createMeetingIntroStage,createMeetingIntroChrome} from './meeting-intro-stage.js';
@@ -10,6 +11,7 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
   const budget=createRenderBudget(),gate=budget.gate(),reduced=(globalThis.__spaceMotionPreference?.matches??globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches===true);
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(32,1,.1,60);
   renderer ||= new THREE.WebGLRenderer({alpha:true,antialias:!budget.mobile,powerPreference:'low-power'});
+ setStudioLighting(THREE,renderer,scene);
   if(budget.syncRenderer)budget.syncRenderer(renderer,1);else renderer.setPixelRatio(budget.pixelRatio(1));
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0,0);
   renderer.domElement.className='meetingIntroCanvas';renderer.domElement.setAttribute('aria-hidden','true');
@@ -92,8 +94,10 @@ export function createMeetingIntroPresentation(THREE,{host,createCrew,disposeCre
    const impact=Math.max(0,t-impactAt),reveal=smooth((t-impactAt)/.16),decay=Math.exp(-impact*10);
    if(report){
     // Fast approach, planted stop, backward recoil, then a clear pointing pose.
-    const walk=smooth(t/.88),point=smooth((t-1.35)/.35),stride=reduced?0:Math.sin(t*27)*(1-walk);
-    actor.position.set(-3.55+2.90*walk,.11*Math.abs(stride),0);actor.rotation.set(0,Math.PI/2-.25*smooth((t-1.3)/.4),0);
+    const walk=smooth(t/.88),point=smooth((t-1.35)/.35);
+    const travel=2.90*walk,weight=reduced?0:smooth(t/.12)*(1-smooth((t-.63)/.25));
+    const step=Math.sin(travel*(2*Math.PI/1.24)),stride=weight*step;
+    actor.position.set(-3.55+travel,.085*step*step*weight,0);actor.rotation.set(0,Math.PI/2-.25*smooth((t-1.3)/.4),0);
     for(const[i,leg]of(actor.userData.legs||[]).entries())leg.rotation.x=(i?1:-1)*stride*.65;
     const recoil=smooth((t-.96)/.16)*(1-smooth((t-1.24)/.35));
     actor.position.x-=recoil*.48;actor.position.y+=recoil*(reduced?0:.23)-point*.11;actor.rotation.x=-recoil*.32;actor.rotation.z=recoil*.17-point*.13;

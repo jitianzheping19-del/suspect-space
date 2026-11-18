@@ -1,5 +1,33 @@
 /* One DOM presentation for the upper HUD at every rendering quality. */
 @layer play-action-layout {
+  /* Reserve separate columns so longer role names cannot cover the task bar. */
+  @media (pointer: fine), (min-width: 701px) and (min-height: 601px) {
+    html body[data-phase="play"] { --header-role-width: clamp(140px, 22vw, 280px); }
+    html body[data-phase="play"] #role {
+      box-sizing: border-box!important;
+      left: max(8px, env(safe-area-inset-left))!important;
+      max-width: var(--header-role-width)!important;
+    }
+    html body[data-phase="play"] #taskProgressHud:not(.hidden) {
+      box-sizing: border-box!important;
+      left: calc(max(8px, env(safe-area-inset-left)) + var(--header-role-width) + 8px)!important;
+      transform: none!important;
+      width: min(410px, calc(100vw - var(--header-role-width) - 360px - env(safe-area-inset-left) - env(safe-area-inset-right)))!important;
+      max-width: none!important;
+    }
+  }
+  @media (pointer: coarse) and (max-width: 700px), (pointer: coarse) and (max-height: 600px) {
+    html body[data-phase="play"] #role {
+      box-sizing: border-box!important;
+      max-width: calc(50vw - var(--phone-task-width)/2 - 56px)!important;
+      padding: 6px 8px!important;
+      font-size: 12px!important;
+      line-height: 1.2!important;
+    }
+  }
+  @media (pointer: coarse) and (max-width: 700px) and (orientation: portrait) {
+    html body[data-phase="play"] #role { max-width: calc(100vw - 180px)!important; }
+  }
   html body[data-phase="play"] :is(#role, #taskProgressHud, #sabotageTimerHud, #abilityDurationBar, #bountyHud, #waveSurvivalHud, #meetingCooldownHud, #modRoleStatus) {
     background: #101720f5!important;
     border: 1px solid #c2cedb36!important;

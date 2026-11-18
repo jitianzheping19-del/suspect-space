@@ -35,10 +35,59 @@ const checks=`
   await page.setViewportSize(size);await page.evaluate(three=>__locationQA.prepare({three}),three);await page.waitForTimeout(250);
   if(three){const f=await(await page.locator('#meeting3D').elementHandle()).contentFrame();await f.waitForFunction(()=>window.meetingScene,null,{timeout:60000});await page.evaluate(()=>__locationQA.refresh());await f.evaluate(()=>{window.requestAnimationFrame=()=>0;});}
   const rotate=page.getByRole('button',{name:'縦向きで続ける'});if(await rotate.isVisible())await rotate.click();
-  for(const id of ['meetingMapBtn','meetingPositionBtn']){
-   console.log('TOUCH',three,size.width,id,await page.locator('#'+id).evaluate(e=>{const r=e.getBoundingClientRect();return{box:r.toJSON(),hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML.slice(0,160),inert:!!e.closest('[inert]'),aria:e.closest('[aria-hidden=true]')?.id};}));
-   assert(!(await page.locator('#'+id).evaluate(e=>!!e.closest('[inert]'))),'meeting controls must recover from round reset');await page.locator('#'+id).tap();await modal.waitFor({state:'visible',timeout:3000});assert.equal(await modal.getAttribute('aria-label'),id==='meetingMapBtn'?'会議の共有マップ':'自分の現在位置を報告する');await modal.getByRole('button',{name:'閉じる',exact:true}).tap();
+  assert.equal(await page.locator('#meetingPositionBtn').count(),0);
+  await page.locator('#meetingMapBtn').tap();await modal.waitFor({state:'visible'});
+  assert.equal(await modal.getAttribute('aria-label'),'会議の共有マップ');
+  await modal.getByRole('button',{name:'現在地を選ぶ',exact:true}).tap();
+  assert.equal(await modal.getAttribute('aria-label'),'自分の現在位置を報告する');
+  const ui=await modal.evaluate(panel=>{
+   const box=selector=>panel.querySelector(selector).getBoundingClientRect();
+   const header=box('header'),close=box('.meetingLocationDismiss'),view=box('.meetingLocationViewport');
+   const tabs=[...panel.querySelectorAll('.meetingLocationToolbar button')].map(b=>b.getBoundingClientRect());
+   return {oneRow:tabs.every(t=>Math.abs(t.top-close.top)<2&&t.height>=40)&&close.height>=40,
+    mapWidth:view.width,mapHeight:view.height,headerHeight:header.height,headings:panel.querySelectorAll('header :is(h1,h2,h3,p)').length};
+  });
+  assert(ui.oneRow&&ui.headings===0&&ui.headerHeight<58,JSON.stringify(ui));
+  assert(ui.mapWidth>=size.width*.65&&ui.mapHeight>=size.height*.65,JSON.stringify(ui));
+  if(three){await modal.getByRole('button',{name:'閉じる',exact:true}).tap();continue;}
+  const layout=(await page.evaluate(()=>__locationQA.state())).layout;
+  const cafe=layout.rooms.find(r=>r.id==='caf'),corridor=layout.corridors.find(r=>r.id==='upper-caf');
+  const svg=modal.locator('svg'),send=modal.locator('.meetingLocationSend'),pin=modal.locator('[data-location-pin="position"]');
+  const tapWorld=async(x,z)=>{
+   const touch=await svg.evaluate((el,p)=>{
+    const matrix=el.getScreenCTM(),screen=new DOMPoint(p.x,p.z).matrixTransform(matrix);
+    return {x:Math.round(screen.x),y:Math.round(screen.y),scale:matrix.a};
+   },{x,z});
+   await page.touchscreen.tap(touch.x,touch.y);return 1.5/touch.scale;
+  };
+  const offsetX=cafe.x+1,offsetZ=cafe.z+.7;
+  const roomTolerance=await tapWorld(offsetX,offsetZ);
+  assert(await send.isEnabled());assert.equal(await pin.count(),1);
+  assert(Math.abs(Number(await pin.getAttribute('cx'))-offsetX)<roomTolerance);
+  assert(Math.abs(Number(await pin.getAttribute('cy'))-offsetZ)<roomTolerance);
+  if(size.height>size.width){
+   const margin=await modal.locator('.meetingLocationViewport').evaluate(view=>{
+    const b=view.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+8;
+    return {x,y,empty:document.elementFromPoint(x,y)===view};
+   });
+   assert(margin.empty);await page.touchscreen.tap(margin.x,margin.y);
+   assert(await send.isDisabled());assert.equal(await pin.count(),0);
+   await tapWorld(offsetX,offsetZ);assert(await send.isEnabled());
   }
+  await tapWorld(layout.bounds.minX+1,layout.bounds.minZ+1);
+  assert(await send.isDisabled());assert.equal(await pin.count(),0);
+  const tolerance=await tapWorld(corridor.x,corridor.z);
+  assert(await send.isEnabled());await send.tap();
+  const state=await page.evaluate(()=>__locationQA.process());
+  const report=Object.values(state.game.meeting.locationReports)[0].locationReport;
+  assert.equal(report.kind,'position');assert.equal(report.selection.exact,true);
+  assert.equal(report.selection.label,'上部エンジンとカフェテリアの間の通路');
+  assert(Math.abs(report.selection.x-corridor.x)<tolerance&&Math.abs(report.selection.z-corridor.z)<tolerance);
+  await page.evaluate(game=>__locationQA.receive(game),state.game);await page.locator('#meetingMapBtn').tap();
+  assert.equal(Number(await pin.getAttribute('cx')),report.selection.x);
+  assert.equal(Number(await pin.getAttribute('cy')),report.selection.z);
+  await modal.getByRole('button',{name:'閉じる',exact:true}).tap();
+  console.log('PASS exact room/corridor taps, blank floor rejection and received pin',size,ui);
  }
  console.log('PASS genuine touch shared map and position controls in both meeting renderers at phone/tablet sizes');
 

@@ -1,5 +1,5 @@
 // Geometry shared by testimony validation and drawing. No player positions.
-const caches=new WeakMap(),wallCaches=new WeakMap();
+const caches=new WeakMap(),wallCaches=new WeakMap(),floorCaches=new WeakMap();
 function wallsNear(layout,a,b=a){
  let bins=wallCaches.get(layout);if(!bins){bins=new Map();for(const w of layout.walls||[]){if(w.interiorEquipment)continue;for(let x=Math.floor((Math.min(w.ax,w.bx)-.02)/2);x<=Math.floor((Math.max(w.ax,w.bx)+.02)/2);x++)for(let z=Math.floor((Math.min(w.az,w.bz)-.02)/2);z<=Math.floor((Math.max(w.az,w.bz)+.02)/2);z++){const key=x+":"+z;if(!bins.has(key))bins.set(key,[]);bins.get(key).push(w);}}wallCaches.set(layout,bins);}
  const x0=Math.floor((Math.min(a.x,b.x)-.02)/2),x1=Math.floor((Math.max(a.x,b.x)+.02)/2),z0=Math.floor((Math.min(a.z,b.z)-.02)/2),z1=Math.floor((Math.max(a.z,b.z)+.02)/2);
@@ -22,11 +22,35 @@ export function locationRoomAnchor(room){
  return best;
 }
 const cross=(a,b,c)=>(b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x);
-function crosses(a,b,w){const c={x:w.ax,z:w.az},d={x:w.bx,z:w.bz};return cross(a,b,c)*cross(a,b,d)<-1e-10&&cross(c,d,a)*cross(c,d,b)<-1e-10;}
+function distanceToSegment(p,a,b){const dx=b.x-a.x,dz=b.z-a.z,len=dx*dx+dz*dz,t=len?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/len)):0;return Math.hypot(p.x-a.x-dx*t,p.z-a.z-dz*t);}
+function crosses(a,b,w){
+ const c={x:w.ax,z:w.az},d={x:w.bx,z:w.bz};
+ if(cross(a,b,c)*cross(a,b,d)<0&&cross(c,d,a)*cross(c,d,b)<0)return true;
+ return Math.min(distanceToSegment(a,c,d),distanceToSegment(b,c,d),distanceToSegment(c,a,b),distanceToSegment(d,a,b))<.015;
+}
+function floorEdges(layout){
+ if(floorCaches.has(layout))return floorCaches.get(layout);const edges=[];
+ for(const r of [...layout.rooms,...(layout.corridors||[])]){
+  const ring=r.polygon?.length>2?r.polygon:[{x:r.x-r.w/2,z:r.z-r.d/2},{x:r.x+r.w/2,z:r.z-r.d/2},{x:r.x+r.w/2,z:r.z+r.d/2},{x:r.x-r.w/2,z:r.z+r.d/2}];
+  for(const ringPoints of [ring,...(r.holes||[])])for(let i=0;i<ringPoints.length;i++)edges.push([ringPoints[i],ringPoints[(i+1)%ringPoints.length]]);
+ }
+ floorCaches.set(layout,edges);return edges;
+}
 export function locationSegmentClear(layout,a,b){
- const n=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.12));
- for(let i=0;i<=n;i++)if(!locationWalkable(layout,{x:a.x+(b.x-a.x)*i/n,z:a.z+(b.z-a.z)*i/n}))return false;
- return !wallsNear(layout,a,b).some(w=>!w.interiorEquipment&&Math.max(w.ax,w.bx)>=Math.min(a.x,b.x)&&Math.min(w.ax,w.bx)<=Math.max(a.x,b.x)&&Math.max(w.az,w.bz)>=Math.min(a.z,b.z)&&Math.min(w.az,w.bz)<=Math.max(a.z,b.z)&&crosses(a,b,w));
+ if(!locationWalkable(layout,a)||!locationWalkable(layout,b))return false;
+ if(wallsNear(layout,a,b).some(w=>crosses(a,b,w)))return false;
+ const dx=b.x-a.x,dz=b.z-a.z,ts=[0,1];
+ // Split at every floor/hole boundary. Sampling at a fixed spacing can jump
+ // over thin gaps and wall endpoints, even when both end points are valid.
+ for(const[c,d]of floorEdges(layout)){
+  if(Math.max(c.x,d.x)<Math.min(a.x,b.x)||Math.min(c.x,d.x)>Math.max(a.x,b.x)||Math.max(c.z,d.z)<Math.min(a.z,b.z)||Math.min(c.z,d.z)>Math.max(a.z,b.z))continue;
+  const ex=d.x-c.x,ez=d.z-c.z,den=dx*ez-dz*ex;if(Math.abs(den)<1e-10)continue;
+  const t=((c.x-a.x)*ez-(c.z-a.z)*ex)/den,u=((c.x-a.x)*dz-(c.z-a.z)*dx)/den;
+  if(t>0&&t<1&&u>=-1e-9&&u<=1+1e-9)ts.push(t);
+ }
+ ts.sort((x,y)=>x-y);
+ for(let i=1;i<ts.length;i++){const t=(ts[i-1]+ts[i])/2;if(!locationWalkable(layout,{x:a.x+dx*t,z:a.z+dz*t}))return false;}
+ return true;
 }
 function grid(layout){
  if(caches.has(layout))return caches.get(layout);
@@ -35,17 +59,50 @@ function grid(layout){
  for(let i=0;i<valid.length;i++)valid[i]=+locationWalkable(layout,point(i));
  const graph={step,cols,rows,valid,point,paths:new Map(),edges:new Map()};caches.set(layout,graph);return graph;
 }
+function nearestFloorNode(layout,g,p,allowed){
+ const {step,cols,rows,valid,point}=g;
+ const col=Math.round((p.x-layout.bounds.minX)/step),row=Math.round((p.z-layout.bounds.minZ)/step);
+ let best=-1,distance=Infinity;
+ for(let y=Math.max(0,row-4);y<=Math.min(rows-1,row+4);y++)for(let x=Math.max(0,col-4);x<=Math.min(cols-1,col+4);x++){
+  const id=y*cols+x,q=point(id),d=Math.hypot(p.x-q.x,p.z-q.z);
+  if(valid[id]&&d<distance&&(!allowed||allowed(q))&&locationSegmentClear(layout,p,q)){best=id;distance=d;}
+ }
+ return best;
+}
+function floorNeighbors(layout,g,id){
+ if(g.edges.has(id))return g.edges.get(id);
+ const x=id%g.cols,y=Math.floor(id/g.cols),p=g.point(id),edges=[];
+ for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){
+  const nx=x+dx,ny=y+dy,n=ny*g.cols+nx;
+  if(nx>=0&&ny>=0&&nx<g.cols&&ny<g.rows&&g.valid[n]&&locationSegmentClear(layout,p,g.point(n)))edges.push([n,Math.hypot(dx,dy)*g.step]);
+ }
+ g.edges.set(id,edges);return edges;
+}
+// Search along the passage, stopping at doorways instead of crossing a room
+// to reach another room on its far side.
+export function corridorRoomNames(layout,p,roomAt){
+ const g=grid(layout),start=nearestFloorNode(layout,g,p,q=>!roomAt(q.x,q.z));
+ if(start<0)return [];
+ const cache=g.corridorNames??=new Map();
+ if(cache.has(start))return cache.get(start);
+ const names=new Set(),seen=new Set([start]),queue=[start];
+ for(let i=0;i<queue.length&&names.size<2;i++){
+  const id=queue[i],at=g.point(id),room=roomAt(at.x,at.z);
+  if(room){names.add(room.label||room.name||room.id);continue;}
+  for(const [next] of floorNeighbors(layout,g,id))if(!seen.has(next)){seen.add(next);queue.push(next);}
+ }
+ const result=[...names];cache.set(start,result);return result;
+}
 export function locationPath(layout,a,b){
  if(!locationWalkable(layout,a)||!locationWalkable(layout,b))return null;
  if(locationSegmentClear(layout,a,b))return [a,b];
- const g=grid(layout),{step,cols,rows,valid,point}=g;
- const nearest=p=>{const col=Math.round((p.x-layout.bounds.minX)/step),row=Math.round((p.z-layout.bounds.minZ)/step);let best=-1,d=Infinity;for(let y=Math.max(0,row-4);y<=Math.min(rows-1,row+4);y++)for(let x=Math.max(0,col-4);x<=Math.min(cols-1,col+4);x++){const id=y*cols+x,q=point(id),dist=Math.hypot(p.x-q.x,p.z-q.z);if(valid[id]&&dist<d&&locationSegmentClear(layout,p,q)){best=id;d=dist;}}return best;};
- const start=nearest(a),end=nearest(b);if(start<0||end<0)return null;
+ const g=grid(layout),{valid,point}=g;
+ const start=nearestFloorNode(layout,g,a),end=nearestFloorNode(layout,g,b);if(start<0||end<0)return null;
  const key=[a.x,a.z,b.x,b.z].join(':');if(g.paths.has(key))return g.paths.get(key);
  const heap=[],push=(id,cost)=>{let i=heap.length;heap.push({id,cost});while(i){const p=(i-1)>>1;if(heap[p].cost<=cost)break;heap[i]=heap[p];i=p;}heap[i]={id,cost};},pop=()=>{const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(i*2+1<heap.length){let c=i*2+1;if(c+1<heap.length&&heap[c+1].cost<heap[c].cost)c++;if(heap[c].cost>=last.cost)break;heap[i]=heap[c];i=c;}heap[i]=last;}return first;};
  const visited=new Uint8Array(valid.length),distance=new Float64Array(valid.length);distance.fill(Infinity);const parent=new Int32Array(valid.length);parent.fill(-1);distance[start]=0;const goal=point(end);push(start,0);
- while(heap.length){const {id}=pop();if(visited[id])continue;visited[id]=1;if(id===end)break;const x=id%cols,y=Math.floor(id/cols),p=point(id);
-  let edges=g.edges.get(id);if(!edges){edges=[];for(const[dx,dy]of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){const nx=x+dx,ny=y+dy,n=ny*cols+nx;if(nx<0||ny<0||nx>=cols||ny>=rows||!valid[n])continue;if(locationSegmentClear(layout,p,point(n)))edges.push([n,Math.hypot(dx,dy)*step]);}g.edges.set(id,edges);}
+ while(heap.length){const {id}=pop();if(visited[id])continue;visited[id]=1;if(id===end)break;
+  const edges=floorNeighbors(layout,g,id);
   for(const[n,cost]of edges){const d=distance[id]+cost;if(d>=distance[n])continue;distance[n]=d;parent[n]=id;const q=point(n);push(n,d+Math.hypot(q.x-goal.x,q.z-goal.z));}
  }
  if(!Number.isFinite(distance[end])){g.paths.set(key,null);return null;}

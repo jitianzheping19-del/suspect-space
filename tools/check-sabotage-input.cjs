@@ -31,6 +31,7 @@ window.__sabotageQA={
   closeSabotageMap();renderUI();return this.state();
  },
  state(){return{can:canUseSabotage(),canPlay:canPlay(),open:!$('sabotageMap').classList.contains('hidden'),phase:game.phase,role:self()?.role,host:hostOnline(),locked:killActionsLocked(),pins:[...$('sabotageMap').querySelectorAll('button[data-sabotage-action],button[data-door-group]')].map(b=>({action:b.dataset.sabotageAction,door:b.dataset.doorGroup,disabled:b.disabled})),writes:window.__qaWrites.filter(w=>w.path.includes('/commands/')&&w.value?.type).map(w=>w.value),modals:[...document.querySelectorAll('[aria-modal=true]')].filter(e=>!e.classList.contains('hidden')&&!e.hidden).map(e=>e.id)};},
+ roomDoors(id){return shipDoorLayout(game).roomGroups.find(room=>room.id===id).doors.map(door=>door.id).sort();},
  advance(ms){serverOffset+=ms;updateSabotageMapActions();},
  disconnect(){connected=false;},
  freeze(){game.freeze={by:'host',until:now()+60000};updateSabotageMapActions();},
@@ -106,7 +107,8 @@ const server = createServer((req, res) => {
   await page.evaluate(()=>__sabotageQA.prepare({active:true}));await page.locator('#sabotageBtn').tap();
   assert(await page.locator('[data-sabotage-action="lights"]').isDisabled());
   const door=page.locator('[data-door-group]').first();const group=await door.getAttribute('data-door-group');await door.tap();
-  const doorResult=await page.evaluate(()=>__sabotageQA.process());assert(doorResult.result.ok);assert(doorResult.doors.some(d=>d.groupId===group&&(d.closed||d.pendingClose)));
+  const doorResult=await page.evaluate(()=>__sabotageQA.process());assert(doorResult.result.ok);assert(doorResult.doors.some(d=>d.closeRoom===group&&(d.closed||d.pendingClose)));
+  assert.deepEqual(doorResult.doors.filter(d=>d.closed||d.pendingClose).map(d=>d.id).sort(),await page.evaluate(room=>__sabotageQA.roomDoors(room),group));
   console.log('PASS door sabotage remains usable during an active ship sabotage');
   await page.evaluate(()=>__sabotageQA.prepare());await page.locator('#sabotageBtn').tap();
   await page.evaluate(()=>{__sabotageQA.disconnect();document.querySelector('[data-sabotage-action="lights"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'touch',pointerId:7}));});

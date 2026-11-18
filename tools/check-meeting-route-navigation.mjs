@@ -15,4 +15,10 @@ const disconnected={...layout,corridors:[]};assert.equal(locationPath(disconnect
 const hole={...rect('C',5,5,12,12),holes:[[{x:3,z:3},{x:7,z:3},{x:7,z:7},{x:3,z:7}]]},holes={bounds:{minX:-1,maxX:11,minZ:-1,maxZ:11},rooms:[hole],corridors:[]};
 assert(!locationWalkable(holes,{x:5,z:5}));assert(locationWalkable(holes,locationRoomAnchor(hole)));const around=locationPath(holes,{x:1,z:5},{x:9,z:5});assert(around?.length>2);for(let i=1;i<around.length;i++)assert(locationSegmentClear(holes,around[i-1],around[i]));
 const walls={...holes,rooms:[rect('room',5,5,12,12)],walls:[{ax:5,az:-1,bx:5,bz:7}]};const detour=locationPath(walls,{x:1,z:5},{x:9,z:5});assert(detour?.some(p=>p.z>=7));
+const thinHole={...rect('thin',5,0,10,4),holes:[[{x:5.01,z:-2},{x:5.02,z:-2},{x:5.02,z:2},{x:5.01,z:2}]]};
+assert(!locationSegmentClear({rooms:[thinHole]},{x:0,z:0},{x:10,z:0}),'no sampling across a thin hole');
+assert(!locationSegmentClear({rooms:[{...thinHole,holes:[]}],walls:[{ax:5.01,az:0,bx:5.01,bz:2}]},{x:0,z:0},{x:10,z:0}),'no crossing a wall endpoint between samples');
+const body={kind:'body',mapMode:'classic',meetingId:'m',selection:{roomId:'A'}};
+assert.equal(normalizeLocationReport(body,{layout,mapMode:'classic',meeting:{id:'m',reason:'緊急会議'}}),null,'host rejects body testimony during emergency meetings');
+assert(normalizeLocationReport(body,{layout,mapMode:'classic',meeting:{id:'m',reason:'遺体を発見'}}));
 console.log('PASS corridor routing, repeated return lanes, holes, walls, room anchors and rejection of outside/disconnected testimony');

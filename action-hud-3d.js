@@ -1,3 +1,4 @@
+import {setStudioLighting} from './studio-lighting.js';
 import {buildAbilityActionIcon} from './ability-action-icons.js';
 // The DOM owns text, focus and touch input. This scene draws only the physical
 // controls into the game's existing renderer after the world/visibility pass.
@@ -16,6 +17,7 @@ const ACTIONS = {
 
 export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>false,reducedMotion=()=>false,actions=ACTIONS,stateAttribute="threeActions"}) {
   const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(0,1,1,0,.1,1000);
+  setStudioLighting(THREE,renderer,scene,.55);
   camera.position.z=600;
   scene.add(new THREE.HemisphereLight(0xc5efff,0x101928,1.65));
   const light=new THREE.DirectionalLight(0xffffff,2.1);light.position.set(-150,240,400);scene.add(light);
@@ -144,7 +146,16 @@ export function createActionHud3D({THREE,renderer,root,isActive,isObscured=()=>f
   renderer.domElement.addEventListener('webglcontextlost',lost);
   renderer.domElement.addEventListener('webglcontextrestored',invalidate);
   const watchedDialogs=new WeakSet();
-  const observer=new MutationObserver(changes=>{if(changes.some(c=>c.type==='childList'&&c.target===document.body))watchDialogs();invalidate();});
+  const observer=new MutationObserver(changes=>{
+    dirty=true;
+    let checkVisibility=false;
+    for(const change of changes){
+      if(change.target===document.body&&change.type==='childList'){
+        for(const node of change.addedNodes)if(node.nodeType===1&&(node.matches('[aria-modal="true"]')||node.querySelector('[aria-modal="true"]'))){watchDialogs();checkVisibility=true;break;}
+      }else if(watchedDialogs.has(change.target)||change.target===document.body||change.target===controls||change.target===holder)checkVisibility=true;
+    }
+    if(checkVisibility)invalidate();
+  });
   function watchDialogs(){for(const dialog of document.querySelectorAll('[aria-modal="true"]'))if(!watchedDialogs.has(dialog)){watchedDialogs.add(dialog);observer.observe(dialog,{attributes:true,attributeFilter:['class','style','hidden','aria-hidden','aria-modal']});}}
   if(root)observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','disabled','hidden','data-exhausted','data-action-icon','data-action-color']});
   const controls=root?.closest('#controls'),holder=root?.parentElement;

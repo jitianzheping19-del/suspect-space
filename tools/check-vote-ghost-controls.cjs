@@ -35,6 +35,7 @@ const checks=`
   r=await tally({a:{target:'skip'}});assert.deepEqual(r.result.counts,{skip:1});assert.equal(r.result.outcome,'skip');assert.equal(r.result.noVoteCount,3);
   r=await tally({});assert.deepEqual(r.result.counts,{});assert.equal(r.result.outcome,'no-votes');assert.equal(r.result.noVoteCount,4);
   r=await tally({a:{target:'missing'},b:{target:'skip',noVote:true}},{mayor:true});assert.deepEqual(r.result.counts,{});assert.equal(r.result.noVoteCount,4);assert.equal(r.result.votes.d.weight,0);
+  r=await tally({d:{target:'b'},a:{target:'b'}},{mayor:true});assert.equal(r.result.counts.b,6);assert.deepEqual(r.result.centerVoteCounts,{b:5});assert.deepEqual(r.result.votes,{});assert.equal(r.history.votes.d.weight,5);
   r=await tally({a:{target:'b'}},{anonymous:true});assert.deepEqual(r.result.votes,{});assert.equal(r.history.noVoteCount,3);
   r=await tally({a:{target:'b'}},{swaps:[['a','b']]});assert.equal(r.result.ejected,'a');assert.equal(r.result.noVoteCount,3);
   r=await tally({a:{target:'skip'},c:{target:'a'}},{scales:true});assert.deepEqual(r.result.counts,{a:1});assert.equal(r.result.noVoteCount,3);assert.equal(r.result.ejected,'a');

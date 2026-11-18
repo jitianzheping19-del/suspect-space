@@ -1,16 +1,17 @@
+import {setActionCaption} from './lobby-action-caption.js';
 import {SOCCER_SKILLS} from './lobby-soccer-skills.js';
-import {createSoccerAction3D} from './lobby-soccer-action-3d.js';
+import {paintSoccerIcon} from './lobby-soccer-icons.js';
 import './lobby-soccer-flick.css';
 
 const CHARGE_MS=1000,DASH_HOLD_MS=280,DOUBLE_TAP_MS=300,THROUGH_HOLD_MS=350;
 export function createSoccerFlickControls({document,window,context,send,onAim=()=>{},sendDash=held=>send('soccer-dash',{held}),clock=()=>window.performance.now(),readStick=()=>window.__spaceInputVector||{x:0,z:0}}){
  const zone=document.createElement('div');zone.id='soccerFlickZone';zone.hidden=true;zone.setAttribute('role','group');zone.setAttribute('aria-label','サッカー操作');
- zone.innerHTML='<button id="soccerFeintBtn" type="button" data-space-pointer-action="direct"><svg viewBox="0 0 40 32" aria-hidden="true"><path d="M7 26V19Q7 14 14 14H26Q33 14 33 7V5M27 10L33 4L38 10"/></svg><span>フェイント</span><small>長押し：ダッシュ</small></button><button id="soccerKickBtn" type="button" data-space-pointer-action="direct"><svg viewBox="0 0 48 42" aria-hidden="true"><circle cx="13" cy="29" r="8"/><path d="M22 25L40 7M27 7H40V20"/></svg><span>パス</span><small>2回タップ：シュート</small></button><output id="soccerDuelFeedback" aria-live="polite" hidden></output>';
+ zone.innerHTML='<button id="soccerFeintBtn" type="button" data-space-pointer-action="direct"><svg aria-hidden="true" focusable="false"></svg><span>フェイント</span><small>長押し：ダッシュ</small></button><button id="soccerKickBtn" type="button" data-space-pointer-action="direct"><svg aria-hidden="true" focusable="false"></svg><span>パス</span><small>2回タップ：シュート</small></button><output id="soccerDuelFeedback" aria-live="polite" hidden></output>';
  document.body.append(zone);
  const curve=document.createElement('div');curve.className='soccerCurveChoices';curve.hidden=true;curve.setAttribute('aria-label','少林サッカーのカーブ');
  let selectedCurve=0;
  for(const [value,label]of [[-1,'左カーブ'],[0,'まっすぐ'],[1,'右カーブ']]){const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.curve=value;b.setAttribute('aria-pressed',String(value===0));b.onclick=()=>{selectedCurve=value;if(gesture)gesture.spin=value;for(const child of curve.children)child.setAttribute('aria-pressed',String(Number(child.dataset.curve)===value));paintAim(context());};curve.append(b);}zone.append(curve);
- const feint=zone.querySelector('#soccerFeintBtn'),kick=zone.querySelector('#soccerKickBtn'),feedback=zone.querySelector('output'),model=createSoccerAction3D(feint);
+ const feint=zone.querySelector('#soccerFeintBtn'),kick=zone.querySelector('#soccerKickBtn'),feedback=zone.querySelector('output');
  let feintTap=null,feintTimer=0,secretTap=null,secretTimer=0;
  let gesture=null,hold=null,raf=0,lastAim='',lastDuel='',feedbackUntil=0,noticeUntil=0,firstTap=null,tapTimer=0;
  const power=()=>gesture?Math.min(1,(clock()-gesture.at)/CHARGE_MS):0;
@@ -19,9 +20,11 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
  function paintAim(c){
   const yaw=gesture?.yaw??c.yaw,forceShot=!!gesture?.forceShot||!!c.teammateBall,aim=gestureAim(c,gesture);
   if(gesture&&aim.mode==='pass'&&gesture.flicked&&!gesture.forceShot&&!gesture.lob){if(gesture.throughTarget!==aim.target){gesture.throughTarget=aim.target;gesture.stillAt=clock();}gesture.through=clock()-gesture.stillAt>=THROUGH_HOLD_MS;if(gesture.through)aim.mode='through';}else if(gesture)gesture.through=false;
-  kick.dataset.mode=c.volleyReady?'volley':c.overheadReady?'overhead':c.headerReady?'header':aim.mode;kick.querySelector('span').textContent=c.volleyReady?(c.skyReady?'天空シュート':'ジャンピングボレー'):c.overheadReady?'オーバーヘッド':c.headerReady?'ヘディング':aim.mode==='lob'?'フライパス':aim.mode==='through'?'スルーパス':aim.mode==='pass'?'パス':'シュート';
-  kick.querySelector('small').textContent=c.shotBuffered?'シュート予約中':c.teammateBall?'先行入力：受けたらシュート':c.overheadReady?'タップで空中シュート':c.headerReady?'合わせてタップ':aim.mode==='through'?'離して前方へパス':aim.mode==='pass'&&gesture?.flicked?'そのまま保持：スルー':aim.mode==='lob'?'離して浮かせる':gesture?.spin&&aim.mode==='shot'?'カーブシュート':'狙って戻す：フライ';
-  kick.setAttribute('aria-label',c.overheadReady?'タップでオーバーヘッドシュート':c.headerReady?'タップでダイビングヘディング':aim.mode==='lob'?'離して味方へフライパス':(aim.mode==='pass'?'味方へパス':'シュート')+'。狙ってボタンへ戻すとフライパス。2回タップでシュート');
+  kick.dataset.mode=c.volleyReady?'volley':c.overheadReady?'overhead':c.headerReady?'header':aim.mode;setActionCaption(kick.querySelector('span'),c.volleyReady?(c.skyReady?'天空シュート':'ジャンピングボレー'):c.overheadReady?'オーバーヘッド':c.headerReady?'ヘディング':aim.mode==='lob'?'フライパス':aim.mode==='through'?'スルーパス':aim.mode==='pass'?'パス':'シュート');
+  const kickArt=c.volleyReady&&c.skyReady?'sky':kick.dataset.mode==='shot'&&gesture?.spin?'curve':kick.dataset.mode;
+  paintSoccerIcon(kick,kickArt);
+  setActionCaption(kick.querySelector('small'),c.shotBuffered?'シュート予約中':c.volleyReady?(c.skyReady?'タップでシュート':'タップでボレー'):c.teammateBall?'先行入力：受けたらシュート':c.overheadReady?'タップで蹴る':c.headerReady?'合わせてタップ':aim.mode==='through'?'離して前方へ':aim.mode==='pass'&&gesture?.flicked?'そのまま保持：スルー':aim.mode==='lob'?'離して浮かせる':gesture?.spin&&aim.mode==='shot'?'カーブシュート':'戻してフライ');
+  kick.setAttribute('aria-label',c.volleyReady?(c.skyReady?'タップで天空シュート':'タップでジャンピングボレー'):c.overheadReady?'タップでオーバーヘッドシュート':c.headerReady?'タップでダイビングヘディング':aim.mode==='lob'?'離して味方へフライパス':(aim.mode==='pass'?'味方へパス':'シュート')+'。狙ってボタンへ戻すとフライパス。2回タップでシュート');
   const value={active:!!gesture&&!!c.visible&&!!c.enabled,yaw,forceShot,lob:!!gesture?.lob,through:aim.mode==='through',passPreview:aim.mode==='pass'||aim.mode==='through',spin:aim.mode==='shot'?(gesture?.spin||0):0,charging:!!gesture,power:power()},key=JSON.stringify({...value,full:value.power===1,yaw:Math.round(yaw*100)/100,power:Math.round(value.power*50)/50});
   if(key!==lastAim){lastAim=key;onAim(value);}
   return aim;
@@ -48,9 +51,9 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
     hold.long=true;window.clearTimeout(secretTimer);secretTap=null;window.clearTimeout(feintTimer);feintTap=null;
     if((c.canDash||c.dashing)&&!c.pending&&clock()-hold.lastSent>=250){hold.dashing=true;hold.lastSent=clock();sendDash(true);}
    }
-   feint.dataset.mode=hold.dashing?'dash':'feint';feint.querySelector('span').textContent=hold.dashing?'ダッシュ':c.canTrap?'トラップ':'フェイント';
+   feint.dataset.mode=hold.dashing?'dash':'feint';setActionCaption(feint.querySelector('span'),hold.dashing?'ダッシュ':c.canTrap?'トラップ':'フェイント');
   }
-  paintAim(c);model.draw(clock(),hold?.dashing?'dash':'feint',!!hold);
+  paintAim(c);paintSoccerIcon(feint,hold?.dashing?'dash':c.canTrap?'trap':'feint');
   if(gesture||hold)raf=window.requestAnimationFrame(animate);
  }
  function startAnimation(){if(!raf)raf=window.requestAnimationFrame(animate);}
@@ -126,11 +129,11 @@ export function createSoccerFlickControls({document,window,context,send,onAim=()
   if(gesture&&!c.enabled)clearKick();
   curve.hidden=!c.secret||!c.visible;for(const b of curve.children)b.disabled=!c.enabled;
   kick.disabled=!c.enabled;feint.disabled=!hold&&!c.canDash&&!c.canTrap&&!(c.enabled&&(c.canSkill||c.secret&&c.hasBall));
-  feint.dataset.mode=hold?.dashing?'dash':'feint';feint.querySelector('span').textContent=hold?.dashing?'ダッシュ':c.canTrap?'トラップ':'フェイント';
-  feint.querySelector('small').textContent=!c.hasBall?'長押し：ダッシュ':c.canTrap?'タップで受け止める':gesture?'押してキックを中止':c.secret?(c.handHeld?'3回：足元へ戻す':'3回：手で持つ'):'2回タップ：股抜き';feint.setAttribute('aria-label',c.canTrap?'タップでトラップ':'フェイント。タップでフェイント、長押し中はダッシュ。シュート準備中に押すとキックフェイント');paintAim(c);
+  feint.dataset.mode=hold?.dashing?'dash':'feint';setActionCaption(feint.querySelector('span'),hold?.dashing?'ダッシュ':c.canTrap?'トラップ':'フェイント');
+  setActionCaption(feint.querySelector('small'),!c.hasBall?'長押し：ダッシュ':c.canTrap?'タップで受ける':gesture?'押してキックを中止':c.secret?(c.handHeld?'3回：足元へ戻す':'3回：手で持つ'):'2タップで股抜き');feint.setAttribute('aria-label',c.canTrap?'タップでトラップ':'フェイント。タップでフェイント、長押し中はダッシュ。シュート準備中に押すとキックフェイント');paintAim(c);
   const duel=c.duel,key=duel?duel.at+':'+duel.text:'';
   if(duel&&key!==lastDuel){lastDuel=key;feedback.textContent=duel.text;feedback.dataset.result=duel.result;feedbackUntil=clock()+1300;}
-  feedback.hidden=clock()>=Math.max(feedbackUntil,noticeUntil);model.draw(clock(),hold?.dashing?'dash':'feint',!!hold);
+  feedback.hidden=clock()>=Math.max(feedbackUntil,noticeUntil);paintSoccerIcon(feint,hold?.dashing?'dash':c.canTrap?'trap':'feint');
  }
  return{update,cancel,feint:feintNow,get dashHeld(){return !!hold;}};
 }

@@ -19,6 +19,7 @@ window.__embeddedDialQA={state:()=>({...terms[3].tk.inspect(),focus,drag}),point
 window.postMessage({type:'ss-task-terminal-open',id:'dial-test',index:3,volume:0},'*');`);
 const harness = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,#stage{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1929}canvas{width:100%;height:100%;touch-action:none}</style></head><body><div id="stage"></div><script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
+${fs.readFileSync(path.join(root,'studio-lighting.js'),'utf8').replace('export function','function')}
 ${factory}
 let machine,state;window.__dialQA={open(mode){machine?.dispose();state={mode,accepting:true,value:50,target:70,done:0,total:3};machine=createInteractiveTaskMachine(THREE,document.getElementById('stage'),()=>state,()=>{},v=>state.value=v);},state:()=>state,point(angle,radius=.7){const control=machine.controls.find(o=>o.userData.taskControl.drag==='knob'),c=control.getWorldPosition(new THREE.Vector3());const p=new THREE.Vector3(c.x+Math.cos(angle)*radius,c.y+Math.sin(angle)*radius,.7).project(machine.camera),rect=machine.canvas.getBoundingClientRect();return{x:rect.x+(p.x+1)*rect.width/2,y:rect.y+(1-p.y)*rect.height/2};},captures:()=>machine.canvas.hasPointerCapture(1)};
 window.__dialQA.open('engine');</script></body></html>`;

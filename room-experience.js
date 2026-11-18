@@ -1,11 +1,7 @@
-import {SKELD_EXTRA_HINTS} from './skeld-task-rules.js';
-import {taskInstructions} from './frost-task-rules.js';
-import {taskExample} from './task-help-examples.js';
 import './room-experience.css';
 
-export function taskHelpText(task){return SKELD_EXTRA_HINTS[task.mode]||taskInstructions[task.mode]||taskExample(task)[1];}
 export function installRoomExperience(THREE,api){
- const root=new THREE.Group();root.name='部屋の案内と設備';api.scene.add(root);let map='',scope='',done=new Set(),previous=null,walk=0,lastStep=0,audio=null,help=null;const signs=[];
+ const root=new THREE.Group();root.name='部屋の案内と設備';api.scene.add(root);let map='',scope='',done=new Set(),previous=null,walk=0,lastStep=0,lastMarkerTime=null,audio=null;const signs=[];
  const hash=s=>[...String(s)].reduce((v,c)=>(v*31+c.codePointAt(0))>>>0,0);
  function tone(frequency,duration=.16,gain=.1,echo=0){
   if(document.hidden||api.volume()<=0)return;
@@ -28,17 +24,14 @@ export function installRoomExperience(THREE,api){
   }
  }
  function sync(){
-  const c=api.context(),active=c.phase==='play';root.visible=active;if(!active){previous=null;walk=0;if(help){help.remove();help=null;}return;}
+  const c=api.context(),active=c.phase==='play';root.visible=active;if(!active){previous=null;lastMarkerTime=null;walk=0;return;}
   if(map!==c.map){map=c.map;rebuild(c);}
-  for(const item of signs){const powered=api.power(item.room);item.sign.material.opacity=powered?1:.3;item.marker.material.emissiveIntensity=powered?.45:0;item.marker.material.color.set(powered?(item.room.color||'#83c9ca'):'#293c48');if(powered&&!api.reduced())item.marker.rotation.y+=.016;}
+  const now=performance.now(),dt=Math.min(.25,(now-(lastMarkerTime??now))/1000);lastMarkerTime=now;
+  for(const item of signs){const powered=api.power(item.room);item.sign.material.opacity=powered?1:.3;item.marker.material.emissiveIntensity=powered?.45:0;item.marker.material.color.set(powered?(item.room.color||'#83c9ca'):'#293c48');if(powered&&!api.reduced())item.marker.rotation.y+=dt*.75;}
   const key=c.room+':'+c.round;if(scope!==key){scope=key;done=new Set(Object.keys(c.done||{}).filter(id=>c.done[id]));}else for(const [id,value]of Object.entries(c.done||{}))if(value&&!done.has(id)){done.add(id);completed(c.tasks.find(t=>t.id===id)||{id});}
   if(previous&&c.alive&&!c.blocked){const d=Math.hypot(c.position.x-previous.x,c.position.z-previous.z);if(d<1.5)walk+=d;if(walk>.7&&performance.now()-lastStep>240){walk=0;lastStep=performance.now();const room=c.rooms.find(r=>api.contains(c.position.x,c.position.z,r));tone(room?105+hash(room.id)%45:170,.055,.045,room?.065:.15);}}
   previous={...c.position};
  }
- function showHelp(task,host){
-  const key='space-task-first-v1:'+api.uid()+':'+task.id;try{if(localStorage.getItem(key))return;localStorage.setItem(key,'1');}catch{}
-  help?.remove();help=document.createElement('section');help.className='firstTaskHelp';help.setAttribute('aria-label','初めての操作案内');const title=document.createElement('strong');title.textContent='操作の例：'+task.name;const text=document.createElement('p');text.textContent=taskHelpText(task);const demo=document.createElement('div');demo.className='taskMiniDemo';demo.innerHTML='<span>押す</span><i></i><span>動かす・離す</span>';const close=document.createElement('button');close.type='button';close.textContent='やってみる';close.onclick=()=>{help?.remove();help=null;};help.append(title,text,demo,close);host.append(help);
- }
  document.addEventListener('pointerdown',event=>{const stage=event.target.closest?.('#taskMachineStage,#practiceLab [data-stage]');if(!stage||api.reduced())return;const r=stage.getBoundingClientRect(),dot=document.createElement('i');dot.className='taskTouchGlow';dot.style.left=event.clientX-r.left+'px';dot.style.top=event.clientY-r.top+'px';stage.append(dot);setTimeout(()=>dot.remove(),280);},{passive:true});
- return{sync,completed,showHelp};
+ return{sync,completed};
 }

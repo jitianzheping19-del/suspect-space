@@ -23,16 +23,16 @@ const root=path.resolve(__dirname,'..'),out=path.resolve(root,'../artifacts/gold
    await page.evaluate(async()=>{gachaPreview.close();await gachaPreview.open('premium');});
    await page.locator('.gachaRates summary').click();assert((await page.locator('.gachaRates').innerText()).includes('20%'));await page.locator('.gachaRates summary').click();
    await page.locator('.gachaDraw').click();await page.waitForSelector('.gachaPlanetTap:not([hidden])');
-   for(let i=0;i<6;i++){await page.locator('.gachaPlanetTap').click();await page.waitForTimeout(310);}
+   for(let i=0;i<6&&await page.locator('.gachaPlanetTap').isVisible();i++){await page.locator('.gachaPlanetTap').click();await page.waitForTimeout(310);}
    assert.equal(await page.locator('.ssGacha').getAttribute('data-max-rank'),'5');
-   await page.waitForSelector('.goldenLegendTitle:not([hidden])');
+   await page.waitForSelector('.goldenGalleryTitle:not([hidden])');
    await page.waitForTimeout(450);await page.screenshot({path:path.join(out,(mobile?'phone-':'')+'golden-gate.png')});
    await page.waitForTimeout(1500);await page.screenshot({path:path.join(out,(mobile?'phone-':'')+'golden-hero.png')});
    await page.waitForSelector('.gachaResult:not([hidden])',{timeout:15000});assert.equal(await page.locator('.gachaResult>small').textContent(),'ゴールデンレジェンドレア');
    assert.equal(await page.locator('.gachaResult').getAttribute('data-rarity'),'5');
-   await page.locator('.gachaClose').click();assert.equal(await page.locator('.goldenLegendTitle').count(),0,'closing destroys the effect');
+   await page.locator('.gachaResultBack').click();await page.locator('.gachaClose').click();assert.equal(await page.locator('.goldenGalleryTitle').count(),0,'closing destroys the effect');
    await page.emulateMedia({reducedMotion:'reduce'});await page.evaluate(()=>gachaPreview.open('premium'));await page.locator('.gachaDraw').click();
-   for(let i=0;i<6;i++){await page.locator('.gachaPlanetTap').click();await page.waitForTimeout(310);}await page.waitForSelector('.gachaResult:not([hidden])');
+   for(let i=0;i<6&&await page.locator('.gachaPlanetTap').isVisible();i++){await page.locator('.gachaPlanetTap').click();await page.waitForTimeout(310);}await page.waitForSelector('.gachaResult:not([hidden])');
    assert.deepEqual(errors,[]);await page.close();console.log('PASS',mobile?'phone':'desktop','10 finite low-cost models in game/lobby, golden gates, sixth rarity, result, disposal and reduced motion');
   }
   fs.writeFileSync(path.join(out,'render-stats.json'),JSON.stringify(stats,null,2));

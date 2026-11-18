@@ -1,3 +1,4 @@
+import {setLobbyActionFace} from './lobby-action-icons.js';
 import {createLobbyPhotoLibrary} from './lobby-photo-library.js';
 export const PHOTO_BACKGROUNDS=[{id:'aurora',name:'オーロラ',colors:['#103749','#88eed6']},{id:'sunset',name:'夕焼け',colors:['#522f62','#ffb978']},{id:'moon',name:'月夜',colors:['#112343','#b4d9ff']},{id:'rose',name:'桜色',colors:['#422844','#ffb4d5']}];
 export function createLobbyPhotoUI({document,window,frame,isActive,isNear,isAtCamera,request,getUid,isHost=()=>false,changeBackground=()=>{},clock=Date.now,changePose=()=>{},isObscured=()=>false}){
@@ -8,21 +9,37 @@ export function createLobbyPhotoUI({document,window,frame,isActive,isNear,isAtCa
  const panel=document.createElement('section');panel.id='lobbyPhotoDialog';panel.hidden=true;panel.inert=true;panel.dataset.spaceUiVisible='false';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-label','集合写真カメラ');
  panel.innerHTML='<div class="lobbyPhotoResult"><header><div><small>STARLIGHT STUDIO</small><strong>集合写真カメラ</strong></div><button type="button" data-photo-close>閉じる</button></header><nav aria-label="カメラメニュー"><button type="button" data-photo-tab="camera">撮影</button><button type="button" data-photo-tab="library">ライブラリ</button><button type="button" data-photo-tab="background">背景</button></nav><section data-photo-view="camera" class="photoCameraHome"><div class="photoCameraIllustration" aria-hidden="true"><i></i><b>✦</b></div><button type="button" data-photo-shutter>撮影</button></section><section data-photo-view="library" hidden><div class="photoLibraryHeading"><h3>最近の写真</h3><span>この端末 · 撮影後1分間</span></div><div class="photoLibraryGrid"></div><p data-photo-empty>まだ写真がありません。最初の1枚を撮ってみよう。</p><img class="photoSelected" alt="選択した集合写真" hidden><button type="button" data-photo-save hidden>写真を保存</button></section><section data-photo-view="background" hidden><h3>背景を選ぶ</h3><p data-photo-host-note></p><div class="photoBackgroundGrid"></div></section><footer><span role="status" aria-live="polite"></span></footer></div>';
  document.body.append(overlay,flash,panel);
- const poseButton=document.createElement('button');poseButton.id='lobbyPhotoPoseBtn';poseButton.type='button';poseButton.hidden=true;poseButton.innerHTML='<span>ポーズ</span><small>立つ</small>';document.body.append(poseButton);
+ const poseButton=document.createElement('button');poseButton.id='lobbyPhotoPoseBtn';poseButton.type='button';poseButton.hidden=true;document.body.append(poseButton);
  const poses=[['stand','立つ'],['wave','手を振る'],['cheer','ばんざい'],['hero','ヒーロー']];let poseIndex=0;
- poseButton.onclick=()=>{if(!canUse()||!panel.hidden)return;poseIndex=(poseIndex+1)%poses.length;const [pose,name]=poses[poseIndex];changePose(pose);poseButton.querySelector('small').textContent=name;poseButton.setAttribute('aria-label','ポーズ：'+name+'。押すと切り替え');};
+ const poseIcons={stand:'poseStand',wave:'poseWave',cheer:'poseCheer',hero:'poseHero'};
+ const poseName=document.createElement('small');
+ function paintPose(){
+  const [pose,name]=poses[poseIndex];
+  setLobbyActionFace(poseButton,poseIcons[pose],'ポーズ','ポーズ：'+name+'。押すと切り替え');
+  if(!poseName.parentNode)poseButton.append(poseName);
+  poseName.textContent=name;
+ }
+ paintPose();
+ poseButton.onclick=()=>{if(!canUse()||!panel.hidden)return;poseIndex=(poseIndex+1)%poses.length;changePose(poses[poseIndex][0]);paintPose();};
  function syncPoseButton(){
-  const use=document.getElementById('lobbyUseBtn'),rect=use?.getBoundingClientRect();
-  const show=canUse()&&!isObscured()&&panel.hidden&&rect?.width>0&&rect?.height>0&&!use.classList.contains('hidden')&&!document.body.dataset.loggingOut;
+  const use=document.getElementById('lobbyUseBtn');
+  if(!canUse()||!panel.hidden||!use||use.classList.contains('hidden')||document.body.dataset.loggingOut||isObscured()){
+   if(!poseButton.hidden)poseButton.hidden=true;
+   return;
+  }
+  const rect=use.getBoundingClientRect(),show=rect.width>0&&rect.height>0;
   poseButton.hidden=!show;if(!show)return;
-  poseButton.style.left=rect.left+'px';poseButton.style.top=Math.max(8,rect.top-56)+'px';poseButton.style.width=rect.width+'px';
+  let top=rect.top-56;
+  const dash=document.getElementById('lobbyDashBtn')?.getBoundingClientRect();
+  if(dash?.width&&dash.left<rect.right&&dash.right>rect.left&&top<dash.bottom+4&&top+48>dash.top-4)top=dash.top-54;
+  poseButton.style.left=rect.left+'px';poseButton.style.top=Math.max(8,top)+'px';poseButton.style.width=rect.width+'px';
  }
  const image=panel.querySelector('img'),status=panel.querySelector('[role="status"]'),save=panel.querySelector('[data-photo-save]'),number=overlay.querySelector('strong'),grid=panel.querySelector('.photoLibraryGrid');
  let shot=null,pending=null,selected=null,album=[],seen='',timer=0,opener=null,flashUntil=0,view='camera',background='aurora',albumOwner='',generation=0,saving=false,storageNotice='';
  const post=data=>frame()?.contentWindow?.postMessage(data,'*');
  const canUse=()=>isActive()&&(isNear()||isAtCamera());
  function close(){panel.hidden=true;panel.inert=true;panel.dataset.spaceUiVisible='false';panel.setAttribute('aria-hidden','true');if(document.body.dataset.lobbyPhoto==='result')delete document.body.dataset.lobbyPhoto;opener?.focus?.({preventScroll:true});opener=null;}
- function reset(){if(pending)post({type:'lobby-photo-cancel',id:pending.id});library.clear();pending=shot=null;seen='';poseButton.hidden=true;poseIndex=0;poseButton.querySelector('small').textContent='立つ';overlay.hidden=flash.hidden=true;close();delete document.body.dataset.lobbyPhoto;window.clearInterval(timer);timer=0;generation++;selected=null;album=[];albumOwner='';image.removeAttribute('src');grid.replaceChildren();}
+ function reset(){if(pending)post({type:'lobby-photo-cancel',id:pending.id});library.clear();pending=shot=null;seen='';poseButton.hidden=true;if(poseIndex!==0){poseIndex=0;paintPose();}overlay.hidden=flash.hidden=true;close();delete document.body.dataset.lobbyPhoto;window.clearInterval(timer);timer=0;generation++;selected=null;album=[];albumOwner='';image.removeAttribute('src');grid.replaceChildren();}
  function choose(photo){selected=photo;image.src=photo.image;image.hidden=save.hidden=false;save.disabled=saving;grid.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.photoId===photo.id)));}
  function renderAlbum(){grid.replaceChildren();panel.querySelector('[data-photo-empty]').hidden=album.length>0;for(const photo of album){const button=document.createElement('button'),thumb=document.createElement('img'),date=document.createElement('span');button.type='button';button.dataset.photoId=photo.id;thumb.src=photo.image;thumb.alt='集合写真';thumb.loading='lazy';date.textContent=new Date(photo.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});button.setAttribute('aria-label',date.textContent+'の写真を見る');button.append(thumb,date);button.onclick=()=>choose(photo);grid.append(button);}if(album.length)choose(album.find(p=>p.id===selected?.id)||album[0]);else{selected=null;image.hidden=save.hidden=true;image.removeAttribute('src');}}
  async function refreshAlbum(){const owner=String(getUid()||''),version=++generation;albumOwner=owner;const rows=await library.list(owner);if(version!==generation||owner!==String(getUid()||''))return;album=rows;renderAlbum();}

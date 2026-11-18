@@ -79,9 +79,10 @@ function tickPresentation(stage,state){
   if(!state.reduced){
    const elapsed=value*1000-remaining;
    animate(state,state.digit,[
-    {opacity:0,transform:'translateY(22%) scale(.9)'},
+    {opacity:0,transform:'translateY(18%) scale(.94)',easing:'cubic-bezier(.18,.75,.26,1)'},
+    {opacity:1,transform:'translateY(-1.5%) scale(1.025)',offset:.54,easing:'cubic-bezier(.32,0,.28,1)'},
     {opacity:1,transform:'translateY(0) scale(1)'}
-   ],{duration:520,easing:'cubic-bezier(.16,1,.3,1)'},elapsed,state.digitAnimations);
+   ],{duration:440,easing:'linear'},elapsed,state.digitAnimations);
    if(previous!==null)animate(state,state.outgoing,[
     {opacity:.65,transform:'translateY(0) scale(1)'},
     {opacity:0,transform:'translateY(-28%) scale(.94)'}

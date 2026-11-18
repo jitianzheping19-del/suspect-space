@@ -1,3 +1,4 @@
+import {setStudioLighting} from './studio-lighting.js';
 import {createMotionPreference} from './motion-preference.js';
 import {createRenderBudget} from './render-performance.js';
 import './meeting-memorial.css';
@@ -96,6 +97,7 @@ export function createMeetingMemorial(THREE,{host,createCrew,disposeCrew}){
    renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0,0);
    renderer.domElement.setAttribute('aria-hidden','true');renderer.domElement.addEventListener('webglcontextlost',contextLost);viewport.append(renderer.domElement);
    scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(35,1,.1,160);
+ setStudioLighting(THREE,renderer,scene);
    scene.add(new THREE.HemisphereLight(0xc7d9ed,0x1d2532,2));
    key=new THREE.DirectionalLight(0xffe7bf,3);key.position.set(-4,8,6);scene.add(key);
    const rim=new THREE.DirectionalLight(0x829dc4,1.9);rim.position.set(3,5,-3);scene.add(rim);

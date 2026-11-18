@@ -29,6 +29,16 @@ for(const file of ['index.html','space-suspect-complete.html']){
   emitModRoleEvent:()=>{},recordDeath:(g,id)=>{g.players[id].alive=false;return true;},setCommandResult:()=>{}};
  vm.createContext(c);
  vm.runInContext(between('function mergeMatchSettings(','function snapshotMatchSettingsFromInputs(')+between('function snapshotMatchSettingsFromInputs(','\nfunction lobbySettingsPayload('),c);
+ vm.runInContext(between('const MEETING_BUTTON_COOLDOWN_MS=', 'function meetingButtonSeconds('),c);
+ vm.runInContext(between('function lobbySettingsSnapshot(', 'function finishedMatchSettings('),c);
+ const oldRoles={vampire:1,engineer:1},currentRoles={engineer:1};
+ for(const roles of [currentRoles,{}]){
+  const room=c.lobbySettingsSnapshot({roles,matchSettings:{roles:oldRoles,meetingSeconds:90}});
+  assert.deepEqual({...room.roles},roles);
+  assert.deepEqual({...c.mergeMatchSettings({roles:oldRoles},room).roles},roles);
+  assert.equal(room.meetingSeconds,90);
+ }
+ assert.deepEqual({...c.lobbySettingsSnapshot({matchSettings:{roles:oldRoles}}).roles},oldRoles);
  vm.runInContext('globalThis.snapshot=snapshotMatchSettingsFromInputs()',c);
  const start=between('        await set(ref(db, `rooms/${code}/game`), {','        const ownSpawn=roster[uid];');
  await vm.runInContext('(async()=>{const matchSettingsSnapshot=snapshot;'+start+'})()',c);

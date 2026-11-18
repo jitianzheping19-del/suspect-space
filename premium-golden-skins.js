@@ -1,3 +1,4 @@
+import {createCostumeBlock} from './costume-finishes.js';
 // Authored golden silhouettes. Equipment only; no lights, physics or extra loops.
 export const GOLDEN_GIFT_SKINS=Object.freeze([
  {id:'obsidianwyrm',name:'黒焔竜帝・ヴァルガロス',color:0x171b27,accent:0xff532d,trim:0xb38a52,glyph:'🐉'},
@@ -35,11 +36,11 @@ export const GOLDEN_GIFT_SKINS=Object.freeze([
 export function createGoldenGiftSkin(T,spec,{mobile=false}={}){
  const group=new T.Group();group.name='gift-skin-'+spec.id;group.userData.goldenLegend=true;
  const geometries=new Set(),materials=new Set(),cache=new Map(),assemblies=[group],motions=[];
- let disposed=false;
+ let disposed=false,lastClock=0,movingTime=0,jumpWeight=0;
  const own=g=>(geometries.add(g),g),geo=(key,make)=>{if(!cache.has(key))cache.set(key,own(make()));return cache.get(key);};
  const mat=(color,metalness,roughness,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness,roughness,emissive:emission?color:0,emissiveIntensity:emission});materials.add(m);return m;};
  const shell=mat(spec.color,.72,.32),trim=mat(spec.trim,.87,.26),dark=mat(0x101522,.45,.5),glow=mat(spec.accent,.48,.25,1.25);
- const box=geo('box',()=>new T.BoxGeometry(1,1,1)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:16,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),cone=geo('cone',()=>new T.ConeGeometry(1,1,6));
+ const box=geo('box',()=>createCostumeBlock(T)),ball=geo('ball',()=>new T.SphereGeometry(1,mobile?12:16,mobile?8:12)),gem=geo('gem',()=>new T.OctahedronGeometry(1)),cone=geo('cone',()=>new T.ConeGeometry(1,1,6));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,parent=group,rz=0){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.rotation.z=rz;n.castShadow=false;n.userData.lightCostume=true;parent.add(n);return n;}
  const block=(m,x,y,z,w,h,d,p=group,a=0)=>mesh(box,m,x,y,z,w,h,d,p,a);
  function rig(x=0,y=0,z=0){const n=new T.Group();n.position.set(x,y,z);group.add(n);assemblies.push(n);return n;}
@@ -322,7 +323,12 @@ export function createGoldenGiftSkin(T,spec,{mobile=false}={}){
  const count=mobile?14:22,positions=new Float32Array(count*3),pg=own(new T.BufferGeometry());pg.setAttribute('position',new T.BufferAttribute(positions,3));
  const pm=new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{tint:{value:new T.Color(spec.accent)}},vertexShader:'void main(){vec4 p=modelViewMatrix*vec4(position,1.);gl_PointSize=clamp(30./-p.z,1.,4.);gl_Position=projectionMatrix*p;}',fragmentShader:'uniform vec3 tint;void main(){float a=1.-smoothstep(.15,.5,length(gl_PointCoord-.5));if(a<.02)discard;gl_FragColor=vec4(tint,a*.65);}'});materials.add(pm);
  const aura=new T.Points(pg,pm);aura.name='signature-aura';aura.frustumCulled=false;group.add(aura);
- function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0;for(const motion of motions)motion(t);glow.emissiveIntensity=1.15+Math.sin(t*2)*.12+(jumping?.18:0);for(let i=0;i<count;i++){const a=i*2.39996+t*.2,r=.58+(i%3)*.08;positions[i*3]=Math.cos(a)*r;positions[i*3+1]=(i/count*2.1+t*(moving?.32:.16))%2.1;positions[i*3+2]=Math.sin(a)*r;}pg.attributes.position.needsUpdate=true;}
+ function update(seconds,{moving=false,jumping=false}={}){if(disposed)return;const t=Number.isFinite(seconds)?seconds:0;
+  if(t<lastClock){movingTime=0;jumpWeight=0;}
+  const dt=Math.min(.25,Math.max(0,t-lastClock));lastClock=t;
+  if(moving)movingTime+=dt;
+  jumpWeight+=(Number(!!jumping)-jumpWeight)*(1-Math.exp(-16*dt));
+  for(const motion of motions)motion(t);glow.emissiveIntensity=1.15+Math.sin(t*2)*.12+.18*jumpWeight;for(let i=0;i<count;i++){const a=i*2.39996+t*.2,r=.58+(i%3)*.08;positions[i*3]=Math.cos(a)*r;positions[i*3+1]=(i/count*2.1+t*.16+movingTime*.16)%2.1;positions[i*3+2]=Math.sin(a)*r;}pg.attributes.position.needsUpdate=true;}
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();}
  update(0);aura.removeFromParent();return upgradeGoldenGiftSkin(T,{group,spec,update,dispose},{mobile});
 }
@@ -338,7 +344,7 @@ export function upgradeGoldenGiftSkin(T,skin,{mobile=false}={}){
  group.userData.goldenCouture=2;
  const own=g=>(geometries.add(g),g),material=(color,emission=0)=>{const m=new T.MeshStandardMaterial({color,metalness:.78,roughness:.28,emissive:emission?color:0,emissiveIntensity:emission});materials.add(m);return m;};
  const gold=material(spec.trim??0xe1bd75),enamel=material(spec.color),glow=material(spec.accent,.65);
- const box=own(new T.BoxGeometry(1,1,1)),gem=own(new T.OctahedronGeometry(1)),rodGeo=own(new T.CylinderGeometry(1,1,1,5));
+ const box=own(createCostumeBlock(T)),gem=own(new T.OctahedronGeometry(1)),rodGeo=own(new T.CylinderGeometry(1,1,1,5));
  function add(g,m,x,y,z,sx=1,sy=1,sz=1,angle=0){const n=new T.Mesh(g,m);n.position.set(x,y,z);n.scale.set(sx,sy,sz);n.rotation.z=angle;parts.push(n);return n;}
  function line(a,b,m=gold,r=.012){const n=add(rodGeo,m,...a.map((v,i)=>(v+b[i])/2),r,Math.hypot(...a.map((v,i)=>b[i]-v)),r);n.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(...a.map((v,i)=>b[i]-v)).normalize());return n;}
  function contour(points,m=gold,r=.012){for(let j=1;j<points.length;j++)line(points[j-1],points[j],m,r);}

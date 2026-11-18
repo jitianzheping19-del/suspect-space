@@ -23,3 +23,40 @@ body.lobbySoccerRoom :is([data-camera-perspective],[data-core-camera]){pointer-e
 #soccerCameraBtn{min-width:116px;min-height:40px;padding:7px 10px;border:1px solid #9bcbdf;border-radius:10px;background:#123447ed;color:#fff;font:700 12px system-ui;touch-action:manipulation;pointer-events:auto}
 #soccerCameraBtn:focus-visible{outline:3px solid #fff;outline-offset:2px}
 
+
+/* The recessed face and bright upper rim echo the original pitch controls. */
+[data-soccer-art]{--kit:#40dcb1;--kit-light:#b8ffe1;--pitch-mid:#237165;--pitch-base:#113a41}
+[data-soccer-art="shot"],[data-soccer-art="curve"],[data-soccer-art="stop"]{--kit:#ff9c57;--kit-light:#ffe29a;--pitch-mid:#9b5539;--pitch-base:#472c35}
+[data-soccer-art="dash"],[data-soccer-art="slide"],[data-soccer-art^="blue-"]{--kit:#57adff;--kit-light:#c2edff;--pitch-mid:#396ea6;--pitch-base:#1c3556}
+[data-soccer-art="lob"],[data-soccer-art="overhead"]{--kit:#be99ff;--kit-light:#f2d7ff;--pitch-mid:#765794;--pitch-base:#382f54}
+[data-soccer-art="header"],[data-soccer-art="volley"],[data-soccer-art="sky"]{--kit:#ffc55a;--kit-light:#fff0ab;--pitch-mid:#92703e;--pitch-base:#4c3940}
+[data-soccer-art="press"],[data-soccer-art^="red-"]{--kit:#ff7f83;--kit-light:#ffd8be;--pitch-mid:#9b5058;--pitch-base:#4e2c40}
+[data-soccer-art="through"],[data-soccer-art="start"]{--kit:#8ed868;--kit-light:#e1f8ab;--pitch-mid:#467b56;--pitch-base:#233f3c}
+:is(#soccerFlickZone,#soccerDefenseZone) button[data-soccer-art]{
+  box-sizing:border-box;isolation:isolate;container-type:size;display:grid;
+  grid-template:minmax(0,1fr) auto auto / minmax(0,1fr);place-items:center;gap:1px;
+  padding:calc(var(--soccer-fixed,108px) * .111) 3px calc(var(--soccer-fixed,108px) * .16);
+  border:2px solid var(--kit-light)!important;color:#fffcf1;
+  background:radial-gradient(ellipse at 32% 12%,#ffffff25,transparent 49%),linear-gradient(150deg,var(--pitch-mid),var(--pitch-base) 83%)!important;
+  box-shadow:inset 0 0 0 2px #0d223170,inset 0 -4px 6px #0b18273b,0 4px 0 #122737,0 5px 12px #0315224d
+}
+:is(#soccerFlickZone,#soccerDefenseZone) button[data-soccer-art]::before{
+  content:"";position:absolute;inset:4px;border-radius:50%;border:1px solid #ffffff30;border-bottom-color:#ffffff12;pointer-events:none
+}
+:is(#soccerFlickZone,#soccerDefenseZone) button[data-soccer-art].holding{transform:translateY(2px);box-shadow:inset 0 1px 5px #0b1e31a6,0 2px 0 #10283b}
+:is(#soccerFlickZone,#soccerDefenseZone) button[data-soccer-art]>svg{
+  display:block;width:76%;height:100%;min-height:0;pointer-events:none
+}
+:is(#soccerFlickZone,#soccerDefenseZone) button[data-soccer-art]>span{
+  --label-scale:clamp(.86,calc(1.7 - var(--caption-em,5) * .14),1);
+  font:800 min(24cqw,calc(95cqw / var(--caption-em,5) / var(--label-scale)))/1.02 system-ui;
+  transform:scaleX(var(--label-scale));
+  white-space:nowrap;text-shadow:0 1px 2px #071722
+}
+:is(#soccerFlickZone,#soccerDefenseZone) button[data-soccer-art]>small{
+  font:650 min(13cqw,calc(74cqw / var(--caption-em,8)))/1.04 system-ui;
+  white-space:nowrap;color:#f7f2e7;text-shadow:0 1px 2px #071722
+}
+body[data-phase="lobby"] #lobbyUseBtn[data-soccer-art]{
+  border-color:var(--kit-light)!important;background:linear-gradient(150deg,var(--pitch-mid),var(--pitch-base))!important
+}

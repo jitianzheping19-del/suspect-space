@@ -1,0 +1,80 @@
+/* Room entry and the role-specific ready action use the same mint accent. */
+body #setup.portalUI[data-entry-design] #titleMenu:not(.hidden){grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:12px}
+body #setup.portalUI[data-entry-design] #titleMenu .titleAction{grid-template:1fr auto / minmax(0,1fr) auto;align-items:start;min-height:146px;padding:18px;gap:16px 4px;border-radius:16px}
+body #setup.portalUI[data-entry-design] #titleMenu .portalActionIcon{grid-area:1/1;border:0;background:transparent;width:32px;height:32px;justify-items:start}
+body #setup.portalUI[data-entry-design] #titleMenu .portalActionLabel{grid-area:2/1/3/3;font-size:clamp(15px,2.35vw,23px);white-space:normal}
+body #setup.portalUI[data-entry-design] #titleMenu .portalArrow{grid-area:1/2;align-self:start}
+body #setup.portalUI[data-entry-design] #titleMenu #titleOnline{background:linear-gradient(135deg,#b3f5d6,#75d8c3);border-color:#b1f1dc}
+body #setup.portalUI[data-entry-design] #titleMenu #titleOnline :is(.portalActionLabel,.portalActionIcon,.portalArrow){color:#0b3333}
+body #setup.portalUI[data-entry-design] #titleMenu #titleCreate{background:#102432f5;border-color:#53727b}
+body #setup.portalUI[data-entry-design] #titleMenu .titleAction:focus-visible{outline-offset:2px}
+@media(max-width:530px),(max-height:535px){body #setup.portalUI[data-entry-design] #titleMenu .titleAction{min-height:82px;padding:10px 12px;gap:8px}body #setup.portalUI[data-entry-design] #titleMenu .portalActionIcon{width:25px;height:25px}}
+@layer play-action-layout{
+ html body[data-phase=lobby] #lobbyRoomCode{display:grid!important;grid-template-columns:auto auto;align-items:center;gap:1px 10px!important;border:1px solid #597880!important;background:#0b1c27f5!important;border-radius:10px!important}
+ html body[data-phase=lobby] #lobbyRoomCode.hidden{display:none!important}
+ html body[data-phase=lobby] #lobbyRoomCode>span{grid-column:1;grid-row:1;font:650 9px/1.2 system-ui;color:#acc6ca}
+ html body[data-phase=lobby] #lobbyRoomCode>strong{grid-column:1;grid-row:2;font:800 17px/1.05 ui-monospace,monospace}
+ html body[data-phase=lobby] #lobbyRoomCount{grid-column:2;grid-row:1/3;border-left:1px solid #537378;padding-left:8px;font:700 11px/1.25 system-ui;color:#a8efdb;white-space:nowrap}
+ html body[data-phase=lobby] #startBtn:not(.hidden),html body[data-phase=lobby] #readyBtn:not(.ready):not(.hidden){background:linear-gradient(135deg,#b3f5d6,#75d8c3)!important;color:#092e2e!important;border:1px solid #aaf1d8!important;text-shadow:none!important;box-shadow:0 2px 7px #03121477!important}
+}
+body #ssSecurityModal.open{z-index:900;box-sizing:border-box;display:grid;place-items:stretch;inset:0;padding:0;background:#08151b;overflow:hidden;overscroll-behavior:contain}
+body #ssSecurityModal #ssSecurityPanel{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr);width:100%;height:100%;min-height:0;max-height:none;overflow:hidden;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:0;background:#0a151d;box-shadow:none}
+body #ssSecurityModal #ssSecurityHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;padding:max(3px,env(safe-area-inset-top)) max(9px,env(safe-area-inset-right)) 3px max(10px,env(safe-area-inset-left));border-bottom:1px solid #40515a}
+body #ssSecurityModal #ssSecurityTitle{margin:0;font:700 clamp(15px,2vw,19px)/1.1 system-ui;color:#dfedea}
+body #ssSecurityModal #ssSecurityClose{min-height:39px;padding:6px 11px;border:1px solid #48616c;background:#142933;color:#eef9f8;border-radius:6px}
+.ssCameraWall{position:relative;min-width:0;min-height:0;overflow:hidden;background:#060e16}
+body #ssSecurityModal #ssSecurityFeed{display:block;width:100%;height:100%;border:0;border-radius:0;aspect-ratio:auto}
+#ssCameraLabels{position:absolute;inset:0;display:grid;grid-template:1fr 1fr / 1fr 1fr}
+body #ssCameraLabels button{position:relative;display:flex;align-items:flex-start;justify-content:flex-start;gap:5px;min-width:0;min-height:0;padding:6px;border:0;border-radius:0;color:#f4fbfa;text-shadow:0 1px 3px #000;background:linear-gradient(to bottom,#06141c9e,transparent 26%);box-shadow:none}
+body #ssCameraLabels button:nth-child(odd){border-right:2px solid #091822}
+body #ssCameraLabels button:nth-child(-n+2){border-bottom:2px solid #091822}
+body #ssCameraLabels button strong{font:700 clamp(11px,1.65vw,17px)/1.4 system-ui}
+body #ssCameraLabels button small{color:#91e2d0;font:700 clamp(9px,1.2vw,12px)/1.65 ui-monospace,monospace}
+body #ssCameraLabels button span{display:none;position:absolute;right:6px;bottom:6px;padding:2px 6px;border-radius:4px;background:#122c2ee8;color:#a6f1d6;font:700 10px/1.5 system-ui}
+body #ssCameraLabels button[aria-pressed=true]:enabled span{display:block}
+body #ssCameraLabels button:focus-visible{outline:2px solid #b6ffe6;outline-offset:-3px}
+body #ssSecurityModal #ssSecurityStatus:not(:empty){position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);margin:0;padding:8px 12px;border-radius:6px;background:#14242aee;color:#e8f6f2;pointer-events:none}
+#ssCameraLabels button:nth-child(odd){padding-left:max(6px,env(safe-area-inset-left))}
+#ssCameraLabels button:nth-child(even) span{right:max(6px,env(safe-area-inset-right))}
+#ssCameraLabels button:nth-child(n+3) span{bottom:max(6px,env(safe-area-inset-bottom))}
+
+body #lobbyDashBtn{display:none}
+body[data-phase="lobby"]:not(.lobbyTagPlaying):not([data-lobby-minigame]):not([data-lobby-loading="true"]) #lobbyDashBtn:not([hidden]){
+  position:fixed;z-index:44;display:grid;place-items:center;right:calc(max(8px,env(safe-area-inset-right)) + 68px);bottom:calc(max(8px,env(safe-area-inset-bottom)) + 84px);
+  min-width:78px;min-height:48px;padding:6px 12px;border:1px solid #7bbcb3;border-radius:12px;background:#153539ed;color:#d9fff3;font:700 14px/1.2 system-ui;touch-action:none;user-select:none
+}
+body[data-phase="lobby"] #lobbyDashBtn[data-held="true"]{background:#a5f3d9;color:#103332}
+
+/* The same button keeps its native hit area as nearby equipment changes. */
+.lobbyActionMark{display:none}
+body[data-phase="lobby"] .lobbyActionFace{
+  position:absolute;inset:2px 4px 3px;display:grid;container-type:size;
+  grid-template: minmax(0,1fr) auto / minmax(0,1fr);place-items:center;gap:1px;line-height:1;pointer-events:none
+}
+body[data-phase="lobby"] .lobbyActionMark{
+  display:block;width:100%;height:100%;min-width:0;min-height:0;color:#ecfffa
+}
+body[data-phase="lobby"] .lobbyActionMark .accent{color:var(--lobby-icon-accent,#85efd5)}
+body[data-phase="lobby"] .lobbyActionLabel{
+  font:750 min(35cqh,calc(99cqw / var(--caption-em,4)))/1.04 system-ui;
+  white-space:nowrap;letter-spacing:0
+}
+body[data-phase="lobby"] :is([data-action-icon="premium"],[data-action-icon="news"]){--lobby-icon-accent:#ffd789}
+body[data-phase="lobby"] :is([data-action-icon="practice"],[data-action-icon="groupPhoto"],[data-action-icon="jump"]){--lobby-icon-accent:#a9dcff}
+body[data-phase="lobby"] #lobbyDashBtn[data-held="true"] .lobbyActionMark{color:#123a37;--lobby-icon-accent:#245a51}
+body[data-phase="lobby"] :is(#lobbyPhotoPoseBtn,#lobbyUnstuckBtn) .lobbyActionFace{
+  position:static;container-type:normal;display:flex;align-items:center;justify-content:center;gap:3px
+}
+body[data-phase="lobby"] #lobbyPhotoPoseBtn{container-type:size;gap:0;padding:2px 3px}
+body[data-phase="lobby"] #lobbyPhotoPoseBtn .lobbyActionMark{width:min(30cqw,60cqh);height:min(30cqw,60cqh)}
+body[data-phase="lobby"] #lobbyPhotoPoseBtn .lobbyActionLabel{font-size:min(21cqw,41cqh)}
+body[data-phase="lobby"] #lobbyPhotoPoseBtn small{font-size:min(16cqw,28cqh);line-height:1.05}
+body[data-phase="lobby"] #lobbyUnstuckBtn .lobbyActionMark{width:24px;height:24px}
+body[data-phase="lobby"] #lobbyUnstuckBtn .lobbyActionLabel{font-size:14px}
+
+/* Small figures share uniform outlines with a separate kit and skin color. */
+body[data-phase="lobby"] [data-action-icon="pet"] .lobbyActionMark{color:#f3b280;--lobby-icon-accent:#ffe0ad}
+body[data-phase="lobby"] [data-action-icon="jump"] .lobbyActionMark{color:#9ad9ff;--lobby-icon-accent:#ffd88d}
+body[data-phase="lobby"] [data-action-icon="dash"]:not([data-held=true]) .lobbyActionMark{color:#88e9c6;--lobby-icon-accent:#ffc77a}
+body[data-phase="lobby"] :is([data-action-icon^="pose"],[data-action-icon="tag"]) .lobbyActionMark{color:#a6cbff;--lobby-icon-accent:#ffbf88}
+body[data-phase="lobby"] :is([data-action-icon^="pose"],[data-action-icon="dash"]:not([data-held=true])) .lobbyActionMark circle{fill:#ffe1b5;stroke:#f9cd9e}

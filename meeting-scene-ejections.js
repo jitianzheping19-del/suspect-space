@@ -188,7 +188,8 @@ function createMeetingEjections(api) {
     if (mode === 'balance') {
       state.pans = actors.map(p => {
         const side = api.scaleTargets().indexOf(p.id);
-        return {side, pan: api.pans[side], origin: api.pans[side]?.position.clone()};
+        const pan = api.pans[side];
+        return {side, pan, origin: pan?.position.clone(), tilt: pan?.rotation.z};
       });
     }
     last = state;
@@ -280,7 +281,7 @@ function createMeetingEjections(api) {
           const item = state.pans[i], q = Math.max(0, t - .9);
           if (item.pan && item.origin) {
             item.pan.position.copy(item.origin);item.pan.position.y -= 6 * q * q;
-            item.pan.rotation.z += q * .7;
+            item.pan.rotation.z = item.tilt + (item.side === 0 ? -1 : 1) * q * (.65 + .52 * q);
             item.pan.updateWorldMatrix(true, false);
             p.c.root.position.copy(item.pan.localToWorld(v(0, .04, 0)));
           } else {p.c.root.position.copy(state.positions[i]);p.c.root.position.y -= 6 * q * q;}

@@ -1,3 +1,4 @@
+import {createCostumeBlock} from './costume-finishes.js';
 import {TAILORED_GIFT_IDS,createTailoredGiftSkin} from './premium-tailored-skins.js';
 // Twenty authored silhouettes. Presentation only: no lights, colliders or game state.
 export const EXPANDED_GIFT_SKINS = Object.freeze([
@@ -27,13 +28,14 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  if(TAILORED_GIFT_IDS.includes(spec.id))return createTailoredGiftSkin(T,spec,{mobile});
  const group=new T.Group();group.name='gift-skin-'+spec.id;
  const geometries=new Set(),materials=new Set(),textures=new Set(),cache=new Map(),assemblies=[group],motions=[];
+ let moveWeight=0,jumpWeight=0,movingTime=0;
  let disposed=false,previous=-1,wasJumping=false,jumpAt=-100,trailAt=-1,trailCursor=0;
  const own=g=>(geometries.add(g),g);
  const geometry=(key,make)=>{if(!cache.has(key))cache.set(key,own(make()));return cache.get(key);};
  const mat=(color,metalness=.15,roughness=.6,emissive=0)=>{const m=new T.MeshStandardMaterial({color,metalness,roughness,emissive:emissive?color:0,emissiveIntensity:emissive});materials.add(m);return m;};
  const fabric=mat(spec.color),trim=mat(spec.trim,.65,.3),dark=mat(0x17232d,.3,.5),ivory=mat(0xefe8d7,.1,.65),glow=mat(spec.accent,.3,.28,1.2);
  const wood=mat(0x704734,.05,.8),silver=mat(0xa1b9bf,.8,.27),rose=mat(0xca697f,.1,.5);
- const box=geometry('box',()=>new T.BoxGeometry(1,1,1)),ball=geometry('ball',()=>new T.SphereGeometry(1,mobile?14:20,mobile?10:14));
+ const box=geometry('box',()=>createCostumeBlock(T)),ball=geometry('ball',()=>new T.SphereGeometry(1,mobile?14:20,mobile?10:14));
  const torus=geometry('torus',()=>new T.TorusGeometry(1,.045,6,mobile?36:56));
  function mesh(g,m,x=0,y=0,z=0,sx=1,sy=1,sz=1,parent=group){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=false;o.userData.lightCostume=true;parent.add(o);return o;}
  const block=(m,x,y,z,w,h,d,p=group)=>mesh(box,m,x,y,z,w,h,d,p);
@@ -69,13 +71,13 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'sakurakimono': {
   garment();const skirt=cylinder(fabric,0,.61,-.02,.53,.47,group,.40);const sash=mat(0xe6bf8d,.2,.55);cylinder(sash,0,.88,-.03,.50,.19);
-  for(const s of[-1,1]){const sleeve=node(s*.48,1.06,0);plate([[-.2,.23],[.2,.23],[.25,-.42],[-.20,-.34]],.36,fabric,0,0,0,sleeve);plate([[-.16,.18],[.16,.18],[.19,-.34],[-.16,-.29]],.02,ivory,0,0,.2,sleeve);flower(sleeve,0,-.17,.22,.075);animate(sleeve,(n,t,m,j)=>n.rotation.z=s*(.06+Math.sin(t*1.8)*.035+(j?.12:0)));seam([[s*.03,1.5,.29],[s*.18,1.07,.41],[s*.35,.62,.40]],ivory);}
+  for(const s of[-1,1]){const sleeve=node(s*.48,1.06,0);plate([[-.2,.23],[.2,.23],[.25,-.42],[-.20,-.34]],.36,fabric,0,0,0,sleeve);plate([[-.16,.18],[.16,.18],[.19,-.34],[-.16,-.29]],.02,ivory,0,0,.2,sleeve);flower(sleeve,0,-.17,.22,.075);animate(sleeve,(n,t,m,j)=>n.rotation.z=s*(.06+Math.sin(t*1.8)*.035+(j*.12)));seam([[s*.03,1.5,.29],[s*.18,1.07,.41],[s*.35,.62,.40]],ivory);}
   block(sash,0,.88,-.48,.62,.27,.16);for(const s of[-1,1])plate([[0,0],[s*.3,.17],[s*.36,-.11]],.12,rose,s*.04,.90,-.55);
   const fan=node(.06,1.28,-.58);for(let j=0;j<9;j++){const a=(j-4)*.21;const p=plate([[-.06,0],[.06,0],[.14,.75],[-.14,.75]],.025,j%2?rose:fabric,0,0,0,fan);p.rotation.z=a;const b=block(sash,Math.sin(-a)*.38,Math.cos(a)*.38,.02,.015,.77,.015,fan);b.rotation.z=a;}animate(fan,(n,t)=>n.rotation.y=Math.sin(t*.7)*.1);
   for(let j=0;j<6;j++)flower(group,Math.sin(j*2)*.29,.58+j*.13,.43,.045);flower(group,-.30,1.67,.13,.16);break;
  }
  case 'chronokeeper': {
-  garment();lapels();boots(dark);for(const s of[-1,1]){const tail=node(s*.24,.72,-.3);plate([[-.18,.15],[.18,.15],[.20,-.44],[0,-.53],[-.20,-.44]],.06,fabric,0,0,0,tail);animate(tail,(n,t,m)=>n.rotation.x=(m?.17:.03)*Math.sin(t*3));}
+  garment();lapels();boots(dark);for(const s of[-1,1]){const tail=node(s*.24,.72,-.3);plate([[-.18,.15],[.18,.15],[.20,-.44],[0,-.53],[-.20,-.44]],.06,fabric,0,0,0,tail);animate(tail,(n,t,m)=>n.rotation.x=(.03+m*.14)*Math.sin(t*3));}
   const clock=node(0,1.20,-.56);ring(trim,0,0,0,.49,0,0,clock);ellipsoid(dark,0,0,0,.45,.45,.06,clock);for(let j=0;j<12;j++){const a=j*Math.PI/6;const b=block(ivory,Math.sin(a)*.39,Math.cos(a)*.39,-.07,.014,.055,.015,clock);b.rotation.z=-a;}const hand=block(glow,0,.12,-.09,.025,.27,.02,clock);hand.userData.dynamic=true;animate(clock,(n,t)=>hand.rotation.z=t*.18);
   for(const [s,y,r]of[[-1,1.60,.24],[1,.88,.22]]){const g=node(s*.45,y,-.52);gear(g,0,0,0,r);animate(g,(n,t)=>n.rotation.z=t*s*.4);}
   tube([[-.20,1.02,.45],[-.1,.74,.50],[.2,.80,.47]],.014,trim);ring(trim,.24,1.48,.30,.13);block(trim,0,1.71,-.02,.58,.08,.5);label('XII',.20,.08,0,.77,.45);break;
@@ -83,7 +85,7 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  case 'starchef': {
   garment(ivory);boots(dark);block(fabric,0,.74,.43,.52,.55,.08);for(const s of[-1,1])for(let j=0;j<3;j++)button(s*.13,.78+j*.12,.49,dark,.022);
   cylinder(ivory,0,1.78,-.02,.32,.30);for(let j=0;j<5;j++)ellipsoid(ivory,Math.sin(j*2.4)*.20,1.99+(j===0?.08:0),Math.cos(j*2.4)*.14,.22,.21,.22);ring(rose,0,1.66,0,.35,Math.PI/2);
-  const pan=node(.62,.83,.09);cylinder(dark,0,0,0,.30,.07,pan);ring(silver,0,.04,0,.29,Math.PI/2,0,pan);block(wood,0,0,-.37,.09,.08,.43,pan);ellipsoid(ivory,0,.06,0,.18,.025,.16,pan);ellipsoid(glow,.01,.08,0,.07,.04,.07,pan);animate(pan,(n,t,m,j)=>{n.rotation.z=Math.sin(t*2)*.1+(j?.3:0);});
+  const pan=node(.62,.83,.09);cylinder(dark,0,0,0,.30,.07,pan);ring(silver,0,.04,0,.29,Math.PI/2,0,pan);block(wood,0,0,-.37,.09,.08,.43,pan);ellipsoid(ivory,0,.06,0,.18,.025,.16,pan);ellipsoid(glow,.01,.08,0,.07,.04,.07,pan);animate(pan,(n,t,m,j)=>{n.rotation.z=Math.sin(t*2)*.1+(j*.3);});
   const spoon=node(-.60,.96,.10);cylinder(wood,0,.15,0,.025,.69,spoon);ellipsoid(trim,0,.52,0,.10,.16,.035,spoon);spoon.rotation.z=.25;animate(spoon,(n,t)=>n.rotation.z=.25+Math.sin(t*1.5)*.06);
   for(const s of[-1,1])tube([[s*.30,1.36,-.12],[s*.32,.94,-.43],[s*.20,.62,-.46]],.025,rose);label('CHEF',.28,.09,0,.55,.48);break;
  }
@@ -91,7 +93,7 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
   garment();lapels();boots(dark);for(const s of[-1,1]){block(trim,s*.47,1.28,.02,.24,.10,.36);for(let j=0;j<5;j++)cylinder(trim,s*(.39+j*.035),1.21,.10,.012,.12);}
   const hat=node(0,1.70,-.08);plate([[-.66,0],[-.55,.28],[-.24,.18],[0,.4],[.24,.18],[.55,.28],[.66,0],[0,-.08]],.35,dark,0,0,0,hat);seam([[-.59,.07,.19],[-.5,.21,.19],[0,.32,.19],[.5,.21,.19],[.59,.07,.19]],trim,hat);ellipsoid(ivory,0,.15,.20,.075,.07,.025,hat);for(const s of[-1,1])block(ivory,s*.04,.08,.2,.016,.08,.02,hat).rotation.z=s*.7;
   const wheel=node(0,1.03,-.57);ring(wood,0,0,0,.43,0,0,wheel);ring(trim,0,0,0,.39,0,0,wheel);for(let j=0;j<8;j++){const b=block(wood,0,0,0,.025,1.04,.045,wheel);b.rotation.z=j*Math.PI/4;}animate(wheel,(n,t)=>n.rotation.z=Math.sin(t*.6)*.13);
-  const coat=node(0,.79,-.36);plate([[-.4,.32],[.4,.32],[.49,-.4],[0,-.27],[-.49,-.4]],.045,fabric,0,0,0,coat);animate(coat,(n,t,m)=>n.rotation.x=Math.sin(t*2)*(m?.11:.04));break;
+  const coat=node(0,.79,-.36);plate([[-.4,.32],[.4,.32],[.49,-.4],[0,-.27],[-.49,-.4]],.045,fabric,0,0,0,coat);animate(coat,(n,t,m)=>n.rotation.x=Math.sin(t*2)*(.04+m*.07));break;
  }
  case 'streetdj': {
   garment();boots(ivory);for(const s of[-1,1]){block(rose,s*.22,.83,.42,.22,.34,.05);block(trim,s*.47,1.48,0,.13,.33,.23);ring(dark,s*.53,1.49,0,.12,0,Math.PI/2);ring(glow,s*.54,1.49,0,.08,0,Math.PI/2);}
@@ -102,17 +104,17 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'honeykeeper': {
   garment();boots(trim);for(let j=0;j<3;j++){const b=ring(trim,0,.64+j*.21,-.02,.46,Math.PI/2);b.scale.set(.46,.46,.15);}
-  for(const s of[-1,1]){tube([[s*.15,1.55,-.04],[s*.29,1.83,-.02],[s*.38,1.87,0]],.024,trim);ellipsoid(glow,s*.38,1.87,0,.07,.07,.07);const wing=node(s*.29,1.18,-.39);ellipsoid(ivory,s*.22,.12,-.08,.24,.37,.045,wing).rotation.z=-s*.4;seam([[0,0,-.13],[s*.25,.35,-.13],[s*.37,.18,-.13]],trim,wing);animate(wing,(n,t,m)=>n.rotation.y=s*(.2+Math.sin(t*(m?13:5))*.13));}
+  for(const s of[-1,1]){tube([[s*.15,1.55,-.04],[s*.29,1.83,-.02],[s*.38,1.87,0]],.024,trim);ellipsoid(glow,s*.38,1.87,0,.07,.07,.07);const wing=node(s*.29,1.18,-.39);ellipsoid(ivory,s*.22,.12,-.08,.24,.37,.045,wing).rotation.z=-s*.4;seam([[0,0,-.13],[s*.25,.35,-.13],[s*.37,.18,-.13]],trim,wing);animate(wing,(n,t,m)=>n.rotation.y=s*(.2+Math.sin(t*5+movingTime*8)*.13));}
   cylinder(wood,0,.91,-.57,.26,.63);ring(trim,0,1.18,-.57,.28,Math.PI/2);ring(trim,0,.64,-.57,.28,Math.PI/2);label('HONEY',.35,.13,0,.90,-.84).rotation.y=Math.PI;for(let j=0;j<3;j++)flower(group,-.35+j*.35,1.61,-.15,.08);break;
  }
  case 'mushroomoracle': {
-  garment();boots(wood);const cap=node(0,1.69,-.03);const dome=geometry('mushroom-cap',()=>new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI/2));mesh(dome,fabric,0,0,0,.80,.40,.72,cap);cylinder(ivory,0,-.015,0,.74,.055,cap,.78);for(let j=0;j<18;j++){const a=j*2.39996,r=.3+(j%3)*.15;ellipsoid(glow,Math.cos(a)*r,.37*Math.sqrt(1-r*r/.64)+.015,Math.sin(a)*r,.035+(j%3)*.016,.014,.035,cap);}for(let j=0;j<20;j++){const a=j*Math.PI/10;seam([[Math.sin(a)*.19,-.05,Math.cos(a)*.19],[Math.sin(a)*.7,-.05,Math.cos(a)*.7]],trim,cap);}animate(cap,(n,t,m)=>n.rotation.z=Math.sin(t*1.2)*(m?.035:.016));
-  const cape=node(0,1.03,-.35);plate([[-.35,.28],[.35,.28],[.58,-.51],[.3,-.42],[0,-.57],[-.3,-.42],[-.58,-.51]],.06,ivory,0,0,0,cape);animate(cape,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(m?.09:.035));for(let j=0;j<4;j++){cylinder(wood,-.28+j*.18,.56,-.50,.04,.24);ellipsoid(glow,-.28+j*.18,.70,-.50,.12,.07,.11);}break;
+  garment();boots(wood);const cap=node(0,1.69,-.03);const dome=geometry('mushroom-cap',()=>new T.SphereGeometry(1,28,14,0,Math.PI*2,0,Math.PI/2));mesh(dome,fabric,0,0,0,.80,.40,.72,cap);cylinder(ivory,0,-.015,0,.74,.055,cap,.78);for(let j=0;j<18;j++){const a=j*2.39996,r=.3+(j%3)*.15;ellipsoid(glow,Math.cos(a)*r,.37*Math.sqrt(1-r*r/.64)+.015,Math.sin(a)*r,.035+(j%3)*.016,.014,.035,cap);}for(let j=0;j<20;j++){const a=j*Math.PI/10;seam([[Math.sin(a)*.19,-.05,Math.cos(a)*.19],[Math.sin(a)*.7,-.05,Math.cos(a)*.7]],trim,cap);}animate(cap,(n,t,m)=>n.rotation.z=Math.sin(t*1.2)*(.016+m*.019));
+  const cape=node(0,1.03,-.35);plate([[-.35,.28],[.35,.28],[.58,-.51],[.3,-.42],[0,-.57],[-.3,-.42],[-.58,-.51]],.06,ivory,0,0,0,cape);animate(cape,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(.035+m*.055));for(let j=0;j<4;j++){cylinder(wood,-.28+j*.18,.56,-.50,.04,.24);ellipsoid(glow,-.28+j*.18,.70,-.50,.12,.07,.11);}break;
  }
  case 'jellyveil': {
   garment();fabric.metalness=.55;fabric.roughness=.23;const pearl=mat(0xb5d8e4,.35,.24);
   const dome=geometry('jelly-dome',()=>new T.SphereGeometry(1,28,16,0,Math.PI*2,0,Math.PI/2));mesh(dome,pearl,0,1.68,-.05,.68,.44,.62);ring(glow,0,1.68,-.05,.63,Math.PI/2);for(let j=0;j<10;j++){const a=j*Math.PI/5;ellipsoid(glow,Math.sin(a)*.60,1.65,Math.cos(a)*.57-.05,.035,.04,.035);}
-  for(let j=0;j<8;j++){const a=j*Math.PI/4;const n=node(Math.sin(a)*.52,1.65,-.12-Math.abs(Math.cos(a))*.3);const pts=[];for(let k=0;k<7;k++)pts.push([Math.sin(k*1.8+j)*.045,-k*.19,Math.cos(k*1.2+j)*.055]);tube(pts,.025,j%2?glow:pearl,n);animate(n,(o,t,m)=>{o.rotation.z=Math.sin(t*1.6+j)*.07;o.rotation.x=Math.cos(t*1.2+j)*.08+(m?.1:0);});}
+  for(let j=0;j<8;j++){const a=j*Math.PI/4;const n=node(Math.sin(a)*.52,1.65,-.12-Math.abs(Math.cos(a))*.3);const pts=[];for(let k=0;k<7;k++)pts.push([Math.sin(k*1.8+j)*.045,-k*.19,Math.cos(k*1.2+j)*.055]);tube(pts,.025,j%2?glow:pearl,n);animate(n,(o,t,m)=>{o.rotation.z=Math.sin(t*1.6+j)*.07;o.rotation.x=Math.cos(t*1.2+j)*.08+(m*.1);});}
   const pearlOrb=node(0,.8,-.6);ellipsoid(pearl,0,0,0,.21,.25,.18,pearlOrb);ring(glow,0,0,0,.25,Math.PI/2,0,pearlOrb);animate(pearlOrb,(n,t)=>n.position.y=.85+Math.sin(t)*.08);break;
  }
  case 'origamitsuru': {
@@ -136,16 +138,16 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  case 'rainwalker': {
   garment();fabric.roughness=.25;boots(trim);cylinder(fabric,0,.62,0,.53,.40,group,.44);ellipsoid(fabric,0,1.53,-.05,.47,.36,.46);ring(trim,0,1.37,.35,.32);for(let j=0;j<5;j++)button(0,.65+j*.12,.47,ivory,.019);
   for(const s of[-1,1]){block(fabric,s*.25,.78,.45,.17,.16,.045);block(ivory,s*.25,.86,.47,.20,.035,.025);tube([[s*.12,1.48,.35],[s*.15,1.20,.47]],.012,trim);}
-  const umbrella=node(0,1.02,-.55);cylinder(wood,0,.20,0,.022,1.5,umbrella);const canopy=geometry('folded-umbrella',()=>new T.ConeGeometry(.19,1.10,8));mesh(canopy,trim,0,.32,0,1,1,1,umbrella);for(let j=0;j<8;j++){const a=j*Math.PI/4;tube([[0,.86,0],[Math.sin(a)*.18,-.20,Math.cos(a)*.18]],.009,fabric,umbrella);}umbrella.rotation.z=-.25;animate(umbrella,(n,t,m)=>n.rotation.z=-.25+Math.sin(t*2)*(m?.04:.01));break;
+  const umbrella=node(0,1.02,-.55);cylinder(wood,0,.20,0,.022,1.5,umbrella);const canopy=geometry('folded-umbrella',()=>new T.ConeGeometry(.19,1.10,8));mesh(canopy,trim,0,.32,0,1,1,1,umbrella);for(let j=0;j<8;j++){const a=j*Math.PI/4;tube([[0,.86,0],[Math.sin(a)*.18,-.20,Math.cos(a)*.18]],.009,fabric,umbrella);}umbrella.rotation.z=-.25;animate(umbrella,(n,t,m)=>n.rotation.z=-.25+Math.sin(t*2)*(.01+m*.03));break;
  }
  case 'railconductor': {
   garment();lapels();boots(dark);cylinder(fabric,0,1.76,-.01,.41,.19,group,.36);cylinder(trim,0,1.67,-.01,.42,.04);ellipsoid(dark,0,1.64,.27,.40,.055,.30);plate([[-.07,0],[.07,0],[.1,.08],[0,.13],[-.1,.08]],.025,trim,0,1.76,.37);
   const train=node(0,.99,-.56);block(fabric,0,0,0,.68,.67,.40,train);block(trim,0,.38,0,.76,.07,.49,train);for(const s of[-1,1]){block(ivory,s*.18,.12,-.22,.20,.23,.025,train);ellipsoid(dark,s*.25,-.35,-.14,.12,.12,.06,train);button(s*.25,-.35,-.21,trim,.045,train);}cylinder(dark,0,.51,0,.09,.22,train);ring(trim,0,.61,0,.10,Math.PI/2,0,train);label('EXPRESS',.55,.1,0,-.14,-.23,train).rotation.y=Math.PI;
-  const lantern=node(.60,.79,.13);cylinder(trim,0,0,0,.13,.30,lantern);ellipsoid(glow,0,0,0,.10,.13,.10,lantern);for(const s of[-1,1])block(dark,s*.1,0,0,.02,.28,.02,lantern);ring(trim,0,.23,0,.11,0,0,lantern);animate(lantern,(n,t,m)=>n.rotation.z=Math.sin(t*(m?4:1.5))*(m?.13:.04));break;
+  const lantern=node(.60,.79,.13);cylinder(trim,0,0,0,.13,.30,lantern);ellipsoid(glow,0,0,0,.10,.13,.10,lantern);for(const s of[-1,1])block(dark,s*.1,0,0,.02,.28,.02,lantern);ring(trim,0,.23,0,.11,0,0,lantern);animate(lantern,(n,t,m)=>n.rotation.z=Math.sin(t*1.5+movingTime*2.5)*(.04+m*.09));break;
  }
  case 'inkmonk': {
   garment();boots(trim);for(const s of[-1,1]){plate([[0,.2],[s*.43,.06],[s*.38,-.42],[0,-.32]],.24,ivory,s*.30,1.02,0);seam([[s*.03,1.5,.28],[s*.20,1.05,.40],[s*.29,.64,.40]],dark);}cylinder(dark,0,.85,0,.50,.14);cylinder(ivory,0,.53,0,.51,.37,group,.40);
-  const paper=scroll(0,1.13,-.59);paper.rotation.y=Math.PI;animate(paper,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(m?.07:.02));
+  const paper=scroll(0,1.13,-.59);paper.rotation.y=Math.PI;animate(paper,(n,t,m)=>n.rotation.x=Math.sin(t*1.7)*(.02+m*.05));
   const brush=node(.58,1.0,.07);cylinder(wood,0,.24,0,.045,.91,brush);cylinder(trim,0,-.25,0,.065,.10,brush);cone(dark,0,-.45,0,.07,.30,brush).rotation.z=Math.PI;brush.rotation.z=-.28;animate(brush,(n,t)=>n.rotation.z=-.28+Math.sin(t*1.3)*.06);
   const knot=node(-.2,1.71,-.01);ellipsoid(dark,0,0,0,.18,.12,.16,knot);block(trim,0,0,.1,.37,.035,.035,knot);break;
  }
@@ -156,7 +158,7 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'rescueworker': {
   garment();boots(dark);for(const s of[-1,1]){block(trim,s*.50,1.17,-.03,.20,.54,.30);cylinder(silver,s*.52,1.20,-.03,.055,.35);block(fabric,s*.5,1.44,-.04,.31,.14,.40);block(ivory,s*.26,.73,.43,.29,.08,.035);for(let j=0;j<4;j++)block(dark,s*.27+Math.sin(j)*.02,.74,.453,.025,.09,.01).rotation.z=-.5;}
-  const frame=node(0,1.02,-.58);block(trim,0,0,0,.69,.88,.24,frame);block(fabric,0,.02,-.16,.52,.64,.08,frame);for(let j=0;j<6;j++)block(dark,0,-.2+j*.075,-.21,.37,.025,.02,frame);for(const s of[-1,1]){const arm=node(s*.53,1.21,-.42);block(trim,s*.12,.1,0,.35,.12,.12,arm);ellipsoid(silver,s*.30,.09,0,.11,.11,.11,arm);block(fabric,s*.34,-.10,0,.13,.39,.17,arm);for(const k of[-1,1])block(silver,s*.34+k*.065,-.34,0,.04,.17,.07,arm);animate(arm,(n,t,m)=>n.rotation.z=s*(.13+Math.sin(t*1.6)*.05+(m?.08:0)));}
+  const frame=node(0,1.02,-.58);block(trim,0,0,0,.69,.88,.24,frame);block(fabric,0,.02,-.16,.52,.64,.08,frame);for(let j=0;j<6;j++)block(dark,0,-.2+j*.075,-.21,.37,.025,.02,frame);for(const s of[-1,1]){const arm=node(s*.53,1.21,-.42);block(trim,s*.12,.1,0,.35,.12,.12,arm);ellipsoid(silver,s*.30,.09,0,.11,.11,.11,arm);block(fabric,s*.34,-.10,0,.13,.39,.17,arm);for(const k of[-1,1])block(silver,s*.34+k*.065,-.34,0,.04,.17,.07,arm);animate(arm,(n,t,m)=>n.rotation.z=s*(.13+Math.sin(t*1.6)*.05+(m*.08)));}
   const beacon=node(0,1.79,-.04);cylinder(trim,0,-.04,0,.22,.09,beacon);ellipsoid(glow,0,.08,0,.16,.17,.16,beacon);const beam=block(ivory,0,.08,0,.32,.03,.04,beacon);beam.userData.dynamic=true;animate(beacon,(n,t)=>beam.rotation.y=t*2);label('RESCUE',.32,.08,0,.97,.47);break;
  }
  case 'cactusmariachi': {
@@ -166,7 +168,7 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  case 'bathduck': {
   garment();fabric.roughness=.95;boots(ivory);for(const s of[-1,1]){plate([[0,.22],[s*.27,.06],[s*.17,-.28]],.04,ivory,s*.09,1.00,.42);block(ivory,s*.27,.76,.43,.18,.17,.05);}cylinder(ivory,0,.85,0,.50,.08);
-  const tub=node(0,.50,-.04);cylinder(wood,0,0,0,.57,.23,tub,.60);for(const y of[-.10,.10])ring(silver,0,y,0,.58,Math.PI/2,0,tub);for(let j=0;j<16;j++){const a=j*Math.PI/8;seam([[Math.sin(a)*.57,-.1,Math.cos(a)*.57],[Math.sin(a)*.60,.1,Math.cos(a)*.60]],trim,tub);}animate(tub,(n,t,m)=>n.rotation.z=Math.sin(t*2)*(m?.035:.01));
+  const tub=node(0,.50,-.04);cylinder(wood,0,0,0,.57,.23,tub,.60);for(const y of[-.10,.10])ring(silver,0,y,0,.58,Math.PI/2,0,tub);for(let j=0;j<16;j++){const a=j*Math.PI/8;seam([[Math.sin(a)*.57,-.1,Math.cos(a)*.57],[Math.sin(a)*.60,.1,Math.cos(a)*.60]],trim,tub);}animate(tub,(n,t,m)=>n.rotation.z=Math.sin(t*2)*(.01+m*.025));
   function duck(n,s){ellipsoid(trim,0,0,0,.23*s,.17*s,.26*s,n);ellipsoid(trim,0,.22*s,.12*s,.14*s,.15*s,.14*s,n);ellipsoid(rose,0,.20*s,.26*s,.10*s,.04*s,.10*s,n);for(const side of[-1,1])ellipsoid(dark,side*.09*s,.26*s,.21*s,.018*s,.018*s,.018*s,n);}
   const head=node(0,1.74,-.02);duck(head,.9);animate(head,(n,t)=>n.rotation.y=Math.sin(t)*.12);const towel=node(0,1.54,-.48);block(ivory,0,0,0,.43,.13,.20,towel);for(let j=0;j<4;j++)block(trim,-.16+j*.10,.07,0,.025,.015,.18,towel);break;
  }
@@ -200,8 +202,13 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
  }
  const world=new T.Vector3(),local=new T.Vector3(),inverse=new T.Matrix4();
  function update(seconds,{moving=false,jumping=false}={}){
-  if(disposed)return;const t=Number(seconds)||0;if(t===previous)return;previous=t;
-  glow.emissiveIntensity=1.08+.20*Math.sin(t*2);for(const {node:n,fn}of motions)fn(n,t,moving,jumping);
+  if(disposed)return;const t=Number(seconds)||0;if(t===previous)return;
+  if(t<previous){movingTime=0;moveWeight=0;jumpWeight=0;}
+  const dt=previous<0?0:Math.max(0,Math.min(.25,t-previous));previous=t;
+  if(moving)movingTime+=dt;
+  moveWeight+=(Number(!!moving)-moveWeight)*(1-Math.exp(-12*dt));
+  jumpWeight+=(Number(!!jumping)-jumpWeight)*(1-Math.exp(-16*dt));
+  glow.emissiveIntensity=1.08+.20*Math.sin(t*2);for(const {node:n,fn}of motions)fn(n,t,moveWeight,jumpWeight);
   for(let j=0;j<count;j++){const a=j*2.39996+t*.27,r=.53+(j%4)*.1,k=j*3;let y=(j/count*2.25+t*.26)%2.25;let x=Math.cos(a)*r,z=Math.sin(a)*r;
    if(['rain','sand','petal','paper','cards','ticket'].includes(effect)){y=2.3-(j/count*2.3+t*(effect==='rain'?.9:.28))%2.3;x+=Math.sin(t*1.3+j)*.12;}
    if(['foam','bubble','steam','spore'].includes(effect)){x=Math.sin(a+t*.1)*r;y=(j/count*2.1+t*.38)%2.1;z=Math.cos(a)*r;}
@@ -209,8 +216,8 @@ export function createExpandedGiftSkin(T,spec,{mobile=false}={}) {
    if(effect==='ink'){y=.65+Math.sin(a*.7)*.48;z=Math.cos(a)*.62;x=Math.sin(a)*.68;}
    positions[k]=x;positions[k+1]=y;positions[k+2]=z;
   }pg.attributes.position.needsUpdate=true;
-  if(jumping&&!wasJumping)jumpAt=t;wasJumping=jumping;const elapsed=t-jumpAt;pulse.visible=elapsed>=0&&elapsed<.6;if(pulse.visible){pulse.scale.setScalar(.61+elapsed*1.15);pulseMat.opacity=(1-elapsed/.6)*.42;}
-  group.updateWorldMatrix(true,false);group.getWorldPosition(world);inverse.copy(group.matrixWorld).invert();if((moving&&t-trailAt>.085)||(jumping&&elapsed<.08)){trailAt=t;const s=slots[trailCursor++%tn];s.x=world.x;s.y=world.y+.07;s.z=world.z;s.until=t+.7;}
+  const takeoff=jumping&&!wasJumping;if(takeoff)jumpAt=t;wasJumping=jumping;const elapsed=t-jumpAt;pulse.visible=elapsed>=0&&elapsed<.6;if(pulse.visible){pulse.scale.setScalar(.61+elapsed*1.15);pulseMat.opacity=(1-elapsed/.6)*.42;}
+  group.updateWorldMatrix(true,false);group.getWorldPosition(world);inverse.copy(group.matrixWorld).invert();if((moving&&t-trailAt>.085)||takeoff){trailAt=t;const s=slots[trailCursor++%tn];s.x=world.x;s.y=world.y+.07;s.z=world.z;s.until=t+.7;}
   for(let j=0;j<tn;j++){const s=slots[j],k=j*3;if(s.until>t){local.set(s.x,s.y,s.z).applyMatrix4(inverse);trailPositions[k]=local.x;trailPositions[k+1]=local.y;trailPositions[k+2]=local.z;}else{trailPositions[k]=0;trailPositions[k+1]=-999;trailPositions[k+2]=0;}}tg.attributes.position.needsUpdate=true;
  }
  function dispose(){if(disposed)return;disposed=true;group.removeFromParent();for(const g of geometries)g.dispose();for(const m of materials)m.dispose();for(const t of textures)t.dispose();}

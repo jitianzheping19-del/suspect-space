@@ -23,4 +23,4 @@ for (const call of [
   source = source.replace(call, call.slice(0, -1) + ',"#cae6ee",g)');
 }
 await mkdir('public', { recursive: true });
-await writeFile('public/task-machines.js', '// Generated from index.html. Do not edit.\nexport ' + source);
+await writeFile('public/task-machines.js', '// Generated from index.html. Do not edit.\n' + (await readFile('studio-lighting.js','utf8')).replace('export function','function') + '\nexport ' + source);

@@ -1,3 +1,4 @@
+import {setStudioLighting} from './studio-lighting.js';
 // Reusable classic task room. Loaded once during the lobby, paused on close.
 // Prepare modules once in the lobby and share them with the same-origin frame.
 import * as THREE from 'three';
@@ -50,6 +51,7 @@ const TASK_TERMINAL_DOCUMENT = [
   "renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;",
   "document.body.prepend(renderer.domElement);",
   "const scene=new THREE.Scene();scene.background=new THREE.Color(0x05070e);",
+  'const setStudioLighting='+setStudioLighting.toString()+'; setStudioLighting(THREE,renderer,scene);',
   "const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,200);",
   "const composer=mobileTaskGpu?{render(){renderer.render(scene,camera);},setSize(){},passes:[]}:new EffectComposer(renderer);if(!mobileTaskGpu)composer.addPass(new RenderPass(scene,camera));",
   "const bloom=mobileTaskGpu?{strength:.3,threshold:.7}:new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.3,.6,.7);if(!mobileTaskGpu){composer.addPass(bloom);composer.addPass(new OutputPass());}",

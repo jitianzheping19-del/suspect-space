@@ -22,9 +22,9 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
   }
   const driving=await page.evaluate(()=>{
    const {player,updatePlayer,lobbyVisualStates}=QA,car=window.__lobbyRaceCar;QA.setSelf('self');lobbyVisualStates.clear();lobbyVisualStates.set('self',{online:true,name:'Driver',x:-7,z:11.95});player.root.visible=true;player.root.position.set(-7,0,11.95);window.__lobbyMotionUntil=0;
-   const post=data=>window.dispatchEvent(new MessageEvent('message',{source:window,data}));post({type:'lobby-car-toggle'});const mounted=car.riding,start=player.root.position.clone();
+   const post=data=>window.dispatchEvent(new MessageEvent('message',{source:window,data}));post({type:'lobby-car-toggle'});const mounted=car.riding,start=player.root.position.clone(),exitYaw=player.root.rotation.y;
    post({type:'lobby-stick',x:0,z:-1});for(let i=0;i<75;i++)updatePlayer(1/60,i/60);post({type:'lobby-stick',x:0,z:0});for(let i=0;i<20;i++)updatePlayer(1/60,2+i/60);
-   const forward=player.root.position.x-start.x;
+   const forward=(player.root.position.x-start.x)*Math.sin(exitYaw)+(player.root.position.z-start.z)*Math.cos(exitYaw);
    // A clear part of the real lobby lets us verify steering and jump/landing.
    player.root.position.set(0,0,5);player.root.rotation.y=0;
    post({type:'lobby-stick',x:.7,z:-.6});for(let i=0;i<30;i++)updatePlayer(1/60,3+i/60);post({type:'lobby-stick',x:0,z:0});for(let i=0;i<30;i++)updatePlayer(1/60,4+i/60);const turning=player.root.rotation.y;
@@ -41,12 +41,19 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),{build}=require
    const {player,scene,lobbyVisualStates:rows,remoteCrews,updateLobbyVisualPoses}=QA,car=__lobbyRaceCar;
    const post=data=>window.dispatchEvent(new MessageEvent('message',{source:window,data}));
    post({type:'lobby-config',uid:'self',players:{self:{x:-7,z:11.95,online:true},other:{x:1,z:6,online:true,name:'Driver',lobbyVehicle:true,lobbyY:.8}}});
-   window.applyLobbyVisualState('other',{x:1,z:6,online:true,lobbyVehicle:true,lobbyY:.8});
-   updateLobbyVisualPoses(1/60,1000);car.visuals(1/60);const clone=scene.getObjectByName('remote-race-car-other'),rendered=!!clone;
+   const stamp=Date.now();
+   window.applyLobbyVisualState('other',{x:1,z:6,online:true,lobbyVehicle:true,lobbyY:.8,updatedAt:stamp});
+   updateLobbyVisualPoses(1/60,1000);const crew=remoteCrews.get('other');crew.root.visible=false;
+   car.visuals(1/60);const clone=scene.getObjectByName('remote-race-car-other');
+   const rendered=clone?.visible&&clone.position.x===1&&clone.position.z===6&&clone.getObjectByName('race-wheel-front')!=null;
    player.root.position.set(-7,0,11.95);window.__lobbyMotionUntil=0;const unavailable=!car.near(),parkedHidden=!scene.getObjectByName('lobby-garage-race-car').visible;
-   post({type:'lobby-poses',players:{other:{x:2,z:6,lobbyY:1.2,yaw:.8,lobbyVehicle:true,walking:true}}});updateLobbyVisualPoses(1/60,1100);car.visuals(1/60);const tracked=!!clone&&clone.position.distanceTo(remoteCrews.get('other').root.position)<.001;
+   post({type:'lobby-poses',players:{other:{x:2,z:6,lobbyY:1.2,yaw:.8,lobbyVehicle:true,walking:true,updatedAt:stamp+10}}});
+   window.applyLobbyVisualState('other',{ready:true,updatedAt:stamp});
+   car.visuals(1/60);const tracked=clone.position.x===2&&clone.position.z===6&&clone.position.y===1.2;
+   post({type:'lobby-poses',players:{other:{x:2,z:6,lobbyY:0,yaw:.8,lobbyVehicle:false,updatedAt:stamp+20}}});
+   car.visuals(1/60);const parkedAgain=!scene.getObjectByName('remote-race-car-other')&&car.near();
    window.applyLobbyVisualState('other',{online:false,lobbyVehicle:true});car.visuals(1/60);const disconnected=!scene.getObjectByName('remote-race-car-other'),available=car.near();
-   return {rendered,unavailable,parkedHidden,tracked,disconnected,available};
+   return {rendered,unavailable,parkedHidden,tracked,parkedAgain,disconnected,available};
   });assert(Object.values(sync).every(Boolean),JSON.stringify(sync));
   assert.deepEqual(errors,[]);console.log('PASS garage model, open sides, gacha paths; stick driving and steering, car jump/landing, airborne exit guard, seated pose restoration, walls/furniture/pool collision and reset',driving);
  }finally{await browser.close();}
