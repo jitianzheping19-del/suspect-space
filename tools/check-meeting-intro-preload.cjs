@@ -40,8 +40,15 @@ const root=require('path').resolve(__dirname,'..');
  await p.evaluate(()=>{presentation.stop();window.__spaceMotionPreference={matches:false};impacts.length=0;presentation.play({...options,elapsed:1800});step(frameTime+1);});
  assert.equal(await p.evaluate(()=>impacts.length),0,'late join does not replay impact sound');
  await p.evaluate(()=>presentation.stop());
- await p.evaluate(()=>presentation.play({...options,duration:80}));await p.waitForTimeout(120);
- assert.equal(await p.locator('.meetingIntroRail,.meetingIntroFooter,canvas').count(),0,'deadline cleans up even without another animation frame');
+ const deadlineCounts=await p.evaluate(async()=>{
+  const count=()=>document.querySelectorAll('.meetingIntroRail,.meetingIntroFooter,canvas').length;
+  presentation.play({...options,duration:80});
+  const before=count();
+  // Use the page's timer queue so a busy renderer cannot reorder the observation.
+  await new Promise(resolve=>setTimeout(resolve,120));
+  return [before,count()];
+ });
+ assert.deepEqual(deadlineCounts,[3,0],'deadline cleans up even without another animation frame');
  console.log('PASS reduced-motion camera, late arrival, and cleanup without animation callbacks');
  await p.evaluate(()=>{step(3100);presentation.dispose()});assert.equal(await p.evaluate(()=>ticks.size),0);assert.equal(await p.locator('canvas').count(),0);
  console.log('PASS cached warmup, single renderer, overhead windup, downward contact, cap depression, cleanup');
